@@ -1,0 +1,211 @@
+{
+  "info": {
+    "name": "Fishy! API (HDU-2 + HDU-8)",
+    "description": "Coleccion de prueba para la comunicacion Unity <-> Django.\n\nFlujo ordenado:\n1. Auth (registro / login) -> guarda {{token}}\n2. Partida -> guarda {{partida_id}}\n3. NPC -> guarda {{npc_id}}\n4. Chat (HDU-8) -> guarda {{chat_id}}, registra mensajes, historial y finaliza.\n\nLos scripts de la pestania 'Tests' guardan automaticamente los IDs en las variables de coleccion. Ejecuta las peticiones de arriba hacia abajo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "Authorization", "type": "string" },
+      { "key": "value", "value": "Token {{token}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "usuario_id", "value": "", "type": "string" },
+    { "key": "partida_id", "value": "", "type": "string" },
+    { "key": "npc_id", "value": "", "type": "string" },
+    { "key": "chat_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "0. Health check",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health/", "host": ["{{base_url}}"], "path": ["health", ""] }
+      }
+    },
+    {
+      "name": "1. Auth - Registro",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('201 Created', () => pm.response.code === 201);",
+              "const j = pm.response.json();",
+              "if (j.token) { pm.collectionVariables.set('token', j.token); }",
+              "if (j.usuario_id) { pm.collectionVariables.set('usuario_id', j.usuario_id); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"jugador_test\",\n  \"password\": \"1234\"\n}" },
+        "url": { "raw": "{{base_url}}/auth/registro/", "host": ["{{base_url}}"], "path": ["auth", "registro", ""] }
+      }
+    },
+    {
+      "name": "2. Auth - Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 OK', () => pm.response.code === 200);",
+              "const j = pm.response.json();",
+              "if (j.token) { pm.collectionVariables.set('token', j.token); }",
+              "if (j.usuario_id) { pm.collectionVariables.set('usuario_id', j.usuario_id); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"jugador_test\",\n  \"password\": \"1234\"\n}" },
+        "url": { "raw": "{{base_url}}/auth/login/", "host": ["{{base_url}}"], "path": ["auth", "login", ""] }
+      }
+    },
+    {
+      "name": "3. Partida - Crear (HDU-2)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('201 Created', () => pm.response.code === 201);",
+              "const j = pm.response.json();",
+              "if (j.id) { pm.collectionVariables.set('partida_id', j.id); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"progreso\": 0\n}" },
+        "url": { "raw": "{{base_url}}/partidas/", "host": ["{{base_url}}"], "path": ["partidas", ""] }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Partida - Actualizar progreso/nivel (HDU-2)",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"progreso\": 25\n}" },
+        "url": { "raw": "{{base_url}}/partidas/{{partida_id}}/", "host": ["{{base_url}}"], "path": ["partidas", "{{partida_id}}", ""] }
+      }
+    },
+    {
+      "name": "5. NPC - Registrar (HDU-2)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('201 Created', () => pm.response.code === 201);",
+              "const j = pm.response.json();",
+              "if (j.id) { pm.collectionVariables.set('npc_id', j.id); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Desconocido del bosque\",\n  \"area\": \"Bosque de los Desconocidos\",\n  \"tipo\": \"enemigo\",\n  \"confianza\": 0\n}" },
+        "url": { "raw": "{{base_url}}/partidas/{{partida_id}}/npcs/", "host": ["{{base_url}}"], "path": ["partidas", "{{partida_id}}", "npcs", ""] }
+      }
+    },
+    {
+      "name": "6. NPC - Actualizar confianza (HDU-2)",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"confianza\": 40\n}" },
+        "url": { "raw": "{{base_url}}/npcs/{{npc_id}}/", "host": ["{{base_url}}"], "path": ["npcs", "{{npc_id}}", ""] }
+      }
+    },
+    {
+      "name": "7. Chat - Iniciar (HDU-8)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('201 Created', () => pm.response.code === 201);",
+              "const j = pm.response.json();",
+              "if (j.id) { pm.collectionVariables.set('chat_id', j.id); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"partida_id\": {{partida_id}},\n  \"npc_id\": {{npc_id}},\n  \"categoria_riesgo\": \"grooming\"\n}" },
+        "url": { "raw": "{{base_url}}/chats/", "host": ["{{base_url}}"], "path": ["chats", ""] }
+      }
+    },
+    {
+      "name": "8a. Chat - Mensaje START (NPC neutro)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"start\",\n  \"respuesta\": \"Hola! Me gusta tu mochila :)\"\n}" },
+        "url": { "raw": "{{base_url}}/chats/{{chat_id}}/mensajes/registrar/", "host": ["{{base_url}}"], "path": ["chats", "{{chat_id}}", "mensajes", "registrar", ""] }
+      }
+    },
+    {
+      "name": "8b. Chat - Mensaje REQUEST (NPC con riesgo + opciones)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"request\",\n  \"respuesta\": \"Podemos encontrarnos en el parque despues del colegio?\",\n  \"posibles_respuestas\": [\n    { \"texto\": \"Aceptar y dar mi direccion\", \"orden\": 0, \"calidad_respuesta\": \"mala\" },\n    { \"texto\": \"Rechazar y decir que no me siento comodo\", \"orden\": 1, \"calidad_respuesta\": \"buena\" },\n    { \"texto\": \"Bloquear al contacto\", \"orden\": 2, \"calidad_respuesta\": \"buena\" }\n  ]\n}" },
+        "url": { "raw": "{{base_url}}/chats/{{chat_id}}/mensajes/registrar/", "host": ["{{base_url}}"], "path": ["chats", "{{chat_id}}", "mensajes", "registrar", ""] }
+      }
+    },
+    {
+      "name": "8c. Chat - Mensaje CHAIN (respuesta elegida por el jugador)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"tipo\": \"chain\",\n  \"respuesta\": \"Rechazar y decir que no me siento comodo\",\n  \"calidad_respuesta\": \"buena\"\n}" },
+        "url": { "raw": "{{base_url}}/chats/{{chat_id}}/mensajes/registrar/", "host": ["{{base_url}}"], "path": ["chats", "{{chat_id}}", "mensajes", "registrar", ""] }
+      }
+    },
+    {
+      "name": "9. Chat - Historial (HDU-8)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/chats/{{chat_id}}/mensajes/", "host": ["{{base_url}}"], "path": ["chats", "{{chat_id}}", "mensajes", ""] }
+      }
+    },
+    {
+      "name": "10. Chat - Finalizar (HDU-8)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"respuesta\": \"Otto se siente orgulloso: respondiste de forma segura!\"\n}" },
+        "url": { "raw": "{{base_url}}/chats/{{chat_id}}/finalizar/", "host": ["{{base_url}}"], "path": ["chats", "{{chat_id}}", "finalizar", ""] }
+      }
+    }
+  ]
+}
