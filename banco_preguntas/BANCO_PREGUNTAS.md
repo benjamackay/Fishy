@@ -17,6 +17,7 @@
 6. [HDU-8 — Chat simulado](#6-hdu-8--chat-simulado)
 7. [Reforzamiento requerido — Psicóloga](#7-reforzamiento-requerido--psicóloga)
 8. [Reforzamiento requerido — PDI](#8-reforzamiento-requerido--pdi)
+9. [Integración con Unity (HDU-2 / HDU-8)](#9-integración-con-unity--hdu-2--hdu-8)
 
 ---
 
@@ -183,3 +184,141 @@ Las siguientes preguntas requieren validación de la Policía de Investigaciones
 2. Canal de denuncia más efectivo en Chile para grooming: ¿PDI directamente, Carabineros, plataforma del SENAME?
 3. Número/sitio de denuncia para incluir en los mensajes FIN_INSEGURO (actualmente no está en el banco).
 4. Validación de que el patrón de escalada (confianza → datos → encuentro → secreto) es el más frecuente en casos chilenos o si hay variantes a cubrir.
+
+---
+
+## 9. Integración con Unity (HDU-2 / HDU-8)
+
+Esta sección especifica **cómo el cliente Unity consume el banco de preguntas** para construir las historias del PMV (punto 5 del documento de HDUs): la conversación con NPCs de la **HDU-2** y el **chat simulado** de la **HDU-8**. El banco es el *contenido*; Unity es el *motor de presentación y de flujo*.
+
+### 9.1 De dónde se obtiene el banco
+
+El backend (Django) expone el banco como API REST. Autenticación por **Token** (header `Authorization: Token <token>`, obtenido con `POST /api/auth/registro/` o `POST /api/auth/login/`).
+
+| Método | Endpoint | Uso en Unity |
+|--------|----------|--------------|
+| GET | `/api/banco/preguntas/` | Trae preguntas del banco; admite filtros |
+| GET | `/api/banco/preguntas/{pregunta_id}/` | Trae una pregunta puntual por su `pregunta_id` |
+
+Filtros (query params) de `/api/banco/preguntas/`:
+`?zona=desconocidos` · `?npc_id=NPC_01` · `?fase=1` · `?escenario_id=CHAT_GROOMING_01` · `?hdu=HDU-2` · `?solo_riesgo=true` · `?fin_de_npc=true` · `?fin_de_zona=true`.
+
+> **Carga recomendada:** al entrar a una zona, Unity trae todas sus preguntas de una sola vez (ej. `?zona=desconocidos`) y luego navega el flujo en memoria por los IDs (`narrativa_continuacion` / `siguiente_pregunta`), sin más llamadas.
+>
+> **Opción offline (prototipo):** si se quiere prescindir del backend, el archivo `banco_preguntas.json` puede empaquetarse en `Assets/StreamingAssets/` y leerse con `JsonUtility`/Newtonsoft. El esquema es idéntico.
+
+### 9.2 Campos de cada pregunta
+
+| Campo | Tipo | Para qué lo usa Unity |
+|-------|------|-----------------------|
+| `pregunta_id` | string | Identificador del nodo; clave para navegar el flujo |
+| `hdu` | string | `HDU-2` o `HDU-8` |
+| `zona` | string | Zona del mapa (`desconocidos`, `chat_simulado`) |
+| `npc_id`, `npc_nombre`, `npc_avatar` | string | Qué NPC habla y qué avatar mostrar (HDU-2) |
+| `escenario_id`, `escenario_nombre` | string | Agrupa los nodos de un escenario de chat (HDU-8) |
+| `historial_previo` | lista | Mensajes neutros a mostrar antes del de riesgo (HDU-8) |
+| `mensaje_npc` | string | Texto que dice el NPC (la burbuja de diálogo) |
+| `es_mensaje_riesgo` | bool | `true` → mostrar opciones; `false` → avance automático |
+| `categoria`, `nivel_riesgo` | string/int | Tipo de señal y su gravedad (0–3); útil para UI/telemetría |
+| `opciones` | lista | Las 2–3 respuestas a presentar (sólo si es riesgo) |
+| `narrativa_continuacion` | string \| null | Siguiente `pregunta_id` cuando el mensaje es neutro |
+| `es_fin_de_npc` | bool | `true` → el NPC se aleja; fin de la interacción |
+| `es_fin_de_zona` | bool | `true` → desbloquear la siguiente zona del mapa |
+
+Cada elemento de `opciones`:
+
+| Campo | Tipo | Uso |
+|-------|------|-----|
+| `opcion_id` | string | Identificador de la opción |
+| `texto` | string | Texto del botón de respuesta |
+| `tipo` | string | `insegura` / `segura_basica` / `segura_optima` |
+| `impacto_puntuacion` | int | `-1` / `+1` / `+2` → suma al puntaje de la sesión |
+| `consecuencia_narrativa` | string | Texto/feedback a mostrar tras elegir |
+| `siguiente_pregunta` | string \| null | `pregunta_id` al que salta la narrativa |
+| `orden` | int | Orden de los botones |
+
+### 9.3 Flujo HDU-2 — Zona Desconocidos (máquina de estados)
+
+1. Al acercarse a un NPC, cargar su **primer nodo** (`fase=1, orden_en_fase=1`) y mostrar `mensaje_npc`. *(CA1: el NPC inicia conversación para ganar confianza.)*
+2. Si `es_mensaje_riesgo == false` → **no hay opciones**; tras un toque, saltar a `narrativa_continuacion`. *(CA1: temas neutros intercalados antes del riesgo.)*
+3. Si `es_mensaje_riesgo == true` → mostrar los botones de `opciones` (2–3). Al elegir: sumar `impacto_puntuacion`, mostrar `consecuencia_narrativa`, y saltar a `siguiente_pregunta`. *(CA3: si comparte datos, el NPC escala y pide más; CA2: si se niega, va a un nodo `FIN_SEGURO`.)*
+4. Si el nodo tiene `es_fin_de_npc == true` → el NPC **se aleja** y se cierra su interacción.
+5. Cuando todos los NPCs de la zona terminaron, el nodo `es_fin_de_zona == true` (`HDU2_ZONA_FIN`) → **desbloquear la siguiente zona**. *(CA4.)*
+
+```
+nodo = pregunta inicial del NPC
+loop:
+    mostrar nodo.mensaje_npc  (avatar = nodo.npc_avatar)
+    if nodo.es_fin_de_npc: marcar NPC completo; break
+    if nodo.es_mensaje_riesgo:
+        op = jugador elige entre nodo.opciones
+        puntaje += op.impacto_puntuacion
+        mostrar op.consecuencia_narrativa
+        siguiente = op.siguiente_pregunta
+    else:
+        siguiente = nodo.narrativa_continuacion
+    nodo = preguntas[siguiente]
+si todos los NPCs completos → nodo con es_fin_de_zona → desbloquear siguiente zona
+```
+
+### 9.4 Flujo HDU-8 — Chat simulado
+
+1. Cargar un escenario por `escenario_id`. Mostrar primero su `historial_previo` (mensajes neutros) seguido del `mensaje_npc` de riesgo, **sin etiquetar cuál es peligroso**. *(CA1: al menos un mensaje neutro y uno con señal de riesgo.)*
+2. Mostrar las `opciones` (2–3 respuestas claras). Otto no reacciona hasta que el jugador elige. *(CA2.)*
+3. Al elegir: registrar la respuesta en la sesión (ver 9.6), mostrar `consecuencia_narrativa` y continuar por `siguiente_pregunta`. *(CA3: la rama narrativa cambia según la elección.)*
+4. Al cerrar el escenario/zona, calcular el **% de respuestas seguras** y mostrar el estado emocional de Otto (ver 9.5). *(CA4.)*
+
+### 9.5 Puntuación y estado emocional de Otto
+
+Tipos de opción (`tipo` / `impacto_puntuacion`): `insegura` = −1 · `segura_basica` = +1 · `segura_optima` = +2.
+
+`% seguras = (respuestas segura_basica + segura_optima) / total de mensajes de riesgo respondidos`.
+
+| % seguras | Estado de Otto | Acción |
+|-----------|----------------|--------|
+| 80 – 100 % | `muy_feliz` | Celebra el logro |
+| 50 – 79 % | `preocupado` | Refuerza los errores |
+| 0 – 49 % | `triste_con_tips` | Muestra consejos de seguridad |
+
+> Estos umbrales y sus textos viven en `banco_preguntas.json → formato_respuesta.retroalimentacion_otto` (metadata **global** del banco), igual que `formato_respuesta.estados_fin`. **Nota de integración:** el endpoint `/api/banco/preguntas/` devuelve sólo el contenido **por pregunta**, no esta metadata global. Unity puede (a) embeber estas constantes, (b) leerlas del JSON empaquetado, o (c) pedir a backend que las exponga (ej. `GET /api/banco/formato/`).
+
+### 9.6 Registrar la sesión del jugador (endpoints de chat)
+
+El banco entrega el **contenido**; estos endpoints registran lo que el jugador **hace** (insumo para los reportes al tutor, HDU-13/14):
+
+| Paso | Endpoint |
+|------|----------|
+| Crear partida | `POST /api/partidas/` |
+| Crear NPC de la partida | `POST /api/partidas/{id}/npcs/` |
+| Iniciar chat | `POST /api/chats/` → `{partida_id, npc_id, categoria_riesgo}` |
+| Registrar cada turno | `POST /api/chats/{chat_id}/mensajes/registrar/` |
+| Cerrar el chat | `POST /api/chats/{chat_id}/finalizar/` |
+| Leer historial | `GET /api/chats/{chat_id}/mensajes/` |
+
+### 9.7 Ejemplo de llamada (C# / UnityWebRequest)
+
+```csharp
+IEnumerator CargarPreguntasZona(string token) {
+    string url = "http://127.0.0.1:8000/api/banco/preguntas/?zona=desconocidos";
+    using var req = UnityWebRequest.Get(url);
+    req.SetRequestHeader("Authorization", "Token " + token);
+    yield return req.SendWebRequest();
+    if (req.result == UnityWebRequest.Result.Success) {
+        string json = req.downloadHandler.text;   // lista de preguntas
+        // parsear con Newtonsoft.Json (recomendado para listas anidadas)
+    }
+}
+```
+
+### 9.8 Cobertura del PMV (punto 5)
+
+| Criterio de aceptación (PDF) | Cómo lo cubre el banco |
+|------------------------------|------------------------|
+| HDU-2 CA1 — el NPC gana confianza y pide datos discretamente | Nodos `F1` neutros → `F2` `grooming_datos_personales` |
+| HDU-2 CA2 — negarse → el NPC se aleja (éxito) | Opción `segura_optima` → nodo `FIN_SEGURO` (`es_fin_de_npc`) |
+| HDU-2 CA3 — compartir → el NPC pide más (nombre, edad, colegio, dirección, rutina) | Cadenas `F2/F3` que escalan vía `siguiente_pregunta` |
+| HDU-2 CA4 — completar la zona → desbloquear la siguiente | `HDU2_ZONA_FIN` con `es_fin_de_zona = true` |
+| HDU-8 CA1 — ≥1 mensaje neutro y ≥1 de riesgo, sin etiquetar | `historial_previo` (neutros) + `mensaje_npc` (riesgo) |
+| HDU-8 CA2 — 2–3 opciones claras de 1 línea | `opciones` con 2–3 entradas |
+| HDU-8 CA3 — registrar la respuesta y ramificar la narrativa | `siguiente_pregunta` + endpoints de chat (9.6) |
+| HDU-8 CA4 — % seguras → estado emocional de Otto | `tipo`/`impacto_puntuacion` + `retroalimentacion_otto` (9.5) |
