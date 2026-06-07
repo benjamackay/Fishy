@@ -249,3 +249,64 @@ class PosibleRespuesta(models.Model):
         verbose_name = "Posible Respuesta"
         verbose_name_plural = "Posibles Respuestas"
         ordering = ["orden"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BANCO DE PREGUNTAS  (contenido estático cargado desde banco_preguntas.json)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PreguntaBanco(models.Model):
+    pregunta_id          = models.CharField(max_length=60, unique=True)
+    hdu                  = models.CharField(max_length=10)
+    zona                 = models.CharField(max_length=50)
+
+    # HDU-2: conversación con NPC
+    npc_id               = models.CharField(max_length=30, blank=True)
+    npc_nombre           = models.CharField(max_length=60, blank=True)
+    npc_avatar           = models.CharField(max_length=60, blank=True)
+    fase                 = models.PositiveSmallIntegerField(null=True, blank=True)
+    orden_en_fase        = models.PositiveSmallIntegerField(null=True, blank=True)
+    narrativa_continuacion = models.CharField(max_length=60, blank=True, null=True)
+
+    # HDU-8: chat simulado
+    escenario_id         = models.CharField(max_length=60, blank=True)
+    escenario_nombre     = models.CharField(max_length=120, blank=True)
+    historial_previo     = models.JSONField(default=list)
+
+    # Comunes
+    categoria            = models.CharField(max_length=60)
+    nivel_riesgo         = models.PositiveSmallIntegerField(default=0)
+    es_mensaje_riesgo    = models.BooleanField(default=False)
+    mensaje_npc          = models.TextField()
+    etiquetas_ml         = models.JSONField(default=list)
+    es_fin_de_npc        = models.BooleanField(default=False, help_text="True en estados FIN_SEGURO / FIN_INSEGURO")
+    es_fin_de_zona       = models.BooleanField(default=False, help_text="True en la pregunta ZONA_FIN")
+
+    def __str__(self):
+        return self.pregunta_id
+
+    class Meta:
+        verbose_name = "Pregunta Banco"
+        verbose_name_plural = "Preguntas Banco"
+        ordering = ["zona", "npc_id", "fase", "orden_en_fase", "escenario_id"]
+
+
+class OpcionBanco(models.Model):
+    pregunta             = models.ForeignKey(
+        PreguntaBanco, on_delete=models.CASCADE, related_name="opciones"
+    )
+    opcion_id            = models.CharField(max_length=70, unique=True)
+    texto                = models.TextField()
+    tipo                 = models.CharField(max_length=20)   # insegura | segura_basica | segura_optima
+    consecuencia_narrativa = models.TextField()
+    impacto_puntuacion   = models.SmallIntegerField(default=0)
+    siguiente_pregunta   = models.CharField(max_length=60, blank=True, null=True)
+    orden                = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.opcion_id
+
+    class Meta:
+        verbose_name = "Opción Banco"
+        verbose_name_plural = "Opciones Banco"
+        ordering = ["orden"]
