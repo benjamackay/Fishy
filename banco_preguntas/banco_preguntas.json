@@ -72,7 +72,7 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "Wow, eres increible jugando! Llevo 2 anos en este server y no habia visto a nadie tan habil. Deberiamos ser el mejor equipo.",
+      "mensaje_npc": "Wow, eres increible jugando! Llevo 2 años en este server y no habia visto a nadie tan habil. Deberiamos ser el mejor equipo.",
       "etiquetas_ml": ["halago", "reciprocidad_falsa"],
       "opciones_respuesta": null,
       "narrativa_continuacion": "HDU2_NPC01_F2_Q01"
