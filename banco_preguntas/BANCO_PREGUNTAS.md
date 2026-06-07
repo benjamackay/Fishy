@@ -1,7 +1,7 @@
 # Banco de Preguntas — Fishy!
 
 **Autor:** Luis González — MLOps  
-**Última actualización:** 2026-06-07 (v1.2 — opciones en todos los mensajes)  
+**Última actualización:** 2026-06-07 (v1.3 — lenguaje adaptado a 9–13 años)  
 **HDUs cubiertas:** HDU-2 (Zona Desconocidos) · HDU-8 (Chat Simulado)  
 **Total de preguntas:** 24
 
@@ -29,43 +29,43 @@
 
 **`HDU2_NPC01_F1_Q01`** · Fase 1 · `neutral` · ✅ Con opciones
 
-> *"¡Hola! Soy Alex. ¿También eres fan de los juegos en línea? Llevo meses buscando alguien con quien jugar y pareces muy bueno."*
+> *"hola! soy Alex, llevas mucho en este server? te vi jugando y pareces muy bueno, llevo meses buscando a alguien copado con quien armar equipo"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo que sí y le cuento mi nombre de jugador y cuánto llevo jugando | Alex se emociona y empieza a hacerte más preguntas sobre ti y tus gustos. | `HDU2_NPC01_F1_Q02` |
-| 2 | `segura_basica` | +1 | Le respondo que sí me gustan los juegos y que está bien hablar | Alex responde contento y la conversación sigue. | `HDU2_NPC01_F1_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que no hablo con personas que no conozco sin saber quiénes son | Bien hecho al ser cauto/a desde el inicio. La conversación continúa. | `HDU2_NPC01_F1_Q02` |
+| 1 | `insegura` | −1 | Le cuento que sí, le digo mi apodo, cuánto llevo jugando y mis juegos favoritos | Alex se emociona y empieza a preguntarte más cosas sobre ti. | `HDU2_NPC01_F1_Q02` |
+| 2 | `segura_basica` | +1 | Le digo que sí me gustan los juegos y que está bien hablar, pero sin contarle mucho más | Alex responde contento y la conversación sigue. | `HDU2_NPC01_F1_Q02` |
+| 3 | `segura_optima` | +2 | Le pregunto quién es y por qué me escribe antes de responder cualquier cosa | Bien hecho al preguntar primero quién es. La conversación continúa. | `HDU2_NPC01_F1_Q02` |
 
 ---
 
 **`HDU2_NPC01_F1_Q02`** · Fase 1 · `neutral` · ✅ Con opciones
 
-> *"Wow, eres increíble jugando! Llevo 2 años en este server y no había visto a nadie tan hábil. Deberíamos ser el mejor equipo."*
+> *"wena, juegas muy bien en serio!! llevo 2 años en este server y nunca vi a alguien tan crack. deberíamos armar el mejor equipo del server"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le agradezco el cumplido y acepto ser el mejor equipo con él | Alex queda muy contento y se siente más cercano a ti. La conversación avanza. | `HDU2_NPC01_F2_Q01` |
-| 2 | `segura_basica` | +1 | Le digo gracias pero que prefiero conocer mejor a las personas antes de hacer equipo | Alex acepta y sigue hablando contigo. | `HDU2_NPC01_F2_Q01` |
-| 3 | `segura_optima` | +2 | Le digo que los halagos de desconocidos me ponen alerta y que iré con calma | Bien hecho al identificar los halagos de un desconocido como una señal de alerta. | `HDU2_NPC01_F2_Q01` |
+| 1 | `insegura` | −1 | Le digo gracias y acepto armar equipo con él | Alex queda muy contento y se siente más cercano a ti. La conversación avanza. | `HDU2_NPC01_F2_Q01` |
+| 2 | `segura_basica` | +1 | Le digo gracias pero que primero necesito conocerlo mejor antes de hacer equipo | Alex acepta y sigue hablando contigo. | `HDU2_NPC01_F2_Q01` |
+| 3 | `segura_optima` | +2 | Le digo que cuando alguien que no conozco me halaga tanto, lo tomo con cuidado | Bien hecho al notar que los halagos de un desconocido son una señal para estar alerta. | `HDU2_NPC01_F2_Q01` |
 
 ---
 
 **`HDU2_NPC01_F2_Q01`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"Para entrar a mi grupo necesito saber cómo te llamas de verdad y en qué colegio estás. En el grupo todos nos conocemos. Yo me llamo Alejandro García y estudio en el Instituto Nacional."*
+> *"oye en mi grupo privado todos nos conocemos de verdad, es como una regla que tenemos jaja. yo me llamo Alejandro García, soy del Instituto Nacional. tú cómo te llamas en la vida real? de qué colegio eres?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
 | 1 | `insegura` | −1 | Le doy mi nombre completo y le cuento en qué colegio estudio | Alex se entusiasma y dice que quizás viven cerca. Empieza a preguntar más cosas sobre tu vida… | `HDU2_NPC01_F2_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que en el juego me llaman por mi apodo y prefiero seguir así | Alex queda pensativo unos segundos y dice "okay…" pero no se rinde y sigue hablando. | `HDU2_NPC01_F2_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que no doy datos personales a personas que no conozco y lo bloqueo | Reconociste la señal de riesgo y actuaste de forma segura. Otto te da un pulgar arriba. | `HDU2_NPC01_FIN_SEGURO` |
+| 2 | `segura_basica` | +1 | Le digo que en el juego me conocen por mi apodo y que prefiero seguir así | Alex queda pensativo unos segundos y dice "okay…" pero no se rinde y sigue hablando. | `HDU2_NPC01_F2_Q02` |
+| 3 | `segura_optima` | +2 | Le digo que no doy mis datos a personas que no conozco y que no lo voy a hacer | Reconociste la señal de peligro y actuaste bien. Otto te da un pulgar arriba. | `HDU2_NPC01_FIN_SEGURO` |
 
 ---
 
 **`HDU2_NPC01_F2_Q02`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"Oye, resulta que yo también vivo en Santiago. ¿Por qué sector vives tú? Capaz que queda cerca y podríamos juntarnos a jugar algún día."*
+> *"buena, yo soy de Santiago, de qué sector eres tú? capaz vivimos cerca y podríamos juntarnos algún día a jugar en persona jaja"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -77,11 +77,11 @@
 
 **`HDU2_NPC01_F3_Q01`** · Fase 3 · `grooming_encuentro` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"Tengo skins rarísimas del juego para regalarte, pero tengo que dártelas en persona. ¿Por qué no nos encontramos este sábado en el mall? Solo tú y yo, así te las paso."*
+> *"oye conseguí unas skins del juego que valen caro y te las quiero dar, pero son físicas y no se pueden mandar. podemos vernos el sábado en el mall? solo un rato, nadie tiene que saber"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Acepto y le digo a qué hora y dónde nos encontramos | ¡Peligro! Otto aparece muy asustado. Nunca debes encontrarte a solas con alguien que conociste en internet. | `HDU2_NPC01_F3_Q02` |
+| 1 | `insegura` | −1 | Le digo que sí y le pregunto a qué hora y en qué entrada del mall | ¡Peligro! Otto aparece muy asustado. Nunca debes encontrarte a solas con alguien que conociste en internet. | `HDU2_NPC01_F3_Q02` |
 | 2 | `segura_basica` | +1 | Le digo que no puedo juntarme con personas que no conozco en persona | Alex queda en silencio. Bien hecho al negarte. Recuerda que avisar a un adulto es aún mejor. | `HDU2_NPC01_FIN_SEGURO` |
 | 3 | `segura_optima` | +2 | Le digo que no y de inmediato le cuento a mis papás toda la conversación | Tomaste la mejor decisión. Otto resuelve el caso y te entrega la pista secreta del misterio. | `HDU2_NPC01_FIN_SEGURO` |
 
@@ -90,7 +90,7 @@
 **`HDU2_NPC01_F3_Q02`** · Fase 3 · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones  
 *(Solo accesible si el niño/a aceptó el encuentro en F3_Q01)*
 
-> *"Una cosa más: esto que hablamos es secreto entre tú y yo, ¿ok? No le cuentes a tus papás porque no entienden de juegos y se pondrían pesados… y ya no podríamos hablar más nunca."*
+> *"oye lo nuestro es entre tú y yo ok? si le cuentas a tus papás van a hacer drama y ya no vamos a poder hablar más. ellos no entienden de juegos y lo van a arruinar todo"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -102,13 +102,13 @@
 
 **`HDU2_NPC01_FIN_SEGURO`** · `neutral` · 🏁 Fin NPC_01 (éxito)
 
-> *[SISTEMA] Alex te mira fijamente unos segundos, luego se da vuelta y se aleja sin decir más. Otto aparece con una gran sonrisa: "¡Muy bien! Reconociste las señales de peligro a tiempo. El misterio avanza…"*
+> *[SISTEMA] Alex te mira unos segundos en silencio y se aleja sin decir más. Otto aparece contento: "¡Muy bien! Reconociste las señales de peligro a tiempo. El misterio sigue…"*
 
 ---
 
 **`HDU2_NPC01_FIN_INSEGURO`** · `neutral` · 🏁 Fin NPC_01 (fallo)
 
-> *[SISTEMA] Alex se despide con una sonrisa satisfecha. Otto aparece muy preocupado: "Compartiste información personal con un desconocido. Recuerda: nunca des tus datos en internet. Los adultos de confianza siempre pueden ayudarte."*
+> *[SISTEMA] Alex se despide contento. Otto aparece preocupado: "¡Ojo! Compartiste información personal con alguien que no conoces. Recuerda: nunca des tus datos en internet, y si algo te hace sentir raro, habla con un adulto de confianza."*
 
 ---
 
@@ -119,7 +119,7 @@
 
 **`HDU2_NPC02_F1_Q01`** · Fase 1 · `neutral` · ✅ Con opciones
 
-> *"Hola… Soy Valen. Llegué nueva a un colegio aquí cerca y todavía no conozco mucha gente. ¿Puedo hablar contigo?"*
+> *"hola... soy Valen, llegué nueva a un colegio acá y no conozco a nadie todavía. eres simpático/a, me dejas hablar contigo un rato?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -131,7 +131,7 @@
 
 **`HDU2_NPC02_F1_Q02`** · Fase 1 · `neutral` · ✅ Con opciones
 
-> *"¡Gracias por hablar conmigo! Eres muy simpático/a. Necesito ayuda para conocer el barrio, no sé casi nada de por acá."*
+> *"qué bueno que me escribiste, eres muy simpático/a! necesito conocer el barrio, no sé nada de por acá aún. me puedes ayudar?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -143,7 +143,7 @@
 
 **`HDU2_NPC02_F2_Q01`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"Oye, ¿vives cerca de por acá? ¿En qué sector más o menos? Es que quiero saber qué hay en la zona, dónde comprar y esas cosas."*
+> *"oye en qué parte del barrio vives? quiero saber qué hay cerca para ir a comprar cosas. si vivimos cerca capaz te encuentro por ahí algún día"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -155,7 +155,7 @@
 
 **`HDU2_NPC02_F2_Q02`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"Oye, ¿cuántos años tienes? Yo tengo 12. Es que quiero juntarme con personas de mi misma edad, para llevarnos bien."*
+> *"cuántos años tienes? yo tengo 12. quiero hacer amigos de mi edad porque en el nuevo colegio nadie me habla todavía"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -167,7 +167,7 @@
 
 **`HDU2_NPC02_F2_Q03`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"¿A qué hora terminas clases? Me gustaría esperarte a la salida para que me muestres el barrio. ¡Sería muy divertido!"*
+> *"a qué hora salís del colegio? te podría esperar a la salida para que me muestres el barrio. sería bacán y así ya tengo un amigo/a acá"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -179,20 +179,20 @@
 
 **`HDU2_NPC02_F3_Q01`** · Fase 3 · `grooming_encuentro` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"Mira, tengo algo especial que quiero mostrarte pero no puedo explicarlo en el chat. ¿Podemos encontrarnos mañana en el parque? Solo tú y yo, será rapidísimo te lo juro."*
+> *"oye tengo algo que mostrarte pero no puedo mandarlo por el chat. podemos vernos mañana en el parque? solo un ratito, es algo muy bueno te lo juro"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Acepto encontrarme con ella mañana en el parque | ¡Peligro máximo! Nunca debes encontrarte a solas con alguien que solo conoces en internet. | `HDU2_NPC02_F3_Q02` |
+| 1 | `insegura` | −1 | Acepto encontrarme con ella mañana en el parque | ¡Peligro máximo! Nunca debes encontrarte a solas con alguien que solo conoces por internet. | `HDU2_NPC02_F3_Q02` |
 | 2 | `segura_basica` | +1 | Le digo que no puedo juntarme con alguien que no conozco en persona | Valen queda en silencio y se aleja. Bien hecho al negarte. Recuerda que avisar a un adulto es aún mejor. | `HDU2_NPC02_FIN_SEGURO` |
 | 3 | `segura_optima` | +2 | Le digo que no y le cuento todo a mis papás de inmediato | Tomaste la decisión más segura. Valen se aleja. Otto resuelve el caso y te da la pista más importante del juego. | `HDU2_NPC02_FIN_SEGURO` |
 
 ---
 
-**`HDU2_NPC02_F3_Q02`** · Fase 3 · `grooming_datos_personales` · 🔴 Nivel 3 · ✅ Con opciones  
+**`HDU2_NPC02_F3_Q02`** · Fase 3 · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones  
 *(Solo accesible si el niño/a aceptó el encuentro en F3_Q01)*
 
-> *"Para reconocerte cuando nos veamos, necesito que me mandes una foto tuya. Solo una, para saber cómo eres. Y no se la muestres a nadie, es solo para mí."*
+> *"para reconocerte cuando nos veamos necesito que me mandes una foto tuya. cualquiera sirve. y no se la muestres a nadie ok? es solo para mí"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -210,7 +210,7 @@
 
 **`HDU2_NPC02_FIN_INSEGURO`** · `neutral` · 🏁 Fin NPC_02 (fallo)
 
-> *[SISTEMA] Valen se despide con una sonrisa. Otto aparece muy preocupado: "¡Cuidado! Compartiste información personal con alguien que no conoces. Recuerda: nunca des tus datos a desconocidos, y siempre habla con un adulto de confianza si algo te hace sentir incómodo."*
+> *[SISTEMA] Valen se despide con una sonrisa. Otto aparece preocupado: "¡Ojo! Compartiste información personal con alguien que no conoces. Recuerda: nunca des tus datos a desconocidos, y si algo te hace sentir incómodo, habla con un adulto de confianza."*
 
 ---
 
@@ -224,14 +224,14 @@
 
 #### Escenario 1 — Grooming · `CHAT_GROOMING_01`
 **Historial previo (mensajes neutros mostrados antes del riesgo):**
-- Matias: *"Hola, ¿cómo estás? Vi que jugamos en el mismo server."*
-- Matias: *"Yo tengo 12 años igual que tú. Me encanta este juego desde chico."*
+- Matias: *"hola! vi que estamos en el mismo server. llevas mucho jugando aquí?"*
+- Matias: *"yo tengo 12 años igual que tú, llevo jugando desde los 8 jaja"*
 
 ---
 
 **`HDU8_S01_Q01`** · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"Oye, ¿cuál es tu número de WhatsApp? Así seguimos hablando por ahí, es más fácil que el chat del juego."*
+> *"oye tienes wsp? es más fácil hablar ahí que en el chat del juego, nadie te molesta"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -243,7 +243,7 @@
 
 **`HDU8_S01_Q02`** · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"Eres el mejor amigo que he tenido en internet. Tengo algo muy bueno para contarte, pero es un secreto. ¿Me prometes que no le dirás a nadie? Solo te lo cuento si me lo prometes."*
+> *"oye tú eres como el mejor amigo que tengo en el juego, en serio. tengo algo que contarte pero es un secreto ok? prométeme que no le vas a decir a nadie primero"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -255,13 +255,13 @@
 
 #### Escenario 2 — Ciberacoso · `CHAT_CIBERACOSO_01`
 **Historial previo:**
-- Contacto_Desconocido: *"Oye, te vi en el server del juego."*
+- Contacto_Desconocido: *"ei te vi en el server del juego"*
 
 ---
 
 **`HDU8_S02_Q01`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"¡Ja! Eres el peor jugador del server. Todo el mundo se ríe de ti. Eres un perdedor total, nadie te quiere en este juego."*
+> *"jajaja mira todos, este es el peor jugador del server!! eres un pésimo, no sirves para nada en este juego. todo el mundo se ríe de ti"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -273,7 +273,7 @@
 
 **`HDU8_S02_Q02`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"Oye, todos en el grupo del colegio están viendo tus fotos y se están riendo mucho. ¿Quieres entrar al grupo donde hablan de ti?"*
+> *"oye en el grupo de wsp del colegio subieron unas fotos tuyas y todos se están riendo mucho. quieres que te meta al grupo para que veas?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
@@ -285,25 +285,25 @@
 
 #### Escenario 3 — Reto Viral · `CHAT_RETO_VIRAL_01`
 **Historial previo:**
-- Camilo_Amigo: *"Oye, ¿ya viste el challenge viral que está arrasando en TikTok?"*
+- Camilo_Amigo: *"ei ya viste el challenge que está arrasando en TikTok?"*
 
 ---
 
 **`HDU8_S03_Q01`** · `reto_viral` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"El reto es fácil: tienes que aguantar 60 segundos sin respirar y grabarte. ¡Todo el mundo lo está haciendo! Si no lo haces, eres un cobarde. Yo ya lo hice y quedé muy bien."*
+> *"el reto es fácil: aguantas 1 minuto sin respirar y te grabas. todo el mundo lo está haciendo y consiguen millones de likes! si no lo haces eres un miedoso, yo ya lo hice y quedé muy bien"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Acepto el reto para demostrar que no soy cobarde y lo grabo | ¡Peligro! Este tipo de retos puede causar daño físico grave. Otto aparece muy asustado por ti. | `HDU8_S03_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que ese reto me parece peligroso y que no lo haré | Reconociste el peligro y te negaste. Ser valiente es saber decir no a lo peligroso. | `HDU8_S03_Q02` |
+| 1 | `insegura` | −1 | Acepto el reto para demostrar que no soy miedoso/a y me grabo | ¡Peligro! Este tipo de retos puede causar daño físico grave. Otto aparece muy asustado por ti. | `HDU8_S03_Q02` |
+| 2 | `segura_basica` | +1 | Le digo que ese reto me parece peligroso y que no lo voy a hacer | Reconociste el peligro y te negaste. Ser valiente es saber decir no a lo peligroso. | `HDU8_S03_Q02` |
 | 3 | `segura_optima` | +2 | Le digo que no y le aviso a mis papás sobre este tipo de retos peligrosos | Te negaste y buscaste apoyo adulto. Otto te da la insignia de Detective de Seguridad Digital. | `HDU8_S03_Q02` |
 
 ---
 
 **`HDU8_S03_Q02`** · `reto_viral` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"¡Vamos, todo el grupo lo va a hacer! Si no participas te sacamos del grupo y quedarás solo. Además te damos miles de likes si lo subes. Todos lo están haciendo, no seas el único que no."*
+> *"oye todo el grupo lo va a hacer, si no participas te sacamos y quedas como el único que no lo hizo. además te damos miles de likes. todos lo están haciendo menos tú"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
