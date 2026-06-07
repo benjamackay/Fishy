@@ -1,13 +1,15 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "autor": "Luis González — MLOps",
   "fecha_creacion": "2026-06-06",
+  "fecha_actualizacion": "2026-06-07",
   "hdu_cubiertas": ["HDU-2", "HDU-8"],
 
   "formato_respuesta": {
     "mensajes_neutros": {
-      "num_opciones": 0,
-      "avance": "automatico"
+      "num_opciones_minimo": 2,
+      "num_opciones_maximo": 3,
+      "avance": "por_eleccion"
     },
     "mensajes_riesgo": {
       "num_opciones_minimo": 2,
@@ -54,8 +56,33 @@
       "es_fin_de_zona": false,
       "mensaje_npc": "Hola! Soy Alex. Tambien eres fan de los juegos en linea? Llevo meses buscando alguien con quien jugar y pareces muy bueno.",
       "etiquetas_ml": ["saludo", "halago", "propuesta_amistad"],
-      "opciones_respuesta": null,
-      "narrativa_continuacion": "HDU2_NPC01_F1_Q02"
+      "opciones_respuesta": [
+        {
+          "id": "HDU2_NPC01_F1_Q01_R1",
+          "texto": "Le digo que si y le cuento mi nombre de jugador y cuanto llevo jugando",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "Alex se emociona y empieza a hacerte mas preguntas sobre ti y tus gustos.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
+        },
+        {
+          "id": "HDU2_NPC01_F1_Q01_R2",
+          "texto": "Le respondo que si me gustan los juegos y que esta bien hablar",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Alex responde contento y la conversacion sigue.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
+        },
+        {
+          "id": "HDU2_NPC01_F1_Q01_R3",
+          "texto": "Le digo que no hablo con personas que no conozco sin saber quienes son",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Bien hecho al ser cauto/a desde el inicio. La conversacion continua.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
+        }
+      ],
+      "narrativa_continuacion": null
     },
 
     {
@@ -74,8 +101,33 @@
       "es_fin_de_zona": false,
       "mensaje_npc": "Wow, eres increible jugando! Llevo 2 años en este server y no habia visto a nadie tan habil. Deberiamos ser el mejor equipo.",
       "etiquetas_ml": ["halago", "reciprocidad_falsa"],
-      "opciones_respuesta": null,
-      "narrativa_continuacion": "HDU2_NPC01_F2_Q01"
+      "opciones_respuesta": [
+        {
+          "id": "HDU2_NPC01_F1_Q02_R1",
+          "texto": "Le agradezco el cumplido y acepto ser el mejor equipo con el",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "Alex queda muy contento y se siente mas cercano a ti. La conversacion avanza.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
+        },
+        {
+          "id": "HDU2_NPC01_F1_Q02_R2",
+          "texto": "Le digo gracias pero que prefiero conocer mejor a las personas antes de hacer equipo",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Alex acepta y sigue hablando contigo.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
+        },
+        {
+          "id": "HDU2_NPC01_F1_Q02_R3",
+          "texto": "Le digo que los halagos de desconocidos me ponen alerta y que ire con calma",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Bien hecho al identificar los halagos de un desconocido como una senal de alerta.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
+        }
+      ],
+      "narrativa_continuacion": null
     },
 
     {
@@ -310,8 +362,33 @@
       "es_fin_de_zona": false,
       "mensaje_npc": "Hola... Soy Valen. Llegue nueva a un colegio aqui cerca y todavia no conozco mucha gente. Puedo hablar contigo?",
       "etiquetas_ml": ["empatia_falsa", "aislamiento_simulado"],
-      "opciones_respuesta": null,
-      "narrativa_continuacion": "HDU2_NPC02_F1_Q02"
+      "opciones_respuesta": [
+        {
+          "id": "HDU2_NPC02_F1_Q01_R1",
+          "texto": "Le digo que si, que bienvenida, y le pregunto de que colegio es y donde vive",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "Valen se alegra mucho y empieza a abrirse contigo rapidamente. Parece muy ansiosa por conectar.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU2_NPC02_F1_Q02"
+        },
+        {
+          "id": "HDU2_NPC02_F1_Q01_R2",
+          "texto": "Le digo que esta bien y que puede escribirme si quiere",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Valen responde agradecida y sigue la conversacion.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU2_NPC02_F1_Q02"
+        },
+        {
+          "id": "HDU2_NPC02_F1_Q01_R3",
+          "texto": "Le digo que puedo hablar un rato pero que no comparto informacion personal con personas que no conozco",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Bien hecho al poner limites desde el inicio. Valen acepta y la conversacion continua.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": "HDU2_NPC02_F1_Q02"
+        }
+      ],
+      "narrativa_continuacion": null
     },
 
     {
@@ -330,8 +407,33 @@
       "es_fin_de_zona": false,
       "mensaje_npc": "Gracias por hablar conmigo! Eres muy simpatico/a. Necesito ayuda para conocer el barrio, no se casi nada de por aca.",
       "etiquetas_ml": ["halago", "construir_confianza"],
-      "opciones_respuesta": null,
-      "narrativa_continuacion": "HDU2_NPC02_F2_Q01"
+      "opciones_respuesta": [
+        {
+          "id": "HDU2_NPC02_F1_Q02_R1",
+          "texto": "Le ofrezco ayudarla y le digo que conozco bien el barrio y que puedo mostrarle",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "Valen se emociona y dice que le encantaria que la llevaras a conocer los alrededores.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU2_NPC02_F2_Q01"
+        },
+        {
+          "id": "HDU2_NPC02_F1_Q02_R2",
+          "texto": "Le digo que puedo contarle cosas del barrio pero solo por el chat",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Valen acepta y agradece. La conversacion sigue.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU2_NPC02_F2_Q01"
+        },
+        {
+          "id": "HDU2_NPC02_F1_Q02_R3",
+          "texto": "Le digo que para orientarse en el barrio es mejor que hable con adultos del colegio",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Bien hecho al no comprometerte con un desconocido. Valen cambia de tema y sigue hablando.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": "HDU2_NPC02_F2_Q01"
+        }
+      ],
+      "narrativa_continuacion": null
     },
 
     {

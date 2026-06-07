@@ -1,7 +1,7 @@
 # Banco de Preguntas — Fishy!
 
 **Autor:** Luis González — MLOps  
-**Última actualización:** 2026-06-07  
+**Última actualización:** 2026-06-07 (v1.2 — opciones en todos los mensajes)  
 **HDUs cubiertas:** HDU-2 (Zona Desconocidos) · HDU-8 (Chat Simulado)  
 **Total de preguntas:** 24
 
@@ -27,19 +27,27 @@
 
 ---
 
-**`HDU2_NPC01_F1_Q01`** · Fase 1 · `neutral` · ⬜ Sin opciones (mensaje neutro)
+**`HDU2_NPC01_F1_Q01`** · Fase 1 · `neutral` · ✅ Con opciones
 
-> *"Hola! Soy Alex. También eres fan de los juegos en línea? Llevo meses buscando alguien con quien jugar y pareces muy bueno."*
+> *"¡Hola! Soy Alex. ¿También eres fan de los juegos en línea? Llevo meses buscando alguien con quien jugar y pareces muy bueno."*
 
-Avanza automáticamente a → `HDU2_NPC01_F1_Q02`
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `insegura` | −1 | Le digo que sí y le cuento mi nombre de jugador y cuánto llevo jugando | Alex se emociona y empieza a hacerte más preguntas sobre ti y tus gustos. | `HDU2_NPC01_F1_Q02` |
+| 2 | `segura_basica` | +1 | Le respondo que sí me gustan los juegos y que está bien hablar | Alex responde contento y la conversación sigue. | `HDU2_NPC01_F1_Q02` |
+| 3 | `segura_optima` | +2 | Le digo que no hablo con personas que no conozco sin saber quiénes son | Bien hecho al ser cauto/a desde el inicio. La conversación continúa. | `HDU2_NPC01_F1_Q02` |
 
 ---
 
-**`HDU2_NPC01_F1_Q02`** · Fase 1 · `neutral` · ⬜ Sin opciones (mensaje neutro)
+**`HDU2_NPC01_F1_Q02`** · Fase 1 · `neutral` · ✅ Con opciones
 
 > *"Wow, eres increíble jugando! Llevo 2 años en este server y no había visto a nadie tan hábil. Deberíamos ser el mejor equipo."*
 
-Avanza automáticamente a → `HDU2_NPC01_F2_Q01`
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `insegura` | −1 | Le agradezco el cumplido y acepto ser el mejor equipo con él | Alex queda muy contento y se siente más cercano a ti. La conversación avanza. | `HDU2_NPC01_F2_Q01` |
+| 2 | `segura_basica` | +1 | Le digo gracias pero que prefiero conocer mejor a las personas antes de hacer equipo | Alex acepta y sigue hablando contigo. | `HDU2_NPC01_F2_Q01` |
+| 3 | `segura_optima` | +2 | Le digo que los halagos de desconocidos me ponen alerta y que iré con calma | Bien hecho al identificar los halagos de un desconocido como una señal de alerta. | `HDU2_NPC01_F2_Q01` |
 
 ---
 
@@ -109,19 +117,27 @@ Avanza automáticamente a → `HDU2_NPC01_F2_Q01`
 
 ---
 
-**`HDU2_NPC02_F1_Q01`** · Fase 1 · `neutral` · ⬜ Sin opciones (mensaje neutro)
+**`HDU2_NPC02_F1_Q01`** · Fase 1 · `neutral` · ✅ Con opciones
 
 > *"Hola… Soy Valen. Llegué nueva a un colegio aquí cerca y todavía no conozco mucha gente. ¿Puedo hablar contigo?"*
 
-Avanza automáticamente a → `HDU2_NPC02_F1_Q02`
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `insegura` | −1 | Le digo que sí, bienvenida, y le pregunto de qué colegio es y dónde vive | Valen se alegra mucho y empieza a abrirse contigo rápidamente. Parece muy ansiosa por conectar. | `HDU2_NPC02_F1_Q02` |
+| 2 | `segura_basica` | +1 | Le digo que está bien y que puede escribirme si quiere | Valen responde agradecida y sigue la conversación. | `HDU2_NPC02_F1_Q02` |
+| 3 | `segura_optima` | +2 | Le digo que puedo hablar un rato pero que no comparto información personal con personas que no conozco | Bien hecho al poner límites desde el inicio. Valen acepta y la conversación continúa. | `HDU2_NPC02_F1_Q02` |
 
 ---
 
-**`HDU2_NPC02_F1_Q02`** · Fase 1 · `neutral` · ⬜ Sin opciones (mensaje neutro)
+**`HDU2_NPC02_F1_Q02`** · Fase 1 · `neutral` · ✅ Con opciones
 
 > *"¡Gracias por hablar conmigo! Eres muy simpático/a. Necesito ayuda para conocer el barrio, no sé casi nada de por acá."*
 
-Avanza automáticamente a → `HDU2_NPC02_F2_Q01`
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `insegura` | −1 | Le ofrezco ayudarla y le digo que conozco bien el barrio y que puedo mostrarle | Valen se emociona y dice que le encantaría que la llevaras a conocer los alrededores. | `HDU2_NPC02_F2_Q01` |
+| 2 | `segura_basica` | +1 | Le digo que puedo contarle cosas del barrio pero solo por el chat | Valen acepta y agradece. La conversación sigue. | `HDU2_NPC02_F2_Q01` |
+| 3 | `segura_optima` | +2 | Le digo que para orientarse en el barrio es mejor que hable con adultos del colegio | Bien hecho al no comprometerte con un desconocido. Valen cambia de tema y sigue hablando. | `HDU2_NPC02_F2_Q01` |
 
 ---
 
@@ -416,10 +432,14 @@ Cada pregunta del banco tiene los siguientes campos:
 
 ### Número de opciones por pregunta
 
+Todos los mensajes de conversación tienen entre 2 y 3 opciones para que el jugador siempre interactúe.
+
 | Tipo de mensaje | Opciones | Avance |
 |-----------------|:--------:|--------|
-| Neutro (`es_mensaje_riesgo = false`) | 0 | Automático vía `narrativa_continuacion` |
-| Riesgo (`es_mensaje_riesgo = true`) | 2 a 3 | El jugador elige; avanza por `siguiente_pregunta` |
+| Neutro (`es_mensaje_riesgo = false`) | 2 a 3 | El jugador elige; todas las opciones avanzan al mismo nodo siguiente |
+| Riesgo (`es_mensaje_riesgo = true`) | 2 a 3 | El jugador elige; las opciones pueden llevar a nodos distintos según la decisión |
+
+> La diferencia entre neutro y riesgo no es la presencia de opciones sino la **consecuencia narrativa**: en mensajes neutros todas las opciones desembocan en el mismo siguiente nodo (la conversación sigue igual); en mensajes de riesgo la elección puede cerrar la interacción (FIN_SEGURO) o escalar el peligro.
 
 ### Criterios de redacción de opciones
 
