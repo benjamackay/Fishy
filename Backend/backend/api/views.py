@@ -141,7 +141,10 @@ def registrar_mensaje(request, chat_id):
     serializer = MensajeSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    mensaje = serializer.save(chat=chat)
+
+    # pregunta_banco_id opcional: vincula la respuesta con la pregunta del banco
+    pregunta_banco_id = request.data.get("pregunta_banco_id") or None
+    mensaje = serializer.save(chat=chat, pregunta_banco_id=pregunta_banco_id)
 
     for i, opcion in enumerate(request.data.get("posibles_respuestas", [])):
         PosibleRespuesta.objects.create(
