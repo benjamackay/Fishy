@@ -25,4 +25,8 @@ urlpatterns = [
     path("chats/<int:chat_id>/mensajes/", views.mensajes_chat, name="mensajes_chat"),
     path("chats/<int:chat_id>/mensajes/registrar/", views.registrar_mensaje, name="registrar_mensaje"),
     path("chats/<int:chat_id>/finalizar/", views.finalizar_chat, name="finalizar_chat"),
+
+    # Banco de Preguntas (HDU-2 y HDU-8)
+    path("banco/preguntas/", views.preguntas_banco, name="preguntas_banco"),
+    path("banco/preguntas/<str:pregunta_id>/", views.pregunta_detalle, name="pregunta_detalle"),
 ]

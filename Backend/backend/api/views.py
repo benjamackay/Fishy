@@ -6,10 +6,11 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 
-from .models import NivelRiesgo, Partida, NPC, Chat, Mensaje, PosibleRespuesta
+from .models import NivelRiesgo, Partida, NPC, Chat, Mensaje, PosibleRespuesta, PreguntaBanco
 from .serializers import (
     RegistroSerializer, NivelRiesgoSerializer, PartidaSerializer,
     NPCSerializer, ChatSerializer, MensajeSerializer,
+    PreguntaBancoSerializer,
 )
 
 
@@ -151,6 +152,48 @@ def registrar_mensaje(request, chat_id):
         )
 
     return Response(MensajeSerializer(mensaje).data, status=status.HTTP_201_CREATED)
+
+
+# ── Banco de Preguntas (HDU-2 / HDU-8) ───────────────────────────────────────
+
+@api_view(["GET"])
+def preguntas_banco(request):
+    """
+    Devuelve preguntas del banco filtradas por query params opcionales:
+      ?zona=desconocidos
+      ?npc_id=NPC_01
+      ?fase=1
+      ?escenario_id=CHAT_GROOMING_01
+      ?hdu=HDU-2
+      ?solo_riesgo=true   (solo mensajes que requieren respuesta del jugador)
+    """
+    qs = PreguntaBanco.objects.prefetch_related("opciones").all()
+    for param, campo in [
+        ("zona", "zona"),
+        ("npc_id", "npc_id"),
+        ("escenario_id", "escenario_id"),
+        ("hdu", "hdu"),
+    ]:
+        val = request.query_params.get(param)
+        if val:
+            qs = qs.filter(**{campo: val})
+    fase = request.query_params.get("fase")
+    if fase is not None:
+        qs = qs.filter(fase=int(fase))
+    if request.query_params.get("solo_riesgo", "").lower() == "true":
+        qs = qs.filter(es_mensaje_riesgo=True)
+    if request.query_params.get("fin_de_zona", "").lower() == "true":
+        qs = qs.filter(es_fin_de_zona=True)
+    if request.query_params.get("fin_de_npc", "").lower() == "true":
+        qs = qs.filter(es_fin_de_npc=True)
+    return Response(PreguntaBancoSerializer(qs, many=True).data)
+
+
+@api_view(["GET"])
+def pregunta_detalle(request, pregunta_id):
+    """Devuelve una pregunta concreta por su pregunta_id (ej: HDU2_NPC01_F2_Q01)."""
+    pregunta = get_object_or_404(PreguntaBanco, pregunta_id=pregunta_id)
+    return Response(PreguntaBancoSerializer(pregunta).data)
 
 
 @api_view(["POST"])

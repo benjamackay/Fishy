@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Usuario, NivelRiesgo, Partida, NPC, Chat, Mensaje, PosibleRespuesta
+from .models import Usuario, NivelRiesgo, Partida, NPC, Chat, Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco
 
 
 class RegistroSerializer(serializers.ModelSerializer):
@@ -53,3 +53,30 @@ class ChatSerializer(serializers.ModelSerializer):
         model = Chat
         fields = ["id", "partida", "npc", "categoria_riesgo", "fecha_inicio", "fecha_termino"]
         read_only_fields = ["id", "fecha_inicio", "fecha_termino"]
+
+
+class OpcionBancoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OpcionBanco
+        fields = [
+            "id", "opcion_id", "texto", "tipo",
+            "consecuencia_narrativa", "impacto_puntuacion",
+            "siguiente_pregunta", "orden",
+        ]
+
+
+class PreguntaBancoSerializer(serializers.ModelSerializer):
+    opciones = OpcionBancoSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = PreguntaBanco
+        fields = [
+            "id", "pregunta_id", "hdu", "zona",
+            "npc_id", "npc_nombre", "npc_avatar", "fase", "orden_en_fase",
+            "narrativa_continuacion",
+            "escenario_id", "escenario_nombre", "historial_previo",
+            "categoria", "nivel_riesgo", "es_mensaje_riesgo",
+            "es_fin_de_npc", "es_fin_de_zona",
+            "mensaje_npc", "etiquetas_ml",
+            "opciones",
+        ]
