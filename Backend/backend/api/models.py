@@ -203,6 +203,12 @@ class Mensaje(models.Model):
         choices=CalidadRespuesta.choices,
         blank=True
     )
+    pregunta_banco_id = models.CharField(
+        max_length=70,
+        blank=True,
+        null=True,
+        help_text="ID de la pregunta del banco que originó este mensaje (ej: HDU2_NPC01_F2_Q01)."
+    )
     timestamp         = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
