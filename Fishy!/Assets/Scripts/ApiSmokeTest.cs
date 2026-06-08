@@ -15,8 +15,22 @@ public class ApiSmokeTest : MonoBehaviour
     public string nombreBase = "unity_test";
     public string password = "1234";
 
+    [Tooltip("Si está activo y ya hay una sesión iniciada, NO corre la prueba " +
+             "(evita sobrescribir el token/partida del jugador real).")]
+    public bool skipIfLoggedIn = true;
+
     private void Start()
     {
+        // Evita pisar la sesión del jugador real si este componente quedó por
+        // error en la escena de juego: si ya hay login activo, no hacemos nada.
+        if (skipIfLoggedIn && ApiManager.Instance != null && ApiManager.Instance.IsLoggedIn)
+        {
+            Debug.LogWarning("[SmokeTest] Hay una sesión activa: se omite la prueba " +
+                             "para no sobrescribir el token/partida del jugador. " +
+                             "Quita este componente de la escena de juego cuando termines de probar.");
+            return;
+        }
+
         // Asegura que exista el ApiManager (singleton).
         if (ApiManager.Instance == null)
         {
