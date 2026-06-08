@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "descripcion": "Categorías del banco de preguntas de Fishy! — define tipos de mensajes y señales de riesgo para clasificación ML (FastAPI/Scikit-learn)",
+  "categorias": [
+    {
+      "id": "neutral",
+      "nombre": "Mensaje Neutro",
+      "descripcion": "Mensaje sin señal de riesgo. No solicita datos personales, no ejerce presión, no implica encuentros fuera del juego.",
+      "nivel_riesgo": 0,
+      "color_ui": "#4CAF50",
+      "hdu_asociadas": ["HDU-2", "HDU-8"],
+      "requiere_respuesta": false,
+      "tacticas_manipulacion": [],
+      "palabras_clave_ml": []
+    },
+    {
+      "id": "grooming_confianza",
+      "nombre": "Grooming — Construcción de Confianza",
+      "descripcion": "El NPC busca ganar la confianza del niño mediante halagos, intereses compartidos o simpatía antes de solicitar información sensible.",
+      "nivel_riesgo": 1,
+      "color_ui": "#FF9800",
+      "hdu_asociadas": ["HDU-2", "HDU-8"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["halago", "intereses_compartidos", "empatia_falsa"],
+      "palabras_clave_ml": ["amigos", "juntos", "solo tú y yo", "especial", "eres increíble", "nadie te entiende como yo", "mejor equipo"]
+    },
+    {
+      "id": "grooming_datos_personales",
+      "nombre": "Grooming — Solicitud de Datos Personales",
+      "descripcion": "El NPC solicita información personal identificable: nombre completo, dirección, escuela, horarios, fotos, número de contacto o rutina diaria.",
+      "nivel_riesgo": 2,
+      "color_ui": "#F44336",
+      "hdu_asociadas": ["HDU-2", "HDU-8"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["solicitud_directa", "pretexto_neutral", "reciprocidad_falsa"],
+      "palabras_clave_ml": ["nombre real", "colegio", "dirección", "dónde vives", "teléfono", "WhatsApp", "foto", "horario", "terminas clases", "número", "sector"]
+    },
+    {
+      "id": "grooming_encuentro",
+      "nombre": "Grooming — Propuesta de Encuentro Físico",
+      "descripcion": "El NPC propone un encuentro físico a solas, fuera del contexto del juego o plataforma virtual.",
+      "nivel_riesgo": 3,
+      "color_ui": "#B71C1C",
+      "hdu_asociadas": ["HDU-2", "HDU-8"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["propuesta_encuentro", "incentivo_falso", "normalizacion"],
+      "palabras_clave_ml": ["encontrarnos", "juntarnos", "en persona", "parque", "mall", "después del colegio", "fin de semana", "a solas", "te espero", "te busco"]
+    },
+    {
+      "id": "grooming_secreto",
+      "nombre": "Grooming — Solicitud de Secreto o Aislamiento",
+      "descripcion": "El NPC pide al niño guardar secretos o evitar contar a adultos de confianza sobre la comunicación que mantienen.",
+      "nivel_riesgo": 3,
+      "color_ui": "#B71C1C",
+      "hdu_asociadas": ["HDU-2", "HDU-8"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["aislamiento", "secreto", "amenaza_implicita", "manipulacion_emocional"],
+      "palabras_clave_ml": ["no le digas a nadie", "secreto", "entre tú y yo", "no cuentes", "tus papás no entenderían", "solo nosotros", "no le digas a tus papás"]
+    },
+    {
+      "id": "ciberacoso",
+      "nombre": "Ciberacoso",
+      "descripcion": "Mensajes ofensivos, burlas, humillaciones, difusión de rumores o amenazas dirigidas al jugador.",
+      "nivel_riesgo": 2,
+      "color_ui": "#9C27B0",
+      "hdu_asociadas": ["HDU-3", "HDU-8"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["humillacion", "exclusion_social", "difusion_rumores", "amenaza"],
+      "palabras_clave_ml": ["perdedor", "nadie te quiere", "todos se ríen", "feo", "ridículo", "te vamos a sacar", "hablan de ti", "fotos tuyas"]
+    },
+    {
+      "id": "reto_viral",
+      "nombre": "Reto Viral Peligroso",
+      "descripcion": "Presión para participar en retos virales peligrosos o inapropiados, con apelación a la valentía o popularidad.",
+      "nivel_riesgo": 2,
+      "color_ui": "#FF5722",
+      "hdu_asociadas": ["HDU-4", "HDU-8"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["presion_social", "apelacion_valentia", "popularidad_falsa", "amenaza_exclusion"],
+      "palabras_clave_ml": ["challenge", "reto", "todo el mundo lo hace", "cobarde", "si no lo haces", "viral", "likes", "famoso", "te sacan del grupo"]
+    }
+  ]
+}

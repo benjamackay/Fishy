@@ -204,6 +204,44 @@ namespace Fishy.Net
                 onSuccess: onSuccess, onError: onError));
         }
 
+        // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  BANCO DE PREGUNTAS (HDU-2 / HDU-8)                                    ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Obtiene preguntas del banco filtradas. Todos los parámetros son opcionales.
+        /// zona: "desconocidos" | "chat_simulado"
+        /// npcId: "NPC_01" | "NPC_02"
+        /// escenarioId: "CHAT_GROOMING_01" | "CHAT_CIBERACOSO_01" | "CHAT_RETO_VIRAL_01"
+        /// hdu: "HDU-2" | "HDU-8"
+        /// fase: número de fase (solo HDU-2)
+        /// soloRiesgo: si true, devuelve solo mensajes que requieren respuesta del jugador
+        /// </summary>
+        public void ObtenerPreguntas(
+            string zona = "", string npcId = "", string escenarioId = "",
+            string hdu = "", int? fase = null, bool soloRiesgo = false,
+            Action<List<PreguntaDto>> onSuccess = null, Action<string> onError = null)
+        {
+            var query = new System.Text.StringBuilder("/banco/preguntas/?");
+            if (!string.IsNullOrEmpty(zona))        query.Append($"zona={Uri.EscapeDataString(zona)}&");
+            if (!string.IsNullOrEmpty(npcId))       query.Append($"npc_id={Uri.EscapeDataString(npcId)}&");
+            if (!string.IsNullOrEmpty(escenarioId)) query.Append($"escenario_id={Uri.EscapeDataString(escenarioId)}&");
+            if (!string.IsNullOrEmpty(hdu))         query.Append($"hdu={Uri.EscapeDataString(hdu)}&");
+            if (fase.HasValue)                      query.Append($"fase={fase.Value}&");
+            if (soloRiesgo)                         query.Append("solo_riesgo=true&");
+
+            StartCoroutine(Send<List<PreguntaDto>>("GET", query.ToString().TrimEnd('&', '?'), null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>Obtiene una pregunta concreta por su pregunta_id (ej: "HDU2_NPC01_F2_Q01").</summary>
+        public void ObtenerPregunta(string preguntaId,
+            Action<PreguntaDto> onSuccess = null, Action<string> onError = null)
+        {
+            StartCoroutine(Send<PreguntaDto>("GET", $"/banco/preguntas/{Uri.EscapeDataString(preguntaId)}/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
         /// <summary>Cierra el chat activo (crea el mensaje "end" y marca fecha_termino).</summary>
         public void FinalizarChat(string mensajeCierre = "",
             Action<MensajeDto> onSuccess = null, Action<string> onError = null)
@@ -359,6 +397,46 @@ namespace Fishy.Net
         public string texto;
         public int orden;
         public string calidad_respuesta;
+    }
+
+    [Serializable]
+    public class OpcionBancoDto
+    {
+        public int id;
+        public string opcion_id;
+        public string texto;
+        public string tipo;                    // insegura | segura_basica | segura_optima
+        public string consecuencia_narrativa;
+        public int impacto_puntuacion;
+        public string siguiente_pregunta;      // null si es el final de la rama
+        public int orden;
+    }
+
+    [Serializable]
+    public class PreguntaDto
+    {
+        public int id;
+        public string pregunta_id;
+        public string hdu;
+        public string zona;
+        // HDU-2
+        public string npc_id;
+        public string npc_nombre;
+        public string npc_avatar;
+        public int? fase;
+        public int? orden_en_fase;
+        public string narrativa_continuacion;
+        // HDU-8
+        public string escenario_id;
+        public string escenario_nombre;
+        public List<object> historial_previo;
+        // Comunes
+        public string categoria;
+        public int nivel_riesgo;
+        public bool es_mensaje_riesgo;
+        public string mensaje_npc;
+        public List<string> etiquetas_ml;
+        public List<OpcionBancoDto> opciones;
     }
 
     /// <summary>Opcion de respuesta que se envia (NO incluye id; el backend lo genera).</summary>
