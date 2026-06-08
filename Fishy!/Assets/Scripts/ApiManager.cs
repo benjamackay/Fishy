@@ -134,6 +134,22 @@ namespace Fishy.Net
         {
             Token = res.token;
             UsuarioId = res.usuario_id;
+            // Importante: una autenticación nueva pertenece (potencialmente) a otro
+            // usuario, así que descartamos la partida/NPC/chat de la sesión anterior.
+            // Si no lo hiciéramos, podríamos usar una PartidaId que pertenece a otro
+            // usuario → el backend devolvería 404 (get_object_or_404 con usuario=request.user).
+            ResetSessionState();
+        }
+
+        /// <summary>
+        /// Limpia el estado de la sesión de juego (partida, npc, chat) sin tocar
+        /// el token. Se llama tras autenticarse para no arrastrar IDs de otro usuario.
+        /// </summary>
+        public void ResetSessionState()
+        {
+            PartidaId = null;
+            NpcId = null;
+            ChatId = null;
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -390,6 +406,7 @@ namespace Fishy.Net
 
             Token = NewLocalToken();
             UsuarioId = seq;
+            ResetSessionState();
             if (verboseLogs) Debug.Log($"[API-LOCAL] Registro '{nombre}' (id={seq}).");
             onSuccess?.Invoke();
         }
@@ -404,6 +421,7 @@ namespace Fishy.Net
             }
             Token = NewLocalToken();
             UsuarioId = PlayerPrefs.GetInt("fishy.userid." + nombre, 1);
+            ResetSessionState();
             if (verboseLogs) Debug.Log($"[API-LOCAL] Login '{nombre}' (id={UsuarioId}).");
             onSuccess?.Invoke();
         }
