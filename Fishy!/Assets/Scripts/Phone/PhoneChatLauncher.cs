@@ -30,6 +30,8 @@ namespace Fishy.Phone
             ZonaChatSimulado,
             /// <summary>Conversaciones asignadas manualmente en el Inspector.</summary>
             ConversacionesAsignadas,
+            /// <summary>Un único NPC de HDU-2 identificado por <see cref="PhoneChatLauncher.npcId"/>.</summary>
+            SoloNpc,
             /// <summary>Alias legacy — equivale a ZonaDesconocidos.</summary>
             ZonaDesconocidosPorDefecto = ZonaDesconocidos,
         }
@@ -39,6 +41,8 @@ namespace Fishy.Phone
         public Source source = Source.ZonaDesconocidos;
         [Tooltip("Conversaciones a usar cuando source = ConversacionesAsignadas.")]
         public List<ChatConversation> conversaciones = new List<ChatConversation>();
+        [Tooltip("ID del NPC cuando source = SoloNpc. Ej: 'NPC_01' (Alex) o 'NPC_02' (Valen).")]
+        public string npcId = "NPC_01";
 
         // ── Referencias opcionales ─────────────────────────────────────────────
         [Header("Referencias (se buscan si quedan vacías)")]
@@ -172,6 +176,9 @@ namespace Fishy.Phone
             {
                 case Source.ConversacionesAsignadas when conversaciones != null && conversaciones.Count > 0:
                     return conversaciones;
+
+                case Source.SoloNpc:
+                    return BancoPreguntasLoader.CreateHDU2ConversationForNpc(npcId);
 
                 case Source.ZonaChatSimulado:
                     return ChatDefaultConversations.CreateZonaChatSimulado();
