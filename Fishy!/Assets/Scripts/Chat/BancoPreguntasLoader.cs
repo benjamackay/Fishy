@@ -86,6 +86,22 @@ namespace Fishy.Chat
         public static List<ChatConversation> CreatePhoneConversations()
             => CreateHDU2Conversations();
 
+        /// <summary>
+        /// Retorna la <see cref="ChatConversation"/> de un único NPC de HDU-2.
+        /// Útil cuando cada zona del mapa activa solo una conversación (p.ej. "NPC_01" o "NPC_02").
+        /// </summary>
+        public static List<ChatConversation> CreateHDU2ConversationForNpc(string npcId)
+        {
+            var banco  = Load();
+            var byNpc  = GroupByNpc(banco.preguntas);
+            var result = new List<ChatConversation>();
+            if (byNpc.TryGetValue(npcId, out var preguntas))
+                result.Add(BuildConversationFromPreguntas(npcId, preguntas, "desconocidos"));
+            else
+                Debug.LogWarning($"[BancoPreguntasLoader] No se encontró el NPC '{npcId}' en HDU-2.");
+            return result;
+        }
+
         // ── Agrupación ─────────────────────────────────────────────────────────
         private static Dictionary<string, List<PreguntaBanco>> GroupByNpc(List<PreguntaBanco> all)
         {
