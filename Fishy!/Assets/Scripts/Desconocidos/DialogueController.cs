@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Fishy.World;
+using Fishy.Net;
 
 namespace Fishy.Desconocidos
 {
@@ -64,11 +65,25 @@ namespace Fishy.Desconocidos
 
             ui = DialogueUI.GetOrCreate();
             logger = new GroomingChatLogger();
-            if (npc != null && npc.reportToBackend)
+            // Se registra en el backend si el NPC lo pide explícitamente o si hay
+            // una sesión activa (login + partida). Así las respuestas se guardan
+            // automáticamente sin tener que marcar nada en el inspector.
+            bool report = (npc != null && npc.reportToBackend) || AutoReportEnabled();
+            if (report)
                 logger.Begin(dlg.npcName, dlg.area, dlg.categoriaRiesgo);
 
             firstLine = true;
             EnterNode(dlg.startNodeId);
+        }
+
+        /// <summary>
+        /// True si hay un ApiManager con sesión y partida activa: en ese caso
+        /// guardamos las respuestas en el backend automáticamente.
+        /// </summary>
+        private static bool AutoReportEnabled()
+        {
+            var api = ApiManager.Instance;
+            return api != null && api.IsLoggedIn && api.PartidaId.HasValue;
         }
 
         private void EnterNode(string nodeId)
@@ -97,11 +112,15 @@ namespace Fishy.Desconocidos
             switch (node.kind)
             {
                 case DialogueNodeKind.EndSuccess:
+                    // Resultado estructurado en BD: el niño/a se mantuvo a salvo.
+                    logger.LogOutcome(true);
                     logger.LogEnd(node.npcLine);
                     ui.SetContinue("Cerrar", () => EndConversation(true));
                     return;
 
                 case DialogueNodeKind.EndCaptured:
+                    // Resultado estructurado en BD: el niño/a fue manipulado (captura).
+                    logger.LogOutcome(false);
                     // Cierre educativo antes de terminar.
                     ui.SetContinue("Continuar", () =>
                     {

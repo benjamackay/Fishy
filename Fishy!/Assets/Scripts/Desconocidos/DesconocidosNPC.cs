@@ -106,7 +106,15 @@ namespace Fishy.Desconocidos
             }
 
             if (firstTime)
-                ZonaDesconocidosManager.Instance?.NotifyNpcFinished(this, refusedSuccessfully);
+            {
+                if (ZonaDesconocidosManager.Instance != null)
+                    ZonaDesconocidosManager.Instance.NotifyNpcFinished(this, refusedSuccessfully);
+                else
+                    Debug.LogWarning($"[DesconocidosNPC] '{NpcName}' terminó, pero NO hay un " +
+                                     "ZonaDesconocidosManager en la escena: nadie llevará la cuenta " +
+                                     "ni desbloqueará la siguiente zona. Crea un GameObject vacío con " +
+                                     "ese componente (o usa el menú Fishy → Configurar Zona Desconocidos).");
+            }
         }
 
         private IEnumerator LeaveRoutine()

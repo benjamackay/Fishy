@@ -82,6 +82,85 @@ namespace Fishy.World
             overlay.enabled = visible;
         }
 
+        // ── Accesores para la cinemática de desbloqueo ─────────────────────────
+        /// <summary>SpriteRenderer que oscurece la zona (puede ser null).</summary>
+        public SpriteRenderer Overlay => overlay;
+
+        /// <summary>Opacidad del oscurecido cuando está bloqueada.</summary>
+        public float DarkenAlpha => darkenAlpha;
+
+        /// <summary>Centro del área de la zona en el mundo (para enfocar la cámara).</summary>
+        public Vector2 WorldCenter
+        {
+            get
+            {
+                if (overlay != null) return overlay.bounds.center;
+                if (colliders == null) colliders = GetComponentsInChildren<Collider2D>();
+                foreach (var c in colliders)
+                    if (c != null) return c.bounds.center;
+                return transform.position;
+            }
+        }
+
+        /// <summary>Tamaño del área en el mundo (para encuadrar). Vector2.zero si no se puede medir.</summary>
+        public Vector2 WorldSize
+        {
+            get
+            {
+                if (overlay != null) return overlay.bounds.size;
+                if (colliders == null) colliders = GetComponentsInChildren<Collider2D>();
+                foreach (var c in colliders)
+                    if (c != null) return c.bounds.size;
+                return Vector2.zero;
+            }
+        }
+
+        /// <summary>Ajusta la opacidad del oscurecido (para animar el desbloqueo).</summary>
+        public void SetOverlayAlpha(float a)
+        {
+            if (overlay == null) return;
+            var c = overlay.color;
+            c.a = a;
+            overlay.color = c;
+            overlay.enabled = a > 0.001f;
+        }
+
+        /// <summary>
+        /// (Editor) Escala y centra el overlay para cubrir exactamente el área del
+        /// collider sólido. Útil tras cambiar el tamaño del BoxCollider2D:
+        /// clic derecho en el componente → "Ajustar overlay al collider".
+        /// </summary>
+        [ContextMenu("Ajustar overlay al collider")]
+        public void FitOverlayToCollider()
+        {
+            if (overlay == null || overlay.sprite == null) return;
+
+            // Tamaño objetivo: preferir BoxCollider2D (válido también en edit mode).
+            Vector2 target;
+            Vector3 center;
+            var box = GetComponentInChildren<BoxCollider2D>();
+            if (box != null)
+            {
+                var ls = box.transform.lossyScale;
+                target = new Vector2(box.size.x * Mathf.Abs(ls.x), box.size.y * Mathf.Abs(ls.y));
+                center = box.transform.TransformPoint(box.offset);
+            }
+            else
+            {
+                var col = GetComponentInChildren<Collider2D>();
+                if (col == null) return;
+                target = col.bounds.size;
+                center = col.bounds.center;
+            }
+
+            Vector2 spriteSize = overlay.sprite.bounds.size;
+            if (spriteSize.x <= 0f || spriteSize.y <= 0f) return;
+
+            overlay.transform.position = new Vector3(center.x, center.y, overlay.transform.position.z);
+            overlay.transform.localScale = new Vector3(
+                target.x / spriteSize.x, target.y / spriteSize.y, 1f);
+        }
+
         /// <summary>Desbloquea la zona: Otto ya puede entrar y desaparece el oscurecido.</summary>
         public void Unlock()
         {
