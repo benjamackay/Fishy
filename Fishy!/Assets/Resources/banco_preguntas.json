@@ -41,6 +41,26 @@
   "preguntas": [
 
     {
+      "id": "HDU2_NPC01_F1_Q00",
+      "hdu": "HDU-2",
+      "zona": "desconocidos",
+      "npc_id": "NPC_01",
+      "npc_nombre": "Alex",
+      "npc_avatar": "npc_gamer_01",
+      "fase": 1,
+      "orden_en_fase": 0,
+      "categoria": "neutral",
+      "nivel_riesgo": 0,
+      "es_mensaje_riesgo": false,
+      "es_fin_de_npc": false,
+      "es_fin_de_zona": false,
+      "mensaje_npc": "hola! soy Alex, llevas mucho en este server?",
+      "etiquetas_ml": ["saludo"],
+      "opciones_respuesta": [],
+      "narrativa_continuacion": "HDU2_NPC01_F1_Q01"
+    },
+
+    {
       "id": "HDU2_NPC01_F1_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
@@ -54,7 +74,7 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "hola! soy Alex, llevas mucho en este server? te vi jugando y pareces muy bueno, llevo meses buscando a alguien copado con quien armar equipo",
+      "mensaje_npc": "te vi jugando y pareces muy bueno, llevo meses buscando a alguien copado con quien armar equipo",
       "etiquetas_ml": ["saludo", "halago", "propuesta_amistad"],
       "opciones_respuesta": [
         {
@@ -351,6 +371,26 @@
     },
 
     {
+      "id": "HDU2_NPC02_F1_Q00",
+      "hdu": "HDU-2",
+      "zona": "desconocidos",
+      "npc_id": "NPC_02",
+      "npc_nombre": "Valen",
+      "npc_avatar": "npc_nueva_01",
+      "fase": 1,
+      "orden_en_fase": 0,
+      "categoria": "neutral",
+      "nivel_riesgo": 0,
+      "es_mensaje_riesgo": false,
+      "es_fin_de_npc": false,
+      "es_fin_de_zona": false,
+      "mensaje_npc": "hola... soy Valen, llegué nueva a un colegio acá y no conozco a nadie todavía.",
+      "etiquetas_ml": ["saludo", "empatia_falsa"],
+      "opciones_respuesta": [],
+      "narrativa_continuacion": "HDU2_NPC02_F1_Q01"
+    },
+
+    {
       "id": "HDU2_NPC02_F1_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
@@ -364,7 +404,7 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "hola... soy Valen, llegué nueva a un colegio acá y no conozco a nadie todavía. eres simpático/a, me dejas hablar contigo un rato?",
+      "mensaje_npc": "eres simpático/a, me dejas hablar contigo un rato?",
       "etiquetas_ml": ["empatia_falsa", "aislamiento_simulado"],
       "opciones_respuesta": [
         {
