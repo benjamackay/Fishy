@@ -59,6 +59,17 @@ namespace Fishy.Desconocidos
             => Enqueue(() => ApiManager.Instance.RegistrarRespuestaJugador(
                 texto, calidad, preguntaBancoId));
 
+        /// <summary>
+        /// Registra el desenlace de la interacción actualizando la confianza del NPC
+        /// en el backend: <c>0</c> = el niño/a NO compartió datos (a salvo),
+        /// <c>100</c> = fue manipulado hasta el final (captura).
+        ///
+        /// Como estos NPCs son los gatillantes para abrir otras zonas, esto deja un
+        /// registro estructurado y consultable del resultado de cada interacción.
+        /// </summary>
+        public void LogOutcome(bool success)
+            => Enqueue(() => ApiManager.Instance.ActualizarConfianzaNPC(success ? 0 : 100));
+
         public void LogEnd(string mensajeCierre = "")
             => Enqueue(() => ApiManager.Instance.FinalizarChat(mensajeCierre));
 

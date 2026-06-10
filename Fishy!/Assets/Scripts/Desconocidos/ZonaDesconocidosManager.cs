@@ -27,6 +27,11 @@ namespace Fishy.Desconocidos
         public string siguienteZonaId = "";
         [Tooltip("Progreso (0-100) a fijar en la partida del backend al completar. <0 = no actualizar.")]
         public float progresoAlCompletar = -1f;
+        [Tooltip("Mostrar la cinemática (zoom a la zona bloqueada + animación de desbloqueo).")]
+        public bool mostrarCinematicaDesbloqueo = true;
+        [TextArea]
+        [Tooltip("Texto del cartel que aparece durante la cinemática de desbloqueo.")]
+        public string mensajeDesbloqueo = "✨ ¡Nueva zona desbloqueada!";
 
         [Tooltip("Evento disparado una sola vez cuando se completa la temática.")]
         public UnityEvent onTematicaCompletada;
@@ -55,6 +60,13 @@ namespace Fishy.Desconocidos
             if (Completed) return;
             if (npc != null) finished.Add(npc);
 
+            // Log de avance para depurar la detección (cuántos van / cuántos faltan).
+            int done = 0;
+            foreach (var n in npcs)
+                if (n != null && n.Finished) done++;
+            Debug.Log($"[ZonaDesconocidos] NPC '{(npc != null ? npc.NpcName : "?")}' terminado " +
+                      $"(éxito={success}). Avance: {done}/{npcs.Count} NPCs.");
+
             if (AllFinished())
                 CompleteTheme();
         }
@@ -70,18 +82,46 @@ namespace Fishy.Desconocidos
         private void CompleteTheme()
         {
             Completed = true;
-            Debug.Log("[ZonaDesconocidos] Temática completada. Se habilita la siguiente zona.");
+
+            // Resumen de los desenlaces (cada NPC es un gatillante de zona).
+            int aSalvo = 0, capturas = 0;
+            foreach (var npc in npcs)
+            {
+                if (npc == null) continue;
+                if (npc.WasSuccessful) aSalvo++; else capturas++;
+            }
+            Debug.Log($"[ZonaDesconocidos] Temática completada (a salvo={aSalvo}, capturas={capturas}). " +
+                      "Se habilita la siguiente zona.");
 
             // Habilita el acceso a la siguiente temática en el mapa (HDU-5).
             if (!string.IsNullOrEmpty(siguienteZonaId) && WorldZoneManager.Instance != null)
-                WorldZoneManager.Instance.UnlockZone(siguienteZonaId);
-
-            // Persiste el progreso en el backend (best-effort).
-            if (progresoAlCompletar >= 0f && ApiManager.Instance != null &&
-                ApiManager.Instance.IsLoggedIn && ApiManager.Instance.PartidaId != null)
             {
-                ApiManager.Instance.ActualizarPartida(progreso: progresoAlCompletar,
-                    onError: e => Debug.LogWarning($"[ZonaDesconocidos] No se pudo actualizar progreso: {e}"));
+                var zona = WorldZoneManager.Instance.GetZone(siguienteZonaId);
+                if (zona != null && mostrarCinematicaDesbloqueo)
+                    // Zoom a la zona oscurecida + animación de desbloqueo, luego vuelve a Otto.
+                    ZoneUnlockCinematic.GetOrCreate().Play(zona, mensajeDesbloqueo);
+                else
+                    // Sin cinemática (o zona no encontrada): desbloqueo directo.
+                    WorldZoneManager.Instance.UnlockZone(siguienteZonaId);
+            }
+
+            // Persiste el avance en el backend: deja en la BD el registro de que esta
+            // temática-gatillante se completó (best-effort, no bloquea el juego).
+            if (ApiManager.Instance != null && ApiManager.Instance.IsLoggedIn &&
+                ApiManager.Instance.PartidaId != null)
+            {
+                if (progresoAlCompletar >= 0f)
+                {
+                    ApiManager.Instance.ActualizarPartida(progreso: progresoAlCompletar,
+                        onSuccess: _ => Debug.Log($"[ZonaDesconocidos] Progreso {progresoAlCompletar} guardado en la partida."),
+                        onError:   e => Debug.LogWarning($"[ZonaDesconocidos] No se pudo actualizar progreso: {e}"));
+                }
+                else
+                {
+                    Debug.LogWarning("[ZonaDesconocidos] 'progresoAlCompletar' no está configurado (<0): " +
+                                     "el desbloqueo no quedará reflejado en el progreso de la partida. " +
+                                     "Asigna un valor 0-100 por zona para registrarlo en la BD.");
+                }
             }
 
             onTematicaCompletada?.Invoke();

@@ -6,12 +6,17 @@ namespace Fishy.Desconocidos
     /// <summary>
     /// Guiones de grooming listos para usar (HDU-2). Permiten tener contenido
     /// funcional sin tener que crear assets a mano. Cada NPC tiene varias fases
-    /// que escalan: halago/confianza → temas neutros (discreto) → datos personales
-    /// → propuesta de secreto/encuentro a solas.
+    /// que escalan: halago/confianza → datos personales → propuesta de
+    /// secreto/encuentro a solas.
     ///
     /// Reglas implementadas (criterios de aceptación):
-    ///  • Si el niño/a NO comparte datos en cualquier punto → el NPC se aleja y se
-    ///    marca el éxito (nodo EndSuccess).
+    ///  • FASE DE CONFIANZA (primeros nodos): el NPC solo halaga y conversa para
+    ///    "ganar confianza". Aquí NO se puede cortar la conversación: todas las
+    ///    respuestas continúan el diálogo (así el niño/a aprende que el peligro no
+    ///    está en el saludo amistoso, sino en lo que viene después).
+    ///  • FASE DE RIESGO (a partir de que pide datos): recién aquí aparece la opción
+    ///    de negarse. Si el niño/a NO comparte datos → el NPC se aleja y se marca el
+    ///    éxito (nodo EndSuccess).
     ///  • Si comparte → el NPC sigue siendo amistoso y pide datos cada vez más
     ///    específicos (nombre → colegio/edad → dirección/rutina → encuentro).
     /// </summary>
@@ -34,18 +39,20 @@ namespace Fishy.Desconocidos
             d.startNodeId = "a0";
             d.nodes = new List<DialogueNode>
             {
+                // ── Fase de confianza: solo conversa, no se puede cortar todavía ──
                 Node("a0", DialogueNodeKind.Flattery,
                     "¡Hola! 🦦 Qué crack juegas. Soy Alex, tengo 11 igual que tú, seguro 😄.",
                     fakeInfo: true,
-                    Choice("Hola 👋", ResponseQuality.Neutral, false, "a1"),
-                    Choice("No hablo con desconocidos.", ResponseQuality.Buena, false, "fin_exito")),
+                    Choice("¡Hola! 👋", ResponseQuality.Neutral, false, "a1"),
+                    Choice("Gracias, llevo tiempo jugando 🎮", ResponseQuality.Neutral, false, "a1")),
 
-                Node("a1", DialogueNodeKind.Neutral,
-                    "¿Te gusta venir a este bosque? Yo me conecto siempre al salir del cole.",
+                Node("a1", DialogueNodeKind.Flattery,
+                    "¡Se nota! Me caes súper bien 😎. Casi nadie juega tan bien como tú, deberíamos ser amigos.",
                     fakeInfo: false,
-                    Choice("Sí, está entretenido.", ResponseQuality.Neutral, false, "a2"),
-                    Choice("Prefiero no contarte cosas mías.", ResponseQuality.Buena, false, "fin_exito")),
+                    Choice("Jeje, bueno 🙂", ResponseQuality.Neutral, false, "a2"),
+                    Choice("Me gusta jugar en equipo.", ResponseQuality.Neutral, false, "a2")),
 
+                // ── Fase de riesgo: aquí SÍ aparece la opción de negarse ──────────
                 Node("a2", DialogueNodeKind.RequestData,
                     "Oye, ¿y cómo te llamas de verdad? Así te agrego 😊",
                     fakeInfo: false,
@@ -82,20 +89,22 @@ namespace Fishy.Desconocidos
             d.startNodeId = "s0";
             d.nodes = new List<DialogueNode>
             {
+                // ── Fase de confianza: solo conversa, no se puede cortar todavía ──
                 Node("s0", DialogueNodeKind.Flattery,
-                    "¡Ey! Eres buenísimo en este juego 🤩. Soy Sam y tengo skins que nadie tiene. Te regalo una si quieres.",
+                    "¡Ey! Eres buenísimo en este juego 🤩. Soy Sam y tengo skins que nadie tiene.",
                     fakeInfo: true,
                     Choice("¿En serio? 😮", ResponseQuality.Neutral, false, "s1"),
-                    Choice("No, gracias. No hablo con desconocidos.", ResponseQuality.Buena, false, "fin_exito")),
+                    Choice("¡Gracias! 😄", ResponseQuality.Neutral, false, "s1")),
 
-                Node("s1", DialogueNodeKind.Neutral,
-                    "Claro, regalo cosas a mis amigos. ¿A qué hora sueles conectarte para coincidir?",
+                Node("s1", DialogueNodeKind.Flattery,
+                    "¡Claro! Regalo cosas a mis amigos, y tú juegas tan bien que ya te considero uno 😎.",
                     fakeInfo: false,
-                    Choice("Juego en las tardes.", ResponseQuality.Mala, true, "s2"),
-                    Choice("No te digo mis horarios.", ResponseQuality.Buena, false, "fin_exito")),
+                    Choice("Qué buena onda 🙂", ResponseQuality.Neutral, false, "s2"),
+                    Choice("Me encantan las skins 🎮", ResponseQuality.Neutral, false, "s2")),
 
+                // ── Fase de riesgo: aquí SÍ aparece la opción de negarse ──────────
                 Node("s2", DialogueNodeKind.RequestData,
-                    "Bacán 😉 ¿Y cómo te llamas y cuántos años tienes?",
+                    "Para regalarte la skin necesito agregarte. ¿Cómo te llamas y cuántos años tienes?",
                     fakeInfo: false,
                     Choice("Le digo mi nombre y mi edad.", ResponseQuality.Mala, true, "s3"),
                     Choice("Eso es información privada.", ResponseQuality.Buena, false, "fin_exito")),

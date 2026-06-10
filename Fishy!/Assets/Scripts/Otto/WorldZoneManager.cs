@@ -47,6 +47,15 @@ namespace Fishy.World
             }
         }
 
+        /// <summary>Devuelve la <see cref="BlockedZone"/> con ese zoneId, o null si no existe.</summary>
+        public BlockedZone GetZone(string zoneId)
+        {
+            foreach (var rule in zones)
+                if (rule.zone != null && rule.zone.zoneId == zoneId)
+                    return rule.zone;
+            return null;
+        }
+
         /// <summary>Desbloquea una zona concreta por su <see cref="BlockedZone.zoneId"/>.</summary>
         public bool UnlockZone(string zoneId)
         {
