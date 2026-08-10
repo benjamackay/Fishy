@@ -54,15 +54,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "juego_backend.wsgi.application"
 
-# ─── Base de datos ─────────────────────────────────────────────────────────────
+# ─── Base de datos (Supabase / Postgres) ───────────────────────────────────────
+# Credenciales por variables de entorno (ver Backend/.env.example).
+# Supabase EXIGE SSL, por eso sslmode=require.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "juego_db"),
-        "USER": os.environ.get("DB_USER", "juego_user"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "supersecreta"),
+        "NAME": os.environ.get("DB_NAME", "postgres"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", "5432"),
+        "OPTIONS": {"sslmode": os.environ.get("DB_SSLMODE", "require")},
     }
 }
 
