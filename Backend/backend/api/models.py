@@ -316,3 +316,64 @@ class OpcionBanco(models.Model):
         verbose_name = "Opción Banco"
         verbose_name_plural = "Opciones Banco"
         ordering = ["orden"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONTROL PARENTAL  (modelo de usuarios nuevo — FASE 1)
+#
+# En esta fase solo se crean las tablas con relaciones correctas; el flujo del
+# juego sigue usando `Usuario`/`Partida.usuario`. En la Fase 2 estos modelos se
+# cablean: `AdultoResponsable` pasa a ser el AUTH_USER_MODEL (login, con hashing
+# de contraseña) y `Partida` colgará de `UsuarioJugador` en vez de `Usuario`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AdultoResponsable(models.Model):
+    """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
+    nombre           = models.CharField(max_length=150)
+    apellido         = models.CharField(max_length=150, blank=True)
+    email            = models.EmailField(unique=True)
+    edad             = models.PositiveSmallIntegerField(null=True, blank=True)
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+    fecha_creacion   = models.DateTimeField(auto_now_add=True)
+    # NOTA: el login/contraseña (con hashing) se implementa en la Fase 2, cuando
+    # este modelo se convierta en el AUTH_USER_MODEL. No guardar password en claro.
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellido}".strip()
+
+    class Meta:
+        verbose_name = "Adulto Responsable"
+        verbose_name_plural = "Adultos Responsables"
+
+
+class UsuarioJugador(models.Model):
+    """Perfil del menor que juega, gestionado por un AdultoResponsable."""
+    adulto         = models.ForeignKey(
+        AdultoResponsable,
+        on_delete=models.CASCADE,
+        related_name="jugadores"
+    )
+    nombre         = models.CharField(max_length=150)
+    edad           = models.PositiveSmallIntegerField(null=True, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Usuario Jugador"
+        verbose_name_plural = "Usuarios Jugadores"
+
+
+class Zona(models.Model):
+    """Zona del mapa. Base para el cálculo de riesgo por zona (ver HDU riesgo)."""
+    nombre         = models.CharField(max_length=100, unique=True)
+    descripcion    = models.TextField(blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Zona"
+        verbose_name_plural = "Zonas"
