@@ -57,6 +57,14 @@ WSGI_APPLICATION = "juego_backend.wsgi.application"
 # ─── Base de datos (Supabase / Postgres) ───────────────────────────────────────
 # Credenciales por variables de entorno (ver Backend/.env.example).
 # Supabase EXIGE SSL, por eso sslmode=require.
+#
+# DB_CONN_MAX_AGE: Supabase está en la nube, así que abrir la conexión cuesta
+# ~500 ms (handshake TLS) mientras que una consulta ya conectado cuesta ~65 ms.
+# Reutilizar la conexión ahorra esos ~500 ms por request, PERO solo sirve con un
+# servidor de workers persistentes (gunicorn/uwsgi). Con `runserver` —que crea un
+# hilo nuevo por request— no se reutiliza nada y encima las conexiones quedan
+# colgando, y Supabase solo permite 60. Por eso el default es 0 (desactivado):
+# actívalo (ej. 600) solo al desplegar con gunicorn.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -65,6 +73,8 @@ DATABASES = {
         "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "0")),
+        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {"sslmode": os.environ.get("DB_SSLMODE", "require")},
     }
 }

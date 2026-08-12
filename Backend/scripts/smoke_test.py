@@ -1,0 +1,178 @@
+r"""Smoke test end-to-end del backend contra Supabase.
+
+Recorre el mismo flujo que hace Unity (ApiManager): health, registro, login,
+partida, NPC, chat, mensajes, banco de preguntas, y comprueba que un usuario no
+pueda ver los datos de otro. Al final borra los datos de prueba que creó.
+
+Uso (con el servidor corriendo en otra terminal):
+    .\.venv\Scripts\python .\scripts\smoke_test.py
+    .\.venv\Scripts\python .\scripts\smoke_test.py --base http://127.0.0.1:8000/api
+    .\.venv\Scripts\python .\scripts\smoke_test.py --no-limpiar   (deja los datos)
+
+Sale con código 1 si alguna comprobación falla.
+"""
+import argparse
+import json
+import sys
+import time
+import urllib.error
+import urllib.request
+
+PWD = "clave-de-prueba-123"
+
+ok_count = 0
+fail_count = 0
+base_url = ""
+
+
+def req(metodo, ruta, body=None, token=None, espera=200):
+    """Hace una request y comprueba el código de estado. Devuelve el JSON."""
+    global ok_count, fail_count
+    data = json.dumps(body).encode() if body is not None else None
+    r = urllib.request.Request(base_url + ruta, data=data, method=metodo)
+    r.add_header("Content-Type", "application/json")
+    if token:
+        r.add_header("Authorization", f"Token {token}")
+
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(r, timeout=30) as resp:
+            code, raw = resp.status, resp.read().decode()
+    except urllib.error.HTTPError as e:
+        code, raw = e.code, e.read().decode()
+    except urllib.error.URLError as e:
+        print(f"\n  No se pudo conectar a {base_url}: {e.reason}")
+        print("  ¿Está corriendo el servidor? -> manage.py runserver")
+        sys.exit(1)
+    ms = (time.time() - t0) * 1000
+
+    try:
+        payload = json.loads(raw) if raw else None
+    except json.JSONDecodeError:
+        payload = raw[:200]
+
+    if code == espera:
+        ok_count += 1
+        marca = "OK   "
+    else:
+        fail_count += 1
+        marca = "FALLA"
+    print(f"  [{marca}] {metodo:6s} {ruta:45s} -> {code} (esperado {espera}) {ms:6.0f} ms")
+    if code != espera:
+        print(f"          respuesta: {str(payload)[:300]}")
+    return payload
+
+
+def main():
+    global base_url
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base", default="http://127.0.0.1:8000/api",
+                        help="URL base de la API")
+    parser.add_argument("--no-limpiar", action="store_true",
+                        help="no borrar los datos de prueba al terminar")
+    args = parser.parse_args()
+    base_url = args.base.rstrip("/")
+
+    sufijo = str(int(time.time()))
+    user_a, user_b = f"smoke_a_{sufijo}", f"smoke_b_{sufijo}"
+
+    print("=" * 78)
+    print(f"SMOKE TEST END-TO-END  ·  {base_url}")
+    print("=" * 78)
+
+    print("\n-- Salud y seguridad --")
+    req("GET", "/health/", espera=200)
+    req("GET", "/partidas/1/", espera=401)                      # sin token
+    req("GET", "/banco/preguntas/", token="token-basura", espera=401)
+
+    print("\n-- Auth --")
+    reg = req("POST", "/auth/registro/", {"nombre": user_a, "password": PWD}, espera=201)
+    tok_a = reg["token"]
+    login = req("POST", "/auth/login/", {"nombre": user_a, "password": PWD}, espera=200)
+    if login["token"] != tok_a:
+        print("  [FALLA] el token de login no coincide con el de registro")
+    req("POST", "/auth/login/", {"nombre": user_a, "password": "clave-mala"}, espera=401)
+
+    print("\n-- Partida (HDU-2) --")
+    pid = req("POST", "/partidas/", {"progreso": 0}, token=tok_a, espera=201)["id"]
+    req("GET", f"/partidas/{pid}/", token=tok_a, espera=200)
+    req("PATCH", f"/partidas/{pid}/", {"progreso": 42.5}, token=tok_a, espera=200)
+
+    print("\n-- NPC (HDU-2) --")
+    nid = req("POST", f"/partidas/{pid}/npcs/",
+              {"nombre": "Alex", "area": "plaza", "tipo": "neutral", "confianza": 0},
+              token=tok_a, espera=201)["id"]
+    req("GET", f"/partidas/{pid}/npcs/", token=tok_a, espera=200)
+    req("PATCH", f"/npcs/{nid}/", {"confianza": 3}, token=tok_a, espera=200)
+
+    print("\n-- Chat (HDU-8) --")
+    cid = req("POST", "/chats/",
+              {"partida_id": pid, "npc_id": nid, "categoria_riesgo": "grooming"},
+              token=tok_a, espera=201)["id"]
+    req("POST", f"/chats/{cid}/mensajes/registrar/",
+        {"tipo": "start", "respuesta": "Hola!"}, token=tok_a, espera=201)
+    req("POST", f"/chats/{cid}/mensajes/registrar/",
+        {"tipo": "request", "respuesta": "No le doy mis datos",
+         "calidad_respuesta": "buena", "pregunta_banco_id": "HDU2_NPC01_F2_Q01",
+         "posibles_respuestas": [
+             {"texto": "Le doy mi direccion", "orden": 0, "calidad_respuesta": "mala"},
+             {"texto": "No le doy mis datos", "orden": 1, "calidad_respuesta": "buena"},
+         ]},
+        token=tok_a, espera=201)
+    msgs = req("GET", f"/chats/{cid}/mensajes/", token=tok_a, espera=200)
+    print(f"          -> {len(msgs)} mensajes, "
+          f"{sum(len(m['posibles_respuestas']) for m in msgs)} posibles respuestas")
+    req("POST", f"/chats/{cid}/finalizar/", {"respuesta": "fin"}, token=tok_a, espera=200)
+    # Un chat cerrado no debe aceptar más mensajes
+    req("POST", f"/chats/{cid}/mensajes/registrar/",
+        {"tipo": "start", "respuesta": "tarde"}, token=tok_a, espera=400)
+
+    print("\n-- Banco de preguntas --")
+    todas = req("GET", "/banco/preguntas/", token=tok_a, espera=200)
+    print(f"          -> {len(todas)} preguntas, "
+          f"{sum(len(p['opciones']) for p in todas)} opciones")
+    req("GET", "/banco/preguntas/?zona=desconocidos", token=tok_a, espera=200)
+    req("GET", "/banco/preguntas/?solo_riesgo=true", token=tok_a, espera=200)
+    if todas:
+        req("GET", f"/banco/preguntas/{todas[0]['pregunta_id']}/", token=tok_a, espera=200)
+
+    print("\n-- Aislamiento entre usuarios (B no debe ver nada de A) --")
+    tok_b = req("POST", "/auth/registro/", {"nombre": user_b, "password": PWD},
+                espera=201)["token"]
+    req("GET", f"/partidas/{pid}/", token=tok_b, espera=404)
+    req("GET", f"/partidas/{pid}/npcs/", token=tok_b, espera=404)
+    req("PATCH", f"/npcs/{nid}/", {"confianza": 99}, token=tok_b, espera=404)
+    req("GET", f"/chats/{cid}/mensajes/", token=tok_b, espera=404)
+    req("POST", f"/chats/{cid}/mensajes/registrar/",
+        {"tipo": "start", "respuesta": "x"}, token=tok_b, espera=404)
+
+    if not args.no_limpiar:
+        print("\n-- Limpieza --")
+        limpiar([user_a, user_b])
+    else:
+        print(f"\n  Datos de prueba conservados: usuarios {user_a}, {user_b}")
+
+    print("\n" + "=" * 78)
+    print(f"RESULTADO: {ok_count} OK, {fail_count} fallas")
+    print("=" * 78)
+    return 1 if fail_count else 0
+
+
+def limpiar(usuarios):
+    """Borra los usuarios de prueba (el cascade se lleva partidas, chats, etc.)."""
+    import os
+
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "..", "backend"))
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "juego_backend.settings")
+    import django
+
+    django.setup()
+    from api.models import Usuario
+
+    borrados = Usuario.objects.filter(nombre__in=usuarios).delete()
+    print(f"  Datos de prueba borrados: {borrados[0]} filas")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

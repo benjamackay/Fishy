@@ -97,13 +97,32 @@ Luego, en la misma sesión:
 .\.venv\Scripts\python .\backend\manage.py check
 .\.venv\Scripts\python .\backend\manage.py makemigrations --check --dry-run
 
-# 2. Salud del servidor: abrir http://127.0.0.1:8000/api/health/
-
-# 3. Flujo completo: correr en Postman (Postman/Fishy_API.postman_collection.json)
-#    Registro → Login → Crear Partida  (baseUrl = http://127.0.0.1:8000/api)
-
-# 4. Ver datos en Supabase → Table Editor (api_usuario, api_partida, ...)
+# 2. Con el servidor corriendo en otra terminal, el smoke test end-to-end:
+.\.venv\Scripts\python .\scripts\smoke_test.py
 ```
+
+`scripts/smoke_test.py` recorre el mismo flujo que hace Unity (health → registro
+→ login → partida → NPC → chat → mensajes → banco) contra Supabase, comprueba
+que un usuario **no** pueda ver los datos de otro, y borra los datos de prueba
+al terminar. Debe cerrar con `28 OK, 0 fallas`. Con `--no-limpiar` deja los datos
+para inspeccionarlos en Supabase → Table Editor.
+
+También está la colección de Postman (`Postman/Fishy_API.postman_collection.json`)
+para pruebas manuales, con `baseUrl = http://127.0.0.1:8000/api`.
+
+### Sobre la latencia
+
+Supabase está en la nube, así que **cada consulta paga ~65 ms de ida y vuelta** y
+abrir la conexión cuesta ~500 ms más. Como una request de la API hace varias
+consultas, lo normal es ver **600–800 ms por request**. No es un error.
+
+`DB_CONN_MAX_AGE` (en `.env`) reutiliza la conexión y ahorra esos ~500 ms, pero
+**solo funciona con un servidor de workers persistentes** (gunicorn). Con
+`runserver`, que crea un hilo nuevo por request, no sirve de nada y además deja
+conexiones colgando — y Supabase solo permite 60. Por eso viene en `0`.
+
+`registro` y `login` tardan bastante más (~2–5 s) por el hashing de la contraseña
+(PBKDF2, 1.5M iteraciones). Eso es **CPU local, no tiene que ver con Supabase**.
 
 Desde **Unity**: en el componente `ApiManager`, dejar `useLocalMode` **desactivado**
 y `baseUrl = http://127.0.0.1:8000/api`, y darle Play.
