@@ -10,7 +10,7 @@ Unity (ApiManager.cs)  ──HTTP + Token──▶  Backend Django (DRF)  ──
 ```
 
 - Unity **nunca** habla con la BD directamente: pasa por el backend, que se
-  autentica con un **Token** de usuario.
+  autentica con un **Token** del adulto responsable (ver *Modelo de datos*).
 - Solo Django se conecta a Supabase, con la **cadena de conexión de Postgres**
   (usuario/contraseña). **No se usa la API REST ni la anon key de Supabase.**
 - Por eso las tablas están **sin RLS** (Row Level Security) y es correcto: nadie
@@ -50,6 +50,46 @@ Backend/
    python -m venv .venv
    .venv/Scripts/python -m pip install -r backend/requirements.txt
    ```
+
+3. La BD compartida ya está migrada y con el banco cargado, así que **no hace
+   falta correr `migrate` ni `cargar_banco`** para empezar. Solo si vas a usar
+   el panel `/admin/` necesitas una cuenta (pide nombre, **email** y contraseña).
+   Carga antes el `.env` como se explica en *Cómo correr* — cualquier comando
+   `manage.py` necesita las credenciales en el entorno:
+   ```powershell
+   .\.venv\Scripts\python .\backend\manage.py createsuperuser
+   ```
+
+## Si ya tenías el repo antes de la Fase 2
+
+El commit *Cablear el modelo de control parental* cambió el modelo de usuarios y
+**reseteó las migraciones**. Después de hacer `pull`:
+
+1. **Reinstala las dependencias** — entró `argon2-cffi`, y sin él Django no
+   arranca:
+   ```powershell
+   .\.venv\Scripts\python -m pip install -r backend/requirements.txt
+   ```
+
+2. **Limpia los `.pyc` viejos de migraciones**. El pull borra los archivos
+   `0002..0006`, pero pueden quedar sus compilados:
+   ```powershell
+   Remove-Item -Recurse -Force .\backend\api\migrations\__pycache__
+   ```
+
+3. **No corras `migrate`**: la BD compartida ya fue reseteada y migrada el
+   2026-08-12. Comprueba que estás en sync — debe decir *No changes detected*:
+   ```powershell
+   .\.venv\Scripts\python .\backend\manage.py makemigrations --check --dry-run
+   ```
+
+4. **Tu cuenta vieja ya no existe.** El reset vació las tablas, así que hay que
+   registrarse de nuevo (y ahora el registro **exige email**). Los superusuarios
+   también hay que recrearlos con `createsuperuser`.
+
+> ⚠️ **Unity no conecta contra el backend real** hasta que se haga la Fase 3:
+> la API cambió de contrato (ver más abajo). El `useLocalMode` de `ApiManager`
+> sigue funcionando, así que se puede jugar y presentar sin backend.
 
 ## Cómo correr
 
@@ -101,11 +141,15 @@ Luego, en la misma sesión:
 .\.venv\Scripts\python .\scripts\smoke_test.py
 ```
 
-`scripts/smoke_test.py` recorre el mismo flujo que hace Unity (health → registro
-→ login → partida → NPC → chat → mensajes → banco) contra Supabase, comprueba
-que un usuario **no** pueda ver los datos de otro, y borra los datos de prueba
-al terminar. Debe cerrar con `28 OK, 0 fallas`. Con `--no-limpiar` deja los datos
-para inspeccionarlos en Supabase → Table Editor.
+`scripts/smoke_test.py` recorre el flujo completo contra Supabase (health →
+registro y login del adulto → perfiles de menores → partida → NPC → chat →
+mensajes → banco), comprueba que un adulto **no** pueda ver ni tocar los datos
+de otro, y borra los datos de prueba al terminar. Debe cerrar con
+`42 OK, 0 fallas`. Con `--no-limpiar` deja los datos para inspeccionarlos en
+Supabase → Table Editor.
+
+Si el smoke test empieza a fallar después de tocar la API, es que **cambió el
+contrato**: es su función avisarlo. Actualízalo junto con el cambio.
 
 También está la colección de Postman (`Postman/Fishy_API.postman_collection.json`)
 para pruebas manuales, con `baseUrl = http://127.0.0.1:8000/api`.
@@ -121,11 +165,17 @@ consultas, lo normal es ver **600–800 ms por request**. No es un error.
 `runserver`, que crea un hilo nuevo por request, no sirve de nada y además deja
 conexiones colgando — y Supabase solo permite 60. Por eso viene en `0`.
 
-`registro` y `login` tardan bastante más (~2–5 s) por el hashing de la contraseña
-(PBKDF2, 1.5M iteraciones). Eso es **CPU local, no tiene que ver con Supabase**.
+`registro` y `login` antes tardaban 2–5 s por el hashing de la contraseña
+(PBKDF2 con 1.5M iteraciones — CPU local, no Supabase). Desde la Fase 2 se usa
+**Argon2** (`PASSWORD_HASHERS` en `settings.py`) y bajaron a ~1,3 s y ~684 ms
+respectivamente, o sea prácticamente el piso de latencia de cualquier request.
+PBKDF2 queda de respaldo en la lista para poder validar contraseñas hasheadas
+antes del cambio: Django las rehashea sola en el primer login exitoso.
 
 Desde **Unity**: en el componente `ApiManager`, dejar `useLocalMode` **desactivado**
-y `baseUrl = http://127.0.0.1:8000/api`, y darle Play.
+y `baseUrl = http://127.0.0.1:8000/api`, y darle Play. ⚠️ Esto **no funciona
+hasta la Fase 3**: la API espera ahora un perfil de menor que `ApiManager`
+todavía no sabe pedir.
 
 ## Endpoints principales
 
@@ -167,6 +217,41 @@ adulto ni colgar una partida de un perfil ajeno.
 **Flujo típico del cliente:** `registro`/`login` → `GET /jugadores/` (o
 `POST /jugadores/` si es la primera vez) → elegir perfil →
 `POST /partidas/` con `usuario_jugador_id` → resto del juego igual que antes.
+
+### Probarlo a mano
+
+Con el servidor corriendo, los tres pasos que cambiaron respecto de la Fase 1:
+
+```bash
+# 1. Registro del adulto — el email ahora es obligatorio y único
+curl -X POST http://127.0.0.1:8000/api/auth/registro/ \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"papa_demo","email":"papa@ejemplo.cl","password":"clave1234"}'
+# → {"token":"abc123...","adulto_id":1}      ojo: adulto_id, ya no usuario_id
+
+# 2. Crear el perfil del menor (con el token del paso 1)
+curl -X POST http://127.0.0.1:8000/api/jugadores/ \
+  -H "Content-Type: application/json" -H "Authorization: Token abc123..." \
+  -d '{"nombre":"Benja","edad":9}'
+# → {"id":1,"adulto":1,"nombre":"Benja",...}
+
+# 3. Crear la partida colgada de ese perfil
+curl -X POST http://127.0.0.1:8000/api/partidas/ \
+  -H "Content-Type: application/json" -H "Authorization: Token abc123..." \
+  -d '{"usuario_jugador_id":1,"progreso":0}'
+```
+
+De ahí en adelante (NPCs, chats, mensajes, banco) todo funciona igual que antes,
+usando el `id` de la partida.
+
+**Errores esperables y qué significan:**
+
+| Respuesta | Causa |
+|---|---|
+| `400` en el registro | falta el email, o ya existe ese email/nombre |
+| `404` al crear partida | falta `usuario_jugador_id`, o el perfil es de otro adulto |
+| `400` al crear perfil | ya tienes otro perfil con ese mismo nombre |
+| `401` en todo | falta el header `Authorization: Token ...` o el token no vale |
 
 `Zona` existe como tabla pero todavía no está relacionada con `NPC`/`Chat`;
 queda para la HDU de riesgo por zona.
