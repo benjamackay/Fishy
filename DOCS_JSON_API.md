@@ -1,12 +1,35 @@
 # Documentación JSON — Comunicación con la Base de Datos
 
+> ⚠️ **Actualizado a la Fase 2 (control parental, 2026-08-12).** El contrato de
+> la API **cambió**: quien inicia sesión es un **adulto responsable**, que
+> gestiona uno o más **perfiles de menores**, y la partida cuelga del perfil, no
+> de la cuenta.
+>
+> `ApiManager.cs` **todavía implementa el contrato viejo** — eso es justamente la
+> Fase 3. Este documento describe lo que el backend espera **hoy**; si algo aquí
+> no calza con el código de Unity, el que está desactualizado es el código.
+
 ## Índice
 1. [Arquitectura general](#arquitectura-general)
 2. [Autenticación](#autenticación)
-3. [Modelos de datos (DTOs)](#modelos-de-datos-dtos)
-4. [Endpoints y payloads](#endpoints-y-payloads)
-5. [Banco de preguntas](#banco-de-preguntas)
-6. [Modo local (fallback)](#modo-local-fallback)
+3. [Perfiles de menores](#perfiles-de-menores)
+4. [Modelos de datos (DTOs)](#modelos-de-datos-dtos)
+5. [Endpoints y payloads](#endpoints-y-payloads)
+6. [Banco de preguntas](#banco-de-preguntas)
+7. [Modo local (fallback)](#modo-local-fallback)
+
+---
+
+## Flujo general
+
+```
+registro / login  ──▶  GET /jugadores/  ──▶  elegir perfil  ──▶  POST /partidas/
+   (adulto)              (o POST si                              con usuario_jugador_id
+                          es la 1ª vez)
+```
+
+De ahí en adelante (NPCs, chats, mensajes, banco) todo funciona igual que antes,
+usando el `id` de la partida.
 
 ---
 
@@ -29,19 +52,33 @@ Authorization: Token <token>
 
 ## Autenticación
 
-### POST `/auth/registro/` — Registro de usuario
+La cuenta que hace login es la del **adulto responsable**. Los perfiles de los
+menores no tienen credenciales propias.
+
+### POST `/auth/registro/` — Registro del adulto responsable
 **Request:**
 ```json
 {
   "nombre": "string",
-  "password": "string"
+  "email": "adulto@ejemplo.cl",
+  "password": "string",
+  "apellido": "string",
+  "edad": 38,
+  "fecha_nacimiento": "1988-04-12"
 }
 ```
-**Response:**
+| Campo | Obligatorio | Notas |
+|---|---|---|
+| `nombre` | sí | único; es el que se usa para el login |
+| `email` | sí | único |
+| `password` | sí | mínimo 4 caracteres |
+| `apellido`, `edad`, `fecha_nacimiento` | no | opcionales |
+
+**Response (`201`):**
 ```json
 {
   "token": "string",
-  "usuario_id": 1
+  "adulto_id": 1
 }
 ```
 
@@ -53,11 +90,29 @@ Authorization: Token <token>
   "password": "string"
 }
 ```
-**Response:**
+**Response (`200`):**
 ```json
 {
   "token": "string",
-  "usuario_id": 1
+  "adulto_id": 1
+}
+```
+
+> ⚠️ El campo se llama **`adulto_id`**, ya no `usuario_id`. Ojo: Newtonsoft
+> **no lanza error** si el DTO busca un campo que no llega — deja el `int` en `0`
+> y sigue. O sea que este cambio falla en silencio.
+
+### GET `/auth/perfil/` — Datos de la cuenta autenticada
+**Response:**
+```json
+{
+  "id": 1,
+  "nombre": "papa_demo",
+  "apellido": "Pérez",
+  "email": "adulto@ejemplo.cl",
+  "edad": 38,
+  "fecha_nacimiento": "1988-04-12",
+  "fecha_creacion": "2026-08-12T10:00:00Z"
 }
 ```
 
@@ -65,23 +120,86 @@ El token recibido se almacena en `ApiManager.Token` y se adjunta a todos los req
 
 ---
 
+## Perfiles de menores
+
+Cada perfil pertenece a **un** adulto. Un adulto puede tener varios perfiles, y
+el nombre no se puede repetir dentro de la misma cuenta.
+
+### GET `/jugadores/` — Perfiles del adulto autenticado
+**Response:** lista de `UsuarioJugadorDto` (vacía si todavía no creó ninguno)
+```json
+[
+  { "id": 1, "adulto": 1, "nombre": "Benja", "edad": 9,  "fecha_creacion": "2026-08-12T10:01:00Z" },
+  { "id": 2, "adulto": 1, "nombre": "Sofi",  "edad": 11, "fecha_creacion": "2026-08-12T10:02:00Z" }
+]
+```
+
+### POST `/jugadores/` — Crear un perfil
+**Request:**
+```json
+{ "nombre": "Benja", "edad": 9 }
+```
+**Response (`201`):** `UsuarioJugadorDto`
+
+> `adulto` **no se manda**: lo asigna el backend con el usuario del token. Si
+> intentas mandarlo, se ignora.
+
+### GET / PATCH / DELETE `/jugadores/{jugador_id}/`
+```json
+// PATCH — campos opcionales
+{ "nombre": "Benjamín", "edad": 10 }
+```
+- `GET` → `UsuarioJugadorDto`
+- `PATCH` → `UsuarioJugadorDto` actualizado
+- `DELETE` → `204` sin cuerpo. **Arrastra en cascada** las partidas del perfil y
+  todo lo que cuelga de ellas (NPCs, chats, mensajes).
+
+**Errores:**
+
+| Código | Causa |
+|---|---|
+| `400` | ya existe otro perfil con ese nombre en la misma cuenta |
+| `404` | el perfil no existe **o es de otro adulto** (no se distingue, a propósito) |
+
+---
+
 ## Modelos de datos (DTOs)
 
-Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
+Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
+
+> ⚠️ Ese archivo todavía tiene los DTOs viejos (`usuario_id`, `usuario`).
+> Actualizarlos es parte de la Fase 3. Ojo también con que hay una **copia
+> huérfana** del ApiManager en `Assets/Scripts/` (raíz del repo) que Unity no
+> compila: el bueno es el de `Fishy!/Assets/Scripts/`.
 
 ### AuthResponse
 ```json
 {
   "token": "string",
-  "usuario_id": 1
+  "adulto_id": 1
 }
 ```
+
+### UsuarioJugadorDto — Perfil de menor
+```json
+{
+  "id": 1,
+  "adulto": 1,
+  "nombre": "Benja",
+  "edad": 9,
+  "fecha_creacion": "2026-08-12T10:01:00Z"
+}
+```
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `adulto` | int | id del adulto dueño; **solo lectura**, lo asigna el backend |
+| `edad` | int? | opcional |
 
 ### PartidaDto — Sesión de juego
 ```json
 {
   "id": 1,
-  "usuario": 1,
+  "usuario_jugador": 1,
   "progreso": 45.5,
   "nivel_riesgo": 2,
   "fecha_inicio": "2025-01-01T12:00:00Z",
@@ -90,6 +208,7 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
 ```
 | Campo | Tipo | Descripción |
 |---|---|---|
+| `usuario_jugador` | int | id del perfil de menor dueño de la partida (antes era `usuario`) |
 | `progreso` | float | Porcentaje de avance (0–100) |
 | `nivel_riesgo` | int? | ID de nivel de riesgo (opcional) |
 
@@ -182,10 +301,12 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
 **POST `/partidas/`** — Crear partida
 ```json
 // Request
-{ "progreso": 0.0, "nivel_riesgo": null }
+{ "usuario_jugador_id": 1, "progreso": 0.0, "nivel_riesgo": null }
 
 // Response: PartidaDto
 ```
+`usuario_jugador_id` es **obligatorio** y el perfil tiene que ser de la cuenta
+autenticada. Si falta, no existe, o es de otro adulto → `404`.
 
 **PATCH `/partidas/{partida_id}/`** — Actualizar partida
 ```json
@@ -399,3 +520,24 @@ Si el backend no responde en 4 segundos, `ApiManager.cs` activa automáticamente
 - El juego funciona sin conexión
 
 Los archivos relevantes para este modo están en `ApiManager.cs` en las funciones con sufijo `Local`.
+
+> **Fase 3:** el modo local también hay que actualizarlo, o el juego se comporta
+> distinto según haya servidor o no. Necesita simular los perfiles de menores
+> (listar, crear, y recordar cuál está seleccionado) para que el flujo sea el
+> mismo en ambos modos.
+
+---
+
+## Errores comunes
+
+| Código | Dónde | Causa |
+|---|---|---|
+| `400` | registro | falta el `email`, o el nombre/email ya existen |
+| `400` | crear perfil | ya tienes otro perfil con ese nombre |
+| `401` | cualquier endpoint | falta el header `Authorization: Token ...`, o el token no vale |
+| `404` | crear partida | falta `usuario_jugador_id`, o el perfil es de otro adulto |
+| `404` | partida / npc / chat | el recurso es de otro adulto |
+
+Sobre los `404`: el backend **no distingue** entre "no existe" y "existe pero no
+es tuyo", a propósito. Todo lo que cuelga de una partida se filtra por
+`usuario_jugador__adulto`, así que un adulto nunca ve datos de otro.
