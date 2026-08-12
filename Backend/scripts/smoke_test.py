@@ -1,8 +1,9 @@
 r"""Smoke test end-to-end del backend contra Supabase.
 
-Recorre el mismo flujo que hace Unity (ApiManager): health, registro, login,
-partida, NPC, chat, mensajes, banco de preguntas, y comprueba que un usuario no
-pueda ver los datos de otro. Al final borra los datos de prueba que creó.
+Recorre el flujo completo de control parental: health, registro y login del
+adulto responsable, creación de perfiles de menores, partida, NPC, chat,
+mensajes, banco de preguntas, y comprueba que un adulto no pueda ver ni tocar
+los datos de otro. Al final borra los datos de prueba que creó.
 
 Uso (con el servidor corriendo en otra terminal):
     .\.venv\Scripts\python .\scripts\smoke_test.py
@@ -85,16 +86,41 @@ def main():
     req("GET", "/partidas/1/", espera=401)                      # sin token
     req("GET", "/banco/preguntas/", token="token-basura", espera=401)
 
-    print("\n-- Auth --")
-    reg = req("POST", "/auth/registro/", {"nombre": user_a, "password": PWD}, espera=201)
+    print("\n-- Auth (adulto responsable) --")
+    reg = req("POST", "/auth/registro/",
+              {"nombre": user_a, "email": f"{user_a}@ejemplo.cl", "password": PWD,
+               "apellido": "Prueba", "edad": 38},
+              espera=201)
     tok_a = reg["token"]
     login = req("POST", "/auth/login/", {"nombre": user_a, "password": PWD}, espera=200)
     if login["token"] != tok_a:
         print("  [FALLA] el token de login no coincide con el de registro")
     req("POST", "/auth/login/", {"nombre": user_a, "password": "clave-mala"}, espera=401)
+    req("GET", "/auth/perfil/", token=tok_a, espera=200)
+    # El email es único: no se puede registrar dos veces
+    req("POST", "/auth/registro/",
+        {"nombre": f"{user_a}_dup", "email": f"{user_a}@ejemplo.cl", "password": PWD},
+        espera=400)
+
+    print("\n-- Perfiles de menores (control parental) --")
+    jid = req("POST", "/jugadores/", {"nombre": "Benja", "edad": 9},
+              token=tok_a, espera=201)["id"]
+    req("POST", "/jugadores/", {"nombre": "Sofi", "edad": 11}, token=tok_a, espera=201)
+    lista = req("GET", "/jugadores/", token=tok_a, espera=200)
+    print(f"          -> {len(lista)} perfiles bajo el adulto A")
+    if len(lista) != 2:
+        print("  [FALLA] se esperaban 2 perfiles")
+    # Dos perfiles con el mismo nombre bajo el mismo adulto: rechazado
+    req("POST", "/jugadores/", {"nombre": "Benja", "edad": 9}, token=tok_a, espera=400)
+    req("PATCH", f"/jugadores/{jid}/", {"edad": 10}, token=tok_a, espera=200)
 
     print("\n-- Partida (HDU-2) --")
-    pid = req("POST", "/partidas/", {"progreso": 0}, token=tok_a, espera=201)["id"]
+    pid = req("POST", "/partidas/",
+              {"usuario_jugador_id": jid, "progreso": 0}, token=tok_a, espera=201)["id"]
+    # Una partida sin perfil, o con un perfil inexistente, no se puede crear
+    req("POST", "/partidas/", {"progreso": 0}, token=tok_a, espera=404)
+    req("POST", "/partidas/", {"usuario_jugador_id": 999999999, "progreso": 0},
+        token=tok_a, espera=404)
     req("GET", f"/partidas/{pid}/", token=tok_a, espera=200)
     req("PATCH", f"/partidas/{pid}/", {"progreso": 42.5}, token=tok_a, espera=200)
 
@@ -136,9 +162,18 @@ def main():
     if todas:
         req("GET", f"/banco/preguntas/{todas[0]['pregunta_id']}/", token=tok_a, espera=200)
 
-    print("\n-- Aislamiento entre usuarios (B no debe ver nada de A) --")
-    tok_b = req("POST", "/auth/registro/", {"nombre": user_b, "password": PWD},
+    print("\n-- Aislamiento entre adultos (B no debe ver nada de A) --")
+    tok_b = req("POST", "/auth/registro/",
+                {"nombre": user_b, "email": f"{user_b}@ejemplo.cl", "password": PWD},
                 espera=201)["token"]
+    jugadores_b = req("GET", "/jugadores/", token=tok_b, espera=200)
+    if jugadores_b:
+        print(f"  [FALLA] B ve {len(jugadores_b)} perfiles ajenos")
+    req("GET", f"/jugadores/{jid}/", token=tok_b, espera=404)
+    req("PATCH", f"/jugadores/{jid}/", {"nombre": "hackeado"}, token=tok_b, espera=404)
+    req("DELETE", f"/jugadores/{jid}/", token=tok_b, espera=404)
+    # B no puede colgar una partida del perfil de A
+    req("POST", "/partidas/", {"usuario_jugador_id": jid}, token=tok_b, espera=404)
     req("GET", f"/partidas/{pid}/", token=tok_b, espera=404)
     req("GET", f"/partidas/{pid}/npcs/", token=tok_b, espera=404)
     req("PATCH", f"/npcs/{nid}/", {"confianza": 99}, token=tok_b, espera=404)
@@ -159,7 +194,8 @@ def main():
 
 
 def limpiar(usuarios):
-    """Borra los usuarios de prueba (el cascade se lleva partidas, chats, etc.)."""
+    """Borra los adultos de prueba. El cascade se lleva sus perfiles de menores
+    y, colgando de esos, partidas, NPCs, chats y mensajes."""
     import os
 
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -168,9 +204,9 @@ def limpiar(usuarios):
     import django
 
     django.setup()
-    from api.models import Usuario
+    from api.models import AdultoResponsable
 
-    borrados = Usuario.objects.filter(nombre__in=usuarios).delete()
+    borrados = AdultoResponsable.objects.filter(nombre__in=usuarios).delete()
     print(f"  Datos de prueba borrados: {borrados[0]} filas")
 
 

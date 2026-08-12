@@ -132,19 +132,45 @@ y `baseUrl = http://127.0.0.1:8000/api`, y darle Play.
 | Método | URL | Descripción |
 |--------|-----|-------------|
 | GET | `/api/health/` | Ping del servidor |
-| POST | `/api/auth/registro/` | Registro (devuelve token) |
+| POST | `/api/auth/registro/` | Registro del adulto responsable (devuelve token) |
 | POST | `/api/auth/login/` | Login (devuelve token) |
-| POST/GET | `/api/partidas/` | Crear partida |
+| GET | `/api/auth/perfil/` | Datos de la cuenta autenticada |
+| GET/POST | `/api/jugadores/` | Perfiles de menores del adulto autenticado |
+| GET/PATCH/DELETE | `/api/jugadores/<id>/` | Detalle de un perfil de menor |
+| POST | `/api/partidas/` | Crear partida (requiere `usuario_jugador_id`) |
 | POST | `/api/chats/` | Iniciar chat |
 | GET | `/api/banco/preguntas/` | Banco de preguntas (filtros por query params) |
 | GET | `/admin/` | Panel admin de Django |
 
-## Modelo de datos
+## Modelo de datos — control parental
 
 Las tablas del juego llevan prefijo `api_` (convención de Django). Las tablas
 `auth_*`, `authtoken_*`, `django_*` son infraestructura de Django (permisos,
 tokens de login, sesiones, historial de migraciones) — normales, no se tocan.
 
-Modelos nuevos de **control parental** (creados, aún **no cableados** al flujo
-del juego — es la Fase 1): `AdultoResponsable`, `UsuarioJugador`, `Zona`.
-El plan de Fases 2 (recablear backend) y 3 (Unity) está pendiente.
+Desde la **Fase 2** el modelo de usuarios es de control parental:
+
+```
+AdultoResponsable  (única cuenta con login — es el AUTH_USER_MODEL)
+      │ 1─N
+      ▼
+UsuarioJugador     (perfil del menor, SIN credenciales propias)
+      │ 1─N
+      ▼
+Partida ──► NPC ──► Chat ──► Mensaje
+```
+
+El adulto se autentica y todo lo que consulta se filtra por
+`usuario_jugador__adulto=request.user`: nunca puede ver los datos de otro
+adulto ni colgar una partida de un perfil ajeno.
+
+**Flujo típico del cliente:** `registro`/`login` → `GET /jugadores/` (o
+`POST /jugadores/` si es la primera vez) → elegir perfil →
+`POST /partidas/` con `usuario_jugador_id` → resto del juego igual que antes.
+
+`Zona` existe como tabla pero todavía no está relacionada con `NPC`/`Chat`;
+queda para la HDU de riesgo por zona.
+
+> **Ojo (Fase 3 pendiente):** la Fase 2 rompe el contrato de la API, así que
+> `ApiManager.cs` en Unity deja de conectar contra el backend real hasta que se
+> agregue el paso de selección de perfil. El `useLocalMode` sigue funcionando.

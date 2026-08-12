@@ -1,37 +1,52 @@
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# USUARIO
+# CUENTAS  (control parental)
+#
+# `AdultoResponsable` es la única entidad con login (AUTH_USER_MODEL): el tutor
+# se autentica y gestiona uno o más `UsuarioJugador`, que son los perfiles de
+# los menores y NO tienen credenciales propias. Toda la data de juego
+# (`Partida` y lo que cuelga de ella) pertenece a un `UsuarioJugador`.
 # ─────────────────────────────────────────────────────────────────────────────
 
-class UsuarioManager(BaseUserManager):
-    def create_user(self, nombre, password=None):
+class AdultoResponsableManager(BaseUserManager):
+    def create_user(self, nombre, email, password=None, **extra_fields):
         if not nombre:
-            raise ValueError("El usuario debe tener un nombre")
-        user = self.model(nombre=nombre)
+            raise ValueError("El adulto responsable debe tener un nombre")
+        if not email:
+            raise ValueError("El adulto responsable debe tener un email")
+        user = self.model(nombre=nombre, email=self.normalize_email(email), **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, nombre, password=None):
-        user = self.create_user(nombre, password)
+    def create_superuser(self, nombre, email, password=None, **extra_fields):
+        user = self.create_user(nombre, email, password, **extra_fields)
         user.is_admin = True
         user.save(using=self._db)
         return user
 
 
-class Usuario(AbstractBaseUser):
-    nombre   = models.CharField(max_length=150, unique=True)
-    is_admin = models.BooleanField(default=False)
+class AdultoResponsable(AbstractBaseUser):
+    """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
+    nombre           = models.CharField(max_length=150, unique=True)
+    apellido         = models.CharField(max_length=150, blank=True)
+    email            = models.EmailField(unique=True)
+    edad             = models.PositiveSmallIntegerField(null=True, blank=True)
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+    fecha_creacion   = models.DateTimeField(auto_now_add=True)
+    is_admin         = models.BooleanField(default=False)
 
-    objects = UsuarioManager()
+    objects = AdultoResponsableManager()
 
     USERNAME_FIELD = "nombre"
+    REQUIRED_FIELDS = ["email"]   # lo pide `createsuperuser` además del nombre
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} {self.apellido}".strip()
 
     # Requerido por Django admin
     def has_perm(self, perm, obj=None): return self.is_admin
@@ -41,8 +56,33 @@ class Usuario(AbstractBaseUser):
     def is_staff(self): return self.is_admin
 
     class Meta:
-        verbose_name = "Usuario"
-        verbose_name_plural = "Usuarios"
+        verbose_name = "Adulto Responsable"
+        verbose_name_plural = "Adultos Responsables"
+
+
+class UsuarioJugador(models.Model):
+    """Perfil del menor que juega, gestionado por un AdultoResponsable."""
+    adulto         = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="jugadores"
+    )
+    nombre         = models.CharField(max_length=150)
+    edad           = models.PositiveSmallIntegerField(null=True, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Usuario Jugador"
+        verbose_name_plural = "Usuarios Jugadores"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["adulto", "nombre"],
+                name="jugador_unico_por_adulto"
+            )
+        ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -70,8 +110,8 @@ class NivelRiesgo(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class Partida(models.Model):
-    usuario      = models.ForeignKey(
-        Usuario,
+    usuario_jugador = models.ForeignKey(
+        UsuarioJugador,
         on_delete=models.CASCADE,
         related_name="partidas"
     )
@@ -86,7 +126,7 @@ class Partida(models.Model):
     fecha_update = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Partida #{self.pk} — {self.usuario.nombre}"
+        return f"Partida #{self.pk} — {self.usuario_jugador.nombre}"
 
     class Meta:
         verbose_name = "Partida"
@@ -319,51 +359,8 @@ class OpcionBanco(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CONTROL PARENTAL  (modelo de usuarios nuevo — FASE 1)
-#
-# En esta fase solo se crean las tablas con relaciones correctas; el flujo del
-# juego sigue usando `Usuario`/`Partida.usuario`. En la Fase 2 estos modelos se
-# cablean: `AdultoResponsable` pasa a ser el AUTH_USER_MODEL (login, con hashing
-# de contraseña) y `Partida` colgará de `UsuarioJugador` en vez de `Usuario`.
+# ZONA
 # ─────────────────────────────────────────────────────────────────────────────
-
-class AdultoResponsable(models.Model):
-    """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
-    nombre           = models.CharField(max_length=150)
-    apellido         = models.CharField(max_length=150, blank=True)
-    email            = models.EmailField(unique=True)
-    edad             = models.PositiveSmallIntegerField(null=True, blank=True)
-    fecha_nacimiento = models.DateField(null=True, blank=True)
-    fecha_creacion   = models.DateTimeField(auto_now_add=True)
-    # NOTA: el login/contraseña (con hashing) se implementa en la Fase 2, cuando
-    # este modelo se convierta en el AUTH_USER_MODEL. No guardar password en claro.
-
-    def __str__(self):
-        return f"{self.nombre} {self.apellido}".strip()
-
-    class Meta:
-        verbose_name = "Adulto Responsable"
-        verbose_name_plural = "Adultos Responsables"
-
-
-class UsuarioJugador(models.Model):
-    """Perfil del menor que juega, gestionado por un AdultoResponsable."""
-    adulto         = models.ForeignKey(
-        AdultoResponsable,
-        on_delete=models.CASCADE,
-        related_name="jugadores"
-    )
-    nombre         = models.CharField(max_length=150)
-    edad           = models.PositiveSmallIntegerField(null=True, blank=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.nombre
-
-    class Meta:
-        verbose_name = "Usuario Jugador"
-        verbose_name_plural = "Usuarios Jugadores"
-
 
 class Zona(models.Model):
     """Zona del mapa. Base para el cálculo de riesgo por zona (ver HDU riesgo)."""
