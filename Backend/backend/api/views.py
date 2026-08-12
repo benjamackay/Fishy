@@ -6,9 +6,13 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 
-from .models import NivelRiesgo, Partida, NPC, Chat, Mensaje, PosibleRespuesta, PreguntaBanco
+from .models import (
+    UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
+    PosibleRespuesta, PreguntaBanco,
+)
 from .serializers import (
-    RegistroSerializer, NivelRiesgoSerializer, PartidaSerializer,
+    RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
+    NivelRiesgoSerializer, PartidaSerializer,
     NPCSerializer, ChatSerializer, MensajeSerializer,
     PreguntaBancoSerializer,
 )
@@ -27,12 +31,14 @@ def health_check(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def registro(request):
+    """Crea la cuenta del adulto responsable. Body: nombre, email, password
+    (+ apellido, edad, fecha_nacimiento opcionales)."""
     serializer = RegistroSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    user = serializer.save()
-    token, _ = Token.objects.get_or_create(user=user)
-    return Response({"token": token.key, "usuario_id": user.pk}, status=status.HTTP_201_CREATED)
+    adulto = serializer.save()
+    token, _ = Token.objects.get_or_create(user=adulto)
+    return Response({"token": token.key, "adulto_id": adulto.pk}, status=status.HTTP_201_CREATED)
 
 
 @api_view(["POST"])
@@ -40,11 +46,60 @@ def registro(request):
 def auth_login(request):
     nombre = request.data.get("nombre")
     password = request.data.get("password")
-    user = authenticate(request, username=nombre, password=password)
-    if user is None:
+    adulto = authenticate(request, username=nombre, password=password)
+    if adulto is None:
         return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
-    token, _ = Token.objects.get_or_create(user=user)
-    return Response({"token": token.key, "usuario_id": user.pk})
+    token, _ = Token.objects.get_or_create(user=adulto)
+    return Response({"token": token.key, "adulto_id": adulto.pk})
+
+
+@api_view(["GET"])
+def perfil_adulto(request):
+    """Datos de la cuenta autenticada."""
+    return Response(AdultoResponsableSerializer(request.user).data)
+
+
+# ── Perfiles de menores (control parental) ────────────────────────────────────
+
+@api_view(["GET", "POST"])
+def jugadores(request):
+    """GET: perfiles del adulto autenticado. POST: crea uno. Body: nombre (+ edad)."""
+    if request.method == "GET":
+        qs = request.user.jugadores.all()
+        return Response(UsuarioJugadorSerializer(qs, many=True).data)
+    serializer = UsuarioJugadorSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # `adulto` es read_only, así que DRF no puede validar solo la restricción
+    # de unicidad (adulto, nombre): sin esto el duplicado explota como 500.
+    if request.user.jugadores.filter(nombre=serializer.validated_data["nombre"]).exists():
+        return Response(
+            {"nombre": ["Ya tienes un perfil con ese nombre."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    jugador = serializer.save(adulto=request.user)
+    return Response(UsuarioJugadorSerializer(jugador).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "PATCH", "DELETE"])
+def jugador_detalle(request, jugador_id):
+    jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
+    if request.method == "GET":
+        return Response(UsuarioJugadorSerializer(jugador).data)
+    if request.method == "DELETE":
+        jugador.delete()   # arrastra sus partidas en cascada
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    serializer = UsuarioJugadorSerializer(jugador, data=request.data, partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    nombre = serializer.validated_data.get("nombre")
+    if nombre and request.user.jugadores.filter(nombre=nombre).exclude(pk=jugador.pk).exists():
+        return Response(
+            {"nombre": ["Ya tienes un perfil con ese nombre."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    serializer.save()
+    return Response(serializer.data)
 
 
 # ── Catálogos ─────────────────────────────────────────────────────────────────
@@ -58,16 +113,23 @@ def niveles_riesgo(request):
 
 @api_view(["POST"])
 def crear_partida(request):
+    """Body: { "usuario_jugador_id": int, "nivel_riesgo": int (opcional) }.
+    El perfil debe pertenecer al adulto autenticado."""
+    jugador = get_object_or_404(
+        UsuarioJugador,
+        pk=request.data.get("usuario_jugador_id"),
+        adulto=request.user,
+    )
     serializer = PartidaSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    partida = serializer.save(usuario=request.user)
+    partida = serializer.save(usuario_jugador=jugador)
     return Response(PartidaSerializer(partida).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET", "PATCH"])
 def partida_detalle(request, partida_id):
-    partida = get_object_or_404(Partida, pk=partida_id, usuario=request.user)
+    partida = get_object_or_404(Partida, pk=partida_id, usuario_jugador__adulto=request.user)
     if request.method == "GET":
         return Response(PartidaSerializer(partida).data)
     serializer = PartidaSerializer(partida, data=request.data, partial=True)
@@ -81,7 +143,7 @@ def partida_detalle(request, partida_id):
 
 @api_view(["GET", "POST"])
 def npcs_partida(request, partida_id):
-    partida = get_object_or_404(Partida, pk=partida_id, usuario=request.user)
+    partida = get_object_or_404(Partida, pk=partida_id, usuario_jugador__adulto=request.user)
     if request.method == "GET":
         return Response(NPCSerializer(partida.npcs.all(), many=True).data)
     serializer = NPCSerializer(data=request.data)
@@ -93,7 +155,7 @@ def npcs_partida(request, partida_id):
 
 @api_view(["PATCH"])
 def npc_actualizar(request, npc_id):
-    npc = get_object_or_404(NPC, pk=npc_id, partida__usuario=request.user)
+    npc = get_object_or_404(NPC, pk=npc_id, partida__usuario_jugador__adulto=request.user)
     serializer = NPCSerializer(npc, data=request.data, partial=True)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -106,7 +168,9 @@ def npc_actualizar(request, npc_id):
 @api_view(["POST"])
 def iniciar_chat(request):
     """Body: { "partida_id": int, "npc_id": int, "categoria_riesgo": str (opcional) }"""
-    partida = get_object_or_404(Partida, pk=request.data.get("partida_id"), usuario=request.user)
+    partida = get_object_or_404(
+        Partida, pk=request.data.get("partida_id"), usuario_jugador__adulto=request.user
+    )
     npc = get_object_or_404(NPC, pk=request.data.get("npc_id"), partida=partida)
     chat = Chat.objects.create(
         partida=partida,
@@ -119,7 +183,7 @@ def iniciar_chat(request):
 @api_view(["GET"])
 def mensajes_chat(request, chat_id):
     """Retorna el historial completo del chat con posibles respuestas anidadas."""
-    chat = get_object_or_404(Chat, pk=chat_id, partida__usuario=request.user)
+    chat = get_object_or_404(Chat, pk=chat_id, partida__usuario_jugador__adulto=request.user)
     mensajes = chat.mensajes.prefetch_related("posibles_respuestas").all()
     return Response(MensajeSerializer(mensajes, many=True).data)
 
@@ -134,7 +198,7 @@ def registrar_mensaje(request, chat_id):
         "posibles_respuestas": [{"texto": str, "orden": int, "calidad_respuesta": str}]  (opcional)
     }
     """
-    chat = get_object_or_404(Chat, pk=chat_id, partida__usuario=request.user)
+    chat = get_object_or_404(Chat, pk=chat_id, partida__usuario_jugador__adulto=request.user)
     if chat.fecha_termino is not None:
         return Response({"error": "El chat ya finalizó"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -202,7 +266,7 @@ def pregunta_detalle(request, pregunta_id):
 @api_view(["POST"])
 def finalizar_chat(request, chat_id):
     """Cierra el chat registrando un mensaje END. Body (opcional): { "respuesta": str }"""
-    chat = get_object_or_404(Chat, pk=chat_id, partida__usuario=request.user)
+    chat = get_object_or_404(Chat, pk=chat_id, partida__usuario_jugador__adulto=request.user)
     if chat.fecha_termino is not None:
         return Response({"error": "El chat ya finalizó"}, status=status.HTTP_400_BAD_REQUEST)
     mensaje_end = Mensaje.objects.create(

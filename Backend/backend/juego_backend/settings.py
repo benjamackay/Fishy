@@ -79,6 +79,19 @@ DATABASES = {
     }
 }
 
+# ─── Hashing de contraseñas ───────────────────────────────────────────────────
+# El default de Django (PBKDF2 con 1.5M iteraciones) tarda 2-5 s por login/registro
+# en los equipos del equipo, y eso es CPU local, no latencia de Supabase. Argon2
+# da la misma (o mejor) resistencia a fuerza bruta en decenas de milisegundos.
+# PBKDF2 se deja de segundo para poder validar contraseñas viejas: Django rehashea
+# al hash nuevo de forma transparente en el primer login exitoso.
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
+
 # ─── Validación de contraseñas ────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -98,8 +111,9 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Usuario custom
-AUTH_USER_MODEL = "api.Usuario"
+# Usuario custom: la cuenta con login es la del adulto responsable (control
+# parental). Los perfiles de menores (`UsuarioJugador`) NO tienen credenciales.
+AUTH_USER_MODEL = "api.AdultoResponsable"
 
 # ─── Django REST Framework ────────────────────────────────────────────────────
 REST_FRAMEWORK = {

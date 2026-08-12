@@ -5,9 +5,14 @@ urlpatterns = [
     # Health
     path("health/", views.health_check, name="health_check"),
 
-    # Auth
+    # Auth (cuenta del adulto responsable)
     path("auth/registro/", views.registro, name="registro"),
     path("auth/login/", views.auth_login, name="auth_login"),
+    path("auth/perfil/", views.perfil_adulto, name="perfil_adulto"),
+
+    # Perfiles de menores (control parental)
+    path("jugadores/", views.jugadores, name="jugadores"),
+    path("jugadores/<int:jugador_id>/", views.jugador_detalle, name="jugador_detalle"),
 
     # Catálogos
     path("niveles-riesgo/", views.niveles_riesgo, name="niveles_riesgo"),
