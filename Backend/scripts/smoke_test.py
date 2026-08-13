@@ -105,7 +105,8 @@ def main():
     print("\n-- Perfiles de menores (control parental) --")
     jid = req("POST", "/jugadores/", {"nombre": "Benja", "edad": 9},
               token=tok_a, espera=201)["id"]
-    req("POST", "/jugadores/", {"nombre": "Sofi", "edad": 11}, token=tok_a, espera=201)
+    jid2 = req("POST", "/jugadores/", {"nombre": "Sofi", "edad": 11},
+               token=tok_a, espera=201)["id"]
     lista = req("GET", "/jugadores/", token=tok_a, espera=200)
     print(f"          -> {len(lista)} perfiles bajo el adulto A")
     if len(lista) != 2:
@@ -121,6 +122,17 @@ def main():
     req("POST", "/partidas/", {"progreso": 0}, token=tok_a, espera=404)
     req("POST", "/partidas/", {"usuario_jugador_id": 999999999, "progreso": 0},
         token=tok_a, espera=404)
+
+    print("\n-- Avance independiente por perfil --")
+    # El perfil que jugó recupera su partida: es lo que permite retomar.
+    del_jugador = req("GET", f"/jugadores/{jid}/partidas/", token=tok_a, espera=200)
+    if [p["id"] for p in del_jugador] != [pid]:
+        print(f"  [FALLA] se esperaba solo la partida {pid}, llegó {[p['id'] for p in del_jugador]}")
+    # El hermano NO hereda la partida del otro.
+    del_hermano = req("GET", f"/jugadores/{jid2}/partidas/", token=tok_a, espera=200)
+    if del_hermano:
+        print(f"  [FALLA] el perfil sin jugar trae {len(del_hermano)} partidas ajenas")
+    req("GET", "/jugadores/999999999/partidas/", token=tok_a, espera=404)
     req("GET", f"/partidas/{pid}/", token=tok_a, espera=200)
     req("PATCH", f"/partidas/{pid}/", {"progreso": 42.5}, token=tok_a, espera=200)
 
@@ -172,6 +184,7 @@ def main():
     req("GET", f"/jugadores/{jid}/", token=tok_b, espera=404)
     req("PATCH", f"/jugadores/{jid}/", {"nombre": "hackeado"}, token=tok_b, espera=404)
     req("DELETE", f"/jugadores/{jid}/", token=tok_b, espera=404)
+    req("GET", f"/jugadores/{jid}/partidas/", token=tok_b, espera=404)
     # B no puede colgar una partida del perfil de A
     req("POST", "/partidas/", {"usuario_jugador_id": jid}, token=tok_b, espera=404)
     req("GET", f"/partidas/{pid}/", token=tok_b, espera=404)

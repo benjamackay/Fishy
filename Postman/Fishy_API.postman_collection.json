@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Fishy! API (HDU-2 + HDU-8)",
-    "description": "Coleccion de prueba para la comunicacion Unity <-> Django.\n\nACTUALIZADA A LA FASE 2 (control parental, 2026-08-12). Quien hace login es un ADULTO RESPONSABLE, que gestiona uno o mas PERFILES DE MENORES. La partida cuelga del perfil, no de la cuenta.\n\nFlujo ordenado:\n1. Auth (registro / login) -> guarda {{token}} y {{adulto_id}}\n2. Jugadores (listar / crear) -> guarda {{jugador_id}}\n3. Partida (necesita usuario_jugador_id) -> guarda {{partida_id}}\n4. NPC -> guarda {{npc_id}}\n5. Chat (HDU-8) -> guarda {{chat_id}}, registra mensajes, historial y finaliza.\n\nLos scripts de la pestania 'Tests' guardan automaticamente los IDs en las variables de coleccion. Ejecuta las peticiones de arriba hacia abajo.\n\nOJO: '1. Auth - Registro' y '4. Jugadores - Crear' solo funcionan la PRIMERA vez, porque el nombre y el email son unicos. En corridas siguientes usa '2. Auth - Login' y '3. Jugadores - Listar', que rellenan las mismas variables.",
+    "description": "Coleccion de prueba para la comunicacion Unity <-> Django.\n\nACTUALIZADA A LA FASE 2 (control parental, 2026-08-12). Quien hace login es un ADULTO RESPONSABLE, que gestiona uno o mas PERFILES DE MENORES. La partida cuelga del perfil, no de la cuenta.\n\nFlujo ordenado:\n1. Auth (registro / login) -> guarda {{token}} y {{adulto_id}}\n2. Jugadores (listar / crear) -> guarda {{jugador_id}}\n3. Partidas del perfil: si el menor ya tiene avance se retoma; si no, se crea con la peticion 5. Guarda {{partida_id}}\n4. NPC -> guarda {{npc_id}}\n5. Chat (HDU-8) -> guarda {{chat_id}}, registra mensajes, historial y finaliza.\n\nLos scripts de la pestania 'Tests' guardan automaticamente los IDs en las variables de coleccion. Ejecuta las peticiones de arriba hacia abajo.\n\nOJO: '1. Auth - Registro' y '4. Jugadores - Crear' solo funcionan la PRIMERA vez, porque el nombre y el email son unicos. En corridas siguientes usa '2. Auth - Login' y '3. Jugadores - Listar', que rellenan las mismas variables.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -122,6 +122,34 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": { "mode": "raw", "raw": "{\n  \"nombre\": \"Benja\",\n  \"edad\": 9\n}" },
         "url": { "raw": "{{base_url}}/jugadores/", "host": ["{{base_url}}"], "path": ["jugadores", ""] }
+      },
+      "response": []
+    },
+    {
+      "name": "4b. Jugadores - Partidas del perfil (retomar avance)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('200 OK', () => pm.response.code === 200);",
+              "const j = pm.response.json();",
+              "console.log('Partidas de este perfil: ' + j.length);",
+              "if (Array.isArray(j) && j.length > 0) {",
+              "  pm.collectionVariables.set('partida_id', j[0].id);",
+              "  console.log('Hay avance: se retoma la partida ' + j[0].id + '. Puedes saltarte la 5.');",
+              "} else {",
+              "  console.log('Sin avance todavia: corre la 5 para crear la primera partida.');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/jugadores/{{jugador_id}}/partidas/", "host": ["{{base_url}}"], "path": ["jugadores", "{{jugador_id}}", "partidas", ""] }
       },
       "response": []
     },

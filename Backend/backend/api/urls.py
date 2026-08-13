@@ -13,6 +13,7 @@ urlpatterns = [
     # Perfiles de menores (control parental)
     path("jugadores/", views.jugadores, name="jugadores"),
     path("jugadores/<int:jugador_id>/", views.jugador_detalle, name="jugador_detalle"),
+    path("jugadores/<int:jugador_id>/partidas/", views.partidas_jugador, name="partidas_jugador"),
 
     # Catálogos
     path("niveles-riesgo/", views.niveles_riesgo, name="niveles_riesgo"),
