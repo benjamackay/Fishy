@@ -187,6 +187,7 @@ todavía no sabe pedir.
 | GET | `/api/auth/perfil/` | Datos de la cuenta autenticada |
 | GET/POST | `/api/jugadores/` | Perfiles de menores del adulto autenticado |
 | GET/PATCH/DELETE | `/api/jugadores/<id>/` | Detalle de un perfil de menor |
+| GET | `/api/jugadores/<id>/partidas/` | Partidas de un perfil (para retomar el avance) |
 | POST | `/api/partidas/` | Crear partida (requiere `usuario_jugador_id`) |
 | POST | `/api/chats/` | Iniciar chat |
 | GET | `/api/banco/preguntas/` | Banco de preguntas (filtros por query params) |
@@ -214,9 +215,13 @@ El adulto se autentica y todo lo que consulta se filtra por
 `usuario_jugador__adulto=request.user`: nunca puede ver los datos de otro
 adulto ni colgar una partida de un perfil ajeno.
 
+**Cada menor conserva su propio avance:** la partida cuelga del perfil, así que
+los hermanos no comparten progreso.
+
 **Flujo típico del cliente:** `registro`/`login` → `GET /jugadores/` (o
 `POST /jugadores/` si es la primera vez) → elegir perfil →
-`POST /partidas/` con `usuario_jugador_id` → resto del juego igual que antes.
+`GET /jugadores/<id>/partidas/` → si trae algo se retoma esa partida, y si viene
+vacía se crea una con `POST /partidas/` → resto del juego igual que antes.
 
 ### Probarlo a mano
 
@@ -235,7 +240,12 @@ curl -X POST http://127.0.0.1:8000/api/jugadores/ \
   -d '{"nombre":"Benja","edad":9}'
 # → {"id":1,"adulto":1,"nombre":"Benja",...}
 
-# 3. Crear la partida colgada de ese perfil
+# 3. ¿Ese perfil ya tiene avance? (vacío la primera vez)
+curl http://127.0.0.1:8000/api/jugadores/1/partidas/ \
+  -H "Authorization: Token abc123..."
+# → []   ...entonces se crea; si trae partidas, se retoma la primera
+
+# 4. Crear la partida colgada de ese perfil
 curl -X POST http://127.0.0.1:8000/api/partidas/ \
   -H "Content-Type: application/json" -H "Authorization: Token abc123..." \
   -d '{"usuario_jugador_id":1,"progreso":0}'

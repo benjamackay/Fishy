@@ -23,13 +23,19 @@
 ## Flujo general
 
 ```
-registro / login  ──▶  GET /jugadores/  ──▶  elegir perfil  ──▶  POST /partidas/
-   (adulto)              (o POST si                              con usuario_jugador_id
-                          es la 1ª vez)
+registro / login  ──▶  GET /jugadores/  ──▶  elegir perfil  ──▶  GET /jugadores/{id}/partidas/
+   (adulto)              (o POST si                                      │
+                          es la 1ª vez)                                  ├── hay → retomar
+                                                                         └── no  → POST /partidas/
+                                                                                   con usuario_jugador_id
 ```
 
 De ahí en adelante (NPCs, chats, mensajes, banco) todo funciona igual que antes,
 usando el `id` de la partida.
+
+**Cada menor tiene su propio avance.** La partida cuelga del perfil, así que los
+hermanos no comparten progreso y al elegir un perfil se retoma exactamente donde
+ese niño lo dejó.
 
 ---
 
@@ -143,6 +149,19 @@ el nombre no se puede repetir dentro de la misma cuenta.
 
 > `adulto` **no se manda**: lo asigna el backend con el usuario del token. Si
 > intentas mandarlo, se ignora.
+
+### GET `/jugadores/{jugador_id}/partidas/` — Partidas del perfil
+**Response:** lista de `PartidaDto`, de la jugada **más reciente a la más antigua**.
+
+Es lo que permite **retomar el avance**: cada menor conserva su propia partida
+entre sesiones, independiente de la de sus hermanos.
+
+```
+elegir perfil ──▶ GET /jugadores/{id}/partidas/
+                        │
+                        ├── viene algo  ──▶ continuar con la primera
+                        └── viene vacía ──▶ POST /partidas/ (primera vez)
+```
 
 ### GET / PATCH / DELETE `/jugadores/{jugador_id}/`
 ```json

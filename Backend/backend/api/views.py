@@ -81,6 +81,20 @@ def jugadores(request):
     return Response(UsuarioJugadorSerializer(jugador).data, status=status.HTTP_201_CREATED)
 
 
+@api_view(["GET"])
+def partidas_jugador(request, jugador_id):
+    """Partidas de un perfil de menor, de la jugada más reciente a la más antigua.
+
+    Es lo que permite **retomar** el avance: cada menor conserva su propia
+    partida entre sesiones. El cliente elige el perfil, pide esta lista, y si
+    viene algo continúa con la primera; si viene vacía, crea una con
+    `POST /partidas/`.
+    """
+    jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
+    partidas = jugador.partidas.order_by("-fecha_update")
+    return Response(PartidaSerializer(partidas, many=True).data)
+
+
 @api_view(["GET", "PATCH", "DELETE"])
 def jugador_detalle(request, jugador_id):
     jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
