@@ -1,0 +1,12 @@
+# Finales de línea de los scripts.
+#
+# core.autocrlf=true (lo habitual en Windows) convierte a CRLF al hacer checkout.
+# Para un .sh eso es fatal: bash lee el shebang como "bash\r" y falla con
+# "/usr/bin/env: 'bash\r': No such file or directory". Importa aquí porque la
+# misma copia de trabajo se usa desde Windows y desde WSL (vía /mnt/c).
+#
+# Se declaran solo estas dos extensiones a propósito: un "* text=auto" global
+# renormalizaría miles de archivos de Unity de una vez.
+
+*.sh   text eol=lf
+*.ps1  text eol=crlf
