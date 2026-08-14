@@ -93,6 +93,42 @@ El commit *Cablear el modelo de control parental* cambió el modelo de usuarios 
 
 ## Cómo correr
 
+### Atajo: `run.sh` / `run.ps1` (recomendado)
+
+Cargan el `.env` solos y eligen el intérprete correcto. Mismos modos en ambos:
+
+```bash
+# Git Bash o WSL
+cd Backend
+./run.sh                 # servidor en 127.0.0.1:8000
+./run.sh 0.0.0.0:8000    # escuchando en todas las interfaces
+./run.sh --check         # config + drift de migraciones
+./run.sh --smoke         # smoke test (con el servidor ya corriendo aparte)
+```
+
+```powershell
+# PowerShell
+cd Backend
+.\run.ps1
+.\run.ps1 0.0.0.0:8000
+.\run.ps1 --check
+.\run.ps1 --smoke
+```
+
+Si `run.sh` no quedó ejecutable: `bash run.sh`. Si PowerShell bloquea el script:
+`powershell -ExecutionPolicy Bypass -File .\run.ps1`.
+
+> `run.ps1` está guardado en **UTF-8 con BOM** a propósito: Windows PowerShell 5.1
+> lee los `.ps1` sin BOM como ANSI y destroza los acentos de los mensajes. Si lo
+> editas, guárdalo con BOM.
+
+> ⚠️ **Desde WSL no conecta a Supabase.** El host directo
+> `db.<ref>.supabase.co` solo publica IPv6 y WSL no tiene IPv6 → *Network is
+> unreachable*. Hay que usar el **Session Pooler** (IPv4); `run.sh` lo detecta y
+> te dice qué exportar. Desde Windows funciona sin tocar nada.
+
+### A mano
+
 `settings.py` lee la configuración de **variables de entorno**, así que hay que
 cargar el `.env` antes de cualquier comando `manage.py`. En PowerShell:
 
@@ -145,7 +181,7 @@ Luego, en la misma sesión:
 registro y login del adulto → perfiles de menores → partida → NPC → chat →
 mensajes → banco), comprueba que un adulto **no** pueda ver ni tocar los datos
 de otro, y borra los datos de prueba al terminar. Debe cerrar con
-`42 OK, 0 fallas`. Con `--no-limpiar` deja los datos para inspeccionarlos en
+`46 OK, 0 fallas`. Con `--no-limpiar` deja los datos para inspeccionarlos en
 Supabase → Table Editor.
 
 Si el smoke test empieza a fallar después de tocar la API, es que **cambió el
