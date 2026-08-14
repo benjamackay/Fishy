@@ -15,6 +15,11 @@ public class ApiSmokeTest : MonoBehaviour
     public string nombreBase = "unity_test";
     public string password = "1234";
 
+    [Header("Perfil de menor")]
+    [Tooltip("Nombre del perfil de menor que crea la prueba (control parental).")]
+    public string nombreJugador = "Peque de prueba";
+    public int edadJugador = 9;
+
     [Tooltip("Si está activo y ya hay una sesión iniciada, NO corre la prueba " +
              "(evita sobrescribir el token/partida del jugador real).")]
     public bool skipIfLoggedIn = true;
@@ -40,27 +45,45 @@ public class ApiSmokeTest : MonoBehaviour
         }
 
         string nombre = $"{nombreBase}_{Random.Range(1000, 999999)}";
-        Debug.Log($"[SmokeTest] === INICIO === usuario='{nombre}'");
+        string email  = $"{nombre}@fishy.test";
+        Debug.Log($"[SmokeTest] === INICIO === adulto='{nombre}' email='{email}'");
 
-        // 1) Registro -> 2) Partida -> 3) NPC -> 4) Chat -> 5) Mensajes -> 6) Historial -> 7) Finalizar
-        ApiManager.Instance.Registro(nombre, password,
+        // 1) Registro (adulto) -> 1b) Perfil de menor -> 2) Partida -> 3) NPC
+        // -> 4) Chat -> 5) Mensajes -> 6) Historial -> 7) Finalizar
+        ApiManager.Instance.Registro(nombre, email, password,
             onSuccess: () =>
             {
-                Debug.Log($"[OK] 1. Registro. token={ApiManager.Instance.Token[..10]}... usuario_id={ApiManager.Instance.UsuarioId}");
-                PasoCrearPartida();
+                Debug.Log($"[OK] 1. Registro. token={ApiManager.Instance.Token[..10]}... adulto_id={ApiManager.Instance.AdultoId}");
+                PasoCrearJugador();
             },
             onError: err => Debug.LogError($"[FALLO] 1. Registro: {err}\n(Si dice 'ya existe', cambia 'nombreBase' o reinicia Play.)"));
     }
 
+    private void PasoCrearJugador()
+    {
+        // Sin perfil de menor no se puede crear partida: el backend la exige.
+        ApiManager.Instance.CrearJugador(nombreJugador, edadJugador,
+            onSuccess: j =>
+            {
+                Debug.Log($"[OK] 1b. Perfil de menor creado. jugador_id={j.id} nombre={j.nombre}");
+                ApiManager.Instance.SeleccionarJugador(j.id);
+                PasoCrearPartida();
+            },
+            onError: err => Debug.LogError($"[FALLO] 1b. CrearJugador: {err}"));
+    }
+
     private void PasoCrearPartida()
     {
-        ApiManager.Instance.CrearPartida(progreso: 0f,
-            onSuccess: p =>
+        // ContinuarOCrearPartida es el flujo real del juego: retoma la última
+        // partida del menor y solo crea una si nunca ha jugado.
+        ApiManager.Instance.ContinuarOCrearPartida(
+            onSuccess: (p, esNueva) =>
             {
-                Debug.Log($"[OK] 2. Partida creada. partida_id={p.id}");
+                Debug.Log($"[OK] 2. Partida {(esNueva ? "creada" : "retomada")}. " +
+                          $"partida_id={p.id} perfil={p.usuario_jugador} progreso={p.progreso}");
                 PasoRegistrarNPC();
             },
-            onError: err => Debug.LogError($"[FALLO] 2. CrearPartida: {err}"));
+            onError: err => Debug.LogError($"[FALLO] 2. ContinuarOCrearPartida: {err}"));
     }
 
     private void PasoRegistrarNPC()
