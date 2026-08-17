@@ -205,8 +205,10 @@ namespace Fishy.Chat
                 else unsafeCount++;
             }
 
-            // Registra la respuesta del jugador vinculada al nodo-pregunta que la originó.
-            logger.LogChoice(option.text, option.QualityKey, preguntaBancoId: node.id);
+            // Registra la respuesta del jugador vinculada al nodo-pregunta que la
+            // originó y a la opción exacta del banco (la que lleva el puntaje).
+            logger.LogChoice(option.text, option.QualityKey,
+                preguntaBancoId: node.id, opcionBancoId: option.bancoOptionId);
 
             EnterNode(conversation.GetNode(option.nextNodeId));
         }

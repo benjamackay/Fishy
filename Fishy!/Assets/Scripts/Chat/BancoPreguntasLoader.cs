@@ -198,7 +198,7 @@ namespace Fishy.Chat
                         allNodes.Add(consecNode);
 
                         // La opción apunta al nodo de consecuencia.
-                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId));
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id));
                     }
                 }
                 // Sin opciones y sin nextNodeId definido: fin automático.
@@ -295,7 +295,7 @@ namespace Fishy.Chat
                             nextNodeId = termina ? "" : op.siguiente_pregunta
                         });
 
-                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId));
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id));
                     }
                 }
 

@@ -75,6 +75,9 @@ namespace Fishy.Net
         private string _localAdultoNombre, _localAdultoEmail;
         private PartidaDto _localPartida;   // partida activa en modo local
         private readonly Dictionary<int, List<MensajeDto>> _localMensajes = new Dictionary<int, List<MensajeDto>>();
+        // A qué partida pertenece cada chat local: sin esto el riesgo por zona en
+        // modo local mezclaría el avance de dos perfiles de menores distintos.
+        private readonly Dictionary<int, int> _localChatPartida = new Dictionary<int, int>();
 
         // ─────────────────────────────────────────────────────────────────────────
         private void Awake()
@@ -195,6 +198,10 @@ namespace Fishy.Net
             PartidaId = null;
             NpcId = null;
             ChatId = null;
+            // En modo local los chats viven en memoria: si no se limpian, el riesgo
+            // por zona de la cuenta anterior se arrastraría a la nueva sesión.
+            _localMensajes.Clear();
+            _localChatPartida.Clear();
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -429,9 +436,9 @@ namespace Fishy.Net
         public void RegistrarMensaje(string tipo, string respuesta,
             string calidadRespuesta = "", List<OpcionRespuesta> posiblesRespuestas = null,
             Action<MensajeDto> onSuccess = null, Action<string> onError = null,
-            string preguntaBancoId = null)
+            string preguntaBancoId = null, string opcionBancoId = null)
         {
-            if (useLocalMode) { LocalRegistrarMensaje(tipo, respuesta, calidadRespuesta, posiblesRespuestas, onSuccess, onError, preguntaBancoId); return; }
+            if (useLocalMode) { LocalRegistrarMensaje(tipo, respuesta, calidadRespuesta, posiblesRespuestas, onSuccess, onError, preguntaBancoId, opcionBancoId); return; }
 
             if (!RequireId(ChatId, "ChatId", onError)) return;
 
@@ -442,18 +449,29 @@ namespace Fishy.Net
             };
             if (!string.IsNullOrEmpty(calidadRespuesta))  body["calidad_respuesta"]  = calidadRespuesta;
             if (!string.IsNullOrEmpty(preguntaBancoId))   body["pregunta_banco_id"]  = preguntaBancoId;
+            if (!string.IsNullOrEmpty(opcionBancoId))     body["opcion_banco_id"]    = opcionBancoId;
             if (posiblesRespuestas != null && posiblesRespuestas.Count > 0) body["posibles_respuestas"] = posiblesRespuestas;
 
             StartCoroutine(Send<MensajeDto>("POST", $"/chats/{ChatId}/mensajes/registrar/", body, auth: true,
                 onSuccess: onSuccess, onError: onError));
         }
 
-        /// <summary>Atajo para registrar la respuesta elegida por el jugador (tipo "chain").</summary>
+        /// <summary>
+        /// Atajo para registrar la respuesta elegida por el jugador (tipo "chain").
+        ///
+        /// <paramref name="opcionBancoId"/> es el id de la opción del banco (ej.
+        /// "HDU2_NPC01_F2_Q01_R2"). Sin él la respuesta se guarda igual, pero NO
+        /// cuenta para el riesgo por zona: el backend necesita la opción exacta
+        /// para saber si valió -1, +1 o +2. <c>calidad_respuesta</c> no alcanza,
+        /// porque no distingue una respuesta segura básica de una óptima.
+        /// </summary>
         public void RegistrarRespuestaJugador(string textoElegido, string calidadRespuesta,
             string preguntaBancoId = null,
-            Action<MensajeDto> onSuccess = null, Action<string> onError = null)
+            Action<MensajeDto> onSuccess = null, Action<string> onError = null,
+            string opcionBancoId = null)
         {
-            RegistrarMensaje("chain", textoElegido, calidadRespuesta, null, onSuccess, onError, preguntaBancoId);
+            RegistrarMensaje("chain", textoElegido, calidadRespuesta, null, onSuccess, onError,
+                preguntaBancoId, opcionBancoId);
         }
 
         /// <summary>Obtiene el historial completo de mensajes del chat activo.</summary>
@@ -480,6 +498,30 @@ namespace Fishy.Net
             StartCoroutine(Send<MensajeDto>("POST", $"/chats/{closedChat}/finalizar/", body, auth: true,
                 onSuccess: res => { ChatId = null; onSuccess?.Invoke(res); },
                 onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  RIESGO POR ZONA                                                        ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Riesgo acumulado de una partida, agrupado por zona del banco.
+        ///
+        /// Suma el impacto de cada opción que el menor eligió: insegura = -1,
+        /// segura básica = +1, segura óptima = +2. <b>Más alto = más seguro.</b>
+        /// Solo cuentan las respuestas registradas con su <c>opcion_banco_id</c>.
+        /// </summary>
+        public void ObtenerRiesgoPorZona(int? partidaId = null,
+            Action<RiesgoPorZonaDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+
+            if (useLocalMode) { LocalRiesgoPorZona(pId, onSuccess, onError); return; }
+
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<RiesgoPorZonaDto>("GET", $"/partidas/{pId}/riesgo-por-zona/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -798,6 +840,7 @@ namespace Fishy.Net
         {
             ChatId = ++_localChatSeq;
             _localMensajes[ChatId.Value] = new List<MensajeDto>();
+            _localChatPartida[ChatId.Value] = (partidaId ?? PartidaId) ?? 0;
             onSuccess?.Invoke(new ChatDto
             {
                 id = ChatId.Value,
@@ -810,7 +853,7 @@ namespace Fishy.Net
 
         private void LocalRegistrarMensaje(string tipo, string respuesta, string calidadRespuesta,
             List<OpcionRespuesta> posibles, Action<MensajeDto> onSuccess, Action<string> onError,
-            string preguntaBancoId = null)
+            string preguntaBancoId = null, string opcionBancoId = null)
         {
             if (!ChatId.HasValue) { onError?.Invoke("No hay chat activo."); return; }
             var dto = new MensajeDto
@@ -821,6 +864,7 @@ namespace Fishy.Net
                 respuesta = respuesta,
                 calidad_respuesta = calidadRespuesta,
                 pregunta_banco_id = preguntaBancoId,
+                opcion_banco_id = opcionBancoId,
                 timestamp = LocalNow(),
                 posibles_respuestas = BuildLocalPosibles(posibles)
             };
@@ -828,6 +872,79 @@ namespace Fishy.Net
             if (verboseLogs)
                 Debug.Log($"[API-LOCAL] Mensaje registrado — tipo={tipo} | calidad={calidadRespuesta} | pregunta={preguntaBancoId ?? "—"}");
             onSuccess?.Invoke(dto);
+        }
+
+        /// <summary>
+        /// Versión local del riesgo por zona: hace la misma cuenta que el backend,
+        /// pero resolviendo el impacto contra <c>Resources/banco_preguntas.json</c>,
+        /// que es la misma fuente que alimenta las conversaciones. Existe para que
+        /// la demo sin servidor pueda mostrar la feature.
+        /// </summary>
+        private void LocalRiesgoPorZona(int? partidaId, Action<RiesgoPorZonaDto> onSuccess, Action<string> onError)
+        {
+            if (!RequireId(partidaId, "PartidaId", onError)) return;
+
+            // Índice opcion_id -> (zona, impacto, peor, mejor) desde el banco.
+            var banco = Fishy.Chat.BancoPreguntasLoader.Load();
+            var indice = new Dictionary<string, RiesgoZonaDto>();
+            var impactoDe = new Dictionary<string, int>();
+            foreach (var pregunta in banco.preguntas)
+            {
+                if (pregunta.opciones_respuesta == null || pregunta.opciones_respuesta.Count == 0) continue;
+
+                int peor = int.MaxValue, mejor = int.MinValue;
+                foreach (var o in pregunta.opciones_respuesta)
+                {
+                    if (o.impacto_puntuacion < peor)  peor  = o.impacto_puntuacion;
+                    if (o.impacto_puntuacion > mejor) mejor = o.impacto_puntuacion;
+                }
+
+                foreach (var o in pregunta.opciones_respuesta)
+                {
+                    if (string.IsNullOrEmpty(o.id)) continue;
+                    indice[o.id] = new RiesgoZonaDto
+                    {
+                        zona = pregunta.zona,
+                        minimo_posible = peor,
+                        maximo_posible = mejor
+                    };
+                    impactoDe[o.id] = o.impacto_puntuacion;
+                }
+            }
+
+            var resultado = new RiesgoPorZonaDto { partida_id = partidaId.Value };
+            var porZona = new Dictionary<string, RiesgoZonaDto>();
+
+            foreach (var kv in _localMensajes)
+            {
+                if (!_localChatPartida.TryGetValue(kv.Key, out int pid) || pid != partidaId.Value) continue;
+
+                foreach (var mensaje in kv.Value)
+                {
+                    if (string.IsNullOrEmpty(mensaje.opcion_banco_id)) continue;
+                    if (!indice.TryGetValue(mensaje.opcion_banco_id, out var meta))
+                    {
+                        resultado.sin_clasificar++;
+                        continue;
+                    }
+
+                    if (!porZona.TryGetValue(meta.zona, out var acumulado))
+                    {
+                        acumulado = new RiesgoZonaDto { zona = meta.zona };
+                        porZona[meta.zona] = acumulado;
+                    }
+                    acumulado.riesgo_acumulado += impactoDe[mensaje.opcion_banco_id];
+                    acumulado.respuestas       += 1;
+                    acumulado.minimo_posible   += meta.minimo_posible;
+                    acumulado.maximo_posible   += meta.maximo_posible;
+                    resultado.respuestas       += 1;
+                    resultado.total            += impactoDe[mensaje.opcion_banco_id];
+                }
+            }
+
+            resultado.zonas = new List<RiesgoZonaDto>(porZona.Values);
+            resultado.zonas.Sort((a, b) => string.CompareOrdinal(a.zona, b.zona));
+            onSuccess?.Invoke(resultado);
         }
 
         private void LocalObtenerHistorial(Action<List<MensajeDto>> onSuccess, Action<string> onError)
@@ -956,8 +1073,40 @@ namespace Fishy.Net
         public string respuesta;
         public string calidad_respuesta;   // buena | neutral | mala
         public string pregunta_banco_id;   // ej. "HDU2_NPC01_F2_Q01"
+        public string opcion_banco_id;     // ej. "HDU2_NPC01_F2_Q01_R2"
         public string timestamp;
         public List<PosibleRespuestaDto> posibles_respuestas;
+    }
+
+    /// <summary>Riesgo acumulado de una zona. Más alto = más seguro.</summary>
+    [Serializable]
+    public class RiesgoZonaDto
+    {
+        public string zona;              // "desconocidos" | "chat_simulado"
+        public int riesgo_acumulado;     // suma de impacto_puntuacion
+        public int respuestas;           // cuántas respuestas se contaron
+        public int minimo_posible;       // si hubiera elegido siempre lo peor
+        public int maximo_posible;       // si hubiera elegido siempre lo mejor
+
+        /// <summary>Posición en la escala 0..1 (0 = todo inseguro, 1 = todo óptimo).</summary>
+        public float Normalizado
+        {
+            get
+            {
+                int rango = maximo_posible - minimo_posible;
+                return rango == 0 ? 1f : (riesgo_acumulado - minimo_posible) / (float)rango;
+            }
+        }
+    }
+
+    [Serializable]
+    public class RiesgoPorZonaDto
+    {
+        public int partida_id;
+        public List<RiesgoZonaDto> zonas = new List<RiesgoZonaDto>();
+        public int total;
+        public int respuestas;
+        public int sin_clasificar;       // respuestas cuya opción no está en el banco
     }
 
     [Serializable]
