@@ -272,6 +272,7 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
   "respuesta": "No le voy a dar mi dirección a un desconocido.",
   "calidad_respuesta": "buena",
   "pregunta_banco_id": "HDU2_NPC01_F2_Q01",
+  "opcion_banco_id": "HDU2_NPC01_F2_Q01_R2",
   "timestamp": "2025-01-01T12:05:00Z",
   "posibles_respuestas": [
     {
@@ -294,6 +295,14 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
 | `tipo` | string | `"start"`, `"chain"`, `"request"`, `"end"` |
 | `calidad_respuesta` | string | `"buena"`, `"neutral"`, `"mala"` |
 | `pregunta_banco_id` | string | ID del banco de preguntas (e.g., `"HDU2_NPC01_F1_Q01"`) |
+| `opcion_banco_id` | string | ID de la opción elegida (e.g., `"HDU2_NPC01_F1_Q01_R2"`) |
+
+> **`opcion_banco_id` es lo que hace que la respuesta cuente para el riesgo por
+> zona.** Identifica la opción exacta del banco, con su puntaje real (`-1` / `+1` /
+> `+2`). No basta con `calidad_respuesta`: el cliente colapsa `segura_basica` y
+> `segura_optima` en `"buena"`, así que deducir el puntaje de ahí trataría toda
+> respuesta segura como óptima. Si se omite, el mensaje se guarda igual pero no
+> suma. Ver [riesgo por zona](#get-partidaspartida_idriesgo-por-zona--riesgo-acumulado-por-zona).
 
 **Tipos de mensaje:**
 - `start` — Primer mensaje de una conversación
@@ -334,6 +343,56 @@ autenticada. Si falta, no existe, o es de otro adulto → `404`.
 
 // Response: PartidaDto
 ```
+
+**GET `/partidas/{partida_id}/riesgo-por-zona/`** — Riesgo acumulado por zona
+```json
+// Response
+{
+  "partida_id": 1,
+  "zonas": [
+    {
+      "zona": "chat_simulado",
+      "riesgo_acumulado": 3,
+      "respuestas": 3,
+      "minimo_posible": -3,
+      "maximo_posible": 6
+    },
+    {
+      "zona": "desconocidos",
+      "riesgo_acumulado": -2,
+      "respuestas": 4,
+      "minimo_posible": -4,
+      "maximo_posible": 8
+    }
+  ],
+  "total": 1,
+  "respuestas": 7,
+  "sin_clasificar": 0
+}
+```
+Suma el `impacto_puntuacion` de cada opción que el menor eligió, agrupado por la
+`zona` de la pregunta a la que pertenece. El puntaje sale del banco:
+`insegura = -1`, `segura_basica = +1`, `segura_optima = +2`.
+
+**El signo no está invertido: más alto = más seguro.** Un total negativo significa
+que el menor eligió mayoritariamente respuestas inseguras.
+
+| Campo | Significado |
+|---|---|
+| `riesgo_acumulado` | Suma de los impactos de esa zona |
+| `respuestas` | Cuántas respuestas se contaron |
+| `minimo_posible` | Puntaje si hubiera elegido siempre la peor opción |
+| `maximo_posible` | Puntaje si hubiera elegido siempre la mejor |
+| `sin_clasificar` | Respuestas cuyo `opcion_banco_id` no existe en el banco (no suman) |
+
+`minimo_posible` y `maximo_posible` son las cotas de **esas mismas preguntas**, no
+del banco completo, así que sirven para mostrar el resultado como una escala en vez
+de un número suelto.
+
+Solo cuentan los mensajes que traen `opcion_banco_id`. Los flujos que no reportan
+la opción elegida —como el módulo de diálogo antiguo de Desconocidos, con nodos
+escritos a mano (`a0`, `a1`, …) que no existen en el banco— quedan fuera del
+cálculo a propósito, en vez de contribuir con datos inventados.
 
 ---
 
@@ -406,11 +465,15 @@ autenticada. Si falta, no existe, o es de otro adulto → `404`.
   "tipo": "chain",
   "respuesta": "No, no te conozco.",
   "calidad_respuesta": "buena",
-  "pregunta_banco_id": "HDU2_NPC01_F2_Q01"
+  "pregunta_banco_id": "HDU2_NPC01_F2_Q01",
+  "opcion_banco_id": "HDU2_NPC01_F2_Q01_R2"
 }
 ```
 
 **Response de todos los tipos:** `MensajeDto`
+
+> En los mensajes `chain` conviene mandar siempre `opcion_banco_id`: es lo único
+> que permite acumular riesgo por zona. Sin él el mensaje se guarda, pero no puntúa.
 
 **GET `/chats/{chat_id}/mensajes/`** — Historial de mensajes
 ```json
