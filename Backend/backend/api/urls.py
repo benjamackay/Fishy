@@ -22,6 +22,7 @@ urlpatterns = [
     path("partidas/", views.crear_partida, name="crear_partida"),
     path("partidas/<int:partida_id>/", views.partida_detalle, name="partida_detalle"),
     path("partidas/<int:partida_id>/npcs/", views.npcs_partida, name="npcs_partida"),
+    path("partidas/<int:partida_id>/riesgo-por-zona/", views.riesgo_por_zona, name="riesgo_por_zona"),
 
     # NPC (HDU-2)
     path("npcs/<int:npc_id>/", views.npc_actualizar, name="npc_actualizar"),
