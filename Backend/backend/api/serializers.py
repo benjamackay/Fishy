@@ -67,7 +67,7 @@ class MensajeSerializer(serializers.ModelSerializer):
         model = Mensaje
         fields = [
             "id", "chat", "tipo", "respuesta",
-            "calidad_respuesta", "pregunta_banco_id",
+            "calidad_respuesta", "pregunta_banco_id", "opcion_banco_id",
             "timestamp", "posibles_respuestas",
         ]
         read_only_fields = ["id", "chat", "timestamp"]

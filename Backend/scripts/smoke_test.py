@@ -174,6 +174,55 @@ def main():
     if todas:
         req("GET", f"/banco/preguntas/{todas[0]['pregunta_id']}/", token=tok_a, espera=200)
 
+    comparar_banco_con_unity(todas)
+
+    print("\n-- Riesgo acumulado por zona --")
+    # Elige respuestas reales del banco y comprueba que el endpoint suma exactamente
+    # el impacto_puntuacion de esas opciones, agrupado por la zona de su pregunta.
+    # Los valores esperados se derivan del banco, no se hardcodean: si el banco
+    # cambia, la prueba sigue siendo válida.
+    elecciones = elegir_respuestas(todas)
+    if not elecciones:
+        print("  [FALLA] el banco no trae preguntas con opciones; no se puede probar")
+    else:
+        cid2 = req("POST", "/chats/",
+                   {"partida_id": pid, "npc_id": nid, "categoria_riesgo": "grooming"},
+                   token=tok_a, espera=201)["id"]
+
+        # Partida recién estrenada en esta zona: todo en cero.
+        vacio = req("GET", f"/partidas/{pid}/riesgo-por-zona/", token=tok_a, espera=200)
+        if vacio["total"] != 0 or vacio["zonas"]:
+            print(f"  [FALLA] sin respuestas registradas debería venir vacío, llegó {vacio}")
+
+        for pregunta, opcion in elecciones:
+            req("POST", f"/chats/{cid2}/mensajes/registrar/",
+                {"tipo": "chain", "respuesta": opcion["texto"],
+                 "calidad_respuesta": "buena" if opcion["impacto_puntuacion"] > 0 else "mala",
+                 "pregunta_banco_id": pregunta["pregunta_id"],
+                 "opcion_banco_id": opcion["opcion_id"]},
+                token=tok_a, espera=201)
+
+        # Un id que no existe en el banco no debe romper nada ni sumar: cae en
+        # "sin_clasificar". Es el caso del contenido viejo que no reporta opción.
+        req("POST", f"/chats/{cid2}/mensajes/registrar/",
+            {"tipo": "chain", "respuesta": "opcion inventada",
+             "opcion_banco_id": "NO_EXISTE_EN_EL_BANCO_R9"},
+            token=tok_a, espera=201)
+
+        esperado = {}
+        for pregunta, opcion in elecciones:
+            z = esperado.setdefault(pregunta["zona"], {"suma": 0, "n": 0, "min": 0, "max": 0})
+            impactos = [o["impacto_puntuacion"] for o in pregunta["opciones"]]
+            z["suma"] += opcion["impacto_puntuacion"]
+            z["n"]    += 1
+            z["min"]  += min(impactos)
+            z["max"]  += max(impactos)
+
+        riesgo = req("GET", f"/partidas/{pid}/riesgo-por-zona/", token=tok_a, espera=200)
+        comparar_riesgo(riesgo, esperado)
+        req("POST", f"/chats/{cid2}/finalizar/", {"respuesta": "fin"}, token=tok_a, espera=200)
+        req("GET", "/partidas/999999999/riesgo-por-zona/", token=tok_a, espera=404)
+
     print("\n-- Aislamiento entre adultos (B no debe ver nada de A) --")
     tok_b = req("POST", "/auth/registro/",
                 {"nombre": user_b, "email": f"{user_b}@ejemplo.cl", "password": PWD},
@@ -193,6 +242,7 @@ def main():
     req("GET", f"/chats/{cid}/mensajes/", token=tok_b, espera=404)
     req("POST", f"/chats/{cid}/mensajes/registrar/",
         {"tipo": "start", "respuesta": "x"}, token=tok_b, espera=404)
+    req("GET", f"/partidas/{pid}/riesgo-por-zona/", token=tok_b, espera=404)
 
     if not args.no_limpiar:
         print("\n-- Limpieza --")
@@ -206,13 +256,150 @@ def main():
     return 1 if fail_count else 0
 
 
+def comparar_banco_con_unity(preguntas_api):
+    """Comprueba que las opciones del banco cargado en la base sean las mismas que
+    las del banco que Unity lee de Resources.
+
+    Son dos copias del mismo JSON en carpetas distintas. Si se desincronizan, el
+    juego manda `opcion_banco_id` que la base no conoce: las respuestas se guardan
+    igual, pero el riesgo por zona las descarta y queda en cero sin que nada falle
+    de forma visible. Por eso se comprueba acá y no solo en Unity.
+    """
+    global ok_count, fail_count
+    import os
+
+    raiz = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+    ruta = os.path.join(raiz, "Fishy!", "Assets", "Resources", "banco_preguntas.json")
+    print("\n-- Banco de la base vs. banco de Unity --")
+    if not os.path.isfile(ruta):
+        print(f"  [SALTA] no encontré el banco de Unity en {ruta}")
+        return
+
+    with open(ruta, encoding="utf-8") as f:
+        preguntas_unity = json.load(f).get("preguntas", [])
+
+    def indexar_unity(preguntas):
+        return {o["id"]: o.get("impacto_puntuacion", 0)
+                for p in preguntas for o in (p.get("opciones_respuesta") or [])}
+
+    def indexar_api(preguntas):
+        return {o["opcion_id"]: o["impacto_puntuacion"]
+                for p in preguntas for o in p.get("opciones", [])}
+
+    en_unity, en_base = indexar_unity(preguntas_unity), indexar_api(preguntas_api)
+
+    huerfanas = sorted(set(en_unity) - set(en_base))
+    distintas = sorted(k for k in set(en_unity) & set(en_base) if en_unity[k] != en_base[k])
+
+    if huerfanas:
+        fail_count += 1
+        print(f"  [FALLA] {len(huerfanas)} opción(es) que Unity manda no están en la base "
+              f"(no puntuarían): {', '.join(huerfanas[:3])}")
+    else:
+        ok_count += 1
+        print(f"  [OK   ] las {len(en_unity)} opciones de Unity existen en la base")
+
+    if distintas:
+        fail_count += 1
+        print(f"  [FALLA] {len(distintas)} opción(es) con impacto distinto entre Unity y la base: "
+              f"{', '.join(distintas[:3])}")
+    else:
+        ok_count += 1
+        print("  [OK   ] los impactos coinciden en ambos bancos")
+
+
+def elegir_respuestas(preguntas, por_zona=2):
+    """Elige respuestas de prueba del banco: hasta `por_zona` preguntas de cada
+    zona, alternando la peor opción y la mejor para que la suma no sea trivial.
+
+    Devuelve [(pregunta, opcion), ...].
+    """
+    con_opciones = [p for p in preguntas if p.get("opciones")]
+    vistas, elegidas = {}, []
+    for i, pregunta in enumerate(con_opciones):
+        zona = pregunta["zona"]
+        if vistas.get(zona, 0) >= por_zona:
+            continue
+        vistas[zona] = vistas.get(zona, 0) + 1
+        opciones = sorted(pregunta["opciones"], key=lambda o: o["impacto_puntuacion"])
+        # Alterna: primero la más insegura, después la más segura.
+        elegidas.append((pregunta, opciones[0] if len(elegidas) % 2 == 0 else opciones[-1]))
+    return elegidas
+
+
+def comparar_riesgo(riesgo, esperado):
+    """Compara la respuesta de /riesgo-por-zona/ con las sumas calculadas a mano."""
+    global ok_count, fail_count
+    recibido = {z["zona"]: z for z in riesgo["zonas"]}
+
+    if set(recibido) != set(esperado):
+        fail_count += 1
+        print(f"  [FALLA] zonas: se esperaba {sorted(esperado)}, llegó {sorted(recibido)}")
+        return
+
+    for zona, esp in sorted(esperado.items()):
+        got = recibido[zona]
+        campos = [
+            ("riesgo_acumulado", esp["suma"]), ("respuestas", esp["n"]),
+            ("minimo_posible", esp["min"]),    ("maximo_posible", esp["max"]),
+        ]
+        malos = [(c, e, got[c]) for c, e in campos if got[c] != e]
+        if malos:
+            fail_count += 1
+            print(f"  [FALLA] zona '{zona}': " +
+                  ", ".join(f"{c} esperado {e}, llegó {g}" for c, e, g in malos))
+        else:
+            ok_count += 1
+            print(f"  [OK   ] zona '{zona}': {got['riesgo_acumulado']:+d} "
+                  f"en {got['respuestas']} respuestas "
+                  f"(escala {got['minimo_posible']:+d} a {got['maximo_posible']:+d})")
+
+    total_esperado = sum(z["suma"] for z in esperado.values())
+    if riesgo["total"] != total_esperado:
+        fail_count += 1
+        print(f"  [FALLA] total: esperado {total_esperado}, llegó {riesgo['total']}")
+    else:
+        ok_count += 1
+        print(f"  [OK   ] total {riesgo['total']:+d} (más alto = más seguro)")
+
+    # El id inventado que mandamos no debe sumar, pero sí contarse aparte.
+    if riesgo["sin_clasificar"] != 1:
+        fail_count += 1
+        print(f"  [FALLA] sin_clasificar: esperado 1, llegó {riesgo['sin_clasificar']}")
+    else:
+        ok_count += 1
+        print("  [OK   ] la opción inexistente en el banco no suma (sin_clasificar=1)")
+
+
+def cargar_env(ruta):
+    """Carga Backend/.env en os.environ (sin pisar lo que ya venga del entorno).
+
+    La limpieza habla con la base directamente, no por HTTP, así que necesita las
+    credenciales de Supabase. run.ps1/run.sh ya las exportan, pero este script
+    también se puede correr a mano — sin esto, Django se cae intentando conectar
+    al Postgres local que ya no existe y los datos de prueba quedan en Supabase.
+    """
+    import os
+
+    if not os.path.isfile(ruta):
+        return
+    with open(ruta, encoding="utf-8") as f:
+        for linea in f:
+            linea = linea.strip()
+            if not linea or linea.startswith("#") or "=" not in linea:
+                continue
+            clave, valor = linea.split("=", 1)
+            os.environ.setdefault(clave.strip(), valor.strip().strip('"').strip("'"))
+
+
 def limpiar(usuarios):
     """Borra los adultos de prueba. El cascade se lleva sus perfiles de menores
     y, colgando de esos, partidas, NPCs, chats y mensajes."""
     import os
 
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                    "..", "backend"))
+    raiz = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    cargar_env(os.path.join(raiz, ".env"))
+    sys.path.insert(0, os.path.join(raiz, "backend"))
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "juego_backend.settings")
     import django
 

@@ -87,9 +87,12 @@ El commit *Cablear el modelo de control parental* cambió el modelo de usuarios 
    registrarse de nuevo (y ahora el registro **exige email**). Los superusuarios
    también hay que recrearlos con `createsuperuser`.
 
-> ⚠️ **Unity no conecta contra el backend real** hasta que se haga la Fase 3:
-> la API cambió de contrato (ver más abajo). El `useLocalMode` de `ApiManager`
-> sigue funcionando, así que se puede jugar y presentar sin backend.
+> ⚠️ **La Fase 3 está escrita y compila, pero todavía no se jugó en el editor.**
+> `ApiManager.cs` ya habla el contrato nuevo (perfiles de menores incluidos) y el
+> proyecto compila sin errores — verificado con `Fishy!/verificar_compilacion.ps1`
+> y con una corrida headless de Unity. Lo que falta es jugar el flujo de dos pasos
+> contra el backend real. El `useLocalMode` de `ApiManager` sigue funcionando, así
+> que se puede jugar y presentar sin backend.
 
 ## Cómo correr
 
@@ -179,10 +182,15 @@ Luego, en la misma sesión:
 
 `scripts/smoke_test.py` recorre el flujo completo contra Supabase (health →
 registro y login del adulto → perfiles de menores → partida → NPC → chat →
-mensajes → banco), comprueba que un adulto **no** pueda ver ni tocar los datos
-de otro, y borra los datos de prueba al terminar. Debe cerrar con
-`46 OK, 0 fallas`. Con `--no-limpiar` deja los datos para inspeccionarlos en
+mensajes → banco → riesgo por zona), comprueba que un adulto **no** pueda ver ni
+tocar los datos de otro, y borra los datos de prueba al terminar. Debe cerrar con
+`63 OK, 0 fallas`. Con `--no-limpiar` deja los datos para inspeccionarlos en
 Supabase → Table Editor.
+
+También compara el banco cargado en la base con el que Unity lee de
+`Fishy!/Assets/Resources/banco_preguntas.json`. Son dos copias del mismo JSON: si
+se desincronizan, el juego manda `opcion_banco_id` que la base no conoce y el
+riesgo por zona queda en cero **sin que nada falle de forma visible**.
 
 Si el smoke test empieza a fallar después de tocar la API, es que **cambió el
 contrato**: es su función avisarlo. Actualízalo junto con el cambio.
@@ -299,9 +307,14 @@ usando el `id` de la partida.
 | `400` al crear perfil | ya tienes otro perfil con ese mismo nombre |
 | `401` en todo | falta el header `Authorization: Token ...` o el token no vale |
 
-`Zona` existe como tabla pero todavía no está relacionada con `NPC`/`Chat`;
-queda para la HDU de riesgo por zona.
+`Zona` existe como tabla pero todavía no está relacionada con `NPC`/`Chat`, y el
+riesgo por zona **no la usa**: agrupa por `PreguntaBanco.zona`, que es un campo de
+texto del banco (`desconocidos`, `chat_simulado`). La tabla `Zona` sigue suelta.
 
-> **Ojo (Fase 3 pendiente):** la Fase 2 rompe el contrato de la API, así que
-> `ApiManager.cs` en Unity deja de conectar contra el backend real hasta que se
-> agregue el paso de selección de perfil. El `useLocalMode` sigue funcionando.
+> **Ojo:** el módulo de diálogo antiguo de Desconocidos
+> (`DesconocidosDefaultScripts.cs`, nodos `a0`…`a4` / `s0`…`s3`) usa contenido
+> escrito a mano que no existe en el banco, así que **no cuenta para el riesgo por
+> zona** — por decisión, no por bug. El flujo que sí cuenta es el del celular
+> (`PhoneChatLauncher` → `ChatModuleController`), que carga del banco. Si algún día
+> se quiere que el módulo viejo también sume, hay que hacerlo cargar del banco, no
+> renombrarle los ids: los textos son distintos y el mapeo sería inventado.

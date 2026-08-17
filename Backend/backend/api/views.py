@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 
 from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
-    PosibleRespuesta, PreguntaBanco,
+    PosibleRespuesta, PreguntaBanco, OpcionBanco,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -209,8 +209,15 @@ def registrar_mensaje(request, chat_id):
         "tipo": "start"|"chain"|"request",
         "respuesta": str,
         "calidad_respuesta": "buena"|"neutral"|"mala" (solo si tipo=request),
+        "pregunta_banco_id": str  (opcional, ej: "HDU2_NPC01_F2_Q01"),
+        "opcion_banco_id": str    (opcional, ej: "HDU2_NPC01_F2_Q01_R2"),
         "posibles_respuestas": [{"texto": str, "orden": int, "calidad_respuesta": str}]  (opcional)
     }
+
+    `opcion_banco_id` identifica la opción exacta que eligió el jugador. Es lo que
+    permite acumular riesgo por zona con el puntaje real del banco (-1 / +1 / +2)
+    en vez de deducirlo de `calidad_respuesta`, que no distingue una respuesta
+    segura básica de una óptima. Ver `riesgo_por_zona`.
     """
     chat = get_object_or_404(Chat, pk=chat_id, partida__usuario_jugador__adulto=request.user)
     if chat.fecha_termino is not None:
@@ -220,9 +227,14 @@ def registrar_mensaje(request, chat_id):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # pregunta_banco_id opcional: vincula la respuesta con la pregunta del banco
+    # pregunta_banco_id / opcion_banco_id opcionales: vinculan la respuesta con el banco
     pregunta_banco_id = request.data.get("pregunta_banco_id") or None
-    mensaje = serializer.save(chat=chat, pregunta_banco_id=pregunta_banco_id)
+    opcion_banco_id   = request.data.get("opcion_banco_id") or None
+    mensaje = serializer.save(
+        chat=chat,
+        pregunta_banco_id=pregunta_banco_id,
+        opcion_banco_id=opcion_banco_id,
+    )
 
     for i, opcion in enumerate(request.data.get("posibles_respuestas", [])):
         PosibleRespuesta.objects.create(
@@ -291,3 +303,90 @@ def finalizar_chat(request, chat_id):
     )
     # El Mensaje.save() automáticamente actualiza Chat.fecha_termino
     return Response(MensajeSerializer(mensaje_end).data)
+
+
+# ── Riesgo acumulado por zona (HDU-2 / HDU-8) ────────────────────────────────
+
+@api_view(["GET"])
+def riesgo_por_zona(request, partida_id):
+    """
+    Riesgo acumulado de una partida, agrupado por zona del banco de preguntas.
+
+    Suma el `impacto_puntuacion` de cada opción que el jugador eligió, agrupado por
+    la `zona` de la pregunta a la que pertenece esa opción. El puntaje sale del
+    banco, no de `calidad_respuesta`: `insegura=-1`, `segura_basica=+1`,
+    `segura_optima=+2`.
+
+    **Signo: más alto = más seguro.** Un total negativo significa que el menor
+    eligió mayoritariamente respuestas inseguras.
+
+    Solo cuentan los mensajes que traen `opcion_banco_id` y cuyo id existe en el
+    banco. Los flujos que no reportan la opción elegida (p. ej. el módulo de
+    diálogo antiguo de Desconocidos, con nodos escritos a mano) quedan fuera del
+    cálculo a propósito, en vez de contribuir con datos inventados.
+
+    Respuesta:
+    {
+      "partida_id": 1,
+      "zonas": [
+        {"zona": "desconocidos", "riesgo_acumulado": 3, "respuestas": 4,
+         "minimo_posible": -4, "maximo_posible": 8}
+      ],
+      "total": 3,
+      "respuestas": 4,
+      "sin_clasificar": 0
+    }
+
+    `minimo_posible` / `maximo_posible` son las cotas de esas mismas preguntas si
+    el menor hubiera elegido siempre la peor / la mejor opción. Sirven para
+    mostrar el resultado como una escala en vez de un número suelto.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    elegidos = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .values_list("opcion_banco_id", flat=True)
+    )
+
+    # Una sola consulta al banco para resolver todas las opciones elegidas.
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in=set(elegidos))
+        .select_related("pregunta")
+        .prefetch_related("pregunta__opciones")
+    }
+
+    zonas = {}
+    contadas = 0
+    for opcion_id in elegidos:
+        opcion = opciones.get(opcion_id)
+        if opcion is None:
+            continue  # id que no existe en el banco (contenido viejo o typo)
+        contadas += 1
+        zona = zonas.setdefault(
+            opcion.pregunta.zona,
+            {"zona": opcion.pregunta.zona, "riesgo_acumulado": 0, "respuestas": 0,
+             "minimo_posible": 0, "maximo_posible": 0},
+        )
+        zona["riesgo_acumulado"] += opcion.impacto_puntuacion
+        zona["respuestas"] += 1
+
+        # Cotas: peor y mejor opción de la pregunta que originó esta respuesta.
+        impactos = [o.impacto_puntuacion for o in opcion.pregunta.opciones.all()]
+        if impactos:
+            zona["minimo_posible"] += min(impactos)
+            zona["maximo_posible"] += max(impactos)
+
+    return Response({
+        "partida_id": partida.id,
+        "zonas": sorted(zonas.values(), key=lambda z: z["zona"]),
+        "total": sum(z["riesgo_acumulado"] for z in zonas.values()),
+        "respuestas": contadas,
+        "sin_clasificar": len(elegidos) - contadas,
+    })

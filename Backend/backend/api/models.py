@@ -249,6 +249,17 @@ class Mensaje(models.Model):
         null=True,
         help_text="ID de la pregunta del banco que originó este mensaje (ej: HDU2_NPC01_F2_Q01)."
     )
+    opcion_banco_id   = models.CharField(
+        max_length=70,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text=(
+            "ID de la opción del banco que eligió el jugador (ej: HDU2_NPC01_F2_Q01_R2). "
+            "Es la llave que permite acumular riesgo por zona: se resuelve contra "
+            "OpcionBanco para obtener impacto_puntuacion y la zona de su pregunta."
+        )
+    )
     timestamp         = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
