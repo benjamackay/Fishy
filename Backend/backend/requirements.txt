@@ -2,3 +2,4 @@ django>=5.0
 psycopg2-binary
 djangorestframework
 python-decouple
+argon2-cffi

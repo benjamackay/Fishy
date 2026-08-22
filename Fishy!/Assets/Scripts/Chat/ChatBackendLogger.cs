@@ -64,10 +64,18 @@ namespace Fishy.Chat
                 posiblesRespuestas: opciones,
                 preguntaBancoId: preguntaBancoId));
 
-        /// <summary>Respuesta elegida por el jugador (tipo "chain").</summary>
-        public void LogChoice(string playerText, string calidad, string preguntaBancoId = null)
+        /// <summary>
+        /// Respuesta elegida por el jugador (tipo "chain").
+        ///
+        /// <paramref name="opcionBancoId"/> es lo que hace que esta respuesta cuente
+        /// para el riesgo por zona: identifica la opción exacta del banco, con su
+        /// puntaje real (-1 / +1 / +2). Sin él la respuesta se registra igual, pero
+        /// no suma.
+        /// </summary>
+        public void LogChoice(string playerText, string calidad, string preguntaBancoId = null,
+            string opcionBancoId = null)
             => Enqueue(() => ApiManager.Instance.RegistrarRespuestaJugador(
-                playerText, calidad, preguntaBancoId));
+                playerText, calidad, preguntaBancoId, opcionBancoId: opcionBancoId));
 
         /// <summary>Cierra el chat en el backend (tipo "end").</summary>
         public void LogEnd(string mensajeCierre = "")
