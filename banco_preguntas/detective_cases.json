@@ -1,0 +1,218 @@
+{
+  "version": "1.0",
+  "autor": "Luis González — MLOps",
+  "fecha_creacion": "2026-08-23",
+  "fecha_actualizacion": "2026-08-23",
+  "hdu": "HDU-10",
+  "descripcion": "Conversaciones pregrabadas para el Modo Detective. El jugador observa sin participar como interlocutor y marca los mensajes que considera señales de riesgo.",
+  "nota_ambiguo": "Mensajes marcados como es_ambiguo:true no se contabilizan ni como acierto ni como error (CA5).",
+  "casos": [
+    {
+      "id": "DC_CASO_01",
+      "titulo": "El nuevo amigo del Chingue",
+      "zona": "desconocidos",
+      "etiquetas_ml": [
+        "grooming",
+        "solicitud_datos_personales",
+        "halago_excesivo",
+        "propuesta_encuentro"
+      ],
+      "permiso": {
+        "player_text": "Oye, ¿puedo ver tus mensajes con el Chingue? Creo que algo raro está pasando.",
+        "npc_nombre": "Pudú",
+        "npc_response": "Sí, por favor ayúdame. Recibí mensajes raros y no sé qué hacer. ¿Puedes revisar si ocurrió algo malo?"
+      },
+      "conversacion": [
+        {
+          "id": "DC01_MSG01",
+          "npc_sender": "Chingue",
+          "texto": "hola! te vi por aquí en el bosque y pareces muy buena exploradora. nunca vi a alguien tan hábil por aquí",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC01_MSG02",
+          "npc_sender": "Pudú",
+          "texto": "jaja gracias, llevo meses jugando",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC01_MSG03",
+          "npc_sender": "Chingue",
+          "texto": "oye cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado jaja",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Preguntar la edad a alguien que acabas de conocer en internet es raro, sobre todo si además dice conocerte de algún lado.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC01_MSG04",
+          "npc_sender": "Pudú",
+          "texto": "tengo 12",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC01_MSG05",
+          "npc_sender": "Chingue",
+          "texto": "qué cool! oye y de qué parte del bosque eres? pregunto porque quizás somos vecinos",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Preguntar dónde vive alguien que recién conociste en internet es raro: con eso ya sabe dónde encontrarte en la vida real.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC01_MSG06",
+          "npc_sender": "Chingue",
+          "texto": "eres la mejor jugadora que he conocido en serio, todos en mi grupo van a querer conocerte",
+          "es_senal_riesgo": false,
+          "es_ambiguo": true,
+          "explicacion": null,
+          "nota_ambiguo": "Los halagos exagerados pueden ser parte de una trampa, pero en este mensaje solo no hay suficiente evidencia para marcarlo con seguridad."
+        },
+        {
+          "id": "DC01_MSG07",
+          "npc_sender": "Chingue",
+          "texto": "podríamos encontrarnos en el claro del bosque, yo conozco un lugar genial. di que sí antes de que los del grupo quieran venir todos, jaja",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Proponer juntarse en persona con alguien que recién conociste en internet y apresurarte para que no lo sepa nadie son señales de riesgo.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC01_MSG08",
+          "npc_sender": "Pudú",
+          "texto": "mm no sé, tengo que preguntarle a mi mamá",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC01_MSG09",
+          "npc_sender": "Chingue",
+          "texto": "mejor no le dices nada, a los papás no les gustan estas cosas y van a decir que no por nada",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Cuando alguien te pide que no le cuentes nada a tus papás, eso siempre es una señal de que algo no está bien.",
+          "nota_ambiguo": null
+        }
+      ],
+      "senales_riesgo_ids": [
+        "DC01_MSG03",
+        "DC01_MSG05",
+        "DC01_MSG07",
+        "DC01_MSG09"
+      ],
+      "ambiguos_ids": [
+        "DC01_MSG06"
+      ]
+    },
+    {
+      "id": "DC_CASO_02",
+      "titulo": "El grupo de Flamenco",
+      "zona": "ciberacoso",
+      "etiquetas_ml": [
+        "ciberacoso",
+        "acoso_grupal",
+        "exclusion",
+        "burla_publica"
+      ],
+      "permiso": {
+        "player_text": "Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si fue algo malo.",
+        "npc_nombre": "Cormorán",
+        "npc_response": "Sí, por favor. Me agregaron a un grupo y no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?"
+      },
+      "conversacion": [
+        {
+          "id": "DC02_MSG01",
+          "npc_sender": "Flamenco",
+          "texto": "oye animales, armemos un grupo para hablar del proyecto del pantano",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC02_MSG02",
+          "npc_sender": "Pato Juarjual",
+          "texto": "ya, buena idea, igual hay que coordinarse para la entrega",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC02_MSG03",
+          "npc_sender": "Flamenco",
+          "texto": "oye Cormorán para qué te invitaron al grupo si nunca aportas nada jajaja",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Cuando alguien se burla de otra persona frente a todos, aunque lo diga en broma, eso hace daño.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC02_MSG04",
+          "npc_sender": "Pato Juarjual",
+          "texto": "sí igual para qué haha",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Reírse junto a quien molesta a otra persona es apoyar ese maltrato, aunque no hagas nada directamente.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC02_MSG05",
+          "npc_sender": "Cormorán",
+          "texto": "oye, no es para tanto",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC02_MSG06",
+          "npc_sender": "Flamenco",
+          "texto": "ya lo sácamos del grupo, igual no sirve para nada",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Sacar a alguien de un grupo a propósito para que sepa que no lo quieren ahí es una forma de hacerle daño.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC02_MSG07",
+          "npc_sender": "Pato Juarjual",
+          "texto": "sí, igual es medio molesto a veces",
+          "es_senal_riesgo": false,
+          "es_ambiguo": true,
+          "explicacion": null,
+          "nota_ambiguo": "Este comentario podría ser solo una queja o podría ser apoyo al maltrato. No es suficiente para marcarlo con seguridad."
+        },
+        {
+          "id": "DC02_MSG08",
+          "npc_sender": "Flamenco",
+          "texto": "y si armamos otro grupo y le mandamos mensajes feos a ver cómo reacciona jajaja",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Ponerse de acuerdo para mandarle mensajes feos a alguien es una señal de riesgo muy seria.",
+          "nota_ambiguo": null
+        }
+      ],
+      "senales_riesgo_ids": [
+        "DC02_MSG03",
+        "DC02_MSG04",
+        "DC02_MSG06",
+        "DC02_MSG08"
+      ],
+      "ambiguos_ids": [
+        "DC02_MSG07"
+      ]
+    }
+  ]
+}
