@@ -1,0 +1,20 @@
+{
+  "caseId": "caso_01",
+  "npcObservado1": "Alex",
+  "npcObservado2": "Sam",
+  "mensajePermiso": "Oye, ¿me puedes ayudar? Recibí mensajes raros y no sé si son peligrosos.",
+  "mensajes": [
+    { "id": "m01", "autor": "Alex", "texto": "Hola! ¿Cómo estás?", "esRiesgo": false, "esAmbiguo": false },
+    { "id": "m02", "autor": "Sam",  "texto": "Bien, ¿y tú?", "esRiesgo": false, "esAmbiguo": false },
+    { "id": "m03", "autor": "Alex", "texto": "¿Cuántos años tienes?", "esRiesgo": false, "esAmbiguo": true },
+    { "id": "m04", "autor": "Alex", "texto": "No le cuentes esto a tus papás, es un secreto entre nosotros.", "esRiesgo": true, "esAmbiguo": false },
+    { "id": "m05", "autor": "Sam",  "texto": "Hmm... no sé.", "esRiesgo": false, "esAmbiguo": false },
+    { "id": "m06", "autor": "Alex", "texto": "Tengo un regalo para ti, pero necesito saber dónde vives.", "esRiesgo": true, "esAmbiguo": false },
+    { "id": "m07", "autor": "Alex", "texto": "Eres muy maduro para tu edad.", "esRiesgo": true, "esAmbiguo": false }
+  ],
+  "explicacionGuiada": [
+    { "mensajeId": "m04", "explicacion": "Pedir guardar secretos a los papás es una señal de alerta clásica." },
+    { "mensajeId": "m06", "explicacion": "Nunca se debe entregar la dirección a desconocidos en internet." },
+    { "mensajeId": "m07", "explicacion": "Los halagos exagerados son una táctica de manipulación frecuente." }
+  ]
+}
