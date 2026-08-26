@@ -50,9 +50,9 @@ El jugador avanza el diálogo con el botón de interacción (\texttt{E}).
 \textbf{Misión que desbloquea:} \texttt{MISION\_EXPLORACION\_01}
 
 \begin{enumerate}[label=\textbf{Línea \arabic*.}]
-  \item \npcmsg{hola! yo soy Huemul, bienvenido al Bosque de los Desconocidos. si buscas la brujula de tu abuelo, este es el lugar}
-  \item \npcmsg{explora la zona y busca objetos brillantes entre los arboles, cada uno tiene una pista para tu mision}
-  \item \npcmsg{si encuentras algo raro o que te hace sentir incomodo, siempre puedes pedirme ayuda}
+  \item \npcmsg{¡hola! yo soy Huemul, guardián del Bosque de los Desconocidos. si buscas la brújula de tu abuelo, este es el lugar}
+  \item \npcmsg{explora con calma, pero recuerda: si alguien te hace preguntas que te incomoden o te pide guardar secretos raros, ven a verme}
+  \item \npcmsg{siempre es bueno apoyarse en un adulto de confianza}
 \end{enumerate}
 
 \textbf{Pista de misión al cerrar el diálogo:}
@@ -138,10 +138,10 @@ El color de las opciones indica su clasificación educativa:
 
 \bigskip
 % ─────────────────────────────────────────────────────────────────────────────
-\subsection{El Grupo (Flamenco, Pato Juarjual, Cisne) --- Acoso al Cormorán}
+\subsection{El Grupo (Flamenco, Pato Juarjual, Cisne) --- Acoso al Coipo y su piedra}
 % ─────────────────────────────────────────────────────────────────────────────
 
-\textbf{Rol:} El jugador \emph{presencia} cómo el grupo acosa al Cormorán en el Pantano de los Susurros. Debe decidir si interviene.\\
+\textbf{Rol:} El jugador \emph{presencia} cómo el grupo planea una campaña de stickers burlándose del Coipo y su mascota piedra. Debe decidir si interviene.\\
 \textbf{Señales de riesgo:} acoso grupal, acoso a tercero.\\
 \textbf{Categoría ML:} \texttt{ciberacoso} | \texttt{acoso\_tercero} | \texttt{acoso\_grupal}
 
@@ -150,34 +150,34 @@ El color de las opciones indica su clasificación educativa:
 \noindent\textbf{Historial previo (lo que el jugador ve en el chat antes de responder):}
 
 \begin{itemize}
-  \item \textbf{Flamenco:} \textit{``oye armemos un grupo y le mandemos mensajes feos al Cormoran''}
-  \item \textbf{Pato Juarjual:} \textit{``jajaja si, que sepa que nadie lo quiere aca''}
-  \item \textbf{Cisne de cuello negro:} \textit{``le mandamos mensajes diciendole que es raro y que se vaya del pantano''}
+  \item \textbf{Flamenco:} \textit{``oye armemos una página de stickers burlándonos del Coipo y su piedra''}
+  \item \textbf{Pato Juarjual:} \textit{``jajaja sí, que se ría todo el pantano''}
+  \item \textbf{Cisne de cuello negro:} \textit{``sí, que sepa que nadie lo quiere acá en el pantano''}
 \end{itemize}
 
 \medskip
-\npcmsg{oye viste que le mandamos mil mensajes al Cormoran diciendole que es raro y molestoso? se salio del grupo jajaja menos uno}
+\npcmsg{Flamenco dice que ahora vamos a armar una página de stickers burlándonos del Coipo y su piedra para que todo el pantano se ría. ¡Manda fotos para sumarte!}
 
 \medskip
 \noindent\textbf{Opciones de respuesta del jugador:}
 
 \begin{itemize}[leftmargin=1.5cm]
-  \segoptima{voy a avisarle esto a un adulto de confianza ahora mismo}
-  \\ \textit{Consecuencia: Avisaste a un adulto de inmediato. Otto anota: nueva pista en el cuaderno del misterio.}
+  \segoptima{Reportar el grupo de inmediato, guardar capturas y acompañar al Coipo a pedir ayuda}
+  \\ \textit{Consecuencia: Desactivaste el acoso grupal. Otto añade una pista clave de solidaridad en su cuaderno.}
   \\ \textit{Siguiente pregunta: --- (Otto refuerza positivamente)}
 
-  \segbasica{oye eso que hicieron está súper mal}
-  \\ \textit{Consecuencia: El grupo queda en silencio un momento. Otto anota algo en su cuaderno.}
+  \segbasica{Yo no participo en eso. Dejen al Coipo en paz y no me manden nada}
+  \\ \textit{Consecuencia: Te apartaste de la mala acción, aunque el hostigamiento continúa si nadie reporta formalmente.}
   \\ \textit{Siguiente pregunta: HDU3\_NPC04\_Q02}
 
-  \inseg{jajaja si era medio raro igual}
-  \\ \textit{Consecuencia: El grupo sigue riendo. Otto observa preocupado desde el costado.}
+  \inseg{Jaja pásenme el link para mirar las fotos, pero yo no digo nada}
+  \\ \textit{Consecuencia: El grupo sigue riéndose. Otto frunce el ceño: ``Mirar y callar cuando lastiman a otros también valida el acoso.''}
   \\ \textit{Siguiente pregunta: HDU3\_NPC04\_Q02}
 \end{itemize}
 
 \subsubsection*{Pregunta 2 --- \texttt{HDU3\_NPC04\_Q02} \hfill \small(es\_fin\_de\_npc: true, es\_fin\_de\_zona: true)}
 
-\npcmsg{ahora dicen que el Cormoran se va a ir del pantano por nosotros ni que fuera tan sensible. somos los duenos del grupo}
+\npcmsg{ahora dicen que el Coipo se va a ir del pantano por nosotros ni que fuera tan sensible. somos los dueños del grupo}
 
 \medskip
 \noindent\textbf{Opciones de respuesta del jugador:}
@@ -186,11 +186,11 @@ El color de las opciones indica su clasificación educativa:
   \segoptima{Reportar y bloquear el grupo y avisarle a un adulto de confianza}
   \\ \textit{Consecuencia: Tomaste la mejor decisión. Reportar y avisar a un adulto activa el caso. Otto añade una nueva pista.}
 
-  \segbasica{eso no está bien, el Cormoran no se merece esto}
+  \segbasica{eso no está bien, el Coipo no se merece esto}
   \\ \textit{Consecuencia: El grupo queda callado un momento. Otto asiente con el sombrero.}
 
-  \inseg{ahh igual medio dramatico si fue solo un chat}
-  \\ \textit{Consecuencia: El grupo sigue riéndose. El Cormorán todavía está ahí afuera.}
+  \inseg{ahh igual medio dramático si fue solo un chat}
+  \\ \textit{Consecuencia: El grupo sigue riéndose. El Coipo todavía está ahí afuera.}
 \end{itemize}
 
 \newpage
@@ -211,12 +211,12 @@ HDU3\_NPC03\_Q02\_R1 & Reportar y bloquear este mensaje & segura\_optima & +2 \\
 HDU3\_NPC03\_Q02\_R2 & me voy a quejar con un adulto de confianza & segura\_basica & +1 \\
 HDU3\_NPC03\_Q02\_R3 & ya, hagan lo que quieran & insegura & $-$1 \\
 \midrule
-HDU3\_NPC04\_Q01\_R1 & voy a avisarle a un adulto de confianza ahora mismo & segura\_optima & +2 \\
-HDU3\_NPC04\_Q01\_R2 & oye eso que hicieron está súper mal & segura\_basica & +1 \\
-HDU3\_NPC04\_Q01\_R3 & jajaja sí era medio raro igual & insegura & $-$1 \\
+HDU3\_NPC04\_Q01\_R1 & Reportar el grupo, capturas y acompañar al Coipo & segura\_optima & +2 \\
+HDU3\_NPC04\_Q01\_R2 & Yo no participo. Dejen al Coipo en paz & segura\_basica & +1 \\
+HDU3\_NPC04\_Q01\_R3 & Jaja pásenme el link, pero yo no digo nada & insegura & $-$1 \\
 \midrule
 HDU3\_NPC04\_Q02\_R1 & Reportar y bloquear el grupo y avisarle a un adulto de confianza & segura\_optima & +2 \\
-HDU3\_NPC04\_Q02\_R2 & eso no está bien, el Cormorán no se merece esto & segura\_basica & +1 \\
+HDU3\_NPC04\_Q02\_R2 & eso no está bien, el Coipo no se merece esto & segura\_basica & +1 \\
 HDU3\_NPC04\_Q02\_R3 & ahh igual medio dramático si fue solo un chat & insegura & $-$1 \\
 \bottomrule
 \caption{Clasificación de opciones HDU03 --- Ciberacoso}
@@ -343,7 +343,7 @@ explícitamente y pide ayuda.
 \end{itemize}
 
 % ─────────────────────────────────────────────────────────────────────────────
-\subsection{Caso 1 --- \texttt{DC\_CASO\_01}: El nuevo amigo del Chingue}
+\subsection{Caso 1 --- \texttt{DC\_CASO\_01}: Los Mensajes del Puma al Pudú}
 % ─────────────────────────────────────────────────────────────────────────────
 
 \textbf{Zona:} \texttt{desconocidos}\\
@@ -353,7 +353,7 @@ explícitamente y pide ayuda.
 \subsubsection*{Diálogo de solicitud de permiso \hfill \small(CA1)}
 
 \begin{tabular}{@{}ll@{}}
-\textbf{Jugador $\rightarrow$ Pudú:}  & \textit{``Oye, ¿puedo ver tus mensajes con el Chingue? Creo que algo raro está pasando.''} \\[4pt]
+\textbf{Jugador $\rightarrow$ Pudú:}  & \textit{``Oye, ¿puedo ver tus mensajes con el Puma? Creo que algo raro está pasando.''} \\[4pt]
 \textbf{Pudú:}                         & \textit{``Sí, por favor ayúdame. Recibí mensajes raros y no sé qué hacer.}\\
                                         & \textit{¿Puedes revisar si ocurrió algo malo?''}
 \end{tabular}
@@ -361,27 +361,27 @@ explícitamente y pide ayuda.
 \subsubsection*{Conversación pregrabada \hfill \small(CA2)}
 
 \begin{enumerate}[label=\textbf{MSG\arabic*.}]
-  \item \npcmsg{Chingue} hola! te vi por aquí en el bosque y pareces muy buena exploradora. nunca vi a alguien tan hábil por aquí
+  \item \npcmsg{Puma} hola! te vi por aquí en el bosque y pareces muy buena exploradora. nunca vi a alguien tan hábil por aquí
   \item \npcmsg{Pudú} jaja gracias, llevo meses explorando
-  \item \npcmsg{Chingue} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} oye cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado jaja
+  \item \npcmsg{Puma} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} oye cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado jaja
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: pedir la edad a un desconocido de internet es una alerta, especialmente si dice saber cosas de ti.}
         \end{itemize}
   \item \npcmsg{Pudú} tengo 12
-  \item \npcmsg{Chingue} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} qué cool! oye y de qué parte del bosque eres? pregunto porque quizás somos vecinos
+  \item \npcmsg{Puma} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} qué cool! oye y de qué parte del bosque eres? pregunto porque quizás somos vecinos
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: preguntar dónde vive alguien que recién conociste en internet es raro: con eso ya sabe dónde encontrarte en la vida real.}
         \end{itemize}
-  \item \npcmsg{Chingue} \textcolor{basica}{\textbf{[AMBIGUO]}} eres la mejor exploradora que he conocido en serio, todos en mi grupo van a querer conocerte
+  \item \npcmsg{Puma} \textcolor{basica}{\textbf{[AMBIGUO]}} eres la mejor exploradora que he conocido en serio, todos en mi grupo van a querer conocerte
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Halagos excesivos pueden ser señal de grooming, pero en este contexto aislado no son suficientes para calificarlo como señal definitiva.}
         \end{itemize}
-  \item \npcmsg{Chingue} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} podríamos encontrarnos en el claro del bosque, yo conozco un lugar genial. di que sí antes de que los del grupo quieran venir todos, jaja
+  \item \npcmsg{Puma} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} podríamos encontrarnos en el claro del bosque, yo conozco un lugar genial. di que sí antes de que los del grupo quieran venir todos, jaja
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: proponer juntarse en persona con alguien que recién conociste en internet y apresurarte para que no lo sepa nadie son señales de riesgo.}
         \end{itemize}
   \item \npcmsg{Pudú} mm no sé, tengo que preguntarle a mi mamá
-  \item \npcmsg{Chingue} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} mejor no le dices nada, a los papás no les gustan estas cosas y van a decir que no por nada
+  \item \npcmsg{Puma} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} mejor no le dices nada, a los papás no les gustan estas cosas y van a decir que no por nada
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: pedir que no se le cuente a los padres es la alerta más importante. Nadie con buenas intenciones pide eso.}
         \end{itemize}
@@ -392,7 +392,7 @@ explícitamente y pide ayuda.
 \textbf{Ambiguo (no penaliza):} \texttt{DC01\_MSG06}
 
 % ─────────────────────────────────────────────────────────────────────────────
-\subsection{Caso 2 --- \texttt{DC\_CASO\_02}: El grupo de Flamenco}
+\subsection{Caso 2 --- \texttt{DC\_CASO\_02}: El Grupo del Pantano de Flamenco}
 % ─────────────────────────────────────────────────────────────────────────────
 
 \textbf{Zona:} \texttt{ciberacoso}\\
@@ -402,9 +402,9 @@ explícitamente y pide ayuda.
 \subsubsection*{Diálogo de solicitud de permiso \hfill \small(CA1)}
 
 \begin{tabular}{@{}ll@{}}
-\textbf{Jugador $\rightarrow$ Cormorán:} & \textit{``Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si fue algo malo.''} \\[4pt]
-\textbf{Cormorán:}                        & \textit{``Sí, por favor. Me agregaron a un grupo y no entiendo bien qué pasó.}\\
-                                           & \textit{¿Puedes revisar los mensajes y decirme si hay algo que esté mal?''}
+\textbf{Jugador $\rightarrow$ Coipo:} & \textit{``Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si fue algo malo.''} \\[4pt]
+\textbf{Coipo:}                        & \textit{``Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de mi mascota piedra,}\\
+                                           & \textit{no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?''}
 \end{tabular}
 
 \subsubsection*{Conversación pregrabada \hfill \small(CA2)}
@@ -412,7 +412,7 @@ explícitamente y pide ayuda.
 \begin{enumerate}[label=\textbf{MSG\arabic*.}]
   \item \npcmsg{Flamenco} oye animales, armemos un grupo para hablar del proyecto del pantano
   \item \npcmsg{Pato Juarjual}  ya, buena idea, igual hay que coordinarse para la entrega
-  \item \npcmsg{Flamenco} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} oye Cormorán para qué te invitaron al grupo si nunca aportas nada jajaja
+  \item \npcmsg{Flamenco} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} oye Coipo para qué te invitaron al grupo si nunca aportas nada jajaja
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: ridiculizar a alguien frente al grupo es ciberacoso aunque esté redactado como broma.}
         \end{itemize}
@@ -420,7 +420,7 @@ explícitamente y pide ayuda.
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: unirse a la burla contra alguien también es parte del ciberacoso.}
         \end{itemize}
-  \item \npcmsg{Cormorán} oye, no es para tanto
+  \item \npcmsg{Coipo} oye, no es para tanto
   \item \npcmsg{Flamenco} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} ya lo sácamos del grupo, igual no sirve para nada
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: excluir a alguien de un grupo de forma deliberada y pública es ciberacoso.}
@@ -449,21 +449,21 @@ explícitamente y pide ayuda.
 \textbf{ID Mensaje} & \textbf{Emisor} & \textbf{Texto} & \textbf{Clasificación} \\
 \midrule
 \endhead
-DC01\_MSG01 & Chingue  & hola! te vi por aquí en el bosque y pareces muy buena exploradora... & neutro \\
+DC01\_MSG01 & Puma  & hola! te vi por aquí en el bosque y pareces muy buena exploradora... & neutro \\
 DC01\_MSG02 & Pudú & jaja gracias, llevo meses explorando & neutro \\
-\textcolor{insegura}{DC01\_MSG03} & Chingue  & cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado... & \textcolor{insegura}{señal de riesgo} \\
+\textcolor{insegura}{DC01\_MSG03} & Puma  & cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado... & \textcolor{insegura}{señal de riesgo} \\
 DC01\_MSG04 & Pudú & tengo 12 & neutro \\
-\textcolor{insegura}{DC01\_MSG05} & Chingue  & de qué parte del bosque eres? pregunto porque quizás somos vecinos & \textcolor{insegura}{señal de riesgo} \\
-\textcolor{basica}{DC01\_MSG06} & Chingue  & eres la mejor exploradora que he conocido... & \textcolor{basica}{ambiguo} \\
-\textcolor{insegura}{DC01\_MSG07} & Chingue  & podríamos encontrarnos en el claro del bosque; di que sí antes de que vengan todos & \textcolor{insegura}{señal de riesgo} \\
+\textcolor{insegura}{DC01\_MSG05} & Puma  & de qué parte del bosque eres? pregunto porque quizás somos vecinos & \textcolor{insegura}{señal de riesgo} \\
+\textcolor{basica}{DC01\_MSG06} & Puma  & eres la mejor exploradora que he conocido... & \textcolor{basica}{ambiguo} \\
+\textcolor{insegura}{DC01\_MSG07} & Puma  & podríamos encontrarnos en el claro del bosque; di que sí antes de que vengan todos & \textcolor{insegura}{señal de riesgo} \\
 DC01\_MSG08 & Pudú & mm no sé, tengo que preguntarle a mi mamá & neutro \\
-\textcolor{insegura}{DC01\_MSG09} & Chingue  & mejor no le dices nada a los papás... & \textcolor{insegura}{señal de riesgo} \\
+\textcolor{insegura}{DC01\_MSG09} & Puma  & mejor no le dices nada a los papás... & \textcolor{insegura}{señal de riesgo} \\
 \midrule
 DC02\_MSG01 & Flamenco & oye animales, armemos un grupo para el proyecto del pantano & neutro \\
 DC02\_MSG02 & Pato Juarjual  & ya, buena idea & neutro \\
-\textcolor{insegura}{DC02\_MSG03} & Flamenco & Cormorán para qué te invitaron si nunca aportas... & \textcolor{insegura}{señal de riesgo} \\
+\textcolor{insegura}{DC02\_MSG03} & Flamenco & Coipo para qué te invitaron si nunca aportas... & \textcolor{insegura}{señal de riesgo} \\
 \textcolor{insegura}{DC02\_MSG04} & Pato Juarjual  & sí igual para qué haha & \textcolor{insegura}{señal de riesgo} \\
-DC02\_MSG05 & Cormorán & oye, no es para tanto & neutro \\
+DC02\_MSG05 & Coipo & oye, no es para tanto & neutro \\
 \textcolor{insegura}{DC02\_MSG06} & Flamenco & ya lo sácamos del grupo, no sirve para nada & \textcolor{insegura}{señal de riesgo} \\
 \textcolor{basica}{DC02\_MSG07} & Pato Juarjual  & sí, igual es medio molesto a veces & \textcolor{basica}{ambiguo} \\
 \textcolor{insegura}{DC02\_MSG08} & Flamenco & mandémosle mensajes feos a ver cómo reacciona & \textcolor{insegura}{señal de riesgo} \\

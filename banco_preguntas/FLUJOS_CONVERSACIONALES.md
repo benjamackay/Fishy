@@ -63,7 +63,7 @@ HDU3_NPC03_Q01
    [FIN NPC03]     ┌─────┴─────────────────┬──────────────────────┐
                    R1 segura_optima         R2 segura_basica       R3 insegura
                    "Reportar y bloquear"    "me voy a quejar       "ya, hagan lo
-                   +2 pts                   con la profe"          que quieran"
+                   +2 pts                   con un adulto"         que quieran"
                    │                        +1 pt                  -1 pt
                    └─────────────────────────┴──────────────────────┘
                                              │
@@ -71,28 +71,29 @@ HDU3_NPC03_Q01
                                          [FIN NPC03]
 ```
 
-### NPC04 — El Grupo (Flamenco, Pato Juarjual, Cisne → acosan al Cormorán)
+### NPC04 — El Grupo (Flamenco, Pato Juarjual, Cisne → acosan al Coipo)
 
 ```
 HDU3_NPC04_Q01
-"oye viste que le mandamos mil mensajes al Cormorán diciéndole que es raro..."
+"Flamenco dice que ahora vamos a armar una página de stickers burlándonos del Coipo y su piedra..."
           │
    ┌──────┴──────────────┬──────────────────────┐
-   R1 segura_optima      R2 segura_basica        R3 insegura
-   "voy a avisarle a     "oye eso que hicieron  "jajaja sí era
-   la profe ahora mismo" está súper mal"         medio raro igual"
+   R1 segura_optima              R2 segura_basica           R3 insegura
+   "Reportar el grupo,           "Yo no participo.          "Jaja pásenme
+   capturas y acompañar          Dejen al Coipo             el link pero
+   al Coipo"                     en paz"                    yo no digo nada"
    +2 pts                +1 pt                  -1 pt
    │                     │                      │
    ▼                     └──────────┬───────────┘
   "Avisaste a un adulto.             ▼
    Otto anota: nueva     HDU3_NPC04_Q02
-   pista en el cuaderno" "ahora dicen que el Cormorán se va a ir del pantano..."
+   pista en el cuaderno" "ahora dicen que el Coipo se va a ir del pantano por nosotros..."
    [FIN NPC04, CA4]      │
                    ┌─────┴─────────────────┬──────────────────────┐
                    R1 segura_optima         R2 segura_basica       R3 insegura
                    "Reportar y bloquear     "eso no está bien,     "ahh igual medio
-                   el grupo y avisarle      el Cormorán no se      dramático si fue
-                   a la profe"              merece esto"           solo un chat"
+                   el grupo y avisarle      el Coipo no se         dramático si fue
+                   a un adulto"             merece esto"           solo un chat"
                    +2 pts                  +1 pt                  -1 pt
                    │                        │                      │
                    └─────────────────────────┴──────────────────────┘
@@ -192,8 +193,8 @@ CONFIRMACIÓN DE MARCAS (CA4)
 
 | Caso | NPC involucrado | Zona | Señales riesgo | Ambiguos |
 |------|----------------|------|:--------------:|:-------:|
-| DC_CASO_01 — El nuevo amigo del Chingue | Pudú | desconocidos | 4 | 1 |
-| DC_CASO_02 — El grupo de Flamenco | Cormorán | ciberacoso | 4 | 1 |
+| DC_CASO_01 — Los Mensajes del Puma al Pudú | Pudú | desconocidos | 4 | 1 |
+| DC_CASO_02 — El Grupo del Pantano de Flamenco | Coipo | ciberacoso | 4 | 1 |
 
 **Archivos:** `detective_cases.json` · `dialogos_propuestos.tex` § HDU10
 

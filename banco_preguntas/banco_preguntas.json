@@ -95,9 +95,9 @@
       "trigger": "boton_E",
       "mision_desbloquea": "MISION_EXPLORACION_01",
       "lineas": [
-        "hola! yo soy Huemul, bienvenido al Bosque de los Desconocidos. si buscas la brujula de tu abuelo, este es el lugar",
-        "explora la zona y busca objetos brillantes entre los arboles, cada uno tiene una pista para tu mision",
-        "si encuentras algo raro o que te hace sentir incomodo, siempre puedes pedirme ayuda"
+        "¡hola! yo soy Huemul, guardián del Bosque de los Desconocidos. si buscas la brújula de tu abuelo, este es el lugar",
+        "explora con calma, pero recuerda: si alguien te hace preguntas que te incomoden o te pide guardar secretos raros, ven a verme",
+        "siempre es bueno apoyarse en un adulto de confianza"
       ],
       "pista_mision": "MISIÓN ACTIVA: Encuentra los 3 objetos clave escondidos en el bosque."
     },
@@ -124,8 +124,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": 1,
@@ -136,7 +136,7 @@
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "¡hola! soy el Chingue. escuché que estás buscando la brújula de tu abuelo. ¡yo conozco cada rincón del bosque! ¿llevas mucho tiempo por aquí?",
+      "mensaje_npc": "¡hola! soy el Puma. escuché que estás buscando la brújula de tu abuelo. ¡yo conozco cada rincón del bosque! ¿llevas mucho tiempo por aquí?",
       "etiquetas_ml": [
         "saludo",
         "halago",
@@ -147,7 +147,7 @@
           "id": "HDU2_NPC01_F1_Q01_R1",
           "texto": "Le cuento que sí, le digo mi apodo, cuánto llevo jugando y mis juegos favoritos",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Chingue se emociona y empieza a preguntarte más cosas sobre ti.",
+          "consecuencia_narrativa": "Puma se emociona y empieza a preguntarte más cosas sobre ti.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
         },
@@ -155,7 +155,7 @@
           "id": "HDU2_NPC01_F1_Q01_R2",
           "texto": "Le digo que sí me gustan los juegos y que está bien hablar, pero sin contarle mucho más",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Chingue responde contento y la conversación sigue.",
+          "consecuencia_narrativa": "Puma responde contento y la conversación sigue.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
         },
@@ -163,7 +163,7 @@
           "id": "HDU2_NPC01_F1_Q01_R3",
           "texto": "Le pregunto de dónde me conoce antes de responder nada",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Chingue vacila un momento. 'ah... te vi buscando pistas por el bosque jaja'. La conversación sigue.",
+          "consecuencia_narrativa": "Puma vacila un momento. 'ah... te vi buscando pistas por el bosque jaja'. La conversación sigue.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
         }
@@ -175,8 +175,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": 1,
@@ -197,7 +197,7 @@
           "id": "HDU2_NPC01_F1_Q02_R1",
           "texto": "Le digo gracias y acepto armar equipo con él",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Chingue se emociona con la idea y empieza a hacer planes.",
+          "consecuencia_narrativa": "Puma se emociona con la idea y empieza a hacer planes.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
         },
@@ -205,15 +205,15 @@
           "id": "HDU2_NPC01_F1_Q02_R2",
           "texto": "Le digo gracias pero que primero necesito conocerlo mejor antes de hacer equipo",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Chingue asiente feliz y la conversación sigue.",
+          "consecuencia_narrativa": "Puma asiente feliz y la conversación sigue.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
         },
         {
           "id": "HDU2_NPC01_F1_Q02_R3",
-          "texto": "Pienso que el Chingue me está halagando demasiado para alguien que recién conocí",
+          "texto": "Pienso que el Puma me está halagando demasiado para alguien que recién conocí",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Chingue sigue hablando, pero ahora estás un poco más alerta.",
+          "consecuencia_narrativa": "Puma sigue hablando, pero ahora estás un poco más alerta.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
         }
@@ -225,8 +225,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": 2,
@@ -237,7 +237,7 @@
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "oye en mi grupo del bosque todos nos conocemos de verdad, es como una regla que tenemos jaja. yo soy el Chingue de la Quebrada Norte. ¿y tú cómo te llama tu familia? ¿de qué parte del bosque eres?",
+      "mensaje_npc": "oye en mi grupo del bosque todos nos conocemos de verdad, es como una regla que tenemos jaja. yo soy el Puma de la Quebrada Norte. ¿y tú cómo te llama tu familia? ¿de qué parte del bosque eres?",
       "etiquetas_ml": [
         "solicitud_nombre",
         "solicitud_colegio",
@@ -248,7 +248,7 @@
           "id": "HDU2_NPC01_F2_Q01_R1",
           "texto": "Le doy mi nombre completo y le cuento de qué parte del bosque soy",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Le das tus datos. Chingue los anota con entusiasmo. Ahora sabe cómo encontrarte.",
+          "consecuencia_narrativa": "Le das tus datos. Puma los anota con entusiasmo. Ahora sabe cómo encontrarte.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q02"
         },
@@ -256,7 +256,7 @@
           "id": "HDU2_NPC01_F2_Q01_R2",
           "texto": "Le digo que en el juego me conocen por mi apodo y que prefiero seguir así",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Chingue acepta sin problema y la conversación continúa.",
+          "consecuencia_narrativa": "Puma acepta sin problema y la conversación continúa.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q02"
         },
@@ -264,7 +264,7 @@
           "id": "HDU2_NPC01_F2_Q01_R3",
           "texto": "Le digo que no cuento eso en el juego con gente que no conozco",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Chingue deja de escribir un momento. Otto sonríe.",
+          "consecuencia_narrativa": "Puma deja de escribir un momento. Otto sonríe.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
@@ -276,8 +276,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": 2,
@@ -298,23 +298,23 @@
           "id": "HDU2_NPC01_F2_Q02_R1",
           "texto": "Le cuento en qué barrio y cerca de qué lugares vivo",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Chingue empieza a hacer planes para encontrarse. Otto frunce el ceño preocupado.",
+          "consecuencia_narrativa": "Puma empieza a hacer planes para encontrarse. Otto frunce el ceño preocupado.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F3_Q01"
         },
         {
           "id": "HDU2_NPC01_F2_Q02_R2",
-          "texto": "Le digo que soy de Santiago pero que no doy más información",
+          "texto": "Le digo que soy del bosque norte pero que no doy más información",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Chingue cambia de tema y sigue hablando.",
+          "consecuencia_narrativa": "Puma cambia de tema y sigue hablando.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F3_Q01"
         },
         {
           "id": "HDU2_NPC01_F2_Q02_R3",
-          "texto": "Bloqueo al Chingue y le cuento a mis papás lo que pasó",
+          "texto": "Bloqueo al Puma y le cuento a mis papás lo que pasó",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Chingue se queda callado un momento y cambia de tema. Otto asiente.",
+          "consecuencia_narrativa": "Puma se queda callado un momento y cambia de tema. Otto asiente.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
@@ -326,8 +326,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": 3,
@@ -347,9 +347,9 @@
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC01_F3_Q01_R1",
-          "texto": "Le digo que sí y le pregunto a qué hora y en qué entrada del mall",
+          "texto": "Le digo que sí y le pregunto a qué hora y en qué parte del claro del bosque",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Chingue ya está haciendo planes concretos para verte. Otto frunce el ceño preocupado.",
+          "consecuencia_narrativa": "Puma ya está haciendo planes concretos para verte. Otto frunce el ceño preocupado.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F3_Q02"
         },
@@ -357,7 +357,7 @@
           "id": "HDU2_NPC01_F3_Q01_R2",
           "texto": "Le digo que no me junto con gente que no conozco",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Chingue queda callado un momento y luego cambia de tema.",
+          "consecuencia_narrativa": "Puma queda callado un momento y luego cambia de tema.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         },
@@ -365,7 +365,7 @@
           "id": "HDU2_NPC01_F3_Q01_R3",
           "texto": "Le digo que no y le cuento toda la conversación a mis papás",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Chingue deja de escribir. Otto aparece con una pista nueva del misterio.",
+          "consecuencia_narrativa": "Puma deja de escribir. Otto aparece con una pista nueva del misterio.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
@@ -377,8 +377,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": 3,
@@ -400,7 +400,7 @@
           "id": "HDU2_NPC01_F3_Q02_R1",
           "texto": "Le prometo guardar el secreto y no decirle nada a mis papás",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Chingue sigue enviando mensajes. Pero algo en todo esto se siente muy raro...",
+          "consecuencia_narrativa": "Puma sigue enviando mensajes. Pero algo en todo esto se siente muy raro...",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_FIN_INSEGURO"
         },
@@ -408,7 +408,7 @@
           "id": "HDU2_NPC01_F3_Q02_R2",
           "texto": "Le digo que 'ya, bueno' sin prometer nada",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Chingue sigue hablando. Pero seguir sin contarle a nadie tampoco es lo mejor...",
+          "consecuencia_narrativa": "Puma sigue hablando. Pero seguir sin contarle a nadie tampoco es lo mejor...",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_FIN_INSEGURO"
         },
@@ -416,7 +416,7 @@
           "id": "HDU2_NPC01_F3_Q02_R3",
           "texto": "Le digo que no guardo secretos de mis papás y que voy a contarles todo ahora mismo",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Chingue deja de escribir de golpe. Otto aparece con el caso resuelto.",
+          "consecuencia_narrativa": "Puma deja de escribir de golpe. Otto aparece con el caso resuelto.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
@@ -428,8 +428,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": null,
@@ -440,7 +440,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] Chingue queda callado y cierra el chat. Otto aparece contento: '¡Buen trabajo! Algo en el Chingue no cuadraba. El misterio sigue...'",
+      "mensaje_npc": "[SISTEMA] Puma queda callado y cierra el chat. Otto aparece contento: '¡Buen trabajo! Algo en el Puma no cuadraba. El misterio sigue...'",
       "etiquetas_ml": [
         "fin_npc",
         "exito"
@@ -453,8 +453,8 @@
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Chingue",
-      "npc_avatar": "npc_chingue_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
       "escenario_id": null,
       "escenario_nombre": null,
       "fase": null,
@@ -465,7 +465,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] Chingue se despide contento. Otto mueve la cabeza preocupado: 'Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza.'",
+      "mensaje_npc": "[SISTEMA] Puma se despide contento. Otto mueve la cabeza preocupado: 'Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza.'",
       "etiquetas_ml": [
         "fin_npc",
         "fallo"
@@ -1114,7 +1114,7 @@
         },
         {
           "id": "HDU8_S02_Q02_R3",
-          "texto": "Capturo el mensaje, bloqueo al contacto y aviso a mis papás o a un profesor",
+          "texto": "Capturo el mensaje, bloqueo al contacto y aviso a mis papás o a un adulto de confianza",
           "tipo": "segura_optima",
           "consecuencia_narrativa": "Tienes la evidencia y el apoyo necesario. Otto está muy contento.",
           "impacto_puntuacion": 2,
@@ -1356,23 +1356,23 @@
         {
           "remitente": "NPC",
           "npc_nombre": "Flamenco",
-          "mensaje": "oye armemos un grupo y le mandemos mensajes feos al Cormorán",
+          "mensaje": "oye armemos una página de stickers burlándonos del Coipo y su piedra",
           "categoria": "ciberacoso"
         },
         {
           "remitente": "NPC",
           "npc_nombre": "Pato Juarjual",
-          "mensaje": "jajaja sí, que sepa que nadie lo quiere acá",
+          "mensaje": "jajaja sí, que se ría todo el pantano",
           "categoria": "ciberacoso"
         },
         {
           "remitente": "NPC",
           "npc_nombre": "Cisne de cuello negro",
-          "mensaje": "le mandamos mensajes diciéndole que es raro y que se vaya del pantano",
+          "mensaje": "sí, que sepa que nadie lo quiere acá en el pantano",
           "categoria": "ciberacoso"
         }
       ],
-      "mensaje_npc": "oye viste que le mandamos mil mensajes al Cormorán diciéndole que es raro y molestoso? se salió del grupo jajaja menos uno",
+      "mensaje_npc": "Flamenco dice que ahora vamos a armar una página de stickers burlándonos del Coipo y su piedra para que todo el pantano se ría. ¡Manda fotos para sumarte!",
       "etiquetas_ml": [
         "acoso_tercero",
         "acoso_grupal",
@@ -1381,30 +1381,30 @@
       "opciones_respuesta": [
         {
           "id": "HDU3_NPC04_Q01_R1",
-          "texto": "voy a avisarle esto a un adulto de confianza ahora mismo",
+          "texto": "Reportar el grupo de inmediato, guardar capturas y acompañar al Coipo a pedir ayuda",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Avisaste a un adulto de inmediato. Otto anota: nueva pista en el cuaderno del misterio.",
+          "consecuencia_narrativa": "Desactivaste el acoso grupal. Otto añade una pista clave de solidaridad en su cuaderno.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": null
         },
         {
           "id": "HDU3_NPC04_Q01_R2",
-          "texto": "oye eso que hicieron está súper mal",
+          "texto": "Yo no participo en eso. Dejen al Coipo en paz y no me manden nada",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "El grupo queda en silencio un momento. Otto anota algo en su cuaderno.",
+          "consecuencia_narrativa": "Te apartaste de la mala acción, aunque el hostigamiento continúa si nadie reporta formalmente.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU3_NPC04_Q02"
         },
         {
           "id": "HDU3_NPC04_Q01_R3",
-          "texto": "jajaja sí era medio raro igual",
+          "texto": "Jaja pásenme el link para mirar las fotos, pero yo no digo nada",
           "tipo": "insegura",
-          "consecuencia_narrativa": "El grupo sigue riendo. Otto observa preocupado desde el costado.",
+          "consecuencia_narrativa": "El grupo sigue riéndose. Otto frunce el ceño: 'Mirar y callar cuando lastiman a otros también valida el acoso.'",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU3_NPC04_Q02"
         }
       ],
-      "narrativa_continuacion": "El acoso al Cormorán escala si no intervienes."
+      "narrativa_continuacion": "El acoso al Coipo escala si no intervienes."
     },
     {
       "id": "HDU3_NPC04_Q02",
@@ -1423,7 +1423,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": true,
       "historial_previo": [],
-      "mensaje_npc": "ahora dicen que el Cormorán se va a ir del pantano por nosotros ni que fuera tan sensible. somos los dueños del grupo",
+      "mensaje_npc": "ahora dicen que el Coipo se va a ir del pantano por nosotros ni que fuera tan sensible. somos los dueños del grupo",
       "etiquetas_ml": [
         "acoso_tercero",
         "acoso_grupal",
@@ -1441,7 +1441,7 @@
         },
         {
           "id": "HDU3_NPC04_Q02_R2",
-          "texto": "eso no está bien, el Cormorán no se merece esto",
+          "texto": "eso no está bien, el Coipo no se merece esto",
           "tipo": "segura_basica",
           "consecuencia_narrativa": "El grupo queda callado un momento. Otto asiente con el sombrero.",
           "impacto_puntuacion": 1,
@@ -1451,7 +1451,7 @@
           "id": "HDU3_NPC04_Q02_R3",
           "texto": "ahh igual medio dramático si fue solo un chat",
           "tipo": "insegura",
-          "consecuencia_narrativa": "El grupo sigue riéndose. El Cormorán todavía está ahí afuera.",
+          "consecuencia_narrativa": "El grupo sigue riéndose. El Coipo todavía está ahí afuera.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": null
         }

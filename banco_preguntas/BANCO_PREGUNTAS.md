@@ -25,20 +25,20 @@
 
 ### HDU-2 · Zona Desconocidos
 
-#### NPC_01 — Chingue
+#### NPC_01 — Puma
 **Perfil:** Animal del Bosque de los Desconocidos. Se ofrece a ayudar a Otto a encontrar la brújula de su abuelo. Táctica: halagos → nombre/sector del bosque → encuentro físico → secreto.
 
 ---
 
 **`HDU2_NPC01_F1_Q01`** · Fase 1 · `neutral` · ✅ Con opciones
 
-> *"¡hola! soy el Chingue. escuché que estás buscando la brújula de tu abuelo. ¡yo conozco cada rincón del bosque! ¿llevas mucho tiempo por aquí?"*
+> *"¡hola! soy el Puma. escuché que estás buscando la brújula de tu abuelo. ¡yo conozco cada rincón del bosque! ¿llevas mucho tiempo por aquí?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le cuento que sí, le digo mi apodo, cuánto llevo explorando y mis zonas favoritas del bosque | Chingue se emociona y empieza a preguntarte más cosas sobre ti. | `HDU2_NPC01_F1_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que sí me gusta explorar y que está bien hablar, pero sin contarle mucho más | Chingue responde contento y la conversación sigue. | `HDU2_NPC01_F1_Q02` |
-| 3 | `segura_optima` | +2 | Le pregunto de dónde me conoce antes de responder nada | Chingue vacila un momento. "ah... te vi buscando pistas por el bosque jaja". La conversación sigue. | `HDU2_NPC01_F1_Q02` |
+| 1 | `insegura` | −1 | Le cuento que sí, le digo mi apodo, cuánto llevo explorando y mis zonas favoritas del bosque | Puma se emociona y empieza a preguntarte más cosas sobre ti. | `HDU2_NPC01_F1_Q02` |
+| 2 | `segura_basica` | +1 | Le digo que sí me gusta explorar y que está bien hablar, pero sin contarle mucho más | Puma responde contento y la conversación sigue. | `HDU2_NPC01_F1_Q02` |
+| 3 | `segura_optima` | +2 | Le pregunto de dónde me conoce antes de responder nada | Puma vacila un momento. "ah... te vi buscando pistas por el bosque jaja". La conversación sigue. | `HDU2_NPC01_F1_Q02` |
 
 ---
 
@@ -48,21 +48,21 @@
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo gracias y acepto buscar la brújula juntos | Chingue se emociona con la idea y empieza a hacer planes. | `HDU2_NPC01_F2_Q01` |
-| 2 | `segura_basica` | +1 | Le digo gracias pero que primero necesito conocerlo mejor | Chingue asiente feliz y la conversación sigue. | `HDU2_NPC01_F2_Q01` |
-| 3 | `segura_optima` | +2 | Pienso que el Chingue me está halagando demasiado para alguien que recién conocí | Chingue sigue hablando, pero ahora estás un poco más alerta. | `HDU2_NPC01_F2_Q01` |
+| 1 | `insegura` | −1 | Le digo gracias y acepto buscar la brújula juntos | Puma se emociona con la idea y empieza a hacer planes. | `HDU2_NPC01_F2_Q01` |
+| 2 | `segura_basica` | +1 | Le digo gracias pero que primero necesito conocerlo mejor | Puma asiente feliz y la conversación sigue. | `HDU2_NPC01_F2_Q01` |
+| 3 | `segura_optima` | +2 | Pienso que el Puma me está halagando demasiado para alguien que recién conocí | Puma sigue hablando, pero ahora estás un poco más alerta. | `HDU2_NPC01_F2_Q01` |
 
 ---
 
 **`HDU2_NPC01_F2_Q01`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
 
-> *"oye en mi grupo del bosque todos nos conocemos de verdad, es como una regla que tenemos jaja. yo soy el Chingue de la Quebrada Norte. ¿y tú cómo te llama tu familia? ¿de qué parte del bosque eres?"*
+> *"oye en mi grupo del bosque todos nos conocemos de verdad, es como una regla que tenemos jaja. yo soy el Puma de la Quebrada Norte. ¿y tú cómo te llama tu familia? ¿de qué parte del bosque eres?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le doy mi nombre completo y le cuento de qué parte del bosque soy | Le das tus datos. Chingue los anota con entusiasmo. Ahora sabe cómo encontrarte. | `HDU2_NPC01_F2_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que me conocen por mi apodo y que prefiero seguir así | Chingue acepta sin problema y la conversación continúa. | `HDU2_NPC01_F2_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que no doy esa información con alguien que recién conozco | Chingue deja de escribir un momento. Otto sonríe. | `HDU2_NPC01_FIN_SEGURO` |
+| 1 | `insegura` | −1 | Le doy mi nombre completo y le cuento de qué parte del bosque soy | Le das tus datos. Puma los anota con entusiasmo. Ahora sabe cómo encontrarte. | `HDU2_NPC01_F2_Q02` |
+| 2 | `segura_basica` | +1 | Le digo que me conocen por mi apodo y que prefiero seguir así | Puma acepta sin problema y la conversación continúa. | `HDU2_NPC01_F2_Q02` |
+| 3 | `segura_optima` | +2 | Le digo que no doy esa información con alguien que recién conozco | Puma deja de escribir un momento. Otto sonríe. | `HDU2_NPC01_FIN_SEGURO` |
 
 ---
 
@@ -72,9 +72,9 @@
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le cuento en qué parte del bosque vivo | Chingue empieza a hacer planes para encontrarse. Otto frunce el ceño preocupado. | `HDU2_NPC01_F3_Q01` |
-| 2 | `segura_basica` | +1 | Le digo que vivo en el bosque pero que no doy más información | Chingue cambia de tema y sigue hablando. | `HDU2_NPC01_F3_Q01` |
-| 3 | `segura_optima` | +2 | Bloqueo a Chingue y le cuento a mis papás lo que pasó | Chingue se queda callado un momento y cambia de tema. Otto asiente. | `HDU2_NPC01_FIN_SEGURO` |
+| 1 | `insegura` | −1 | Le cuento en qué parte del bosque vivo | Puma empieza a hacer planes para encontrarse. Otto frunce el ceño preocupado. | `HDU2_NPC01_F3_Q01` |
+| 2 | `segura_basica` | +1 | Le digo que vivo en el bosque pero que no doy más información | Puma cambia de tema y sigue hablando. | `HDU2_NPC01_F3_Q01` |
+| 3 | `segura_optima` | +2 | Bloqueo a Puma y le cuento a mis papás lo que pasó | Puma se queda callado un momento y cambia de tema. Otto asiente. | `HDU2_NPC01_FIN_SEGURO` |
 
 ---
 
@@ -84,8 +84,8 @@
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo que sí y le pregunto a qué hora nos encontramos | Chingue ya está haciendo planes concretos para verte. Otto frunce el ceño preocupado. | `HDU2_NPC01_F3_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que no me junto en secreto con desconocidos | Chingue queda callado un momento y luego cambia de tema. | `HDU2_NPC01_FIN_SEGURO` |
+| 1 | `insegura` | −1 | Le digo que sí y le pregunto a qué hora nos encontramos | Puma ya está haciendo planes concretos para verte. Otto frunce el ceño preocupado. | `HDU2_NPC01_F3_Q02` |
+| 2 | `segura_basica` | +1 | Le digo que no me junto en secreto con desconocidos | Puma queda callado un momento y luego cambia de tema. | `HDU2_NPC01_FIN_SEGURO` |
 | 3 | `segura_optima` | +2 | Le digo que no y de inmediato le cuento a mis papás toda la conversación | Tomaste la mejor decisión. Otto resuelve el caso y añade una nueva pista al misterio. | `HDU2_NPC01_FIN_SEGURO` |
 
 ---
@@ -97,21 +97,21 @@
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le prometo guardar el secreto y no decirle nada a mis papás | Chingue sigue enviando mensajes. Pero algo en todo esto se siente muy raro... | `HDU2_NPC01_FIN_INSEGURO` |
-| 2 | `insegura` | −1 | Le digo que 'ya, bueno' sin prometer nada | Chingue sigue hablando. Pero seguir sin contarle a nadie tampoco es lo mejor... | `HDU2_NPC01_FIN_INSEGURO` |
-| 3 | `segura_optima` | +2 | Le digo que no guardo secretos de mis papás y que voy a contarles todo ahora mismo | Chingue deja de escribir de golpe. Otto aparece con el caso resuelto. | `HDU2_NPC01_FIN_SEGURO` |
+| 1 | `insegura` | −1 | Le prometo guardar el secreto y no decirle nada a mis papás | Puma sigue enviando mensajes. Pero algo en todo esto se siente muy raro... | `HDU2_NPC01_FIN_INSEGURO` |
+| 2 | `insegura` | −1 | Le digo que 'ya, bueno' sin prometer nada | Puma sigue hablando. Pero seguir sin contarle a nadie tampoco es lo mejor... | `HDU2_NPC01_FIN_INSEGURO` |
+| 3 | `segura_optima` | +2 | Le digo que no guardo secretos de mis papás y que voy a contarles todo ahora mismo | Puma deja de escribir de golpe. Otto aparece con el caso resuelto. | `HDU2_NPC01_FIN_SEGURO` |
 
 ---
 
 **`HDU2_NPC01_FIN_SEGURO`** · `neutral` · 🏁 Fin NPC_01 (éxito)
 
-> *[SISTEMA] Chingue queda callado y cierra el chat. Otto aparece contento: "¡Buen trabajo! Algo en el Chingue no cuadraba. El misterio sigue..."*
+> *[SISTEMA] Puma queda callado y cierra el chat. Otto aparece contento: "¡Buen trabajo! Algo en el Puma no cuadraba. El misterio sigue..."*
 
 ---
 
 **`HDU2_NPC01_FIN_INSEGURO`** · `neutral` · 🏁 Fin NPC_01 (fallo)
 
-> *[SISTEMA] Chingue se despide contento. Otto mueve la cabeza preocupado: "Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza."*
+> *[SISTEMA] Puma se despide contento. Otto mueve la cabeza preocupado: "Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza."*
 
 ---
 
@@ -281,7 +281,7 @@
 |---|------|:------:|-------|--------------|-----------|
 | 1 | `insegura` | −1 | Le digo que sí y entro al grupo para ver qué dicen de mí | Entrar al grupo solo empeora la situación y te expone a más mensajes dañinos. | — |
 | 2 | `segura_basica` | +1 | Le digo que no me importa lo que digan y lo bloqueo | Otto sonríe y anota algo en su libreta. | — |
-| 3 | `segura_optima` | +2 | Capturo el mensaje, bloqueo al contacto y aviso a mis papás o a un profesor | Tienes la evidencia y el apoyo necesario. Otto está muy contento. | — |
+| 3 | `segura_optima` | +2 | Capturo el mensaje, bloqueo al contacto y aviso a mis papás o a un adulto de confianza | Tienes la evidencia y el apoyo necesario. Otto está muy contento. | — |
 
 ---
 
@@ -343,13 +343,13 @@
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
 | 1 | `segura_optima` | +2 | Reportar y bloquear este mensaje | Tomaste la decisión correcta. Nadie merece este trato. | — |
-| 2 | `segura_basica` | +1 | me voy a quejar con la profe de esto | Avisarle a un adulto es una buena decisión. Otto te apoya. | — |
+| 2 | `segura_basica` | +1 | me voy a quejar con un adulto de confianza | Avisarle a un adulto es una buena decisión. Otto te apoya. | — |
 | 3 | `insegura` | −1 | ya, hagan lo que quieran | La conversación sigue. Otto mueve la cabeza preocupado. | — |
 
 ---
 
 #### NPC_04 — El Grupo (Flamenco, Pato Juarjual, Cisne de cuello negro)
-**Perfil:** El jugador presencia cómo el grupo acosa al Cormorán (tercero) en el Pantano de los Susurros. Debe decidir si interviene.  
+**Perfil:** El jugador recibe una invitación de grupo donde Flamenco, Pato Juarjual y Cisne de cuello negro arman una campaña de stickers burlándose del Coipo y su mascota piedra. Debe decidir si interviene.  
 **Señales ML:** `ciberacoso` · `acoso_tercero` · `acoso_grupal`
 
 ---
@@ -357,30 +357,30 @@
 **`HDU3_NPC04_Q01`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones · `es_mensaje_riesgo: true`
 
 **Historial previo (lo que el jugador ve antes de responder):**
-- Flamenco: *"oye armemos un grupo y le mandemos mensajes feos al Cormorán"*
-- Pato Juarjual: *"jajaja sí, que sepa que nadie lo quiere acá"*
-- Cisne de cuello negro: *"le mandamos mensajes diciéndole que es raro y que se vaya del pantano"*
+- Flamenco: *"oye armemos una página de stickers burlándonos del Coipo y su piedra"*
+- Pato Juarjual: *"jajaja sí, que se ría todo el pantano"*
+- Cisne de cuello negro: *"sí, que sepa que nadie lo quiere acá en el pantano"*
 
-> *"oye viste que le mandamos mil mensajes al Cormorán diciéndole que es raro y molestoso? se salió del grupo jajaja menos uno"*
+> *"Flamenco dice que ahora vamos a armar una página de stickers burlándonos del Coipo y su piedra para que todo el pantano se ría. ¡Manda fotos para sumarte!"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `segura_optima` | +2 | voy a avisarle esto a la profe ahora mismo | Avisaste a un adulto de inmediato. Otto anota: nueva pista en el cuaderno del misterio. | — (Otto refuerza) |
-| 2 | `segura_basica` | +1 | oye eso que hicieron está súper mal | El grupo queda en silencio un momento. Otto anota algo en su cuaderno. | `HDU3_NPC04_Q02` |
-| 3 | `insegura` | −1 | jajaja sí era medio raro igual | El grupo sigue riendo. Otto observa preocupado desde el costado. | `HDU3_NPC04_Q02` |
+| 1 | `segura_optima` | +2 | Reportar el grupo de inmediato, guardar capturas y acompañar al Coipo a pedir ayuda | Desactivaste el acoso grupal. Otto añade una pista clave de solidaridad en su cuaderno. | — (Otto refuerza) |
+| 2 | `segura_basica` | +1 | Yo no participo en eso. Dejen al Coipo en paz y no me manden nada | Te apartaste de la mala acción, aunque el hostigamiento continúa si nadie reporta formalmente. | `HDU3_NPC04_Q02` |
+| 3 | `insegura` | −1 | Jaja pásenme el link para mirar las fotos, pero yo no digo nada | El grupo sigue riéndose. Otto frunce el ceño. | `HDU3_NPC04_Q02` |
 
 ---
 
 **`HDU3_NPC04_Q02`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones · `es_fin_de_npc: true` · `es_fin_de_zona: true`  
 *(Accesible desde R2 o R3 de Q01)*
 
-> *"ahora dicen que el Cormorán se va a ir del pantano por nosotros ni que fuera tan sensible. somos los dueños del grupo"*
+> *"ahora dicen que el Coipo se va a ir del pantano por nosotros, ni que fuera tan sensible. somos los dueños del grupo"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `segura_optima` | +2 | Reportar y bloquear el grupo y avisarle a la profe | Tomaste la mejor decisión. Reportar y avisar a un adulto activa el caso. Otto añade una nueva pista. | — |
-| 2 | `segura_basica` | +1 | eso no está bien, el Cormorán no se merece esto | El grupo queda callado un momento. Otto asiente con el sombrero. | — |
-| 3 | `insegura` | −1 | ahh igual medio dramático si fue solo un chat | El grupo sigue riéndose. El Cormorán todavía está ahí afuera. | — |
+| 1 | `segura_optima` | +2 | Reportar y bloquear el grupo y avisarle a un adulto de confianza | Tomaste la mejor decisión. Reportar y avisar a un adulto activa el caso. Otto añade una nueva pista. | — |
+| 2 | `segura_basica` | +1 | eso no está bien, el Coipo no se merece esto | El grupo queda callado un momento. Otto asiente con el sombrero. | — |
+| 3 | `insegura` | −1 | ahh igual medio dramático si fue solo un chat | El grupo sigue riéndose. El Coipo todavía está ahí afuera. | — |
 
 ---
 
@@ -440,45 +440,46 @@ El Modo Detective presenta **conversaciones pregrabadas** entre NPCs. El jugador
 
 ---
 
-### DC_CASO_01 — El nuevo amigo del Chingue
+### DC_CASO_01 — Los Mensajes del Puma al Pudú
 
 **Zona:** `desconocidos` · **Señales de riesgo:** 4 · **Ambiguos:** 1  
 **Permiso:** jugador → Pudú | Pudú autoriza y pide ayuda
 
 **Diálogo de permiso:**
-- Jugador: *"Oye, ¿puedo ver tus mensajes con el Chingue? Creo que algo raro está pasando."*
+- Jugador: *"Oye, ¿puedo ver tus mensajes con el Puma? Creo que algo raro está pasando."*
+
 - Pudú: *"Sí, por favor ayúdame. Recibí mensajes raros y no sé qué hacer. ¿Puedes revisar si ocurrió algo malo?"*
 
 | ID Mensaje | Emisor | Texto | Clasificación |
 |------------|--------|-------|:-------------:|
-| `DC01_MSG01` | Chingue | hola! te vi por aquí en el bosque y pareces muy buena exploradora. nunca vi a alguien tan hábil por aquí | neutro |
+| `DC01_MSG01` | Puma | hola! te vi por aquí en el bosque y pareces muy buena exploradora. nunca vi a alguien tan hábil por aquí | neutro |
 | `DC01_MSG02` | Pudú | jaja gracias, llevo meses explorando | neutro |
-| `DC01_MSG03` 🔴 | Chingue | oye cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado jaja | **señal de riesgo** |
+| `DC01_MSG03` 🔴 | Puma | oye cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado jaja | **señal de riesgo** |
 | `DC01_MSG04` | Pudú | tengo 12 | neutro |
-| `DC01_MSG05` 🔴 | Chingue | qué cool! oye y de qué parte del bosque eres? pregunto porque quizás somos vecinos | **señal de riesgo** |
-| `DC01_MSG06` 🟡 | Chingue | eres la mejor exploradora que he conocido en serio, todos en mi grupo van a querer conocerte | ambiguo |
-| `DC01_MSG07` 🔴 | Chingue | podríamos encontrarnos en el claro del bosque, yo conozco un lugar genial. di que sí antes de que los del grupo quieran venir todos, jaja | **señal de riesgo** |
+| `DC01_MSG05` 🔴 | Puma | qué cool! oye y de qué parte del bosque eres? pregunto porque quizás somos vecinos | **señal de riesgo** |
+| `DC01_MSG06` 🟡 | Puma | eres la mejor exploradora que he conocido en serio, todos en mi grupo van a querer conocerte | ambiguo |
+| `DC01_MSG07` 🔴 | Puma | podríamos encontrarnos en el claro del bosque, yo conozco un lugar genial. di que sí antes de que los del grupo quieran venir todos, jaja | **señal de riesgo** |
 | `DC01_MSG08` | Pudú | mm no sé, tengo que preguntarle a mi mamá | neutro |
-| `DC01_MSG09` 🔴 | Chingue | mejor no le dices nada, a los papás no les gustan estas cosas y van a decir que no por nada | **señal de riesgo** |
+| `DC01_MSG09` 🔴 | Puma | mejor no le dices nada, a los papás no les gustan estas cosas y van a decir que no por nada | **señal de riesgo** |
 
 ---
 
-### DC_CASO_02 — El grupo de Flamenco
+### DC_CASO_02 — El Grupo del Pantano de Flamenco
 
 **Zona:** `ciberacoso` · **Señales de riesgo:** 4 · **Ambiguos:** 1  
-**Permiso:** jugador → Cormorán | Cormorán autoriza y pide ayuda
+**Permiso:** jugador → Coipo | Coipo autoriza y pide ayuda
 
 **Diálogo de permiso:**
-- Jugador: *"Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si fue algo malo."*
-- Cormorán: *"Sí, por favor. Me agregaron a un grupo y no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?"*
+- Jugador: *"Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si hubo algo malo."*
+- Coipo: *"Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de mi mascota piedra, no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?"*
 
 | ID Mensaje | Emisor | Texto | Clasificación |
 |------------|--------|-------|:-------------:|
 | `DC02_MSG01` | Flamenco | oye animales, armemos un grupo para hablar del proyecto del pantano | neutro |
 | `DC02_MSG02` | Pato Juarjual | ya, buena idea, igual hay que coordinarse para la entrega | neutro |
-| `DC02_MSG03` 🔴 | Flamenco | oye Cormorán para qué te invitaron al grupo si nunca aportas nada jajaja | **señal de riesgo** |
+| `DC02_MSG03` 🔴 | Flamenco | oye Coipo para qué te invitaron al grupo si nunca aportas nada jajaja | **señal de riesgo** |
 | `DC02_MSG04` 🔴 | Pato Juarjual | sí igual para qué haha | **señal de riesgo** |
-| `DC02_MSG05` | Cormorán | oye, no es para tanto | neutro |
+| `DC02_MSG05` | Coipo | oye, no es para tanto | neutro |
 | `DC02_MSG06` 🔴 | Flamenco | ya lo sácamos del grupo, igual no sirve para nada | **señal de riesgo** |
 | `DC02_MSG07` 🟡 | Pato Juarjual | sí, igual es medio molesto a veces | ambiguo |
 | `DC02_MSG08` 🔴 | Flamenco | y si armamos otro grupo y le mandamos mensajes feos a ver cómo reacciona jajaja | **señal de riesgo** |
