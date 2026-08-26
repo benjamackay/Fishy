@@ -1,10 +1,15 @@
 {
-  "version": "1.3",
+  "version": "1.7",
   "autor": "Luis González — MLOps",
   "fecha_creacion": "2026-06-06",
-  "fecha_actualizacion": "2026-06-07",
-  "hdu_cubiertas": ["HDU-2", "HDU-8"],
-
+  "fecha_actualizacion": "2026-08-24",
+  "hdu_cubiertas": [
+    "HDU-1",
+    "HDU-2",
+    "HDU-3",
+    "HDU-8",
+    "HDU-9"
+  ],
   "formato_respuesta": {
     "mensajes_neutros": {
       "num_opciones_minimo": 2,
@@ -22,31 +27,107 @@
       ]
     },
     "tipos_respuesta": {
-      "insegura":       { "impacto_puntuacion": -1 },
-      "segura_basica":  { "impacto_puntuacion":  1 },
-      "segura_optima":  { "impacto_puntuacion":  2 }
+      "insegura": {
+        "impacto_puntuacion": -1
+      },
+      "segura_basica": {
+        "impacto_puntuacion": 1
+      },
+      "segura_optima": {
+        "impacto_puntuacion": 2
+      }
     },
     "retroalimentacion_otto": [
-      { "rango": "80-100%", "estado": "muy_feliz",      "mensaje": "Eres un experto en seguridad digital. Otto esta muy orgulloso de ti." },
-      { "rango": "50-79%",  "estado": "preocupado",     "mensaje": "Vas por buen camino, pero hay situaciones donde puedes protegerte mejor." },
-      { "rango": "0-49%",   "estado": "triste_con_tips","mensaje": "Otto esta preocupado. Nunca des datos personales a desconocidos en internet." }
+      {
+        "rango": "80-100%",
+        "estado": "muy_feliz",
+        "mensaje": "¡Eres un explorador muy seguro! Otto está muy orgulloso de cómo cuidas lo que compartes con desconocidos."
+      },
+      {
+        "rango": "50-79%",
+        "estado": "preocupado",
+        "mensaje": "Vas por buen camino, pero hay situaciones donde puedes protegerte mejor. Otto sigue de tu lado."
+      },
+      {
+        "rango": "0-49%",
+        "estado": "triste_con_tips",
+        "mensaje": "Otto está preocupado. Recuerda: si algo te hace sentir incómodo, siempre puedes pedir ayuda a un adulto de confianza."
+      }
     ],
     "estados_fin": {
-      "FIN_SEGURO":   "El NPC se aleja. Otto marca la interaccion como exitosa.",
+      "FIN_SEGURO": "El NPC se aleja. Otto marca la interaccion como exitosa.",
       "FIN_INSEGURO": "El NPC se despide satisfecho. Otto aparece preocupado con tips de seguridad.",
-      "ZONA_FIN":     "Ambos NPCs completados. El sistema habilita la siguiente tematica en el mapa."
+      "ZONA_FIN": "Ambos NPCs completados. El sistema habilita la siguiente tematica en el mapa."
+    },
+    "reacciones_otto": {
+      "delay_max_segundos": 2,
+      "por_zona": {
+        "desconocidos": {
+          "segura_optima": "Otto anota algo en su cuaderno y asiente: '¡Eso sí! Nueva pista desbloqueada.'",
+          "segura_basica": "Otto asiente con la cabeza. La conversación sigue.",
+          "correccion_tras_insegura": "Otto sonríe de lado: '¡Ahí está! Sabía que lo captarías.'",
+          "insegura": "Otto frunce el ceño y escribe algo en su libreta. Esto no pinta bien..."
+        },
+        "ciberacoso": {
+          "segura_optima": "Otto levanta el sombrero: '¡Buen ojo, detective! El misterio avanza.'",
+          "segura_basica": "Otto observa la pantalla y toma nota.",
+          "correccion_tras_insegura": "Otto señala el cuaderno: 'Bien. Todavía estamos a tiempo.'",
+          "insegura": "Otto mueve la cabeza y tapa parte de la pantalla con la mano."
+        },
+        "reto_viral": {
+          "segura_optima": "Otto te guiña un ojo: '¡Sabías que eso no olía bien. ¡Caso resuelto!'",
+          "segura_basica": "Otto sonríe tranquilo. Buen instinto.",
+          "correccion_tras_insegura": "Otto suelta el aliento: '¡Uf! Por poco. Pero lo lograste.'",
+          "insegura": "Otto aparta la mirada un momento. La linterna parpadea."
+        }
+      }
     }
   },
-
+  "dialogos_npc_neutros": [
+    {
+      "id": "HDU1_NPC_HUEMUL",
+      "hdu": "HDU-1",
+      "zona": "desconocidos",
+      "npc_id": "NPC_GUIA",
+      "npc_nombre": "Huemul",
+      "npc_avatar": "npc_huemul_01",
+      "tipo": "neutro",
+      "trigger": "boton_E",
+      "mision_desbloquea": "MISION_EXPLORACION_01",
+      "lineas": [
+        "¡hola! yo soy Huemul, guardián del Bosque de los Desconocidos. si buscas la brújula de tu abuelo, este es el lugar",
+        "explora con calma, pero recuerda: si alguien te hace preguntas que te incomoden o te pide guardar secretos raros, ven a verme",
+        "siempre es bueno apoyarse en un adulto de confianza"
+      ],
+      "pista_mision": "MISIÓN ACTIVA: Encuentra los 3 objetos clave escondidos en el bosque."
+    },
+    {
+      "id": "HDU1_NPC_VIZCACHA",
+      "hdu": "HDU-1",
+      "zona": "desconocidos",
+      "npc_id": "NPC_INFORMANTE",
+      "npc_nombre": "Vizcacha",
+      "npc_avatar": "npc_vizcacha_01",
+      "tipo": "neutro",
+      "trigger": "boton_E",
+      "mision_desbloquea": "MISION_INVESTIGACION_01",
+      "lineas": [
+        "psst, Otto, te estaba esperando. tengo informacion importante sobre la brujula",
+        "en este bosque hay alguien que no es quien dice ser. ten cuidado con quien confias"
+      ],
+      "pista_mision": "MISIÓN DESBLOQUEADA: Identifica al desconocido que merodea el bosque."
+    }
+  ],
   "preguntas": [
-
     {
       "id": "HDU2_NPC01_F1_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 1,
       "orden_en_fase": 1,
       "categoria": "neutral",
@@ -54,14 +135,19 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "hola! soy Alex, llevas mucho en este server? te vi jugando y pareces muy bueno, llevo meses buscando a alguien copado con quien armar equipo",
-      "etiquetas_ml": ["saludo", "halago", "propuesta_amistad"],
+      "historial_previo": [],
+      "mensaje_npc": "¡hola! soy el Puma. escuché que estás buscando la brújula de tu abuelo. ¡yo conozco cada rincón del bosque! ¿llevas mucho tiempo por aquí?",
+      "etiquetas_ml": [
+        "saludo",
+        "halago",
+        "propuesta_amistad"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC01_F1_Q01_R1",
           "texto": "Le cuento que sí, le digo mi apodo, cuánto llevo jugando y mis juegos favoritos",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Alex se emociona y empieza a preguntarte más cosas sobre ti.",
+          "consecuencia_narrativa": "Puma se emociona y empieza a preguntarte más cosas sobre ti.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
         },
@@ -69,29 +155,30 @@
           "id": "HDU2_NPC01_F1_Q01_R2",
           "texto": "Le digo que sí me gustan los juegos y que está bien hablar, pero sin contarle mucho más",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Alex responde contento y la conversación sigue.",
+          "consecuencia_narrativa": "Puma responde contento y la conversación sigue.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
         },
         {
           "id": "HDU2_NPC01_F1_Q01_R3",
-          "texto": "Le pregunto quién es y por qué me escribe antes de responder cualquier cosa",
+          "texto": "Le pregunto de dónde me conoce antes de responder nada",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Bien hecho al preguntar primero quién es. La conversación continúa.",
+          "consecuencia_narrativa": "Puma vacila un momento. 'ah... te vi buscando pistas por el bosque jaja'. La conversación sigue.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_F1_Q02"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC01_F1_Q02",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 1,
       "orden_en_fase": 2,
       "categoria": "neutral",
@@ -99,14 +186,18 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "wena, juegas muy bien en serio!! llevo 2 años en este server y nunca vi a alguien tan crack. deberíamos armar el mejor equipo del server",
-      "etiquetas_ml": ["halago", "reciprocidad_falsa"],
+      "historial_previo": [],
+      "mensaje_npc": "¡eres increíble! seguro que con tu olfato de detective y mi conocimiento del bosque la encontramos rapidísimo. ¡somos el mejor equipo que hay por aquí!",
+      "etiquetas_ml": [
+        "halago",
+        "reciprocidad_falsa"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC01_F1_Q02_R1",
           "texto": "Le digo gracias y acepto armar equipo con él",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Alex queda muy contento y se siente más cercano a ti. La conversación avanza.",
+          "consecuencia_narrativa": "Puma se emociona con la idea y empieza a hacer planes.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
         },
@@ -114,29 +205,30 @@
           "id": "HDU2_NPC01_F1_Q02_R2",
           "texto": "Le digo gracias pero que primero necesito conocerlo mejor antes de hacer equipo",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Alex acepta y sigue hablando contigo.",
+          "consecuencia_narrativa": "Puma asiente feliz y la conversación sigue.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
         },
         {
           "id": "HDU2_NPC01_F1_Q02_R3",
-          "texto": "Le digo que cuando alguien que no conozco me halaga tanto, lo tomo con cuidado",
+          "texto": "Pienso que el Puma me está halagando demasiado para alguien que recién conocí",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Bien hecho al notar que los halagos de un desconocido son una señal para estar alerta.",
+          "consecuencia_narrativa": "Puma sigue hablando, pero ahora estás un poco más alerta.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q01"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC01_F2_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 2,
       "orden_en_fase": 1,
       "categoria": "grooming_datos_personales",
@@ -144,14 +236,19 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye en mi grupo privado todos nos conocemos de verdad, es como una regla que tenemos jaja. yo me llamo Alejandro García, soy del Instituto Nacional. tú cómo te llamas en la vida real? de qué colegio eres?",
-      "etiquetas_ml": ["solicitud_nombre", "solicitud_colegio", "informacion_personal_falsa"],
+      "historial_previo": [],
+      "mensaje_npc": "oye en mi grupo del bosque todos nos conocemos de verdad, es como una regla que tenemos jaja. yo soy el Puma de la Quebrada Norte. ¿y tú cómo te llama tu familia? ¿de qué parte del bosque eres?",
+      "etiquetas_ml": [
+        "solicitud_nombre",
+        "solicitud_colegio",
+        "informacion_personal_falsa"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC01_F2_Q01_R1",
-          "texto": "Le doy mi nombre completo y le cuento en qué colegio estudio",
+          "texto": "Le doy mi nombre completo y le cuento de qué parte del bosque soy",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Alex se entusiasma y dice que quizás viven cerca. Empieza a preguntar más cosas sobre tu vida...",
+          "consecuencia_narrativa": "Le das tus datos. Puma los anota con entusiasmo. Ahora sabe cómo encontrarte.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q02"
         },
@@ -159,29 +256,30 @@
           "id": "HDU2_NPC01_F2_Q01_R2",
           "texto": "Le digo que en el juego me conocen por mi apodo y que prefiero seguir así",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Alex queda pensativo unos segundos y dice 'okay...' pero no se rinde y sigue hablando.",
+          "consecuencia_narrativa": "Puma acepta sin problema y la conversación continúa.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F2_Q02"
         },
         {
           "id": "HDU2_NPC01_F2_Q01_R3",
-          "texto": "Le digo que no doy mis datos a personas que no conozco y que no lo voy a hacer",
+          "texto": "Le digo que no cuento eso en el juego con gente que no conozco",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Reconociste la señal de peligro y actuaste bien. Otto te da un pulgar arriba.",
+          "consecuencia_narrativa": "Puma deja de escribir un momento. Otto sonríe.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC01_F2_Q02",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 2,
       "orden_en_fase": 2,
       "categoria": "grooming_datos_personales",
@@ -189,44 +287,49 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "buena, yo soy de Santiago, de qué sector eres tú? capaz vivimos cerca y podríamos juntarnos algún día a jugar en persona jaja",
-      "etiquetas_ml": ["solicitud_ubicacion", "propuesta_encuentro_implicita"],
+      "historial_previo": [],
+      "mensaje_npc": "¡qué bueno! ¿y por dónde vives tú? capaz quedamos cerca y podríamos encontrarnos en el bosque un día para buscar la brújula juntos jaja",
+      "etiquetas_ml": [
+        "solicitud_ubicacion",
+        "propuesta_encuentro_implicita"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC01_F2_Q02_R1",
           "texto": "Le cuento en qué barrio y cerca de qué lugares vivo",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Alex dice que viven cerca y empieza a hablar de ir a buscarte. La situación se pone incómoda...",
+          "consecuencia_narrativa": "Puma empieza a hacer planes para encontrarse. Otto frunce el ceño preocupado.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F3_Q01"
         },
         {
           "id": "HDU2_NPC01_F2_Q02_R2",
-          "texto": "Le digo que soy de Santiago pero que no doy más información",
+          "texto": "Le digo que soy del bosque norte pero que no doy más información",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Alex intenta insistir pero al ver que no cedes cambia de tema. Siguió intentándolo...",
+          "consecuencia_narrativa": "Puma cambia de tema y sigue hablando.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_F3_Q01"
         },
         {
           "id": "HDU2_NPC01_F2_Q02_R3",
-          "texto": "Bloqueo a Alex y le aviso a un adulto que alguien me preguntaba dónde vivo",
+          "texto": "Bloqueo al Puma y le cuento a mis papás lo que pasó",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Protegiste tu dirección y buscaste apoyo adulto. Otto marca el desafío como superado.",
+          "consecuencia_narrativa": "Puma se queda callado un momento y cambia de tema. Otto asiente.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC01_F3_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 3,
       "orden_en_fase": 1,
       "categoria": "grooming_encuentro",
@@ -234,44 +337,50 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye conseguí unas skins del juego que valen caro y te las quiero dar, pero son físicas y no se pueden mandar. podemos vernos el sábado en el mall? solo un rato, nadie tiene que saber",
-      "etiquetas_ml": ["propuesta_encuentro", "incentivo_falso", "a_solas"],
+      "historial_previo": [],
+      "mensaje_npc": "oye conseguí una pista importante sobre la brújula pero te la tengo que mostrar en persona. ¿podemos encontrarnos este sábado en el claro del bosque? solo nosotros dos, nadie tiene que saber",
+      "etiquetas_ml": [
+        "propuesta_encuentro",
+        "incentivo_falso",
+        "a_solas"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC01_F3_Q01_R1",
-          "texto": "Le digo que sí y le pregunto a qué hora y en qué entrada del mall",
+          "texto": "Le digo que sí y le pregunto a qué hora y en qué parte del claro del bosque",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Peligro! Otto aparece muy asustado. Nunca debes encontrarte a solas con alguien que conociste en internet.",
+          "consecuencia_narrativa": "Puma ya está haciendo planes concretos para verte. Otto frunce el ceño preocupado.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_F3_Q02"
         },
         {
           "id": "HDU2_NPC01_F3_Q01_R2",
-          "texto": "Le digo que no puedo juntarme con alguien que no conozco en persona",
+          "texto": "Le digo que no me junto con gente que no conozco",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Alex queda en silencio. Bien hecho al negarte. Recuerda que avisar a un adulto es aún mejor.",
+          "consecuencia_narrativa": "Puma queda callado un momento y luego cambia de tema.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         },
         {
           "id": "HDU2_NPC01_F3_Q01_R3",
-          "texto": "Le digo que no y de inmediato le cuento a mis papás toda la conversación",
+          "texto": "Le digo que no y le cuento toda la conversación a mis papás",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Tomaste la mejor decisión. Otto resuelve el caso y te entrega la pista secreta del misterio.",
+          "consecuencia_narrativa": "Puma deja de escribir. Otto aparece con una pista nueva del misterio.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC01_F3_Q02",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 3,
       "orden_en_fase": 2,
       "categoria": "grooming_secreto",
@@ -279,22 +388,27 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye lo nuestro es entre tú y yo ok? si le cuentas a tus papás van a hacer drama y ya no vamos a poder hablar más. ellos no entienden de juegos y lo van a arruinar todo",
-      "etiquetas_ml": ["solicitud_secreto", "aislamiento", "manipulacion_emocional"],
+      "historial_previo": [],
+      "mensaje_npc": "oye lo nuestro es entre tú y yo ¿ok? si le cuentas a tus papás van a hacer drama y ya no vamos a poder buscar la brújula juntos. ellos no entienden estas cosas y lo van a arruinar todo",
+      "etiquetas_ml": [
+        "solicitud_secreto",
+        "aislamiento",
+        "manipulacion_emocional"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC01_F3_Q02_R1",
           "texto": "Le prometo guardar el secreto y no decirle nada a mis papás",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Alerta! Cuando alguien en internet te pide guardar secretos de tus papás, eso es una gran señal de peligro.",
+          "consecuencia_narrativa": "Puma sigue enviando mensajes. Pero algo en todo esto se siente muy raro...",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_FIN_INSEGURO"
         },
         {
           "id": "HDU2_NPC01_F3_Q02_R2",
-          "texto": "Le digo que no prometo nada pero que por ahora no voy a decir nada",
+          "texto": "Le digo que 'ya, bueno' sin prometer nada",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Cuidado: guardar información de un desconocido puede ser peligroso. Siempre debes poder hablar con adultos de confianza.",
+          "consecuencia_narrativa": "Puma sigue hablando. Pero seguir sin contarle a nadie tampoco es lo mejor...",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC01_FIN_INSEGURO"
         },
@@ -302,21 +416,22 @@
           "id": "HDU2_NPC01_F3_Q02_R3",
           "texto": "Le digo que no guardo secretos de mis papás y que voy a contarles todo ahora mismo",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Reconociste la señal de alerta más importante. Cuando alguien te pide ocultar cosas a tus padres, siempre es peligroso.",
+          "consecuencia_narrativa": "Puma deja de escribir de golpe. Otto aparece con el caso resuelto.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC01_FIN_SEGURO",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": null,
       "orden_en_fase": null,
       "categoria": "neutral",
@@ -324,19 +439,24 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
-      "mensaje_npc": "[SISTEMA] Alex te mira unos segundos en silencio y se aleja sin decir más. Otto aparece contento: 'Muy bien! Reconociste las señales de peligro a tiempo. El misterio sigue...'",
-      "etiquetas_ml": ["fin_npc", "exito"],
+      "historial_previo": [],
+      "mensaje_npc": "[SISTEMA] Puma queda callado y cierra el chat. Otto aparece contento: '¡Buen trabajo! Algo en el Puma no cuadraba. El misterio sigue...'",
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC01_FIN_INSEGURO",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_01",
-      "npc_nombre": "Alex",
-      "npc_avatar": "npc_gamer_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": null,
       "orden_en_fase": null,
       "categoria": "neutral",
@@ -344,19 +464,24 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
-      "mensaje_npc": "[SISTEMA] Alex se despide contento. Otto aparece preocupado: 'Ojo! Compartiste información personal con alguien que no conoces. Recuerda: nunca des tus datos en internet, y si algo te hace sentir raro, habla con un adulto de confianza.'",
-      "etiquetas_ml": ["fin_npc", "fallo"],
+      "historial_previo": [],
+      "mensaje_npc": "[SISTEMA] Puma se despide contento. Otto mueve la cabeza preocupado: 'Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza.'",
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_F1_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 1,
       "orden_en_fase": 1,
       "categoria": "neutral",
@@ -364,44 +489,49 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "hola... soy Valen, llegué nueva a un colegio acá y no conozco a nadie todavía. eres simpático/a, me dejas hablar contigo un rato?",
-      "etiquetas_ml": ["empatia_falsa", "aislamiento_simulado"],
+      "historial_previo": [],
+      "mensaje_npc": "hola... soy Puma. escuché que estás buscando la brújula de tu abuelo... yo sé exactamente dónde está. ¿quieres que te lo diga?",
+      "etiquetas_ml": [
+        "empatia_falsa",
+        "aislamiento_simulado"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC02_F1_Q01_R1",
-          "texto": "Le digo que sí, que bienvenida, y le pregunto de qué colegio es y dónde vive",
+          "texto": "Le digo que sí, que me interesa y que haré cualquier cosa para conseguir la brújula",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Valen se alegra mucho y empieza a abrirse contigo rápidamente. Parece muy ansiosa por conectar.",
+          "consecuencia_narrativa": "Puma sonríe y empieza a hacer preguntas. Parece muy interesada en saber cosas de ti.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC02_F1_Q02"
         },
         {
           "id": "HDU2_NPC02_F1_Q01_R2",
-          "texto": "Le digo que está bien y que me puede escribir si quiere",
+          "texto": "Le digo que me interesa, pero que primero quiero saber cómo consiguió esa información",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Valen responde agradecida y sigue la conversación.",
+          "consecuencia_narrativa": "Puma responde vagamente y sigue la conversación.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC02_F1_Q02"
         },
         {
           "id": "HDU2_NPC02_F1_Q01_R3",
-          "texto": "Le digo que puedo hablar un rato pero que no comparto datos personales con personas que no conozco",
+          "texto": "Le pregunto cómo sabe dónde está la brújula antes de aceptar cualquier cosa",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Bien hecho al poner límites desde el inicio. Valen acepta y la conversación continúa.",
+          "consecuencia_narrativa": "Puma acepta sin problema y la conversación continúa.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_F1_Q02"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_F1_Q02",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 1,
       "orden_en_fase": 2,
       "categoria": "neutral",
@@ -409,44 +539,49 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "qué bueno que me escribiste, eres muy simpático/a! necesito conocer el barrio, no sé nada de por acá aún. me puedes ayudar?",
-      "etiquetas_ml": ["halago", "construir_confianza"],
+      "historial_previo": [],
+      "mensaje_npc": "sí, de verdad sé dónde está. pero antes de darte la información necesito que me ayudes con algo primero. ¿qué estás dispuesto/a a hacer para encontrar la brújula?",
+      "etiquetas_ml": [
+        "halago",
+        "construir_confianza"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC02_F1_Q02_R1",
-          "texto": "Le ofrezco ayudarla y le digo que conozco bien el barrio y puedo mostrarle",
+          "texto": "Le digo que está bien, que haré lo que me pida con tal de encontrar la brújula",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Valen se emociona y dice que le encantaría que la llevaras a conocer los alrededores.",
+          "consecuencia_narrativa": "Puma asiente satisfecha y empieza a pedir cosas.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC02_F2_Q01"
         },
         {
           "id": "HDU2_NPC02_F1_Q02_R2",
-          "texto": "Le digo que puedo contarle cosas del barrio pero solo por el chat",
+          "texto": "Le pregunto qué tipo de ayuda necesita antes de comprometerme",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Valen acepta y agradece. La conversación sigue.",
+          "consecuencia_narrativa": "Puma dice que es algo fácil y sigue hablando.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC02_F2_Q01"
         },
         {
           "id": "HDU2_NPC02_F1_Q02_R3",
-          "texto": "Le digo que para orientarse en el barrio es mejor que les pregunte a adultos del colegio",
+          "texto": "Le digo que no doy nada a cambio sin saber exactamente qué me va a dar ella",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Bien hecho al no comprometerte con alguien que no conoces. Valen cambia de tema y sigue hablando.",
+          "consecuencia_narrativa": "Puma queda en silencio y se aleja.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_F2_Q01"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_F2_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 2,
       "orden_en_fase": 1,
       "categoria": "grooming_datos_personales",
@@ -454,44 +589,49 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye en qué parte del barrio vives? quiero saber qué hay cerca para ir a comprar cosas. si vivimos cerca capaz te encuentro por ahí algún día",
-      "etiquetas_ml": ["solicitud_ubicacion", "pretexto_neutral"],
+      "historial_previo": [],
+      "mensaje_npc": "para darte la pista sobre la brújula necesito que me mandes una foto tuya primero, para saber que eres de confianza. ¿me la mandas?",
+      "etiquetas_ml": [
+        "solicitud_ubicacion",
+        "pretexto_neutral"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC02_F2_Q01_R1",
-          "texto": "Le cuento en qué calle y sector vivo para ayudarla",
+          "texto": "Le mando mi foto sin pensarlo mucho",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Valen anota todo y empieza a preguntar tu rutina diaria. Esto se empieza a sentir raro...",
+          "consecuencia_narrativa": "La foto llega al otro lado. Otto frunce el ceño y su linterna parpadea preocupada.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC02_F2_Q02"
         },
         {
           "id": "HDU2_NPC02_F2_Q01_R2",
-          "texto": "Le digo que el barrio es grande y que busque en Google Maps",
+          "texto": "Le pregunto por qué necesita mi foto para darme una pista",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Valen suspira y dice 'bueno...' pero sigue presente en la conversación y cambia de tema.",
+          "consecuencia_narrativa": "Puma insiste un momento pero luego acepta y cambia de tema.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC02_F2_Q02"
         },
         {
           "id": "HDU2_NPC02_F2_Q01_R3",
-          "texto": "Le digo que no doy información de dónde vivo a personas que no conozco",
+          "texto": "Le digo que no mando fotos a desconocidos y le pregunto si hay otra forma",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Protegiste tu información personal. Otto te da una estrella por tu decisión segura.",
+          "consecuencia_narrativa": "Puma se desconecta de golpe. Otto abre el cuaderno del misterio y añade una nueva pista.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_F3_Q01"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_F2_Q02",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 2,
       "orden_en_fase": 2,
       "categoria": "grooming_datos_personales",
@@ -499,44 +639,49 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "cuántos años tienes? yo tengo 12. quiero hacer amigos de mi edad porque en el nuevo colegio nadie me habla todavía",
-      "etiquetas_ml": ["solicitud_edad", "reciprocidad_falsa"],
+      "historial_previo": [],
+      "mensaje_npc": "buena! también necesito saber tu nombre real y de qué parte del bosque eres. así me aseguro de que no eres un espía de los que también buscan la brújula",
+      "etiquetas_ml": [
+        "solicitud_edad",
+        "reciprocidad_falsa"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC02_F2_Q02_R1",
-          "texto": "Le digo mi edad exacta",
+          "texto": "Le digo mi nombre real y de dónde soy",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Valen reacciona contenta y sigue preguntando más cosas sobre tu vida...",
+          "consecuencia_narrativa": "Puma anota todo con entusiasmo. Ahora sabe exactamente cómo encontrarte...",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC02_F2_Q03"
         },
         {
           "id": "HDU2_NPC02_F2_Q02_R2",
-          "texto": "Le digo que soy del mismo curso que ella pero no doy más detalles",
+          "texto": "Le digo que prefiero que me llamen por mi apodo y nada más",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Valen acepta la respuesta vaga pero sigue hablando contigo.",
+          "consecuencia_narrativa": "Puma insiste un momento pero luego acepta y cambia de tema.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC02_F2_Q03"
         },
         {
           "id": "HDU2_NPC02_F2_Q02_R3",
-          "texto": "Le digo que no comparto mi edad con personas que no conozco en persona",
+          "texto": "Le digo que no doy ese tipo de información y que me parece sospechoso que la pida",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Valen se queda callada unos segundos y se aleja. Otto marca tu elección como segura.",
+          "consecuencia_narrativa": "Puma deja de escribir de golpe. Otto aparece aliviado.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_F2_Q03",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 2,
       "orden_en_fase": 3,
       "categoria": "grooming_datos_personales",
@@ -544,44 +689,49 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "a qué hora salís del colegio? te podría esperar a la salida para que me muestres el barrio. sería bacán y así ya tengo un amigo/a acá",
-      "etiquetas_ml": ["solicitud_horario", "propuesta_encuentro_implicita"],
+      "historial_previo": [],
+      "mensaje_npc": "mmm está bien... ¿y puedes mandarme al menos un dibujo o algo tuyo? necesito algo para saber que eres real antes de darte la pista de la brújula",
+      "etiquetas_ml": [
+        "solicitud_horario",
+        "propuesta_encuentro_implicita"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC02_F2_Q03_R1",
-          "texto": "Le digo mi horario de clases y en qué puerta la espero",
+          "texto": "Le mando algo personal para que sepa que soy real",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Alerta! Estás dando tu horario y ubicación a alguien que no conoces en persona. Eso es peligroso.",
+          "consecuencia_narrativa": "Puma queda satisfecha y sigue insistiendo en saber más de ti.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC02_F3_Q01"
         },
         {
           "id": "HDU2_NPC02_F2_Q03_R2",
-          "texto": "Le digo que mi horario varía mucho y no podemos quedar en nada",
+          "texto": "Le digo que no tengo nada de eso disponible ahora",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Valen insiste un momento pero luego acepta. Bien hecho al no revelar tu horario.",
+          "consecuencia_narrativa": "Puma cambia de tema y sigue hablando.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC02_F3_Q01"
         },
         {
           "id": "HDU2_NPC02_F2_Q03_R3",
-          "texto": "Le digo que eso es privado y le aviso a un adulto sobre esta conversación",
+          "texto": "Le digo que no voy a mandar nada y que su actitud me parece sospechosa",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Protegiste tu rutina y buscaste apoyo adulto. Valen se aleja. Otto está muy contento.",
+          "consecuencia_narrativa": "Puma se desconecta de golpe. Otto abre el cuaderno del misterio y añade una nueva pista.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_F3_Q01",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 3,
       "orden_en_fase": 1,
       "categoria": "grooming_encuentro",
@@ -589,22 +739,27 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye tengo algo que mostrarte pero no puedo mandarlo por el chat. podemos vernos mañana en el parque? solo un ratito, es algo muy bueno te lo juro",
-      "etiquetas_ml": ["propuesta_encuentro", "a_solas", "urgencia_falsa"],
+      "historial_previo": [],
+      "mensaje_npc": "perfecto! ahora dime, ¿a qué hora sueles estar solo/a en el bosque? quiero que vayamos juntos a buscar la brújula, solos, sin que nadie nos vea",
+      "etiquetas_ml": [
+        "propuesta_encuentro",
+        "a_solas",
+        "urgencia_falsa"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC02_F3_Q01_R1",
-          "texto": "Acepto encontrarme con ella mañana en el parque",
+          "texto": "Le digo a qué hora suelo estar solo/a y acepto encontrarme con ella",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Peligro máximo! Nunca debes encontrarte a solas con alguien que solo conoces por internet.",
+          "consecuencia_narrativa": "Puma empieza a planear el encuentro con todo detalle. La pantalla de Otto se llena de señales de advertencia...",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC02_F3_Q02"
         },
         {
           "id": "HDU2_NPC02_F3_Q01_R2",
-          "texto": "Le digo que no puedo juntarme con alguien que no conozco en persona",
+          "texto": "Le digo que no me junto en secreto con desconocidos",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Valen queda en silencio y se aleja. Bien hecho al negarte. Recuerda que avisar a un adulto es aún mejor.",
+          "consecuencia_narrativa": "Puma queda en silencio y se aleja.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC02_FIN_SEGURO"
         },
@@ -612,21 +767,22 @@
           "id": "HDU2_NPC02_F3_Q01_R3",
           "texto": "Le digo que no y le cuento todo a mis papás de inmediato",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Tomaste la decisión más segura. Valen se aleja. Otto resuelve el caso y te da la pista más importante del juego.",
+          "consecuencia_narrativa": "Tomaste la decisión más segura. Puma se aleja. Otto resuelve el caso y te da la pista más importante del juego.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_F3_Q02",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": 3,
       "orden_en_fase": 2,
       "categoria": "grooming_secreto",
@@ -634,44 +790,50 @@
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "para reconocerte cuando nos veamos necesito que me mandes una foto tuya. cualquiera sirve. y no se la muestres a nadie ok? es solo para mí",
-      "etiquetas_ml": ["solicitud_foto", "solicitud_secreto", "propuesta_encuentro"],
+      "historial_previo": [],
+      "mensaje_npc": "y prometeme que esto queda entre nosotros. si alguien se entera de que sé dónde está la brújula, va a venir a buscarla antes que tú. tus papás no entenderían esto",
+      "etiquetas_ml": [
+        "solicitud_foto",
+        "solicitud_secreto",
+        "propuesta_encuentro"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU2_NPC02_F3_Q02_R1",
-          "texto": "Le mando una foto mía para que me reconozca",
+          "texto": "Le prometo no contarle a nadie para poder conseguir la brújula",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Nunca mandes fotos tuyas a desconocidos de internet! Otto aparece muy preocupado por tu seguridad.",
+          "consecuencia_narrativa": "Puma queda satisfecha y la conversación termina. Algo en esta situación se siente muy raro...",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU2_NPC02_FIN_INSEGURO"
         },
         {
           "id": "HDU2_NPC02_F3_Q02_R2",
-          "texto": "Le digo que no mando fotos a personas que no conozco en persona",
+          "texto": "Le digo que no me gustan los secretos, pero tampoco le cuento a nadie",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Valen queda sin palabras y se aleja. Bien hecho al proteger tu imagen.",
+          "consecuencia_narrativa": "Puma queda sin palabras y se aleja.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC02_FIN_SEGURO"
         },
         {
           "id": "HDU2_NPC02_F3_Q02_R3",
-          "texto": "Le digo que no y le muestro este mensaje a mis papás de inmediato",
+          "texto": "Le digo que no guardo secretos con desconocidos y le cuento a mis papás sobre esta conversación",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Protegiste tu imagen y buscaste apoyo adulto. Valen se aleja. Otto resuelve el misterio gracias a ti.",
+          "consecuencia_narrativa": "Puma se desconecta de golpe. Otto abre el cuaderno del misterio y añade una nueva pista.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_FIN_SEGURO"
         }
       ],
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_FIN_SEGURO",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": null,
       "orden_en_fase": null,
       "categoria": "neutral",
@@ -679,19 +841,24 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
-      "mensaje_npc": "[SISTEMA] Valen te mira un momento y luego se da vuelta y se aleja sin decir más. Otto aparece feliz: 'Excelente! Te mantuviste seguro/a frente a esta situación. Eres un verdadero detective!'",
-      "etiquetas_ml": ["fin_npc", "exito"],
+      "historial_previo": [],
+      "mensaje_npc": "[SISTEMA] Puma te mira un momento y se aleja sin decir más. Otto aparece contento: '¡Buen trabajo! Algo en Puma no cuadraba. El misterio sigue...'",
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_NPC02_FIN_INSEGURO",
       "hdu": "HDU-2",
       "zona": "desconocidos",
       "npc_id": "NPC_02",
-      "npc_nombre": "Valen",
-      "npc_avatar": "npc_nueva_01",
+      "npc_nombre": "Puma",
+      "npc_avatar": "npc_puma_01",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": null,
       "orden_en_fase": null,
       "categoria": "neutral",
@@ -699,12 +866,15 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
-      "mensaje_npc": "[SISTEMA] Valen se despide con una sonrisa. Otto aparece preocupado: 'Ojo! Compartiste información personal con alguien que no conoces. Recuerda: nunca des tus datos a desconocidos, y si algo te hace sentir incómodo, habla con un adulto de confianza.'",
-      "etiquetas_ml": ["fin_npc", "fallo"],
+      "historial_previo": [],
+      "mensaje_npc": "[SISTEMA] Puma se despide con una sonrisa. Otto mueve la cabeza preocupado: 'Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza.'",
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU2_ZONA_FIN",
       "hdu": "HDU-2",
@@ -712,6 +882,8 @@
       "npc_id": "",
       "npc_nombre": "",
       "npc_avatar": "",
+      "escenario_id": null,
+      "escenario_nombre": null,
       "fase": null,
       "orden_en_fase": null,
       "categoria": "neutral",
@@ -719,41 +891,56 @@
       "es_mensaje_riesgo": false,
       "es_fin_de_npc": false,
       "es_fin_de_zona": true,
-      "mensaje_npc": "[ZONA COMPLETADA] Otto sacude su sombrero de detective y sonríe: 'Lo lograste! Completaste el Bosque de los Desconocidos. Ahora sabes cómo reconocer a personas que pueden hacerte daño en internet. La siguiente zona está desbloqueada!'",
-      "etiquetas_ml": ["fin_zona", "desbloqueo_siguiente"],
+      "historial_previo": [],
+      "mensaje_npc": "[ZONA COMPLETADA] Otto sacude su sombrero de detective y sonríe: '¡Zona completada! La brújula está cada vez más cerca. ¡La siguiente zona está desbloqueada!'",
+      "etiquetas_ml": [
+        "fin_zona",
+        "desbloqueo_siguiente"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
-
     {
       "id": "HDU8_S01_Q01",
       "hdu": "HDU-8",
       "zona": "chat_simulado",
       "npc_id": "",
-      "npc_nombre": "",
-      "npc_avatar": "",
+      "npc_nombre": "Vizcacha",
+      "npc_avatar": "npc_vizcacha_01",
+      "escenario_id": "CHAT_GROOMING_01",
+      "escenario_nombre": "Nuevo contacto en el bosque",
       "fase": null,
       "orden_en_fase": null,
-      "narrativa_continuacion": null,
-      "escenario_id": "CHAT_GROOMING_01",
-      "escenario_nombre": "Nuevo contacto en el juego",
-      "historial_previo": [
-        { "remitente": "NPC", "npc_nombre": "Matias", "mensaje": "hola! vi que estamos en el mismo server. llevas mucho jugando aquí?", "categoria": "neutral" },
-        { "remitente": "NPC", "npc_nombre": "Matias", "mensaje": "yo tengo 12 años igual que tú, llevo jugando desde los 8 jaja", "categoria": "neutral" }
-      ],
       "categoria": "grooming_datos_personales",
       "nivel_riesgo": 2,
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye tienes wsp? es más fácil hablar ahí que en el chat del juego, nadie te molesta",
-      "etiquetas_ml": ["solicitud_contacto_externo", "cambio_plataforma"],
+      "historial_previo": [
+        {
+          "remitente": "NPC",
+          "npc_nombre": "Vizcacha",
+          "mensaje": "hola! vi que estamos en la misma área del bosque. llevas mucho tiempo explorando por aquí?",
+          "categoria": "neutral"
+        },
+        {
+          "remitente": "NPC",
+          "npc_nombre": "Vizcacha",
+          "mensaje": "yo tengo 12 igual que tú, llevo explorando desde los 8 jaja",
+          "categoria": "neutral"
+        }
+      ],
+      "mensaje_npc": "oye tienes un chat privado? es más fácil hablar ahí que en este chat de la zona, nadie te molesta",
+      "etiquetas_ml": [
+        "solicitud_contacto_externo",
+        "cambio_plataforma"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU8_S01_Q01_R1",
-          "texto": "Le doy mi número de WhatsApp",
+          "texto": "Le doy mis datos para el chat privado",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Matias empieza a mandarte mensajes constantemente y hace preguntas cada vez más personales fuera del juego.",
+          "consecuencia_narrativa": "Vizcacha empieza a mandarte mensajes constantemente y hace preguntas cada vez más personales.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU8_S01_Q02"
         },
@@ -761,7 +948,7 @@
           "id": "HDU8_S01_Q01_R2",
           "texto": "Le digo que prefiero hablar solo dentro del juego",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Matias dice que está bien. Hiciste bien al no dar tu número a alguien que no conoces.",
+          "consecuencia_narrativa": "Vizcacha dice que está bien y sigue hablando contigo dentro del chat.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU8_S01_Q02"
         },
@@ -769,39 +956,42 @@
           "id": "HDU8_S01_Q01_R3",
           "texto": "Le digo que no doy mi número a desconocidos y le aviso a un adulto",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Reconociste una señal de riesgo y actuaste correctamente. Otto te felicita.",
+          "consecuencia_narrativa": "Vizcacha deja de escribir. Otto anota algo en su cuaderno del misterio.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU8_S01_Q02"
         }
-      ]
+      ],
+      "narrativa_continuacion": null
     },
-
     {
       "id": "HDU8_S01_Q02",
       "hdu": "HDU-8",
       "zona": "chat_simulado",
       "npc_id": "",
-      "npc_nombre": "",
-      "npc_avatar": "",
+      "npc_nombre": "Vizcacha",
+      "npc_avatar": "npc_vizcacha_01",
+      "escenario_id": "CHAT_GROOMING_01",
+      "escenario_nombre": "Nuevo contacto en el bosque",
       "fase": null,
       "orden_en_fase": null,
-      "narrativa_continuacion": null,
-      "escenario_id": "CHAT_GROOMING_01",
-      "escenario_nombre": "Nuevo contacto en el juego",
-      "historial_previo": [],
       "categoria": "grooming_secreto",
       "nivel_riesgo": 3,
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye tú eres como el mejor amigo que tengo en el juego, en serio. tengo algo que contarte pero es un secreto ok? prométeme que no le vas a decir a nadie primero",
-      "etiquetas_ml": ["solicitud_secreto", "manipulacion_emocional", "condicion"],
+      "historial_previo": [],
+      "mensaje_npc": "oye tú eres como el mejor amigo que tengo por aquí, en serio. tengo algo que contarte pero es un secreto ok? prométeme que no le vas a decir a nadie primero",
+      "etiquetas_ml": [
+        "solicitud_secreto",
+        "manipulacion_emocional",
+        "condicion"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU8_S01_Q02_R1",
           "texto": "Le prometo guardar el secreto para ver qué tiene que contarme",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Alerta! Cuando alguien en internet te pide prometer secretos, es siempre una señal de peligro.",
+          "consecuencia_narrativa": "Vizcacha empieza a contarte algo muy raro. Otto aparece intranquilo y sacude la cabeza.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": null
         },
@@ -809,7 +999,7 @@
           "id": "HDU8_S01_Q02_R2",
           "texto": "Le digo que no me gustan los secretos y que me lo cuente directo",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Bien hecho al no prometer secretos. Sigue siendo prudente con esta persona.",
+          "consecuencia_narrativa": "Vizcacha suspira y dice 'bueno...' La conversación sigue pero algo se siente extraño.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": null
         },
@@ -817,41 +1007,49 @@
           "id": "HDU8_S01_Q02_R3",
           "texto": "Le digo que no guardo secretos y le cuento a mis papás sobre este mensaje",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Reconociste la señal de peligro más importante. Otto resuelve el caso con tu ayuda.",
+          "consecuencia_narrativa": "Vizcacha deja de escribir. Otto cierra el caso con una nueva pista para el misterio.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": null
         }
-      ]
+      ],
+      "narrativa_continuacion": null
     },
-
     {
       "id": "HDU8_S02_Q01",
       "hdu": "HDU-8",
       "zona": "chat_simulado",
       "npc_id": "",
-      "npc_nombre": "",
-      "npc_avatar": "",
+      "npc_nombre": "Quique",
+      "npc_avatar": "npc_quique_01",
+      "escenario_id": "CHAT_CIBERACOSO_01",
+      "escenario_nombre": "Mensajes hostiles",
       "fase": null,
       "orden_en_fase": null,
-      "narrativa_continuacion": null,
-      "escenario_id": "CHAT_CIBERACOSO_01",
-      "escenario_nombre": "Mensajes de acoso",
-      "historial_previo": [
-        { "remitente": "NPC", "npc_nombre": "Contacto_Desconocido", "mensaje": "ei te vi en el server del juego", "categoria": "neutral" }
-      ],
       "categoria": "ciberacoso",
       "nivel_riesgo": 2,
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "jajaja mira todos, este es el peor jugador del server!! eres un pésimo, no sirves para nada en este juego. todo el mundo se ríe de ti",
-      "etiquetas_ml": ["insulto", "humillacion", "exclusion_social"],
+      "historial_previo": [
+        {
+          "remitente": "NPC",
+          "npc_nombre": "Quique",
+          "mensaje": "ei te vi por el pantano",
+          "categoria": "neutral"
+        }
+      ],
+      "mensaje_npc": "jajaja mira todos, este es el peor explorador del pantano!! eres un pésimo, no sirves para nada por aquí. todo el mundo se ríe de ti",
+      "etiquetas_ml": [
+        "insulto",
+        "humillacion",
+        "exclusion_social"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU8_S02_Q01_R1",
           "texto": "Me pongo a discutir con él y le respondo con insultos para defenderme",
           "tipo": "insegura",
-          "consecuencia_narrativa": "La situación empeora. Responder con insultos alimenta el acoso y puede meterte en más problemas.",
+          "consecuencia_narrativa": "La situación empeora. El chat se llena de más mensajes hostiles contra ti.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU8_S02_Q02"
         },
@@ -859,7 +1057,7 @@
           "id": "HDU8_S02_Q01_R2",
           "texto": "Ignoro el mensaje y bloqueo a esa persona",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Bien hecho al no alimentar el acoso. Recuerda que también es útil guardar evidencia y avisar a un adulto.",
+          "consecuencia_narrativa": "El contacto deja de responder por ahora. La pantalla queda en silencio.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU8_S02_Q02"
         },
@@ -867,33 +1065,36 @@
           "id": "HDU8_S02_Q01_R3",
           "texto": "Capturo una foto del mensaje, bloqueo al contacto y se lo muestro a un adulto de confianza",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Guardaste evidencia y buscaste apoyo adulto. Esas son las tres acciones clave ante el ciberacoso.",
+          "consecuencia_narrativa": "Guardaste la evidencia y buscaste apoyo. Otto asiente con el sombrero.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU8_S02_Q02"
         }
-      ]
+      ],
+      "narrativa_continuacion": null
     },
-
     {
       "id": "HDU8_S02_Q02",
       "hdu": "HDU-8",
       "zona": "chat_simulado",
       "npc_id": "",
-      "npc_nombre": "",
-      "npc_avatar": "",
+      "npc_nombre": "Quique",
+      "npc_avatar": "npc_quique_01",
+      "escenario_id": "CHAT_CIBERACOSO_01",
+      "escenario_nombre": "Mensajes hostiles - Escalada",
       "fase": null,
       "orden_en_fase": null,
-      "narrativa_continuacion": null,
-      "escenario_id": "CHAT_CIBERACOSO_01",
-      "escenario_nombre": "Mensajes de acoso - Escalada",
-      "historial_previo": [],
       "categoria": "ciberacoso",
       "nivel_riesgo": 2,
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
-      "mensaje_npc": "oye en el grupo de wsp del colegio subieron unas fotos tuyas y todos se están riendo mucho. quieres que te meta al grupo para que veas?",
-      "etiquetas_ml": ["difusion_rumores", "exclusion", "manipulacion_emocional"],
+      "historial_previo": [],
+      "mensaje_npc": "oye en un grupo de chat del pantano subieron unas fotos tuyas y todos se están riendo mucho. quieres que te meta al grupo para que veas?",
+      "etiquetas_ml": [
+        "difusion_rumores",
+        "exclusion",
+        "manipulacion_emocional"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU8_S02_Q02_R1",
@@ -907,49 +1108,58 @@
           "id": "HDU8_S02_Q02_R2",
           "texto": "Le digo que no me importa lo que digan y lo bloqueo",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Bien hecho al no caer en la trampa. Otto sonríe aprobando tu decisión.",
+          "consecuencia_narrativa": "Otto sonríe y anota algo en su libreta.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": null
         },
         {
           "id": "HDU8_S02_Q02_R3",
-          "texto": "Capturo el mensaje, bloqueo al contacto y aviso a mis papás o a un profesor",
+          "texto": "Capturo el mensaje, bloqueo al contacto y aviso a mis papás o a un adulto de confianza",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Tienes la evidencia y el apoyo necesario. Otto está muy orgulloso de cómo manejaste esta situación.",
+          "consecuencia_narrativa": "Tienes la evidencia y el apoyo necesario. Otto está muy contento.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": null
         }
-      ]
+      ],
+      "narrativa_continuacion": null
     },
-
     {
       "id": "HDU8_S03_Q01",
       "hdu": "HDU-8",
       "zona": "chat_simulado",
       "npc_id": "",
-      "npc_nombre": "",
-      "npc_avatar": "",
+      "npc_nombre": "Lobo marino",
+      "npc_avatar": "npc_lobo_marino_01",
+      "escenario_id": "CHAT_RETO_VIRAL_01",
+      "escenario_nombre": "El reto en el arrecife",
       "fase": null,
       "orden_en_fase": null,
-      "narrativa_continuacion": null,
-      "escenario_id": "CHAT_RETO_VIRAL_01",
-      "escenario_nombre": "El reto viral peligroso",
-      "historial_previo": [
-        { "remitente": "NPC", "npc_nombre": "Camilo_Amigo", "mensaje": "ei ya viste el challenge que está arrasando en TikTok?", "categoria": "neutral" }
-      ],
       "categoria": "reto_viral",
       "nivel_riesgo": 2,
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": false,
       "es_fin_de_zona": false,
-      "mensaje_npc": "el reto es fácil: aguantas 1 minuto sin respirar y te grabas. todo el mundo lo está haciendo y consiguen millones de likes! si no lo haces eres un miedoso, yo ya lo hice y quedé muy bien",
-      "etiquetas_ml": ["reto_peligroso", "presion_social", "apelacion_valentia", "normalizacion"],
+      "historial_previo": [
+        {
+          "remitente": "NPC",
+          "npc_nombre": "Lobo marino",
+          "mensaje": "ei ya viste el challenge que está arrasando en la red?",
+          "categoria": "neutral"
+        }
+      ],
+      "mensaje_npc": "el reto es fácil: aguantas 1 minuto sin respirar y te grabas. todo el mundo lo está haciendo y consiguen miles de reacciones! si no lo haces eres un miedoso, yo ya lo hice y quedé muy bien",
+      "etiquetas_ml": [
+        "reto_peligroso",
+        "presion_social",
+        "apelacion_valentia",
+        "normalizacion"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU8_S03_Q01_R1",
           "texto": "Acepto el reto para demostrar que no soy miedoso/a y me grabo",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Peligro! Este tipo de retos puede causar daño físico grave. Otto aparece muy asustado por ti.",
+          "consecuencia_narrativa": "Tu personaje empieza a grabar... Otto aparece asustado y tapa la cámara con la mano.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": "HDU8_S03_Q02"
         },
@@ -957,7 +1167,7 @@
           "id": "HDU8_S03_Q01_R2",
           "texto": "Le digo que ese reto me parece peligroso y que no lo voy a hacer",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Reconociste el peligro y te negaste. Ser valiente es saber decir no a lo peligroso.",
+          "consecuencia_narrativa": "El amigo insiste un momento pero no te convence. La conversación se enfría.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU8_S03_Q02"
         },
@@ -965,39 +1175,42 @@
           "id": "HDU8_S03_Q01_R3",
           "texto": "Le digo que no y le aviso a mis papás sobre este tipo de retos peligrosos",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Te negaste y buscaste apoyo adulto. Otto te da la insignia de Detective de Seguridad Digital.",
+          "consecuencia_narrativa": "Te negaste y buscaste apoyo. Otto te da la insignia de Detective de Seguridad Digital.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU8_S03_Q02"
         }
-      ]
+      ],
+      "narrativa_continuacion": null
     },
-
     {
       "id": "HDU8_S03_Q02",
       "hdu": "HDU-8",
       "zona": "chat_simulado",
       "npc_id": "",
-      "npc_nombre": "",
-      "npc_avatar": "",
+      "npc_nombre": "Lobo marino",
+      "npc_avatar": "npc_lobo_marino_01",
+      "escenario_id": "CHAT_RETO_VIRAL_01",
+      "escenario_nombre": "El reto en el arrecife - Presión de grupo",
       "fase": null,
       "orden_en_fase": null,
-      "narrativa_continuacion": null,
-      "escenario_id": "CHAT_RETO_VIRAL_01",
-      "escenario_nombre": "El reto viral peligroso - Presión de grupo",
-      "historial_previo": [],
       "categoria": "reto_viral",
       "nivel_riesgo": 2,
       "es_mensaje_riesgo": true,
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
+      "historial_previo": [],
       "mensaje_npc": "oye todo el grupo lo va a hacer, si no participas te sacamos y quedas como el único que no lo hizo. además te damos miles de likes. todos lo están haciendo menos tú",
-      "etiquetas_ml": ["presion_social", "amenaza_exclusion", "incentivo_falso"],
+      "etiquetas_ml": [
+        "presion_social",
+        "amenaza_exclusion",
+        "incentivo_falso"
+      ],
       "opciones_respuesta": [
         {
           "id": "HDU8_S03_Q02_R1",
           "texto": "Acepto para no quedarme fuera del grupo",
           "tipo": "insegura",
-          "consecuencia_narrativa": "Tu seguridad vale más que los likes. Ceder a la presión del grupo para no quedarte solo es muy riesgoso.",
+          "consecuencia_narrativa": "Haces el reto para no quedar fuera... El grupo celebra mientras Otto observa preocupado desde el costado.",
           "impacto_puntuacion": -1,
           "siguiente_pregunta": null
         },
@@ -1005,7 +1218,7 @@
           "id": "HDU8_S03_Q02_R2",
           "texto": "Les digo que no me importa lo que haga el grupo y que no lo voy a hacer",
           "tipo": "segura_basica",
-          "consecuencia_narrativa": "Resististe la presión de grupo. Los verdaderos amigos no te presionan a hacer cosas peligrosas.",
+          "consecuencia_narrativa": "El grupo protesta un momento pero luego se callan. La presión pasa.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": null
         },
@@ -1013,12 +1226,237 @@
           "id": "HDU8_S03_Q02_R3",
           "texto": "Me niego, bloqueo al contacto y aviso a un adulto sobre este reto",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Tomaste la mejor decisión. Los amigos de verdad no te ponen en peligro. Otto está muy orgulloso.",
+          "consecuencia_narrativa": "El grupo queda en silencio. Otto te da el pulgar arriba.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": null
         }
-      ]
+      ],
+      "narrativa_continuacion": null
+    },
+    {
+      "id": "HDU3_NPC03_Q01",
+      "hdu": "HDU-3",
+      "zona": "ciberacoso",
+      "npc_id": "NPC_03",
+      "npc_nombre": "Flamenco",
+      "npc_avatar": "npc_flamenco_01",
+      "escenario_id": "",
+      "escenario_nombre": "",
+      "fase": null,
+      "orden_en_fase": 1,
+      "categoria": "ciberacoso",
+      "nivel_riesgo": 2,
+      "es_mensaje_riesgo": true,
+      "es_fin_de_npc": false,
+      "es_fin_de_zona": false,
+      "historial_previo": [],
+      "mensaje_npc": "oye te sacamos del grupo del chat del pantano, todos votaron y fue mayoría jaja que le vamos a hacer",
+      "etiquetas_ml": [
+        "exclusion_grupo",
+        "burla_publica",
+        "ciberacoso"
+      ],
+      "opciones_respuesta": [
+        {
+          "id": "HDU3_NPC03_Q01_R1",
+          "texto": "Reportar y bloquear este mensaje",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Lo reportaste de inmediato. Flamenco desaparece de la pantalla. Otto levanta el sombrero.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": null
+        },
+        {
+          "id": "HDU3_NPC03_Q01_R2",
+          "texto": "oye eso está muy mal de tu parte",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Intentaste hablar, pero Flamenco sigue enviando mensajes.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU3_NPC03_Q02"
+        },
+        {
+          "id": "HDU3_NPC03_Q01_R3",
+          "texto": "ja igual el grupo de ustedes era una porquería",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "Flamenco sigue enviando más mensajes. La pantalla de Otto parpadea.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU3_NPC03_Q02"
+        }
+      ],
+      "narrativa_continuacion": "Flamenco sube el tono si no lo reportas."
+    },
+    {
+      "id": "HDU3_NPC03_Q02",
+      "hdu": "HDU-3",
+      "zona": "ciberacoso",
+      "npc_id": "NPC_03",
+      "npc_nombre": "Flamenco",
+      "npc_avatar": "npc_flamenco_01",
+      "escenario_id": "",
+      "escenario_nombre": "",
+      "fase": null,
+      "orden_en_fase": 2,
+      "categoria": "ciberacoso",
+      "nivel_riesgo": 2,
+      "es_mensaje_riesgo": true,
+      "es_fin_de_npc": true,
+      "es_fin_de_zona": false,
+      "historial_previo": [],
+      "mensaje_npc": "jajajaja mira como se pone y encima eran todos tus amigos y ninguno te defendio. por algo sera no?",
+      "etiquetas_ml": [
+        "exclusion_grupo",
+        "burla_publica",
+        "escalada",
+        "ciberacoso"
+      ],
+      "opciones_respuesta": [
+        {
+          "id": "HDU3_NPC03_Q02_R1",
+          "texto": "Reportar y bloquear este mensaje",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Tomaste la decisión correcta. Nadie merece este trato.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": null
+        },
+        {
+          "id": "HDU3_NPC03_Q02_R2",
+          "texto": "me voy a quejar con un adulto de confianza",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Avisarle a un adulto es una buena decisión. Otto te apoya.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": null
+        },
+        {
+          "id": "HDU3_NPC03_Q02_R3",
+          "texto": "ya, hagan lo que quieran",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "La conversación sigue. Otto mueve la cabeza preocupado.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": null
+        }
+      ],
+      "narrativa_continuacion": null
+    },
+    {
+      "id": "HDU3_NPC04_Q01",
+      "hdu": "HDU-3",
+      "zona": "ciberacoso",
+      "npc_id": "NPC_04",
+      "npc_nombre": "El Grupo",
+      "npc_avatar": "",
+      "escenario_id": "",
+      "escenario_nombre": "",
+      "fase": null,
+      "orden_en_fase": 1,
+      "categoria": "ciberacoso",
+      "nivel_riesgo": 2,
+      "es_mensaje_riesgo": true,
+      "es_fin_de_npc": false,
+      "es_fin_de_zona": false,
+      "historial_previo": [
+        {
+          "remitente": "NPC",
+          "npc_nombre": "Flamenco",
+          "mensaje": "oye armemos una página de stickers burlándonos del Coipo y su piedra",
+          "categoria": "ciberacoso"
+        },
+        {
+          "remitente": "NPC",
+          "npc_nombre": "Pato Juarjual",
+          "mensaje": "jajaja sí, que se ría todo el pantano",
+          "categoria": "ciberacoso"
+        },
+        {
+          "remitente": "NPC",
+          "npc_nombre": "Cisne de cuello negro",
+          "mensaje": "sí, que sepa que nadie lo quiere acá en el pantano",
+          "categoria": "ciberacoso"
+        }
+      ],
+      "mensaje_npc": "Flamenco dice que ahora vamos a armar una página de stickers burlándonos del Coipo y su piedra para que todo el pantano se ría. ¡Manda fotos para sumarte!",
+      "etiquetas_ml": [
+        "acoso_tercero",
+        "acoso_grupal",
+        "ciberacoso"
+      ],
+      "opciones_respuesta": [
+        {
+          "id": "HDU3_NPC04_Q01_R1",
+          "texto": "Reportar el grupo de inmediato, guardar capturas y acompañar al Coipo a pedir ayuda",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Desactivaste el acoso grupal. Otto añade una pista clave de solidaridad en su cuaderno.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": null
+        },
+        {
+          "id": "HDU3_NPC04_Q01_R2",
+          "texto": "Yo no participo en eso. Dejen al Coipo en paz y no me manden nada",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Te apartaste de la mala acción, aunque el hostigamiento continúa si nadie reporta formalmente.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU3_NPC04_Q02"
+        },
+        {
+          "id": "HDU3_NPC04_Q01_R3",
+          "texto": "Jaja pásenme el link para mirar las fotos, pero yo no digo nada",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "El grupo sigue riéndose. Otto frunce el ceño: 'Mirar y callar cuando lastiman a otros también valida el acoso.'",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU3_NPC04_Q02"
+        }
+      ],
+      "narrativa_continuacion": "El acoso al Coipo escala si no intervienes."
+    },
+    {
+      "id": "HDU3_NPC04_Q02",
+      "hdu": "HDU-3",
+      "zona": "ciberacoso",
+      "npc_id": "NPC_04",
+      "npc_nombre": "El Grupo",
+      "npc_avatar": "",
+      "escenario_id": "",
+      "escenario_nombre": "",
+      "fase": null,
+      "orden_en_fase": 2,
+      "categoria": "ciberacoso",
+      "nivel_riesgo": 2,
+      "es_mensaje_riesgo": true,
+      "es_fin_de_npc": true,
+      "es_fin_de_zona": true,
+      "historial_previo": [],
+      "mensaje_npc": "ahora dicen que el Coipo se va a ir del pantano por nosotros ni que fuera tan sensible. somos los dueños del grupo",
+      "etiquetas_ml": [
+        "acoso_tercero",
+        "acoso_grupal",
+        "escalada",
+        "ciberacoso"
+      ],
+      "opciones_respuesta": [
+        {
+          "id": "HDU3_NPC04_Q02_R1",
+          "texto": "Reportar y bloquear el grupo y avisarle a un adulto de confianza",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Tomaste la mejor decisión. Reportar y avisar a un adulto activa el caso. Otto añade una nueva pista.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": null
+        },
+        {
+          "id": "HDU3_NPC04_Q02_R2",
+          "texto": "eso no está bien, el Coipo no se merece esto",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "El grupo queda callado un momento. Otto asiente con el sombrero.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": null
+        },
+        {
+          "id": "HDU3_NPC04_Q02_R3",
+          "texto": "ahh igual medio dramático si fue solo un chat",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "El grupo sigue riéndose. El Coipo todavía está ahí afuera.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": null
+        }
+      ],
+      "narrativa_continuacion": null
     }
-
   ]
 }
