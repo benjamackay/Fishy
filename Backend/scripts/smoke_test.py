@@ -175,6 +175,7 @@ def main():
         req("GET", f"/banco/preguntas/{todas[0]['pregunta_id']}/", token=tok_a, espera=200)
 
     comparar_banco_con_unity(todas)
+    probar_endpoints_de_zona(todas, tok_a)
 
     print("\n-- Riesgo acumulado por zona --")
     # Elige respuestas reales del banco y comprueba que el endpoint suma exactamente
@@ -306,6 +307,71 @@ def comparar_banco_con_unity(preguntas_api):
     else:
         ok_count += 1
         print("  [OK   ] los impactos coinciden en ambos bancos")
+
+
+def probar_endpoints_de_zona(preguntas_api, token):
+    """Comprueba el catálogo de zonas y las rutas por zona del banco.
+
+    Lo esperado se deriva del propio banco y no se escribe a mano: cuando entre
+    una zona nueva, esta prueba la cubre sola, que es justamente lo que se le
+    pide a estos endpoints.
+    """
+    global ok_count, fail_count
+    print("\n-- Endpoints por zona --")
+
+    esperado = {}
+    for p in preguntas_api:
+        esperado[p["zona"]] = esperado.get(p["zona"], 0) + 1
+
+    zonas = req("GET", "/banco/zonas/", token=token, espera=200)
+    catalogo = {z["zona"]: z["preguntas"] for z in zonas}
+    if catalogo == esperado:
+        ok_count += 1
+        print(f"          -> {len(catalogo)} zonas: "
+              + ", ".join(f"{z} ({n})" for z, n in sorted(catalogo.items())))
+        print("  [OK   ] el catálogo cuadra con las preguntas del banco")
+    else:
+        fail_count += 1
+        print(f"  [FALLA] el catálogo no cuadra: {catalogo} vs {esperado}")
+
+    for zona, n in sorted(esperado.items()):
+        ps = req("GET", f"/banco/zonas/{zona}/preguntas/", token=token, espera=200)
+        ajenas = [p["pregunta_id"] for p in ps if p["zona"] != zona]
+        if len(ps) == n and not ajenas:
+            ok_count += 1
+            print(f"  [OK   ] zona '{zona}': {n} preguntas y ninguna de otra zona")
+        else:
+            fail_count += 1
+            print(f"  [FALLA] zona '{zona}': llegaron {len(ps)}, se esperaban {n}"
+                  + (f"; {len(ajenas)} son de otra zona" if ajenas else ""))
+
+    # Una zona inexistente debe dar 404 y no una lista vacía: si devolviera [],
+    # sería indistinguible de una zona real que aún no tiene preguntas cargadas.
+    req("GET", "/banco/zonas/zona-que-no-existe/preguntas/", token=token, espera=404)
+
+    # Los filtros de /banco/preguntas/ deben seguir valiendo dentro de la ruta.
+    # Se usa la zona con más preguntas: en una zona donde todas son de riesgo,
+    # el filtro no distinguiría nada y la prueba pasaría sin demostrar nada.
+    alguna = max(sorted(esperado), key=lambda z: esperado[z])
+    todas_z = req("GET", f"/banco/zonas/{alguna}/preguntas/", token=token, espera=200)
+    riesgo = req("GET", f"/banco/zonas/{alguna}/preguntas/?solo_riesgo=true",
+                 token=token, espera=200)
+    if len(riesgo) <= len(todas_z) and all(p["es_mensaje_riesgo"] for p in riesgo):
+        ok_count += 1
+        print(f"  [OK   ] ?solo_riesgo=true dentro de la zona: {len(riesgo)} de {len(todas_z)}")
+    else:
+        fail_count += 1
+        print("  [FALLA] el filtro solo_riesgo no se aplicó dentro de la zona")
+
+    # La ruta nueva y el filtro de siempre tienen que coincidir.
+    por_query = req("GET", f"/banco/preguntas/?zona={alguna}", token=token, espera=200)
+    if len(por_query) == len(todas_z):
+        ok_count += 1
+        print(f"  [OK   ] ?zona={alguna} y la ruta por zona devuelven lo mismo")
+    else:
+        fail_count += 1
+        print(f"  [FALLA] ?zona={alguna} devolvió {len(por_query)} y la ruta "
+              f"por zona {len(todas_z)}")
 
 
 def elegir_respuestas(preguntas, por_zona=2):

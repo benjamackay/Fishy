@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
+from django.db.models import Count
 
 from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
@@ -249,6 +250,33 @@ def registrar_mensaje(request, chat_id):
 
 # ── Banco de Preguntas (HDU-2 / HDU-8) ───────────────────────────────────────
 
+def _filtros_banco(qs, params):
+    """Aplica los filtros opcionales comunes a un queryset de PreguntaBanco.
+
+    Compartido por /banco/preguntas/ y /banco/zonas/<zona>/preguntas/ para que
+    ambos acepten exactamente los mismos filtros.
+    """
+    for param, campo in [
+        ("zona", "zona"),
+        ("npc_id", "npc_id"),
+        ("escenario_id", "escenario_id"),
+        ("hdu", "hdu"),
+    ]:
+        val = params.get(param)
+        if val:
+            qs = qs.filter(**{campo: val})
+    fase = params.get("fase")
+    if fase is not None:
+        qs = qs.filter(fase=int(fase))
+    if params.get("solo_riesgo", "").lower() == "true":
+        qs = qs.filter(es_mensaje_riesgo=True)
+    if params.get("fin_de_zona", "").lower() == "true":
+        qs = qs.filter(es_fin_de_zona=True)
+    if params.get("fin_de_npc", "").lower() == "true":
+        qs = qs.filter(es_fin_de_npc=True)
+    return qs
+
+
 @api_view(["GET"])
 def preguntas_banco(request):
     """
@@ -260,25 +288,56 @@ def preguntas_banco(request):
       ?hdu=HDU-2
       ?solo_riesgo=true   (solo mensajes que requieren respuesta del jugador)
     """
-    qs = PreguntaBanco.objects.prefetch_related("opciones").all()
-    for param, campo in [
-        ("zona", "zona"),
-        ("npc_id", "npc_id"),
-        ("escenario_id", "escenario_id"),
-        ("hdu", "hdu"),
-    ]:
-        val = request.query_params.get(param)
-        if val:
-            qs = qs.filter(**{campo: val})
-    fase = request.query_params.get("fase")
-    if fase is not None:
-        qs = qs.filter(fase=int(fase))
-    if request.query_params.get("solo_riesgo", "").lower() == "true":
-        qs = qs.filter(es_mensaje_riesgo=True)
-    if request.query_params.get("fin_de_zona", "").lower() == "true":
-        qs = qs.filter(es_fin_de_zona=True)
-    if request.query_params.get("fin_de_npc", "").lower() == "true":
-        qs = qs.filter(es_fin_de_npc=True)
+    qs = _filtros_banco(PreguntaBanco.objects.prefetch_related("opciones").all(),
+                        request.query_params)
+    return Response(PreguntaBancoSerializer(qs, many=True).data)
+
+
+@api_view(["GET"])
+def zonas_banco(request):
+    """
+    Catalogo de zonas que existen en el banco, con cuantas preguntas tiene cada
+    una. Se arma desde la BD y no desde una lista fija: al cargar un banco con
+    una zona nueva, aparece aqui sola, sin tocar codigo.
+    """
+    filas = (PreguntaBanco.objects
+             .values("zona", "hdu")
+             .annotate(n=Count("id"))
+             .order_by("zona", "hdu"))
+    zonas = {}
+    for f in filas:
+        z = zonas.setdefault(f["zona"], {"zona": f["zona"], "preguntas": 0, "hdus": []})
+        z["preguntas"] += f["n"]
+        if f["hdu"] and f["hdu"] not in z["hdus"]:
+            z["hdus"].append(f["hdu"])
+    salida = []
+    for z in zonas.values():
+        # Hoy cada zona corresponde a una sola HDU; si alguna llegara a cubrir
+        # varias, se listan todas separadas por coma en vez de perder el dato.
+        salida.append({"zona": z["zona"],
+                       "preguntas": z["preguntas"],
+                       "hdu": ", ".join(z["hdus"])})
+    return Response(sorted(salida, key=lambda z: z["zona"]))
+
+
+@api_view(["GET"])
+def preguntas_zona(request, zona):
+    """
+    Preguntas de una zona concreta. Acepta los mismos filtros que
+    /banco/preguntas/, salvo ?zona=, que lo manda la ruta.
+
+    Devuelve 404 si la zona no existe en el banco, para poder distinguirla de
+    una zona real que todavia no tiene preguntas cargadas.
+    """
+    if not PreguntaBanco.objects.filter(zona=zona).exists():
+        return Response({"detail": f"La zona '{zona}' no existe."},
+                        status=status.HTTP_404_NOT_FOUND)
+    params = request.query_params.copy()
+    params.pop("zona", None)
+    qs = _filtros_banco(
+        PreguntaBanco.objects.prefetch_related("opciones").filter(zona=zona),
+        params,
+    )
     return Response(PreguntaBancoSerializer(qs, many=True).data)
 
 

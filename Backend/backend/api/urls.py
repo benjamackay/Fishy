@@ -34,6 +34,8 @@ urlpatterns = [
     path("chats/<int:chat_id>/finalizar/", views.finalizar_chat, name="finalizar_chat"),
 
     # Banco de Preguntas (HDU-2 y HDU-8)
+    path("banco/zonas/", views.zonas_banco, name="zonas_banco"),
+    path("banco/zonas/<str:zona>/preguntas/", views.preguntas_zona, name="preguntas_zona"),
     path("banco/preguntas/", views.preguntas_banco, name="preguntas_banco"),
     path("banco/preguntas/<str:pregunta_id>/", views.pregunta_detalle, name="pregunta_detalle"),
 ]

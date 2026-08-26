@@ -508,6 +508,34 @@ Query params:
 **GET `/banco/preguntas/{pregunta_id}/`** — Obtener pregunta específica
 **Response:** `PreguntaBancoSerializer`
 
+**GET `/banco/zonas/`** — Catálogo de zonas del banco
+
+Se arma consultando la BD, no desde una lista fija: al cargar un banco con una
+zona nueva, aparece aquí sola y sin tocar código.
+
+**Response:**
+```json
+[
+  { "zona": "chat_simulado", "preguntas": 6,  "hdu": "HDU-8" },
+  { "zona": "ciberacoso",    "preguntas": 4,  "hdu": "HDU-3" },
+  { "zona": "desconocidos",  "preguntas": 18, "hdu": "HDU-2" }
+]
+```
+
+**GET `/banco/zonas/{zona}/preguntas/`** — Preguntas de una zona
+
+Acepta los mismos query params que `/banco/preguntas/`, salvo `?zona=`, que lo
+manda la ruta.
+
+**Response:** lista de `PreguntaBancoSerializer`
+
+Responde **404** si la zona no existe en el banco. Eso permite distinguirla de
+una zona real que todavía no tiene preguntas cargadas, cosa que
+`/banco/preguntas/?zona=` no puede hacer porque devuelve `[]` en ambos casos.
+```json
+{ "detail": "La zona 'inventada' no existe." }
+```
+
 ---
 
 ## Banco de preguntas
@@ -519,7 +547,7 @@ Modelos en: `BancoPreguntasData.cs`
 ### Estructura raíz
 ```json
 {
-  "version": "1.3",
+  "version": "1.7",
   "preguntas": [ ... ]
 }
 ```
