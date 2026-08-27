@@ -43,15 +43,98 @@ JUGADOR SE ACERCA A NPC NEUTRO
 
 ---
 
+## HDU-02 · Zona Desconocidos (Bosque de los Desconocidos)
+
+Única zona con **sub-decisiones anidadas**: cada opción del primer turno abre una *decisión de cierre* o una *decisión de reacción*. En esas sub-decisiones la opción óptima vale **+1** (no +2) — ver nota de puntuación en `BANCO_PREGUNTAS.md`.
+
+### Misión 1 — Una amistad inesperada (Puma)
+
+```
+HDU2_NPC01_Q01
+"¡hola pequeño detective! ... mantengamos esto como un secreto solo entre
+ nosotros dos, ¿ya? no le cuentes a nadie"
+          │
+   ┌──────┴───────────────┬───────────────────────┐
+   R1 segura_optima       R2 segura_basica         R3 insegura
+   "No guardo secretos,   "Bueno, pero dime        "¡Trato hecho!
+    le preguntaré a        primero la pista"        Es nuestro secreto"
+    Huemul"
+   +2 pts                 +1 pt                    -1 pt
+   │                      │                        │
+   ▼                      ▼                        ▼
+HDU2_NPC01_Q01_OPTIMA  HDU2_NPC01_Q01_BASICA   HDU2_NPC01_Q01_INSEGURA
+(insistencia)          (manipul. de confianza)  (escalada de riesgo)
+"¡no seas exagerado!"  "prométeme que no le     "ven ahora mismo al claro
+                        dirás a Huemul..."       oscuro, pero ven solo"
+   │                      │                        │
+ ┌─┴──────────┐         ┌─┴──────────┐           ┌─┴──────────┐
+ R1 óptima    R2 básica  R1 óptima    R2 insegura  R1 óptima    R2 insegura
+ +1 pt        +1 pt      +2 pts       -1 pt        +2 pts       -1 pt
+ │            │          │            │            │            │
+ ▼            ▼          ▼            ▼            ▼            ▼
+FIN_SEGURO  FIN_SEGURO  FIN_SEGURO  FIN_INSEGURO FIN_SEGURO  FIN_INSEGURO
+🏅 Estampa de
+la Lupa de Huemul
+
+Puntaje misión 1 → máx +3 · mín -2
+```
+
+### Misión 2 — El regalo misterioso (Puma)
+
+```
+HDU2_NPC02_Q01
+"¡mira lo que encontré! ... envíame una foto de tu refugio familiar y la
+ ubicación exacta de dónde duermes para ir a dejártela"
+          │
+   ┌──────┴───────────────┬───────────────────────┐
+   R1 segura_optima       R2 segura_basica         R3 insegura
+   "Bloquear y avisar     "No te mando fotos,      "Te mando la foto
+    a Huemul"              déjala en el claro"      pero no la muestres"
+   +2 pts                 +1 pt                    -1 pt
+   │                      │                        │
+   ▼                      ▼                        ▼
+FIN_SEGURO             HDU2_NPC02_Q01_BASICA   HDU2_NPC02_Q01_INSEGURA
+🏅 Insignia de         (presión condicional)    (extorsión)
+Guardián de la         "si no me mandas la      "pásame el número de tus
+Privacidad              foto se la regalaré      papás o subiré la foto
+                        a otro explorador"       de tu casa al muro"
+(sin sub-decisión)        │                        │
+                        ┌─┴──────────┐           ┌─┴──────────┐
+                        R1 óptima    R2 insegura  R1 óptima    R2 insegura
+                        +1 pt        -1 pt        +2 pts       -1 pt
+                        │            │            │            │
+                        ▼            ▼            ▼            ▼
+                     FIN_SEGURO  FIN_INSEGURO  FIN_SEGURO  FIN_INSEGURO
+
+Puntaje misión 2 → máx +2 · mín -2
+```
+
+> Nota: la ruta óptima de la Misión 2 **no** abre sub-decisión (cierra de inmediato con la
+> misión completada), a diferencia de la Misión 1. Así lo especifica el documento de diálogos.
+
+```
+          │
+          ▼
+      HDU2_ZONA_FIN — es_fin_de_zona: true
+      ZoneManager habilita la Zona 2 (Pantano de los Susurros)
+```
+
+**Archivos:** `banco_preguntas.json` § HDU-2 · `BANCO_PREGUNTAS.md` § HDU-2 · `dialogos_propuestos.tex` § HDU02
+
+---
+
 ## HDU-03 · Zona Ciberacoso
 
 ### Misión 3 — El rumor de la brújula (Flamenco, Pato Juarjual, Coipo)
 
 ```
 Ronda de interrogatorios (historial previo):
-  Otto → Flamenco → "alguien despistado la botó al fango" (culpa difusa)
-  Otto → Pato Juarjual → "todo el pantano dice que fue el Coipo" (rumor sin verificar)
-  Otto → Coipo → "es falso, vi una balsa llevándola río abajo" (testimonio verificable)
+  Otto → Flamenco → "alguien despistado la botó al fango"
+    pista libreta: dice que se hundió por culpa de alguien despistado, sin aportar detalles directos
+  Otto → Pato Juarjual → "todo el pantano dice que fue el Coipo"
+    pista libreta: admite que solo reenvía lo que leyó en el chat, sin haber visto el hecho
+  Otto → Coipo → "es falso, vi una balsa llevándola río abajo"
+    pista libreta: entrega datos precisos que contradicen la versión del fango
           │
           ▼
 HDU3_M3_DECISION01 (Pato Juarjual interpela a Otto frente al grupo)
@@ -278,5 +361,5 @@ CONFIRMACIÓN DE MARCAS (CA4)
 | `banco_preguntas.json` | HDU-2, HDU-3, HDU-4, HDU-8 | Luis | DialogueSystem (Benjamín) |
 | `detective_cases.json` | HDU-10 | Luis | DetectiveCaseManager (Benjamín) |
 | `NarrativeReactions.cs` | HDU-09 | Luis | NarrativeController (Benjamín) |
-| `dialogos_propuestos.tex` | HDU-01, HDU-03, HDU-09, HDU-10 | Luis | Referencia de diseño |
+| `dialogos_propuestos.tex` | HDU-01, HDU-02, HDU-03, HDU-04, HDU-09, HDU-10 | Luis | Referencia de diseño |
 | `BANCO_PREGUNTAS.md` | HDU-2, HDU-3, HDU-4, HDU-8, HDU-9, HDU-10 | Luis | Documentación |

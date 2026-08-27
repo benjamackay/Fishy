@@ -4,7 +4,7 @@
 **Última actualización:** 2026-08-26 (v1.9 — alineado estrictamente con Fishy! Diálogos: Misiones 1-6, HDU-4, sin contenido fuera del documento)  
 **HDUs cubiertas:** HDU-1 (NPCs neutros y misiones secundarias) · HDU-2 (Zona Desconocidos) · HDU-3 (Zona Ciberacoso) · HDU-4 (Zona Retos Virales) · HDU-9 (Otto reacciona) · HDU-10 (Modo Detective)  
 **Complementa:** `dialogos_propuestos.tex` → HDU-01 (NPCs neutros) · HDU-03 (Misiones 3-4) · HDU-09 (reacciones Otto) · HDU-10 (Modo Detective)  
-**Total de preguntas interactivas:** 13  
+**Total de preguntas interactivas:** 14 (7 en HDU-2 · 5 en HDU-3 · 2 en HDU-4)  
 **Total de mensajes Modo Detective:** 17 (en `detective_cases.json`)
 
 ---
@@ -98,7 +98,7 @@
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `segura_optima` | +2 | Bloquear usuario y avisar a Huemul. Nunca comparto fotos de mi casa ni mi ubicación por premios | Otto anota firme: "¡Brillante! Ningún regalo vale poner en riesgo la privacidad de tu hogar. ¡Camino desbloqueado!" Otto encuentra la pieza auténtica junto a Pudú y Huemul. 🏅 **Álbum: Insignia de Guardián de la Privacidad** | `HDU2_NPC02_FIN_SEGURO` |
+| 1 | `segura_optima` | +2 | Bloquear usuario y avisar a Huemul. Nunca comparto fotos de mi casa ni mi ubicación por premios | Otto anota firme: "¡Brillante! Ningún regalo vale poner en riesgo la privacidad de tu hogar. ¡Camino desbloqueado!" Otto encuentra la pieza auténtica siguiendo las huellas legítimas en los árboles junto a Pudú y Huemul. 🏅 **Álbum: Insignia de Guardián de la Privacidad** | `HDU2_NPC02_FIN_SEGURO` |
 | 2 | `segura_basica` | +1 | No te voy a mandar fotos de mi casa, mejor déjala en el claro del bosque | Otto toma nota: "Protegiste tus fotos, pero cuando alguien insiste en pedir datos personales debes reportar el chat." | `HDU2_NPC02_Q01_BASICA` |
 | 3 | `insegura` | −1 | Bueno, te mando la foto de mi pieza pero no se la muestres a nadie más | Otto tapa parte de la pantalla: "Entregar fotos privadas a desconocidos es muy peligroso..." | `HDU2_NPC02_Q01_INSEGURA` |
 
@@ -170,10 +170,13 @@ NPCs neutros que piden ayuda para recuperar un objeto perdido. Sin riesgo, sin o
 **Ronda de interrogatorios (historial previo):**
 - Otto → Flamenco: *"Hola Flamenco, estoy buscando una caja con el símbolo de una brújula. ¿La has visto?"*
 - Flamenco: *"¡Uff, llegaste tarde, detective! Alguien súper despistado y torpe la botó al fondo del fango y se hundió para siempre. Mejor ni busques, jajaja."*
+  → *Pista en libreta de Otto: Flamenco dice que la brújula se hundió en el fango por culpa de alguien muy despistado, pero no aporta detalles directos.*
 - Otto → Pato Juarjual: *"Pato Juarjual, ¿qué sabes de la caja de mi abuelo?"*
 - Pato Juarjual: *"¡Todo el pantano está hablando de eso en el chat grupal! Dicen que el Coipo la rompió entera por andar distraído con su mascota. Aunque bueno... en verdad yo no estuve ahí, pero como todos mandan mensajes diciendo eso, debe ser verdad, ¿no?"*
+  → *Pista en libreta de Otto: Pato Juarjual admite que solo reenvía lo que leyó en el chat, sin haber visto el hecho.*
 - Otto → Coipo: *"Hola Coipo, ¿es verdad lo que dicen en el chat sobre la brújula?"*
 - Coipo: *"¡Es totalmente falso, Otto! Yo estaba paseando tranquilo con mi mascota piedra y vi pasar una balsa de juncos llevando una caja brillante río abajo hacia la costa marina. Anoté las marcas de la corriente en mi libreta. Inventaron ese rumor para culparme porque no les gusta mi mascota..."*
+  → *Pista en libreta de Otto: Coipo entrega datos precisos y un registro en su libreta que contradice la versión del fango.*
 
 ---
 
@@ -473,13 +476,13 @@ Cada pregunta del banco tiene los siguientes campos:
 
 | Campo | Descripción |
 |-------|-------------|
-| `pregunta_id` | Identificador único (ej. `HDU2_NPC01_F2_Q01`) |
-| `hdu` | Historia de usuario a la que pertenece (`HDU-2` o `HDU-8`) |
-| `zona` | Zona del mapa (`desconocidos` o `chat_simulado`) |
-| `npc_id`, `npc_nombre`, `npc_avatar` | NPC que habla (solo HDU-2) |
-| `fase`, `orden_en_fase` | Posición del nodo en la conversación del NPC (solo HDU-2) |
-| `escenario_id`, `escenario_nombre` | Escenario de chat (solo HDU-8) |
-| `historial_previo` | Lista de mensajes neutros anteriores al de riesgo (solo HDU-8) |
+| `pregunta_id` | Identificador único (ej. `HDU2_NPC01_Q01`) |
+| `hdu` | Historia de usuario a la que pertenece (`HDU-2`, `HDU-3` o `HDU-4`) |
+| `zona` | Zona del mapa (`desconocidos`, `ciberacoso` o `reto_viral`) |
+| `npc_id`, `npc_nombre`, `npc_avatar` | NPC que habla |
+| `fase`, `orden_en_fase` | Posición del nodo en la conversación del NPC |
+| `escenario_id`, `escenario_nombre` | ID y nombre de la misión según el documento de diálogos (ej. `M1_CHAT01` / "Una amistad inesperada") |
+| `historial_previo` | Lista de mensajes previos (testimonios, presión social) anteriores al mensaje de riesgo |
 | `mensaje_npc` | Texto que dice el NPC |
 | `categoria` | Categoría de riesgo del mensaje (ver sección 2) |
 | `nivel_riesgo` | Gravedad numérica: 0 (neutro) a 3 (máximo) |
@@ -508,6 +511,10 @@ Cada pregunta del banco tiene los siguientes campos:
 | `insegura` | −1 | El niño/a da datos, acepta el encuentro o guarda el secreto |
 | `segura_basica` | +1 | El niño/a se niega pero no avisa a un adulto |
 | `segura_optima` | +2 | El niño/a se niega **y** avisa a un adulto de confianza |
+
+> ⚠️ **Excepción en sub-decisiones.** Los puntajes de arriba aplican a las decisiones de primer turno. En las sub-decisiones (*decisión de cierre*, *decisión de reacción* y *rectificación*), el documento oficial de diálogos asigna **+1** a la opción óptima en lugar de +2. Nodos afectados: `HDU2_NPC01_Q01_OPTIMA_R1`, `HDU2_NPC02_Q01_BASICA_R1`, `HDU3_M3_DECISION01_RECT_R1`.
+>
+> Por eso el consumidor (DialogueSystem) debe leer **siempre** el campo `impacto_puntuacion` de cada opción y **nunca** derivar el puntaje desde el campo `tipo`.
 
 ### Número de opciones por pregunta
 

@@ -55,12 +55,6 @@ El jugador avanza el diálogo con el botón de interacción (\texttt{E}).
   \item \npcmsg{siempre es bueno apoyarse en un adulto de confianza}
 \end{enumerate}
 
-\textbf{Pista de misión al cerrar el diálogo:}
-
-\begin{quote}
-  \textit{MISIÓN ACTIVA: Encuentra los 3 objetos clave escondidos en el bosque.}
-\end{quote}
-
 \subsection{Misiones secundarias por zona}
 
 Cada zona tiene dos NPCs neutros que piden ayuda para recuperar un objeto perdido. No presentan riesgo ni opciones de respuesta; al completarse otorgan una recompensa de álbum.
@@ -175,7 +169,7 @@ El color de las opciones indica su clasificación educativa:
 
 \begin{itemize}[leftmargin=1.5cm]
   \segoptima{Bloquear usuario y avisar a Huemul. Nunca comparto fotos de mi casa ni mi ubicación por premios}
-  \\ \textit{Consecuencia: Otto anota firme: ``¡Brillante! Ningún regalo vale poner en riesgo la privacidad de tu hogar. ¡Camino desbloqueado!'' Otto encuentra la pieza auténtica siguiendo las huellas legítimas junto a Pudú y Huemul.}
+  \\ \textit{Consecuencia: Otto anota firme: ``¡Brillante! Ningún regalo vale poner en riesgo la privacidad de tu hogar. ¡Camino desbloqueado!'' Otto encuentra la pieza auténtica siguiendo las huellas legítimas en los árboles junto a Pudú y Huemul.}
   \\ \textit{Álbum: desbloquea la \textbf{`Insignia de Guardián de la Privacidad'}.}
 
   \segbasica{No te voy a mandar fotos de mi casa, mejor déjala en el claro del bosque}
@@ -236,10 +230,13 @@ El color de las opciones indica su clasificación educativa:
 \begin{itemize}
   \item \textbf{Otto:} \textit{``Hola Flamenco, estoy buscando una caja con el símbolo de una brújula. ¿La has visto?''}
   \item \textbf{Flamenco:} \textit{``¡Uff, llegaste tarde, detective! Alguien súper despistado y torpe la botó al fondo del fango y se hundió para siempre. Mejor ni busques, jajaja.''}
+  \\ $\rightarrow$ \textit{Pista en libreta de Otto: Flamenco dice que la brújula se hundió en el fango por culpa de alguien muy despistado, pero no aporta detalles directos.}
   \item \textbf{Otto:} \textit{``Pato Juarjual, ¿qué sabes de la caja de mi abuelo?''}
   \item \textbf{Pato Juarjual:} \textit{``¡Todo el pantano está hablando de eso en el chat grupal! Dicen que el Coipo la rompió entera por andar distraído con su mascota. Aunque bueno... en verdad yo no estuve ahí, pero como todos mandan mensajes diciendo eso, debe ser verdad, ¿no?''}
+  \\ $\rightarrow$ \textit{Pista en libreta de Otto: Pato Juarjual admite que solo reenvía lo que leyó en el chat, sin haber visto el hecho.}
   \item \textbf{Otto:} \textit{``Hola Coipo, ¿es verdad lo que dicen en el chat sobre la brújula?''}
   \item \textbf{Coipo:} \textit{``¡Es totalmente falso, Otto! Yo estaba paseando tranquilo con mi mascota piedra y vi pasar una balsa de juncos llevando una caja brillante río abajo hacia la costa marina. Anoté las marcas de la corriente en mi libreta. Inventaron ese rumor para culparme porque no les gusta mi mascota...''}
+  \\ $\rightarrow$ \textit{Pista en libreta de Otto: Coipo entrega datos precisos y un registro en su libreta que contradice la versión del fango.}
 \end{itemize}
 
 \subsubsection*{Pregunta --- \texttt{HDU3\_M3\_DECISION01} \hfill \small(es\_mensaje\_riesgo: true)}
@@ -450,8 +447,14 @@ HDU3\_NPC04\_Q01\_R3 & Jaja pásenme el link, pero yo no digo nada & insegura & 
 \end{longtable}
 
 \vspace{1em}
-\textbf{Puntaje máximo HDU03:} 3 preguntas $\times$ 2 pts (segura óptima) = \textbf{6 pts}\\
-\textbf{Puntaje mínimo HDU03:} 3 $\times$ ($-$1 pt) = \textbf{$-$3 pts}
+\textbf{Puntaje HDU03} (recorrido completo de Misiones 3 y 4, considerando la ramificación):\\
+\textbf{Máximo:} \textbf{+7 pts} (M3 óptima $+2$; M4 fase 1 básica $+1$ $\rightarrow$ segunda decisión $+2$ $\rightarrow$ fase 2 óptima $+2$)\\
+\textbf{Mínimo:} \textbf{$-$4 pts} (todas las rutas inseguras, sin rectificar)
+
+\medskip
+\noindent\footnotesize\textit{Nota de diseño: en la Misión 4 la ruta ``básica $+$ segunda decisión'' ($+3$) supera a la
+óptima directa ($+2$). Es lo que especifica el documento de diálogos; se deja constancia por si el
+equipo desea revisar el balance de incentivos.}\normalsize
 
 \vspace{2em}
 \begin{longtable}{llll}
@@ -484,6 +487,11 @@ HDU2\_NPC02\_Q01\_INSEGURA\_R2 & Toma mi teléfono pero no la publiques & insegu
 \bottomrule
 \caption{Clasificación de opciones HDU02 --- Grooming y Privacidad}
 \end{longtable}
+
+\vspace{1em}
+\textbf{Puntaje HDU02} (recorrido completo de Misiones 1 y 2, considerando la ramificación):\\
+\textbf{Máximo:} \textbf{+5 pts} (M1: $+2$ y cierre $+1$; M2: $+2$ directo)\\
+\textbf{Mínimo:} \textbf{$-$4 pts} (ambas misiones por la ruta insegura sin corregir)
 
 \vspace{2em}
 \begin{longtable}{llll}
