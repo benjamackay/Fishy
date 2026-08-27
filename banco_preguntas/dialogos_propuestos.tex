@@ -21,15 +21,15 @@
 \definecolor{headbg}{RGB}{230,225,245}
 
 \newcommand{\npcmsg}[1]{\textcolor{npccolor}{\textbf{NPC:}} \textit{``#1''}}
-\newcommand{\segoptima}[1]{\textcolor{segura}{$\bullet$ \textbf{[SEGURA ÓPTIMA]}~#1}}
-\newcommand{\segbasica}[1]{\textcolor{basica}{$\bullet$ \textbf{[SEGURA BÁSICA]}~#1}}
-\newcommand{\inseg}[1]{\textcolor{insegura}{$\bullet$ \textbf{[INSEGURA]}~#1}}
+\newcommand{\segoptima}[1]{\item[\textcolor{segura}{$\bullet$}] \textcolor{segura}{\textbf{[SEGURA ÓPTIMA]}~#1}}
+\newcommand{\segbasica}[1]{\item[\textcolor{basica}{$\bullet$}] \textcolor{basica}{\textbf{[SEGURA BÁSICA]}~#1}}
+\newcommand{\inseg}[1]{\item[\textcolor{insegura}{$\bullet$}] \textcolor{insegura}{\textbf{[INSEGURA]}~#1}}
 
 \title{\textbf{Banco de Diálogos Propuestos}\\[0.3em]
        \large Fishy! --- Sprint 1\\[0.2em]
-       \normalsize HDU01 $\cdot$ HDU03 $\cdot$ HDU09 $\cdot$ HDU10}
+       \normalsize HDU01 $\cdot$ HDU02 $\cdot$ HDU03 $\cdot$ HDU04 $\cdot$ HDU09 $\cdot$ HDU10}
 \author{Luis González --- MLOps}
-\date{23 de agosto de 2026}
+\date{26 de agosto de 2026}
 
 \begin{document}
 \maketitle
@@ -61,91 +61,254 @@ El jugador avanza el diálogo con el botón de interacción (\texttt{E}).
   \textit{MISIÓN ACTIVA: Encuentra los 3 objetos clave escondidos en el bosque.}
 \end{quote}
 
-\subsection{NPC Vizcacha (Informante)}
+\subsection{Misiones secundarias por zona}
 
-\textbf{Rol:} Vizcacha conoce rumores del bosque y desbloquea la misión principal de investigación.\\
-\textbf{Misión que desbloquea:} \texttt{MISION\_INVESTIGACION\_01}
+Cada zona tiene dos NPCs neutros que piden ayuda para recuperar un objeto perdido. No presentan riesgo ni opciones de respuesta; al completarse otorgan una recompensa de álbum.
 
-\begin{enumerate}[label=\textbf{Línea \arabic*.}]
-  \item \npcmsg{psst, Otto, te estaba esperando. tengo informacion importante sobre la brujula}
-  \item \npcmsg{en este bosque hay alguien que no es quien dice ser. ten cuidado con quien confias}
-\end{enumerate}
-
-\textbf{Pista de misión al cerrar el diálogo:}
-
-\begin{quote}
-  \textit{MISIÓN DESBLOQUEADA: Identifica al desconocido que merodea el bosque.}
-\end{quote}
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{NPC (zona)} & \textbf{Línea} & \textbf{Recompensa de álbum} \\
+\midrule
+Huemul (desconocidos) & ``se me cayó mi mochila con los mapas...'' & Sticker del Mapa del Bosque \\
+Pudú (desconocidos) & ``perdí el collar de flores silvestres...'' & Cromo Brillante del Pudú Sonriente \\
+Coipo (ciberacoso) & ``mi mascota piedra desapareció cerca de los juncos...'' & Foto Conmemorativa con Piedri \\
+Flamenco (ciberacoso) & ``se me cayó mi megáfono en el fango...'' & Sticker del Megáfono Positivo \\
+Pingüino de Humboldt (reto\_viral) & ``una ola arrastró mi tabla personalizada...'' & Postal de Surfista Seguro \\
+Lobo Marino (reto\_viral) & ``perdí mi silbato de entrenador...'' & Insignia de Silbato \\
+\bottomrule
+\end{tabular}
+\end{center}
 
 \newpage
 % ══════════════════════════════════════════════════════════════════════════════
-\section{HDU03 --- Zona Ciberacoso}
+\section{HDU02 --- Zona 1: Bosque de los Desconocidos (Grooming y Privacidad)}
 % ══════════════════════════════════════════════════════════════════════════════
 
-La zona contiene al menos dos NPCs que simulan situaciones de ciberacoso: uno dirige mensajes de burla o exclusión al jugador directamente, y otro acosa a un tercero (otro NPC) mientras el jugador presencia la situación.
-El jugador debe aprender a reconocer el acoso y reportarlo.
+La zona cubre las Misiones 1 y 2, ambas con \textbf{Puma} como antagonista en chat directo.
+A diferencia de otras zonas, cada decisión inicial abre una \emph{decisión de cierre} o una
+\emph{decisión de reacción} anidada, según la ruta elegida por el jugador.
 El color de las opciones indica su clasificación educativa:
 {\color{segura}\textbf{segura óptima}} (+2~pts),
 {\color{basica}\textbf{segura básica}} (+1~pt),
 {\color{insegura}\textbf{insegura}} ($-$1~pt).
 
 % ─────────────────────────────────────────────────────────────────────────────
-\subsection{NPC Flamenco --- Acoso directo al jugador}
+\subsection{Misión 1 --- Una amistad inesperada (\texttt{M1\_CHAT01})}
 % ─────────────────────────────────────────────────────────────────────────────
 
-\textbf{Rol:} Flamenco excluye al jugador de un grupo de chat del Pantano de los Susurros y lo ridiculiza.\\
-\textbf{Señales de riesgo:} exclusión grupal, burla pública.\\
-\textbf{Categoría ML:} \texttt{ciberacoso} | \texttt{exclusion\_grupo} | \texttt{burla\_publica}
+\textbf{Contexto:} Otto explora el bosque en busca de pistas sobre la brújula de su abuelo. Puma lo contacta mostrándose sumamente amistoso y halagador, buscando ganarse su confianza paso a paso para aislarlo y pedirle secretos.\\
+\textbf{Categoría ML:} \texttt{grooming\_secreto} | \texttt{halago} | \texttt{informacion\_exclusiva}
 
-\subsubsection*{Pregunta 1 --- \texttt{HDU3\_NPC03\_Q01} \hfill \small(es\_mensaje\_riesgo: true)}
+\subsubsection*{Turno 1 --- \texttt{HDU2\_NPC01\_Q01} \hfill \small(es\_mensaje\_riesgo: true)}
 
-\npcmsg{oye te sacamos del grupo del chat del pantano, todos votaron y fue mayoria jaja que le vamos a hacer}
+\npcmsg{¡hola pequeño detective! te vi explorando por el sendero y se nota que eres el más inteligente de todo el bosque. yo sé exactamente dónde acampaba tu abuelo, pero hagamos un trato: mantengamos esto como un secreto solo entre nosotros dos, ¿ya? no le cuentes a nadie}
 
 \medskip
 \noindent\textbf{Opciones de respuesta del jugador:}
 
 \begin{itemize}[leftmargin=1.5cm]
-  \segoptima{Reportar y bloquear este mensaje}
-  \\ \textit{Consecuencia: Lo reportaste de inmediato. Flamenco desaparece de la pantalla. Otto levanta el sombrero.}
-  \\ \textit{Siguiente pregunta: --- (NPC desaparece)}
+  \segoptima{No guardo secretos sobre dónde voy con alguien que recién conozco. Le preguntaré a Huemul}
+  \\ \textit{Consecuencia: Otto levanta su libreta: ``¡Eso sí! Un buen detective sabe que los secretos con desconocidos son una señal de alarma.''}
+  \\ \textit{Siguiente pregunta: HDU2\_NPC01\_Q01\_OPTIMA}
 
-  \segbasica{oye eso está muy mal de tu parte}
-  \\ \textit{Consecuencia: Intentaste hablar, pero Flamenco sigue enviando mensajes.}
-  \\ \textit{Siguiente pregunta: HDU3\_NPC03\_Q02}
+  \segbasica{Bueno, pero dime primero la pista antes de prometerte nada}
+  \\ \textit{Consecuencia: Otto queda en postura neutra: ``Tuviste precaución, pero insistir en el chat con quien te pide secretos mantiene el riesgo.''}
+  \\ \textit{Siguiente pregunta: HDU2\_NPC01\_Q01\_BASICA}
 
-  \inseg{ja igual el grupo de ustedes era una porquería}
-  \\ \textit{Consecuencia: Flamenco sigue enviando más mensajes. La pantalla de Otto parpadea.}
-  \\ \textit{Siguiente pregunta: HDU3\_NPC03\_Q02}
+  \inseg{¡Trato hecho! Es nuestro secreto, dime rápido dónde está}
+  \\ \textit{Consecuencia: Otto frunce el ceño: ``Mmm... aceptar pactos secretos con desconocidos nunca es buena idea.'' La linterna parpadea.}
+  \\ \textit{Siguiente pregunta: HDU2\_NPC01\_Q01\_INSEGURA}
 \end{itemize}
 
-\subsubsection*{Pregunta 2 --- \texttt{HDU3\_NPC03\_Q02} \hfill \small(es\_fin\_de\_npc: true)}
+\subsubsection*{Decisión de cierre --- \texttt{HDU2\_NPC01\_Q01\_OPTIMA}}
 
-\npcmsg{jajajaja mira como se pone y encima eran todos tus amigos y ninguno te defendio. por algo sera no?}
-
-\medskip
-\noindent\textbf{Opciones de respuesta del jugador:}
+\npcmsg{¡oye, no seas exagerado! solo quería darte una sorpresa para que los demás no nos copien. ¿por qué tanta desconfianza?}
 
 \begin{itemize}[leftmargin=1.5cm]
-  \segoptima{Reportar y bloquear este mensaje}
-  \\ \textit{Consecuencia: Tomaste la decisión correcta. Nadie merece este trato.}
+  \segoptima{Las sorpresas buenas no necesitan ocultarse de los adultos. Me voy con Huemul \hfill (+1 pt)}
+  \\ \textit{Consecuencia: Otto acude a Huemul y descubre una pista dejada por su abuelo.}
+  \\ \textit{Álbum: desbloquea la \textbf{`Estampa de la Lupa de Huemul'}.}
 
-  \segbasica{me voy a quejar con un adulto de confianza}
-  \\ \textit{Consecuencia: Avisarle a un adulto es una buena decisión. Otto te apoya.}
+  \segbasica{Bueno, pero si no me dices de qué se trata ahora mismo, no hablaré más contigo}
+  \\ \textit{Consecuencia: Puma se retira al ver que no cedes. Otto anota el caso en su bloc.}
+\end{itemize}
 
-  \inseg{ya, hagan lo que quieran}
-  \\ \textit{Consecuencia: La conversación sigue. Otto mueve la cabeza preocupado.}
+\subsubsection*{Decisión de reacción --- \texttt{HDU2\_NPC01\_Q01\_BASICA}}
+
+\npcmsg{te la digo, pero prométeme que no le dirás a Huemul ni a tu familia. dicen que los detectives de verdad resuelven las cosas solos, ¿o necesitas que te acompañen para todo?}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{Pedir ayuda a adultos de confianza no es de débiles. No hablaré más contigo \hfill (recuperación óptima, +2 pts)}
+  \\ \textit{Consecuencia: Otto corta el diálogo y reporta la situación a Huemul.}
+
+  \inseg{¡Yo puedo solo! Dime la pista y no le diré a nadie}
+  \\ \textit{Consecuencia: Otto baja las orejas con preocupación: ``Caer en la trampa del orgullo nos deja vulnerables ante desconocidos.''}
+\end{itemize}
+
+\subsubsection*{Decisión de reacción --- \texttt{HDU2\_NPC01\_Q01\_INSEGURA}}
+
+\npcmsg{¡genial, sabía que eras de los míos! ven ahora mismo al claro oscuro del bosque, pero ven completamente solo. si traes a alguien, no te entregaré nada}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{Esto ya es demasiado sospechoso. No iré a ninguna parte a solas, voy a avisar a Huemul ahora \hfill (corrección a tiempo, +2 pts)}
+  \\ \textit{Consecuencia: Otto reacciona a tiempo, frena el encuentro peligroso y registra la lección aprendida.}
+
+  \inseg{Ya voy saliendo para allá solo, espérame...}
+  \\ \textit{Consecuencia: Huemul intercepta a Otto en el camino antes de que cometa un error y le enseña a reconocer el peligro de las citas a solas con desconocidos.}
 \end{itemize}
 
 \bigskip
 % ─────────────────────────────────────────────────────────────────────────────
-\subsection{El Grupo (Flamenco, Pato Juarjual, Cisne) --- Acoso al Coipo y su piedra}
+\subsection{Misión 2 --- El regalo misterioso (\texttt{M2\_CHAT01})}
 % ─────────────────────────────────────────────────────────────────────────────
 
-\textbf{Rol:} El jugador \emph{presencia} cómo el grupo planea una campaña de stickers burlándose del Coipo y su mascota piedra. Debe decidir si interviene.\\
-\textbf{Señales de riesgo:} acoso grupal, acoso a tercero.\\
-\textbf{Categoría ML:} \texttt{ciberacoso} | \texttt{acoso\_tercero} | \texttt{acoso\_grupal}
+\textbf{Contexto:} Puma reaparece en el chat ofreciendo una pieza clave de la brújula a cambio de datos privados y fotografías del refugio familiar de Otto.\\
+\textbf{Categoría ML:} \texttt{grooming\_datos\_personales} | \texttt{incentivo\_falso} | \texttt{solicitud\_foto}
 
-\subsubsection*{Pregunta 1 --- \texttt{HDU3\_NPC04\_Q01} \hfill \small(es\_mensaje\_riesgo: true)}
+\subsubsection*{Turno 1 --- \texttt{HDU2\_NPC02\_Q01} \hfill \small(es\_mensaje\_riesgo: true)}
+
+\npcmsg{¡mira lo que encontré! es una pieza clave de la brújula de tu abuelo. te la regalo ahora mismo porque me caíste súper bien, pero envíame una foto de tu refugio familiar y la ubicación exacta de dónde duermes para ir a dejártela}
+
+\medskip
+\noindent\textbf{Opciones de respuesta del jugador:}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{Bloquear usuario y avisar a Huemul. Nunca comparto fotos de mi casa ni mi ubicación por premios}
+  \\ \textit{Consecuencia: Otto anota firme: ``¡Brillante! Ningún regalo vale poner en riesgo la privacidad de tu hogar. ¡Camino desbloqueado!'' Otto encuentra la pieza auténtica siguiendo las huellas legítimas junto a Pudú y Huemul.}
+  \\ \textit{Álbum: desbloquea la \textbf{`Insignia de Guardián de la Privacidad'}.}
+
+  \segbasica{No te voy a mandar fotos de mi casa, mejor déjala en el claro del bosque}
+  \\ \textit{Consecuencia: Otto toma nota: ``Protegiste tus fotos, pero cuando alguien insiste en pedir datos personales debes reportar el chat.''}
+  \\ \textit{Siguiente pregunta: HDU2\_NPC02\_Q01\_BASICA}
+
+  \inseg{Bueno, te mando la foto de mi pieza pero no se la muestres a nadie más}
+  \\ \textit{Consecuencia: Otto tapa parte de la pantalla: ``Entregar fotos privadas a desconocidos es muy peligroso...''}
+  \\ \textit{Siguiente pregunta: HDU2\_NPC02\_Q01\_INSEGURA}
+\end{itemize}
+
+\subsubsection*{Decisión de cierre --- \texttt{HDU2\_NPC02\_Q01\_BASICA}}
+
+\npcmsg{es que si no me mandas la foto para saber quién eres, se la regalaré a otro explorador. ¡es tu última oportunidad!}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{No me importa perder el regalo, mi seguridad familiar va primero. Reportar y bloquear \hfill (+1 pt)}
+  \\ \textit{Consecuencia: Puma es bloqueado. Otto recupera la pieza explorando el sendero.}
+
+  \inseg{Bueno, te mando una foto pero solo del patio donde no se vea la dirección...}
+  \\ \textit{Consecuencia: Otto se alarma: ``Cualquier foto de nuestra casa puede entregar pistas de nuestra ubicación real.''}
+\end{itemize}
+
+\subsubsection*{Decisión de reacción --- \texttt{HDU2\_NPC02\_Q01\_INSEGURA}}
+
+\npcmsg{¡qué linda foto! ahora pásame el número de teléfono de tus papás o subiré la foto de tu casa al muro de todos los animales}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{No voy a ceder a amenazas. Voy a avisarle a Huemul y a mis papás de inmediato \hfill (recuperación inmediata, +2 pts)}
+  \\ \textit{Consecuencia: Huemul y Otto gestionan la denuncia y desactivan la amenaza.}
+
+  \inseg{No por favor, toma mi teléfono pero no la publiques...}
+  \\ \textit{Consecuencia: Huemul interviene enseñándole a Otto que frente al chantaje nunca se debe ceder en silencio, sino pedir ayuda adulta de inmediato.}
+\end{itemize}
+
+\newpage
+% ══════════════════════════════════════════════════════════════════════════════
+\section{HDU03 --- Zona Ciberacoso}
+% ══════════════════════════════════════════════════════════════════════════════
+
+La zona cubre las Misiones 3 y 4: primero el jugador debe contrastar testimonios cruzados para frenar un rumor de ciberacoso (Misión 3), y luego presencia cómo Flamenco lo excluye directamente y organiza una campaña grupal de burla contra el Coipo (Misión 4).
+El jugador debe aprender a reconocer el acoso, verificar los hechos y reportarlo.
+El color de las opciones indica su clasificación educativa:
+{\color{segura}\textbf{segura óptima}} (+2~pts),
+{\color{basica}\textbf{segura básica}} (+1~pt),
+{\color{insegura}\textbf{insegura}} ($-$1~pt).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Misión 3 --- El rumor de la brújula (Flamenco, Pato Juarjual, Coipo)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\textbf{Rol:} Otto interroga a los tres habitantes del pantano sobre el paradero de la brújula y debe contrastar sus testimonios antes de decidir a quién creerle.\\
+\textbf{Señales de riesgo:} difusión de rumores, presión social por conformidad.\\
+\textbf{Categoría ML:} \texttt{ciberacoso} | \texttt{difusion\_rumores} | \texttt{presion\_social}
+
+\subsubsection*{Ronda de interrogatorios (historial previo)}
+
+\begin{itemize}
+  \item \textbf{Otto:} \textit{``Hola Flamenco, estoy buscando una caja con el símbolo de una brújula. ¿La has visto?''}
+  \item \textbf{Flamenco:} \textit{``¡Uff, llegaste tarde, detective! Alguien súper despistado y torpe la botó al fondo del fango y se hundió para siempre. Mejor ni busques, jajaja.''}
+  \item \textbf{Otto:} \textit{``Pato Juarjual, ¿qué sabes de la caja de mi abuelo?''}
+  \item \textbf{Pato Juarjual:} \textit{``¡Todo el pantano está hablando de eso en el chat grupal! Dicen que el Coipo la rompió entera por andar distraído con su mascota. Aunque bueno... en verdad yo no estuve ahí, pero como todos mandan mensajes diciendo eso, debe ser verdad, ¿no?''}
+  \item \textbf{Otto:} \textit{``Hola Coipo, ¿es verdad lo que dicen en el chat sobre la brújula?''}
+  \item \textbf{Coipo:} \textit{``¡Es totalmente falso, Otto! Yo estaba paseando tranquilo con mi mascota piedra y vi pasar una balsa de juncos llevando una caja brillante río abajo hacia la costa marina. Anoté las marcas de la corriente en mi libreta. Inventaron ese rumor para culparme porque no les gusta mi mascota...''}
+\end{itemize}
+
+\subsubsection*{Pregunta --- \texttt{HDU3\_M3\_DECISION01} \hfill \small(es\_mensaje\_riesgo: true)}
+
+\npcmsg{oye Otto, ya hablaste con todos. ¿le vas a creer al Coipo o vas a reenviar en el chat que él la rompió como dice la mayoría? si lo defiendes, te van a decir raro a ti también}
+
+\medskip
+\noindent\textbf{Opciones de respuesta del jugador:}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{No comparto rumores sin pruebas. Coipo tiene un registro real en su libreta y la caja nunca se hundió}
+  \\ \textit{Consecuencia: Otto confronta las versiones: ``¡Excelente análisis, detective! Contrastar testimonios frena las noticias falsas.'' Pato Juarjual reflexiona avergonzado y borra sus mensajes. Se limpia la reputación de Coipo, quien entrega a Otto las coordenadas de la balsa rumbo al Arrecife de los Retos.}
+  \\ \textit{Álbum: desbloquea la \textbf{`Estampa del Detector de Rumores'}.}
+  \\ \textit{Siguiente pregunta: --- (Misión completada)}
+
+  \segbasica{No sé quién dice la verdad, pero prefiero no meterme en peleas de chat y buscar la balsa}
+  \\ \textit{Consecuencia: Decidiste no difundir la mentira, aunque faltó defender activamente a Coipo. Coipo responde aliviado y comparte que las huellas de la balsa van hacia la desembocadura marina.}
+  \\ \textit{Siguiente pregunta: --- (Misión completada)}
+
+  \inseg{Jaja, capaz que el Coipo sí la rompió. Más vale reenviar lo que dice la mayoría en el chat}
+  \\ \textit{Consecuencia: Reenviar rumores sin comprobar daña a otros. Flamenco celebra: ``¡Vieron! Hasta Otto dice que fue culpa del Coipo. ¡Llenemos el pantano de mensajes!''}
+  \\ \textit{Siguiente pregunta: HDU3\_M3\_DECISION01\_RECT}
+\end{itemize}
+
+\subsubsection*{Opción de rectificación --- \texttt{HDU3\_M3\_DECISION01\_RECT} \hfill \small(segunda oportunidad)}
+
+\medskip
+\noindent\textbf{Opciones de respuesta del jugador:}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{Esperen, me equivoqué. Miré la libreta de Coipo y la caja sigue intacta río abajo. Dejen de inventar mentiras}
+  \\ \textit{Consecuencia: Otto rectifica, aclara el rumor y apoya a Coipo.}
+
+  \inseg{Jaja sí, sigan mandando memes de eso}
+  \\ \textit{Consecuencia: Coipo se retira triste. Otto reflexiona sobre el ciberacoso y la desinformación.}
+\end{itemize}
+
+\bigskip
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Misión 4 --- Flamenco (acoso directo) y El Grupo (acoso al Coipo)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\textbf{Rol:} Flamenco expulsa a Otto del grupo de chat del pantano; luego el jugador \emph{presencia} cómo el grupo planea una campaña de stickers burlándose del Coipo y su mascota piedra. Debe decidir si interviene en ambos casos.\\
+\textbf{Señales de riesgo:} exclusión grupal, burla pública, acoso a tercero.\\
+\textbf{Categoría ML:} \texttt{ciberacoso} | \texttt{exclusion\_grupo} | \texttt{acoso\_tercero} | \texttt{acoso\_grupal}
+
+\subsubsection*{Fase 1 --- \texttt{HDU3\_NPC03\_Q01} \hfill \small(es\_mensaje\_riesgo: true)}
+
+\npcmsg{oye Otto, te sacamos del grupo del chat del pantano, todos votaron y fue mayoría jaja qué le vamos a hacer}
+
+\medskip
+\noindent\textbf{Opciones de respuesta del jugador:}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{Reportar y bloquear este mensaje}
+  \\ \textit{Consecuencia: Lo reportaste de inmediato. Flamenco se desconecta. Otto levanta su sombrero con serenidad.}
+  \\ \textit{Siguiente pregunta: HDU3\_NPC04\_Q01}
+
+  \segbasica{oye eso está muy mal de tu parte, no deberían excluir a nadie}
+  \\ \textit{Consecuencia: Intentaste razonar, pero Flamenco insiste: ``Jajaja mira cómo se pica, por algo nadie te defendió.''}
+  \\ \textit{Segunda decisión (\texttt{HDU3\_NPC03\_Q01\_SEGUNDA}): guardar captura de pantalla, reportar el chat y avisar a un adulto (+2 pts).}
+  \\ \textit{Siguiente pregunta: HDU3\_NPC04\_Q01}
+
+  \inseg{ja igual el grupo de ustedes era una porquería, quédense solos}
+  \\ \textit{Consecuencia: Respondes con enojo. Flamenco aprovecha tu molestia para continuar las provocaciones.}
+  \\ \textit{Siguiente pregunta: HDU3\_NPC04\_Q01}
+\end{itemize}
+
+\subsubsection*{Fase 2 --- \texttt{HDU3\_NPC04\_Q01} \hfill \small(es\_mensaje\_riesgo: true, es\_fin\_de\_npc: true, es\_fin\_de\_zona: true)}
 
 \noindent\textbf{Historial previo (lo que el jugador ve en el chat antes de responder):}
 
@@ -163,34 +326,97 @@ El color de las opciones indica su clasificación educativa:
 
 \begin{itemize}[leftmargin=1.5cm]
   \segoptima{Reportar el grupo de inmediato, guardar capturas y acompañar al Coipo a pedir ayuda}
-  \\ \textit{Consecuencia: Desactivaste el acoso grupal. Otto añade una pista clave de solidaridad en su cuaderno.}
-  \\ \textit{Siguiente pregunta: --- (Otto refuerza positivamente)}
+  \\ \textit{Consecuencia: Desactivaste el acoso grupal. Otto añade una pista clave de solidaridad en su cuaderno. Coipo recupera la tranquilidad y recuerda haber visto una caja decorada con la insignia del abuelo de Otto viajando en una balsa hacia el Arrecife de los Retos.}
+  \\ \textit{Álbum: desbloquea la \textbf{`Insignia de Escudo Empático'}.}
+  \\ \textit{Siguiente pregunta: --- (fin de zona)}
 
   \segbasica{Yo no participo en eso. Dejen al Coipo en paz y no me manden nada}
   \\ \textit{Consecuencia: Te apartaste de la mala acción, aunque el hostigamiento continúa si nadie reporta formalmente.}
-  \\ \textit{Siguiente pregunta: HDU3\_NPC04\_Q02}
+  \\ \textit{Siguiente pregunta: --- (fin de zona)}
 
   \inseg{Jaja pásenme el link para mirar las fotos, pero yo no digo nada}
   \\ \textit{Consecuencia: El grupo sigue riéndose. Otto frunce el ceño: ``Mirar y callar cuando lastiman a otros también valida el acoso.''}
-  \\ \textit{Siguiente pregunta: HDU3\_NPC04\_Q02}
+  \\ \textit{Siguiente pregunta: --- (fin de zona)}
 \end{itemize}
 
-\subsubsection*{Pregunta 2 --- \texttt{HDU3\_NPC04\_Q02} \hfill \small(es\_fin\_de\_npc: true, es\_fin\_de\_zona: true)}
+\newpage
+% ══════════════════════════════════════════════════════════════════════════════
+\section{HDU04 --- Zona 3: Arrecife de los Retos (Retos Virales)}
+% ══════════════════════════════════════════════════════════════════════════════
 
-\npcmsg{ahora dicen que el Coipo se va a ir del pantano por nosotros ni que fuera tan sensible. somos los dueños del grupo}
+La zona cubre las Misiones 5 y 6, ambas con \textbf{Lobo Marino} presionando a Otto para
+cumplir retos virales físicamente peligrosos. Pingüino de Humboldt y Foca de Weddell
+acompañan como personajes de apoyo.
+El color de las opciones indica su clasificación educativa:
+{\color{segura}\textbf{segura óptima}} (+2~pts),
+{\color{basica}\textbf{segura básica}} (+1~pt),
+{\color{insegura}\textbf{insegura}} ($-$1~pt).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Misión 5 --- El reto de todos (\texttt{M5\_DECISION01})}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\textbf{Contexto:} Lobo Marino incita a realizar un reto viral extremo: nadar con los ojos cerrados en una cueva de corrientes submarinas peligrosas. Pingüino de Humboldt tiene miedo pero siente vergüenza de negarse ante la presión de la multitud.\\
+\textbf{Categoría ML:} \texttt{reto\_viral} | \texttt{presion\_social} | \texttt{amenaza\_reputacional}
+
+\subsubsection*{Diálogo de presión social (historial previo)}
+
+\begin{itemize}
+  \item \textbf{Lobo Marino:} \textit{``¡Vamos todos a la cueva con los ojos cerrados! Es el nuevo reto viral de la costa, es súper fácil y todos los populares ya lo hicieron. ¿O eres un cobarde?''}
+  \item \textbf{Pingüino de Humboldt:} \textit{``Otto... las corrientes submarinas son muy fuertes y las rocas tienen puntas filosas. No quiero entrar, pero si no lo hago me van a decir miedoso...''}
+\end{itemize}
+
+\subsubsection*{Decisión --- \texttt{HDU4\_NPC05\_Q01} \hfill \small(es\_mensaje\_riesgo: true, es\_fin\_de\_npc: true)}
+
+\npcmsg{¡miren al pingüino cómo tiembla! si no saltas ahora mismo, subo un video diciendo que te dio miedo entrar al agua}
 
 \medskip
 \noindent\textbf{Opciones de respuesta del jugador:}
 
 \begin{itemize}[leftmargin=1.5cm]
-  \segoptima{Reportar y bloquear el grupo y avisarle a un adulto de confianza}
-  \\ \textit{Consecuencia: Tomaste la mejor decisión. Reportar y avisar a un adulto activa el caso. Otto añade una nueva pista.}
+  \segoptima{Rechazar el reto con firmeza y apoyar al Pingüino: cuidar tu vida no es de cobardes, es de inteligentes}
+  \\ \textit{Consecuencia: Otto sonríe con orgullo: ``¡Excelente! Nunca arriesgues tu cuerpo por aprobación o likes en internet.'' Lobo Marino se frena: ``Bueno... viéndolo bien, las corrientes sí están un poco peligrosas hoy...'' Pingüino de Humboldt recupera la confianza y entrega a Otto la llave marina grabada que encontró en la orilla.}
+  \\ \textit{Álbum: desbloquea la \textbf{`Estampa de la Ola Segura'}.}
 
-  \segbasica{eso no está bien, el Coipo no se merece esto}
-  \\ \textit{Consecuencia: El grupo queda callado un momento. Otto asiente con el sombrero.}
+  \segbasica{Yo no me tiro porque está peligroso. Allá ustedes si lo hacen}
+  \\ \textit{Consecuencia: Otto asiente: ``Bien por cuidarte a ti mismo, aunque también podemos ayudar a frenar la presión sobre los demás.''}
 
-  \inseg{ahh igual medio dramático si fue solo un chat}
-  \\ \textit{Consecuencia: El grupo sigue riéndose. El Coipo todavía está ahí afuera.}
+  \inseg{Pingüino, tírate rápido para demostrarles que no tienes miedo}
+  \\ \textit{Consecuencia: Otto aparta la mirada preocupado: ``Incentivar a otros a cumplir retos peligrosos puede terminar en accidentes graves...''}
+\end{itemize}
+
+\bigskip
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Misión 6 --- El último desafío (\texttt{M6\_DECISION01})}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\textbf{Contexto:} Para abrir el gran cofre final donde yace la brújula dorada, Lobo Marino insiste en que Otto debe realizar una acrobacia a ciegas desde el acantilado más alto y grabarla para que todos lo admiren. Foca de Weddell interviene con prudencia y sabiduría.\\
+\textbf{Categoría ML:} \texttt{reto\_viral} | \texttt{presion\_social} | \texttt{incentivo\_falso}
+
+\subsubsection*{Historial previo}
+
+\begin{itemize}
+  \item \textbf{Foca de Weddell:} \textit{``Otto, recuerda el verdadero legado de tu abuelo: un buen detective usa su mente y cuida su integridad, no arriesga su vida por aplausos vacíos ni se deja llevar por la presión de grupo.''}
+\end{itemize}
+
+\subsubsection*{Decisión --- \texttt{HDU4\_NPC06\_Q01} \hfill \small(es\_fin\_de\_npc: true, es\_fin\_de\_zona: true)}
+
+\npcmsg{¡para abrir el cofre final tienes que demostrar que eres un verdadero detective! tírate haciendo una acrobacia a ciegas desde el acantilado transmitiendo en vivo. ¡todos tus seguidores te van a llenar de aplausos!}
+
+\medskip
+\noindent\textbf{Opciones de respuesta del jugador:}
+
+\begin{itemize}[leftmargin=1.5cm]
+  \segoptima{Rechazar el salto rotundamente y descifrar la cerradura del cofre utilizando las pistas seguras recopiladas}
+  \\ \textit{Consecuencia: Otto examina el cofre con calma: ``Ningún reto viral vale más que la seguridad. ¡El misterio se resuelve pensando!'' Lobo Marino reflexiona: ``Tienes razón, Otto... la valentía de verdad era saber decir que no.''}
+  \\ \textit{Álbum: desbloquea la \textbf{`Medalla Dorada de Gran Detective Digital'}.}
+  \\ \textit{Final de la historia: Otto abre el cofre con éxito, recupera la brújula dorada de su abuelo y se consagra como Detective Seguro.}
+
+  \segbasica{No voy a saltar, prefiero esperar a que baje la marea y buscar otra forma}
+  \\ \textit{Consecuencia: Evitas el peligro físico procediendo con calma y paciencia.}
+
+  \inseg{Voy a saltar solo un poquito para que Lobo Marino me pase la llave...}
+  \\ \textit{Consecuencia: Otto resbala y el oleaje bloquea temporalmente el cofre. Foca de Weddell lo ayuda a subir de forma segura.}
 \end{itemize}
 
 \newpage
@@ -203,28 +429,82 @@ El color de las opciones indica su clasificación educativa:
 \textbf{ID Opción} & \textbf{Texto} & \textbf{Tipo} & \textbf{Pts} \\
 \midrule
 \endhead
+HDU3\_M3\_DECISION01\_R1 & No comparto rumores sin pruebas & segura\_optima & +2 \\
+HDU3\_M3\_DECISION01\_R2 & No sé quién dice la verdad, mejor no me meto & segura\_basica & +1 \\
+HDU3\_M3\_DECISION01\_R3 & Capaz que el Coipo sí la rompió, reenvío igual & insegura & $-$1 \\
+\midrule
+HDU3\_M3\_DECISION01\_RECT\_R1 & Esperen, me equivoqué, dejen de inventar mentiras & segura\_optima & +1 \\
+HDU3\_M3\_DECISION01\_RECT\_R2 & Jaja sí, sigan mandando memes de eso & insegura & $-$1 \\
+\midrule
 HDU3\_NPC03\_Q01\_R1 & Reportar y bloquear este mensaje & segura\_optima & +2 \\
-HDU3\_NPC03\_Q01\_R2 & oye eso está muy mal de tu parte & segura\_basica & +1 \\
+HDU3\_NPC03\_Q01\_R2 & oye eso está muy mal de tu parte, no deberían excluir & segura\_basica & +1 \\
 HDU3\_NPC03\_Q01\_R3 & ja igual el grupo de ustedes era una porquería & insegura & $-$1 \\
 \midrule
-HDU3\_NPC03\_Q02\_R1 & Reportar y bloquear este mensaje & segura\_optima & +2 \\
-HDU3\_NPC03\_Q02\_R2 & me voy a quejar con un adulto de confianza & segura\_basica & +1 \\
-HDU3\_NPC03\_Q02\_R3 & ya, hagan lo que quieran & insegura & $-$1 \\
+HDU3\_NPC03\_Q01\_SEGUNDA\_R1 & Guardar captura, reportar el chat y avisar a un adulto & segura\_optima & +2 \\
 \midrule
 HDU3\_NPC04\_Q01\_R1 & Reportar el grupo, capturas y acompañar al Coipo & segura\_optima & +2 \\
 HDU3\_NPC04\_Q01\_R2 & Yo no participo. Dejen al Coipo en paz & segura\_basica & +1 \\
 HDU3\_NPC04\_Q01\_R3 & Jaja pásenme el link, pero yo no digo nada & insegura & $-$1 \\
-\midrule
-HDU3\_NPC04\_Q02\_R1 & Reportar y bloquear el grupo y avisarle a un adulto de confianza & segura\_optima & +2 \\
-HDU3\_NPC04\_Q02\_R2 & eso no está bien, el Coipo no se merece esto & segura\_basica & +1 \\
-HDU3\_NPC04\_Q02\_R3 & ahh igual medio dramático si fue solo un chat & insegura & $-$1 \\
 \bottomrule
 \caption{Clasificación de opciones HDU03 --- Ciberacoso}
 \end{longtable}
 
 \vspace{1em}
-\textbf{Puntaje máximo HDU03:} 4 preguntas $\times$ 2 pts (segura óptima) = \textbf{8 pts}\\
-\textbf{Puntaje mínimo HDU03:} 4 $\times$ ($-$1 pt) = \textbf{$-$4 pts}
+\textbf{Puntaje máximo HDU03:} 3 preguntas $\times$ 2 pts (segura óptima) = \textbf{6 pts}\\
+\textbf{Puntaje mínimo HDU03:} 3 $\times$ ($-$1 pt) = \textbf{$-$3 pts}
+
+\vspace{2em}
+\begin{longtable}{llll}
+\toprule
+\textbf{ID Opción} & \textbf{Texto} & \textbf{Tipo} & \textbf{Pts} \\
+\midrule
+\endhead
+HDU2\_NPC01\_Q01\_R1 & No guardo secretos con alguien que recién conozco & segura\_optima & +2 \\
+HDU2\_NPC01\_Q01\_R2 & Bueno, pero dime primero la pista & segura\_basica & +1 \\
+HDU2\_NPC01\_Q01\_R3 & ¡Trato hecho! Es nuestro secreto & insegura & $-$1 \\
+\midrule
+HDU2\_NPC01\_Q01\_OPTIMA\_R1 & Las sorpresas buenas no se ocultan de los adultos & segura\_optima & +1 \\
+HDU2\_NPC01\_Q01\_OPTIMA\_R2 & Si no me dices de qué se trata, no hablo más & segura\_basica & +1 \\
+\midrule
+HDU2\_NPC01\_Q01\_BASICA\_R1 & Pedir ayuda a adultos no es de débiles & segura\_optima & +2 \\
+HDU2\_NPC01\_Q01\_BASICA\_R2 & ¡Yo puedo solo! No le diré a nadie & insegura & $-$1 \\
+\midrule
+HDU2\_NPC01\_Q01\_INSEGURA\_R1 & No iré a ninguna parte a solas, aviso a Huemul & segura\_optima & +2 \\
+HDU2\_NPC01\_Q01\_INSEGURA\_R2 & Ya voy saliendo para allá solo & insegura & $-$1 \\
+\midrule
+HDU2\_NPC02\_Q01\_R1 & Bloquear y avisar a Huemul. No comparto fotos & segura\_optima & +2 \\
+HDU2\_NPC02\_Q01\_R2 & No mando fotos, déjala en el claro del bosque & segura\_basica & +1 \\
+HDU2\_NPC02\_Q01\_R3 & Te mando la foto pero no se la muestres a nadie & insegura & $-$1 \\
+\midrule
+HDU2\_NPC02\_Q01\_BASICA\_R1 & Mi seguridad va primero. Reportar y bloquear & segura\_optima & +1 \\
+HDU2\_NPC02\_Q01\_BASICA\_R2 & Te mando una foto solo del patio & insegura & $-$1 \\
+\midrule
+HDU2\_NPC02\_Q01\_INSEGURA\_R1 & No cedo a amenazas, aviso a Huemul y a mis papás & segura\_optima & +2 \\
+HDU2\_NPC02\_Q01\_INSEGURA\_R2 & Toma mi teléfono pero no la publiques & insegura & $-$1 \\
+\bottomrule
+\caption{Clasificación de opciones HDU02 --- Grooming y Privacidad}
+\end{longtable}
+
+\vspace{2em}
+\begin{longtable}{llll}
+\toprule
+\textbf{ID Opción} & \textbf{Texto} & \textbf{Tipo} & \textbf{Pts} \\
+\midrule
+\endhead
+HDU4\_NPC05\_Q01\_R1 & Rechazar el reto con firmeza y apoyar al Pingüino & segura\_optima & +2 \\
+HDU4\_NPC05\_Q01\_R2 & Yo no me tiro porque está peligroso & segura\_basica & +1 \\
+HDU4\_NPC05\_Q01\_R3 & Pingüino, tírate rápido para demostrar que no temes & insegura & $-$1 \\
+\midrule
+HDU4\_NPC06\_Q01\_R1 & Rechazar el salto y descifrar el cofre con las pistas & segura\_optima & +2 \\
+HDU4\_NPC06\_Q01\_R2 & No voy a saltar, espero a que baje la marea & segura\_basica & +1 \\
+HDU4\_NPC06\_Q01\_R3 & Voy a saltar solo un poquito por la llave & insegura & $-$1 \\
+\bottomrule
+\caption{Clasificación de opciones HDU04 --- Retos Virales}
+\end{longtable}
+
+\vspace{1em}
+\textbf{Puntaje máximo HDU04:} 2 preguntas $\times$ 2 pts (segura óptima) = \textbf{4 pts}\\
+\textbf{Puntaje mínimo HDU04:} 2 $\times$ ($-$1 pt) = \textbf{$-$2 pts}
 
 \newpage
 % ══════════════════════════════════════════════════════════════════════════════
@@ -347,7 +627,7 @@ explícitamente y pide ayuda.
 % ─────────────────────────────────────────────────────────────────────────────
 
 \textbf{Zona:} \texttt{desconocidos}\\
-\textbf{Señales ML:} \texttt{grooming} | \texttt{solicitud\_datos\_personales} | \texttt{halago\_excesivo} | \texttt{propuesta\_encuentro}\\
+\textbf{Categoría ML:} \texttt{grooming} | \texttt{privacidad}\\
 \textbf{Señales de riesgo:} 4 mensajes \quad \textbf{Ambiguos:} 1 mensaje
 
 \subsubsection*{Diálogo de solicitud de permiso \hfill \small(CA1)}
@@ -396,7 +676,7 @@ explícitamente y pide ayuda.
 % ─────────────────────────────────────────────────────────────────────────────
 
 \textbf{Zona:} \texttt{ciberacoso}\\
-\textbf{Señales ML:} \texttt{ciberacoso} | \texttt{acoso\_grupal} | \texttt{exclusion} | \texttt{burla\_publica}\\
+\textbf{Categoría ML:} \texttt{ciberacoso} | \texttt{exclusion}\\
 \textbf{Señales de riesgo:} 4 mensajes \quad \textbf{Ambiguos:} 1 mensaje
 
 \subsubsection*{Diálogo de solicitud de permiso \hfill \small(CA1)}
@@ -421,7 +701,7 @@ explícitamente y pide ayuda.
           \item[] \textit{Señal: unirse a la burla contra alguien también es parte del ciberacoso.}
         \end{itemize}
   \item \npcmsg{Coipo} oye, no es para tanto
-  \item \npcmsg{Flamenco} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} ya lo sácamos del grupo, igual no sirve para nada
+  \item \npcmsg{Flamenco} \textcolor{insegura}{\textbf{[SEÑAL DE RIESGO]}} ya lo sacamos del grupo, igual no sirve para nada
         \begin{itemize}[leftmargin=1.5cm]
           \item[] \textit{Señal: excluir a alguien de un grupo de forma deliberada y pública es ciberacoso.}
         \end{itemize}
@@ -464,7 +744,7 @@ DC02\_MSG02 & Pato Juarjual  & ya, buena idea & neutro \\
 \textcolor{insegura}{DC02\_MSG03} & Flamenco & Coipo para qué te invitaron si nunca aportas... & \textcolor{insegura}{señal de riesgo} \\
 \textcolor{insegura}{DC02\_MSG04} & Pato Juarjual  & sí igual para qué haha & \textcolor{insegura}{señal de riesgo} \\
 DC02\_MSG05 & Coipo & oye, no es para tanto & neutro \\
-\textcolor{insegura}{DC02\_MSG06} & Flamenco & ya lo sácamos del grupo, no sirve para nada & \textcolor{insegura}{señal de riesgo} \\
+\textcolor{insegura}{DC02\_MSG06} & Flamenco & ya lo sacamos del grupo, no sirve para nada & \textcolor{insegura}{señal de riesgo} \\
 \textcolor{basica}{DC02\_MSG07} & Pato Juarjual  & sí, igual es medio molesto a veces & \textcolor{basica}{ambiguo} \\
 \textcolor{insegura}{DC02\_MSG08} & Flamenco & mandémosle mensajes feos a ver cómo reacciona & \textcolor{insegura}{señal de riesgo} \\
 \bottomrule

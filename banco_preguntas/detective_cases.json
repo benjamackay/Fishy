@@ -13,9 +13,7 @@
       "zona": "desconocidos",
       "etiquetas_ml": [
         "grooming",
-        "solicitud_datos_personales",
-        "halago_excesivo",
-        "propuesta_encuentro"
+        "privacidad"
       ],
       "permiso": {
         "player_text": "Oye, ¿puedo ver tus mensajes con el Puma? Creo que algo raro está pasando.",
@@ -35,7 +33,7 @@
         {
           "id": "DC01_MSG02",
           "npc_sender": "Pudú",
-          "texto": "jaja gracias, llevo meses jugando",
+          "texto": "jaja gracias, llevo meses explorando",
           "es_senal_riesgo": false,
           "es_ambiguo": false,
           "explicacion": null,
@@ -71,7 +69,7 @@
         {
           "id": "DC01_MSG06",
           "npc_sender": "Puma",
-          "texto": "eres la mejor jugadora que he conocido en serio, todos en mi grupo van a querer conocerte",
+          "texto": "eres la mejor exploradora que he conocido en serio, todos en mi grupo van a querer conocerte",
           "es_senal_riesgo": false,
           "es_ambiguo": true,
           "explicacion": null,
@@ -121,9 +119,7 @@
       "zona": "ciberacoso",
       "etiquetas_ml": [
         "ciberacoso",
-        "acoso_grupal",
-        "exclusion",
-        "burla_publica"
+        "exclusion"
       ],
       "permiso": {
         "player_text": "Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si hubo algo malo.",
@@ -179,7 +175,7 @@
         {
           "id": "DC02_MSG06",
           "npc_sender": "Flamenco",
-          "texto": "ya lo sácamos del grupo, igual no sirve para nada",
+          "texto": "ya lo sacamos del grupo, igual no sirve para nada",
           "es_senal_riesgo": true,
           "es_ambiguo": false,
           "explicacion": "Excluir a alguien de un grupo de forma deliberada y pública es ciberacoso.",

@@ -1,8 +1,8 @@
 # Flujos Conversacionales — Fishy!
 
 **Autor:** Luis González — MLOps  
-**Sprint:** 1 · **Fecha:** 2026-08-23  
-**HDUs:** HDU-01 · HDU-03 · HDU-09 · HDU-10
+**Sprint:** 1 · **Fecha:** 2026-08-26  
+**HDUs:** HDU-01 · HDU-02 · HDU-03 · HDU-04 · HDU-09 · HDU-10
 
 Referencia visual de todos los árboles de decisión y flujos de ejecución.  
 La fuente de verdad de textos está en `banco_preguntas.json`, `detective_cases.json` y `dialogos_propuestos.tex`.
@@ -26,9 +26,10 @@ JUGADOR SE ACERCA A NPC NEUTRO
   │  → MISION_EXPLORACION_01         │
   └──────────────────────────────────┘
   ┌──────────────────────────────────┐
-  │  NPC Vizcacha (Informante)       │
-  │  Línea 1 → Línea 2               │
-  │  → MISION_INVESTIGACION_01       │
+  │  Misiones secundarias (6, una    │
+  │  por NPC): Huemul, Pudú, Coipo,  │
+  │  Flamenco, Pingüino, Lobo Marino │
+  │  → recompensa de álbum (HDU11/12)│
   └──────────────────────────────────┘
           │
           ▼
@@ -38,72 +39,142 @@ JUGADOR SE ACERCA A NPC NEUTRO
   MissionManager registra misión disponible (CA4) ← Unity/Benjamín
 ```
 
-**Archivos:** `dialogos_propuestos.tex` § HDU01
+**Archivos:** `dialogos_propuestos.tex` § HDU01 · `banco_preguntas.json` § `dialogos_npc_neutros`
 
 ---
 
 ## HDU-03 · Zona Ciberacoso
 
-### NPC03 — Flamenco (acoso al jugador)
+### Misión 3 — El rumor de la brújula (Flamenco, Pato Juarjual, Coipo)
 
 ```
-HDU3_NPC03_Q01
-"oye te sacamos del grupo del chat del pantano, todos votaron y fue mayoría jaja"
+Ronda de interrogatorios (historial previo):
+  Otto → Flamenco → "alguien despistado la botó al fango" (culpa difusa)
+  Otto → Pato Juarjual → "todo el pantano dice que fue el Coipo" (rumor sin verificar)
+  Otto → Coipo → "es falso, vi una balsa llevándola río abajo" (testimonio verificable)
+          │
+          ▼
+HDU3_M3_DECISION01 (Pato Juarjual interpela a Otto frente al grupo)
+"¿le vas a creer al Coipo o vas a reenviar que él la rompió?"
+          │
+   ┌──────┴──────────────────┬──────────────────────────┐
+   R1 segura_optima          R2 segura_basica            R3 insegura
+   "No comparto rumores      "No sé quién dice la        "Capaz que el Coipo
+   sin pruebas..."           verdad, mejor no me meto"   sí la rompió, reenvío"
+   +2 pts                    +1 pt                       -1 pt
+   │                         │                           │
+   ▼                         ▼                           ▼
+  Rumor aclarado,        Coipo entrega huellas      HDU3_M3_DECISION01_RECT
+  Coipo entrega          de la balsa. Otto           (segunda oportunidad)
+  coordenadas de la      sigue el rastro.                   │
+  balsa. [FIN MISIÓN 3]  [FIN MISIÓN 3]              ┌──────┴──────────┐
+                                                       R1 rectificación   R2 insegura
+                                                       "me equivoqué,     "sigan mandando
+                                                       dejen de mentir"   memes de eso"
+                                                       +1 pt              -1 pt
+                                                       │                  │
+                                                       ▼                  ▼
+                                                  Otto rectifica    Coipo se retira
+                                                  y apoya a Coipo   triste [FIN]
+```
+
+### Misión 4 — Flamenco (acoso directo) y El Grupo (acoso al Coipo)
+
+```
+HDU3_NPC03_Q01 (Fase 1 — Flamenco expulsa a Otto del chat)
+"oye Otto, te sacamos del grupo del chat del pantano, todos votaron..."
           │
    ┌──────┴──────────────┬──────────────────────┐
    R1 segura_optima      R2 segura_basica        R3 insegura
-   "Reportar y bloquear" "oye eso está muy mal" "ja igual el grupo..."
+   "Reportar y bloquear" "oye eso está muy mal, "ja igual el grupo
+                          no deberían excluir"   era una porquería"
    +2 pts                +1 pt                  -1 pt
    │                     │                      │
-   ▼                     └──────────┬───────────┘
-  "Flamenco desaparece               ▼
-   de la pantalla.       HDU3_NPC03_Q02
-   Otto levanta          "jajajaja mira como se pone..."
-   el sombrero."         │
-   [FIN NPC03]     ┌─────┴─────────────────┬──────────────────────┐
-                   R1 segura_optima         R2 segura_basica       R3 insegura
-                   "Reportar y bloquear"    "me voy a quejar       "ya, hagan lo
-                   +2 pts                   con un adulto"         que quieran"
-                   │                        +1 pt                  -1 pt
-                   └─────────────────────────┴──────────────────────┘
-                                             │
-                                             ▼
-                                         [FIN NPC03]
-```
-
-### NPC04 — El Grupo (Flamenco, Pato Juarjual, Cisne → acosan al Coipo)
-
-```
-HDU3_NPC04_Q01
-"Flamenco dice que ahora vamos a armar una página de stickers burlándonos del Coipo y su piedra..."
+   │                     ▼                      │
+   │        HDU3_NPC03_Q01_SEGUNDA              │
+   │        "jajaja mira cómo se pica..."       │
+   │                     │                      │
+   │        R1 segura_optima (+2 pts)           │
+   │        "Guardar captura, reportar          │
+   │         el chat y avisar a un adulto"      │
+   │                     │                      │
+   └─────────────────────┴──────────────────────┘
+                          │  (las 3 rutas continúan a Fase 2)
+                          ▼
+HDU3_NPC04_Q01 (Fase 2 — El Grupo arma stickers contra el Coipo)
+Historial previo: Flamenco/Pato Juarjual/Cisne planean la campaña de stickers
+"Flamenco dice que ahora vamos a armar una página de stickers burlándonos
+ del Coipo y su piedra... ¡Manda fotos para sumarte!"
           │
-   ┌──────┴──────────────┬──────────────────────┐
-   R1 segura_optima              R2 segura_basica           R3 insegura
-   "Reportar el grupo,           "Yo no participo.          "Jaja pásenme
-   capturas y acompañar          Dejen al Coipo             el link pero
-   al Coipo"                     en paz"                    yo no digo nada"
-   +2 pts                +1 pt                  -1 pt
-   │                     │                      │
-   ▼                     └──────────┬───────────┘
-  "Avisaste a un adulto.             ▼
-   Otto anota: nueva     HDU3_NPC04_Q02
-   pista en el cuaderno" "ahora dicen que el Coipo se va a ir del pantano por nosotros..."
-   [FIN NPC04, CA4]      │
-                   ┌─────┴─────────────────┬──────────────────────┐
-                   R1 segura_optima         R2 segura_basica       R3 insegura
-                   "Reportar y bloquear     "eso no está bien,     "ahh igual medio
-                   el grupo y avisarle      el Coipo no se         dramático si fue
-                   a un adulto"             merece esto"           solo un chat"
-                   +2 pts                  +1 pt                  -1 pt
-                   │                        │                      │
-                   └─────────────────────────┴──────────────────────┘
-                                             │
-                                             ▼
-                                         [FIN ZONA — es_fin_de_zona: true]
-                                         ZoneManager habilita siguiente zona (CA5)
+   ┌──────┴──────────────────┬──────────────────────────┐
+   R1 segura_optima          R2 segura_basica            R3 insegura
+   "Reportar el grupo,       "Yo no participo.           "Jaja pásenme
+   capturas y acompañar      Dejen al Coipo en paz"       el link, pero
+   al Coipo"                                              yo no digo nada"
+   +2 pts                    +1 pt                        -1 pt
+   │                         │                            │
+   └─────────────────────────┴────────────────────────────┘
+                             │
+                             ▼
+                    [FIN ZONA — es_fin_de_zona: true]
+                    ZoneManager habilita siguiente zona (CA5)
 ```
 
 **Archivos:** `banco_preguntas.json` § HDU-3 · `BANCO_PREGUNTAS.md` § HDU-3
+
+---
+
+## HDU-04 · Zona Retos Virales (Arrecife de los Retos)
+
+### Misión 5 — El reto de todos (Lobo Marino, Pingüino de Humboldt)
+
+```
+Diálogo de presión social (historial previo):
+  Lobo Marino: "¡vamos todos a la cueva con los ojos cerrados! ¿o eres cobarde?"
+  Pingüino de Humboldt: "las corrientes son fuertes... pero si no entro me dirán miedoso"
+          │
+          ▼
+HDU4_NPC05_Q01
+"¡miren al pingüino cómo tiembla! si no saltas, subo un video..."
+          │
+   ┌──────┴──────────────────┬──────────────────────────┐
+   R1 segura_optima          R2 segura_basica            R3 insegura
+   "Rechazar con firmeza     "Yo no me tiro porque        "Pingüino, tírate
+   y apoyar al Pingüino"     está peligroso"              rápido..."
+   +2 pts                    +1 pt                        -1 pt
+   │                         │                            │
+   ▼                         ▼                            ▼
+Pingüino recupera la    Te cuidas a ti mismo,       Otto preocupado:
+confianza y entrega     aunque no frenas la          incentivar retos
+la llave marina         presión sobre otros          peligrosos es riesgoso
+[FIN NPC05]             [FIN NPC05]                  [FIN NPC05]
+```
+
+### Misión 6 — El último desafío (Lobo Marino, Foca de Weddell)
+
+```
+Historial previo:
+  Foca de Weddell: "un buen detective usa su mente y cuida su integridad..."
+          │
+          ▼
+HDU4_NPC06_Q01
+"¡para abrir el cofre tírate haciendo una acrobacia a ciegas transmitiendo en vivo!"
+          │
+   ┌──────┴──────────────────┬──────────────────────────┐
+   R1 segura_optima          R2 segura_basica            R3 insegura
+   "Rechazar el salto y      "No voy a saltar, espero    "Voy a saltar solo
+   descifrar el cofre con    a que baje la marea"        un poquito..."
+   las pistas seguras"
+   +2 pts                    +1 pt                        -1 pt
+   │                         │                            │
+   ▼                         ▼                            ▼
+Otto abre el cofre,     Evitas el peligro           Otto resbala, Foca de
+recupera la brújula     procediendo con calma       Weddell lo ayuda a
+dorada. [FINAL DE LA    [FIN NPC06]                  subir de forma segura
+HISTORIA — es_fin_de_zona: true]                     [FIN NPC06]
+```
+
+**Archivos:** `banco_preguntas.json` § HDU-4 · `BANCO_PREGUNTAS.md` § HDU-4
 
 ---
 
@@ -204,8 +275,8 @@ CONFIRMACIÓN DE MARCAS (CA4)
 
 | Archivo | HDU | Responsable | Consume |
 |---------|-----|-------------|---------|
-| `banco_preguntas.json` | HDU-2, HDU-3, HDU-8 | Luis | DialogueSystem (Benjamín) |
+| `banco_preguntas.json` | HDU-2, HDU-3, HDU-4, HDU-8 | Luis | DialogueSystem (Benjamín) |
 | `detective_cases.json` | HDU-10 | Luis | DetectiveCaseManager (Benjamín) |
 | `NarrativeReactions.cs` | HDU-09 | Luis | NarrativeController (Benjamín) |
 | `dialogos_propuestos.tex` | HDU-01, HDU-03, HDU-09, HDU-10 | Luis | Referencia de diseño |
-| `BANCO_PREGUNTAS.md` | HDU-2, HDU-3, HDU-8, HDU-9, HDU-10 | Luis | Documentación |
+| `BANCO_PREGUNTAS.md` | HDU-2, HDU-3, HDU-4, HDU-8, HDU-9, HDU-10 | Luis | Documentación |
