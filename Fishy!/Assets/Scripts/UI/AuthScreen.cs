@@ -26,8 +26,9 @@ namespace Fishy.UI
         public enum Mode { Login, Register }
 
         [Header("Destino")]
-        [Tooltip("Nombre de la escena del juego (debe estar en File → Build Settings).")]
-        public string gameSceneName = "SampleScene";
+        [Tooltip("Escena a la que se entra tras autenticarse (normalmente el menú principal). " +
+                 "Debe estar en File → Build Settings.")]
+        public string gameSceneName = "MainMenu";
         [Tooltip("Pantalla de carga. Si está vacía se busca en la escena.")]
         public LoadingScreen loadingScreen;
 
@@ -46,6 +47,8 @@ namespace Fishy.UI
         public Text submitLabel;
         public Button toggleModeButton;
         public Text toggleModeLabel;
+        public Button googleButton;
+        public Text googleLabel;
         public Text statusLabel;
         public Text connectionBadge;   // indicador de conexión (generado en runtime)
 
@@ -74,6 +77,7 @@ namespace Fishy.UI
 
             if (submitButton     != null) submitButton.onClick.AddListener(Submit);
             if (toggleModeButton != null) toggleModeButton.onClick.AddListener(ToggleMode);
+            if (googleButton     != null) googleButton.onClick.AddListener(SubmitGoogle);
 
             ApplyMode();
             Show();
@@ -180,6 +184,24 @@ namespace Fishy.UI
                 });
         }
 
+        // ── Google Sign-In ──────────────────────────────────────────────────────
+        public void SubmitGoogle()
+        {
+            if (busy) return;
+            SetBusy(true);
+            SetStatus("Abriendo el navegador para iniciar sesión con Google…", false);
+
+            GoogleAuthClient.SignIn(this,
+                onIdToken: idToken =>
+                {
+                    SetStatus("Verificando con Google…", false);
+                    ApiManager.Instance.GoogleLogin(idToken,
+                        onSuccess: OnAuthSuccess,
+                        onError: err => { SetBusy(false); SetStatus(FriendlyError(err), true); });
+                },
+                onError: err => { SetBusy(false); SetStatus(err, true); });
+        }
+
         // ── Éxito de autenticación ─────────────────────────────────────────────
         private void OnAuthSuccess()
         {
@@ -215,6 +237,7 @@ namespace Fishy.UI
             busy = value;
             if (submitButton     != null) submitButton.interactable     = !value;
             if (toggleModeButton != null) toggleModeButton.interactable = !value;
+            if (googleButton     != null) googleButton.interactable     = !value;
             if (usernameField    != null) usernameField.interactable    = !value;
             if (passwordField    != null) passwordField.interactable    = !value;
         }
@@ -223,16 +246,14 @@ namespace Fishy.UI
         {
             if (statusLabel == null) return;
             statusLabel.text  = message;
-            statusLabel.color = isError
-                ? new Color(1f, 0.45f, 0.45f)
-                : new Color(0.65f, 0.82f, 1f);
+            statusLabel.color = isError ? UiTheme.ErrorColor : UiTheme.TextMuted;
         }
 
         private void UpdateConnectionBadge(bool connected)
         {
             if (connectionBadge == null) return;
             connectionBadge.text  = connected ? "🟢 Conectado"         : "🔴 Sin conexión (modo local)";
-            connectionBadge.color = connected ? new Color(0.4f, 0.9f, 0.5f) : new Color(1f, 0.6f, 0.3f);
+            connectionBadge.color = connected ? UiTheme.OkColor : new Color(1f, 0.6f, 0.3f);
         }
 
         private void EnsureApiManager()
@@ -286,24 +307,43 @@ namespace Fishy.UI
             panel = new GameObject("Panel", typeof(RectTransform), typeof(Image));
             panel.transform.SetParent(canvasGO.transform, false);
             Stretch(panel.GetComponent<RectTransform>());
-            panel.GetComponent<Image>().color = new Color(0.05f, 0.08f, 0.13f, 1f);
+            panel.GetComponent<Image>().color = UiTheme.Background;
 
             // Badge de conexión (esquina superior derecha)
-            var badgeGO = new GameObject("ConnectionBadge",
-                typeof(RectTransform), typeof(Text));
-            badgeGO.transform.SetParent(panel.transform, false);
-            var badgeRT = badgeGO.GetComponent<RectTransform>();
+            var badgePill = new GameObject("ConnectionBadge", typeof(RectTransform), typeof(Image));
+            badgePill.transform.SetParent(panel.transform, false);
+            var badgeRT = badgePill.GetComponent<RectTransform>();
             badgeRT.anchorMin       = new Vector2(1f, 1f);
             badgeRT.anchorMax       = new Vector2(1f, 1f);
             badgeRT.pivot           = new Vector2(1f, 1f);
             badgeRT.anchoredPosition = new Vector2(-24f, -18f);
-            badgeRT.sizeDelta       = new Vector2(480f, 48f);
-            connectionBadge = badgeGO.GetComponent<Text>();
+            badgeRT.sizeDelta       = new Vector2(320f, 48f);
+            var badgeImg = badgePill.GetComponent<Image>();
+            badgeImg.color = UiTheme.Secondary;
+            UiTheme.MakeRounded(badgeImg, soft: true);
+
+            var badgeTextGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
+            badgeTextGO.transform.SetParent(badgePill.transform, false);
+            Stretch(badgeTextGO.GetComponent<RectTransform>(), 16f, 4f);
+            connectionBadge = badgeTextGO.GetComponent<Text>();
             connectionBadge.font      = font;
-            connectionBadge.fontSize  = 26;
-            connectionBadge.alignment = TextAnchor.MiddleRight;
-            connectionBadge.color     = new Color(0.5f, 0.5f, 0.5f);
+            connectionBadge.fontSize  = 24;
+            connectionBadge.alignment = TextAnchor.MiddleCenter;
+            connectionBadge.color     = UiTheme.TextMuted;
             connectionBadge.text      = "Conectando…";
+
+            // Sombra de la tarjeta (ligeramente más grande y desplazada hacia abajo)
+            var shadow = new GameObject("CardShadow", typeof(RectTransform), typeof(Image));
+            shadow.transform.SetParent(panel.transform, false);
+            var shadowRT = shadow.GetComponent<RectTransform>();
+            shadowRT.anchorMin = new Vector2(0.5f, 0.5f);
+            shadowRT.anchorMax = new Vector2(0.5f, 0.5f);
+            shadowRT.pivot     = new Vector2(0.5f, 0.5f);
+            shadowRT.sizeDelta = new Vector2(720f, 920f);
+            shadowRT.anchoredPosition = new Vector2(0f, -10f);
+            var shadowImg = shadow.GetComponent<Image>();
+            shadowImg.color = UiTheme.CardShadow;
+            UiTheme.MakeRounded(shadowImg);
 
             // Tarjeta central
             var card = new GameObject("Card",
@@ -313,11 +353,13 @@ namespace Fishy.UI
             cardRT.anchorMin  = new Vector2(0.5f, 0.5f);
             cardRT.anchorMax  = new Vector2(0.5f, 0.5f);
             cardRT.pivot      = new Vector2(0.5f, 0.5f);
-            cardRT.sizeDelta  = new Vector2(760f, 720f);
-            card.GetComponent<Image>().color = new Color(0.1f, 0.13f, 0.2f, 1f);
+            cardRT.sizeDelta  = new Vector2(720f, 920f);
+            var cardImg = card.GetComponent<Image>();
+            cardImg.color = UiTheme.CardBg;
+            UiTheme.MakeRounded(cardImg);
             var vlg = card.GetComponent<VerticalLayoutGroup>();
-            vlg.padding             = new RectOffset(50, 50, 40, 40);
-            vlg.spacing             = 22f;
+            vlg.padding             = new RectOffset(48, 48, 44, 40);
+            vlg.spacing             = 18f;
             vlg.childAlignment      = TextAnchor.UpperCenter;
             vlg.childControlWidth   = true;
             vlg.childControlHeight  = true;
@@ -326,7 +368,14 @@ namespace Fishy.UI
 
             // Título
             titleLabel = CreateLabel(card.transform, "Iniciar sesión",
-                48, FontStyle.Bold, TextAnchor.MiddleCenter, 80f);
+                44, FontStyle.Bold, TextAnchor.MiddleCenter, 64f);
+            titleLabel.color = UiTheme.TextPrimary;
+
+            var subtitle = CreateLabel(card.transform, "Bienvenido de vuelta a Fishy!",
+                24, FontStyle.Normal, TextAnchor.MiddleCenter, 36f);
+            subtitle.color = UiTheme.TextMuted;
+
+            AddSpacer(card.transform, 6f);
 
             // Campos
             usernameField = CreateInputField(card.transform, "Nombre de jugador", password: false);
@@ -334,18 +383,65 @@ namespace Fishy.UI
 
             // Botón principal
             submitButton = CreateButton(card.transform, "Entrar",
-                new Color(0.16f, 0.5f, 0.34f, 1f), out submitLabel, 86f);
+                UiTheme.Accent, out submitLabel, 84f, boldLabel: true);
 
             // Estado / error
             statusLabel = CreateLabel(card.transform, "",
-                26, FontStyle.Normal, TextAnchor.MiddleCenter, 60f);
+                24, FontStyle.Normal, TextAnchor.MiddleCenter, 46f);
             statusLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
             statusLabel.verticalOverflow   = VerticalWrapMode.Overflow;
+
+            // Divisor "─── o ───"
+            CreateDivider(card.transform, "o continúa con");
+
+            // Botón de Google
+            googleButton = CreateButton(card.transform, "Continuar con Google",
+                UiTheme.InputBg, out googleLabel, 78f, boldLabel: false, textColor: UiTheme.InputText, addGIcon: true);
+
+            AddSpacer(card.transform, 4f);
 
             // Cambiar modo
             toggleModeButton = CreateButton(card.transform,
                 "¿Primera vez? Crear cuenta",
-                new Color(0.16f, 0.22f, 0.34f, 1f), out toggleModeLabel, 70f);
+                UiTheme.Secondary, out toggleModeLabel, 60f, boldLabel: false, textColor: UiTheme.TextMuted);
+        }
+
+        private void AddSpacer(Transform parent, float height)
+        {
+            var go = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<LayoutElement>().minHeight = height;
+        }
+
+        private void CreateDivider(Transform parent, string label)
+        {
+            var row = new GameObject("Divider", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            row.transform.SetParent(parent, false);
+            row.GetComponent<LayoutElement>().minHeight = 32f;
+            var hlg = row.GetComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 14f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandHeight = false;
+
+            CreateDividerLine(row.transform);
+            var text = CreateLabel(row.transform, label, 20, FontStyle.Normal, TextAnchor.MiddleCenter, 24f);
+            text.color = UiTheme.TextMuted;
+            text.GetComponent<LayoutElement>().flexibleWidth = 0f;
+            text.GetComponent<LayoutElement>().preferredWidth = 220f;
+            CreateDividerLine(row.transform);
+        }
+
+        private void CreateDividerLine(Transform parent)
+        {
+            var go = new GameObject("Line", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = UiTheme.Secondary;
+            var le = go.GetComponent<LayoutElement>();
+            le.flexibleWidth = 1f;
+            le.minHeight = 2f;
+            le.preferredHeight = 2f;
         }
 
         // ── Helpers de construcción ────────────────────────────────────────────
@@ -354,29 +450,31 @@ namespace Fishy.UI
             var go = new GameObject(placeholder,
                 typeof(RectTransform), typeof(Image), typeof(InputField), typeof(LayoutElement));
             go.transform.SetParent(parent, false);
-            go.GetComponent<Image>().color = new Color(0.93f, 0.95f, 0.98f, 1f);
-            go.GetComponent<LayoutElement>().minHeight = 84f;
+            var bgImg = go.GetComponent<Image>();
+            bgImg.color = UiTheme.InputBg;
+            UiTheme.MakeRounded(bgImg, soft: true);
+            go.GetComponent<LayoutElement>().minHeight = 80f;
 
             var input = go.GetComponent<InputField>();
 
             // Texto principal
             var textGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
             textGO.transform.SetParent(go.transform, false);
-            Stretch(textGO.GetComponent<RectTransform>(), 20f, 10f);
+            Stretch(textGO.GetComponent<RectTransform>(), 26f, 10f);
             var text = textGO.GetComponent<Text>();
             text.font      = font;
-            text.fontSize  = 32;
-            text.color     = new Color(0.1f, 0.12f, 0.16f);
+            text.fontSize  = 30;
+            text.color     = UiTheme.InputText;
             text.alignment = TextAnchor.MiddleLeft;
             text.supportRichText = false;
 
             // Placeholder
             var phGO = new GameObject("Placeholder", typeof(RectTransform), typeof(Text));
             phGO.transform.SetParent(go.transform, false);
-            Stretch(phGO.GetComponent<RectTransform>(), 20f, 10f);
+            Stretch(phGO.GetComponent<RectTransform>(), 26f, 10f);
             var ph = phGO.GetComponent<Text>();
             ph.font      = font;
-            ph.fontSize  = 32;
+            ph.fontSize  = 30;
             ph.fontStyle = FontStyle.Italic;
             ph.color     = new Color(0.45f, 0.5f, 0.55f);
             ph.alignment = TextAnchor.MiddleLeft;
@@ -394,26 +492,56 @@ namespace Fishy.UI
         }
 
         private Button CreateButton(Transform parent, string label,
-            Color color, out Text labelOut, float minHeight)
+            Color color, out Text labelOut, float minHeight,
+            bool boldLabel = true, Color? textColor = null, bool addGIcon = false)
         {
             var go = new GameObject(label,
                 typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
             go.transform.SetParent(parent, false);
-            go.GetComponent<Image>().color = color;
+            var img = go.GetComponent<Image>();
+            img.color = color;
+            UiTheme.MakeRounded(img, soft: true);
             go.GetComponent<LayoutElement>().minHeight = minHeight;
+
+            var button = go.GetComponent<Button>();
+            var colors = button.colors;
+            colors.highlightedColor = Color.Lerp(color, Color.white, 0.12f);
+            colors.pressedColor     = Color.Lerp(color, Color.black, 0.12f);
+            colors.disabledColor    = new Color(color.r, color.g, color.b, 0.4f);
+            button.colors = colors;
+
+            if (addGIcon)
+            {
+                var iconGO = new GameObject("GIcon", typeof(RectTransform), typeof(Text));
+                iconGO.transform.SetParent(go.transform, false);
+                var iconRT = iconGO.GetComponent<RectTransform>();
+                iconRT.anchorMin = new Vector2(0f, 0.5f);
+                iconRT.anchorMax = new Vector2(0f, 0.5f);
+                iconRT.pivot     = new Vector2(0f, 0.5f);
+                iconRT.anchoredPosition = new Vector2(28f, 0f);
+                iconRT.sizeDelta = new Vector2(36f, 36f);
+                var iconText = iconGO.GetComponent<Text>();
+                iconText.font      = font;
+                iconText.fontSize  = 32;
+                iconText.fontStyle = FontStyle.Bold;
+                iconText.alignment = TextAnchor.MiddleCenter;
+                iconText.color     = new Color(0.26f, 0.52f, 0.96f); // azul estilo "G"
+                iconText.text      = "G";
+            }
 
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
             txtGO.transform.SetParent(go.transform, false);
-            Stretch(txtGO.GetComponent<RectTransform>(), 10f, 4f);
+            Stretch(txtGO.GetComponent<RectTransform>(), addGIcon ? 64f : 10f, 4f);
             labelOut = txtGO.GetComponent<Text>();
             labelOut.font      = font;
-            labelOut.fontSize  = 30;
-            labelOut.color     = Color.white;
+            labelOut.fontSize  = 28;
+            labelOut.fontStyle = boldLabel ? FontStyle.Bold : FontStyle.Normal;
+            labelOut.color     = textColor ?? Color.white;
             labelOut.alignment = TextAnchor.MiddleCenter;
             labelOut.horizontalOverflow = HorizontalWrapMode.Wrap;
             labelOut.text = label;
 
-            return go.GetComponent<Button>();
+            return button;
         }
 
         private Text CreateLabel(Transform parent, string text,

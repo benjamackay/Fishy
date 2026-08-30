@@ -34,6 +34,11 @@ namespace Fishy.Net
         [Tooltip("Mostrar en consola el detalle de cada peticion/respuesta.")]
         [SerializeField] private bool verboseLogs = true;
 
+        [Header("Google Sign-In")]
+        [Tooltip("Client ID de OAuth (tipo \"Aplicacion de escritorio\") de Google Cloud Console. " +
+                 "Necesario para el boton 'Continuar con Google'.")]
+        [SerializeField] private string googleClientId = "";
+
         [Header("Modo local (sin servidor)")]
         [Tooltip("Si esta activo, NO se conecta al backend: simula todo localmente " +
                  "(usuarios en PlayerPrefs, partidas/NPCs/chats en memoria). " +
@@ -68,6 +73,7 @@ namespace Fishy.Net
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            GoogleAuthClient.ClientId = googleClientId;
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -126,6 +132,21 @@ namespace Fishy.Net
 
             var body = new { nombre, password };
             StartCoroutine(Send<AuthResponse>("POST", "/auth/login/", body, auth: false,
+                onSuccess: res => { StoreAuth(res); onSuccess?.Invoke(); },
+                onError: onError));
+        }
+
+        /// <summary>
+        /// Inicia sesion (o registra) usando un id_token de Google obtenido con
+        /// GoogleAuthClient.SignIn(). El backend verifica la firma y crea/reusa
+        /// el Usuario asociado a esa cuenta de Google.
+        /// </summary>
+        public void GoogleLogin(string idToken, Action onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode) { LocalGoogleLogin(idToken, onSuccess, onError); return; }
+
+            var body = new { id_token = idToken };
+            StartCoroutine(Send<AuthResponse>("POST", "/auth/google/", body, auth: false,
                 onSuccess: res => { StoreAuth(res); onSuccess?.Invoke(); },
                 onError: onError));
         }
@@ -408,6 +429,39 @@ namespace Fishy.Net
             UsuarioId = seq;
             ResetSessionState();
             if (verboseLogs) Debug.Log($"[API-LOCAL] Registro '{nombre}' (id={seq}).");
+            onSuccess?.Invoke();
+        }
+
+        /// <summary>
+        /// En modo local no hay backend que verifique la firma del id_token, asi
+        /// que solo se decodifica el payload (email/nombre) para crear una cuenta
+        /// local equivalente. No usar esta ruta como prueba de seguridad real.
+        /// </summary>
+        private void LocalGoogleLogin(string idToken, Action onSuccess, Action<string> onError)
+        {
+            if (!GoogleAuthClient.TryDecodePayload(idToken, out string email, out string name, out string sub)
+                || string.IsNullOrEmpty(sub))
+            {
+                onError?.Invoke("No se pudo leer la respuesta de Google.");
+                return;
+            }
+
+            string key = "fishy.google." + sub;
+            string nombre = PlayerPrefs.GetString(key + ".nombre", "");
+            if (string.IsNullOrEmpty(nombre))
+            {
+                nombre = !string.IsNullOrEmpty(name) ? name : (email ?? ("google_" + sub.Substring(0, 8)));
+                int seq = PlayerPrefs.GetInt("fishy.userseq", 0) + 1;
+                PlayerPrefs.SetInt("fishy.userseq", seq);
+                PlayerPrefs.SetString(key + ".nombre", nombre);
+                PlayerPrefs.SetInt("fishy.userid." + nombre, seq);
+                PlayerPrefs.Save();
+            }
+
+            Token = NewLocalToken();
+            UsuarioId = PlayerPrefs.GetInt("fishy.userid." + nombre, 1);
+            ResetSessionState();
+            if (verboseLogs) Debug.Log($"[API-LOCAL] Google login '{nombre}' (id={UsuarioId}).");
             onSuccess?.Invoke();
         }
 

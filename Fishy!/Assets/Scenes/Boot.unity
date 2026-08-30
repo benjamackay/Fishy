@@ -296,7 +296,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b93369d0e4dedb649bcecd3bade96944, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.UI.AuthScreen
-  gameSceneName: SampleScene
+  gameSceneName: MainMenu
   loadingScreen: {fileID: 0}
   mode: 0
   crearPartidaAlIngresar: 1

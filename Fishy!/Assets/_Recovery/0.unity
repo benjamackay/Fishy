@@ -308,6 +308,69 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &500000100
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 500000101}
+  - component: {fileID: 500000102}
+  m_Layer: 0
+  m_Name: Minimap
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &500000101
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000100}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &500000102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 500000100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa2ca46ea1f64f9891017b0d67758bf0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.UI.MinimapScreen
+  player: {fileID: 0}
+  playerTag: Player
+  mapImage: {fileID: 0}
+  tamanoMaximo: {x: 1200, y: 800}
+  ajustarPanelAlAspectoDelMundo: 1
+  colorPunto: {r: 1, g: 0, b: 0, a: 1}
+  tamanoPunto: 24
+  pulsoPunto: 0.15
+  usarLimitesManuales: 0
+  minMundo: {x: -48, y: -94}
+  maxMundo: {x: 168, y: 25}
+  limitesCollider: {fileID: 0}
+  bloquearMovimiento: 1
+  teclasMapa:
+  - <Keyboard>/m
+  - <Keyboard>/tab
+  panel: {fileID: 0}
+  mapPanel: {fileID: 0}
+  playerDot: {fileID: 0}
 --- !u!1 &631822431
 GameObject:
   m_ObjectHideFlags: 0
@@ -814,7 +877,7 @@ Tilemap:
     second:
       serializedVersion: 2
       m_TileIndex: 0
-      m_TileSpriteIndex: 3
+      m_TileSpriteIndex: 4294967295
       m_TileMatrixIndex: 0
       m_TileColorIndex: 0
       m_TileObjectToInstantiateIndex: 65535
@@ -40663,9 +40726,6 @@ Tilemap:
   - serializedVersion: 2
     m_RefCount: 88
     m_Data: {fileID: 1592302443, guid: 028b89f58c5a86c458ab0a76478a1e86, type: 3}
-  - serializedVersion: 2
-    m_RefCount: 1
-    m_Data: {fileID: 1594946777}
   m_TileMatrixArray:
   - serializedVersion: 2
     m_RefCount: 3982
@@ -42020,69 +42080,6 @@ MonoBehaviour:
   onChatClosed:
     m_PersistentCalls:
       m_Calls: []
---- !u!1 &500000100
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 500000101}
-  - component: {fileID: 500000102}
-  m_Layer: 0
-  m_Name: Minimap
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &500000101
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 500000100}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &500000102
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 500000100}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fa2ca46ea1f64f9891017b0d67758bf0, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::Fishy.UI.MinimapScreen
-  player: {fileID: 0}
-  playerTag: Player
-  mapImage: {fileID: 0}
-  tamanoMaximo: {x: 1200, y: 800}
-  ajustarPanelAlAspectoDelMundo: 1
-  colorPunto: {r: 1, g: 0, b: 0, a: 1}
-  tamanoPunto: 24
-  pulsoPunto: 0.15
-  usarLimitesManuales: 0
-  minMundo: {x: -48, y: -94}
-  maxMundo: {x: 168, y: 25}
-  limitesCollider: {fileID: 0}
-  bloquearMovimiento: 1
-  teclasMapa:
-  - <Keyboard>/m
-  - <Keyboard>/tab
-  panel: {fileID: 0}
-  mapPanel: {fileID: 0}
-  playerDot: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
