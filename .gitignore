@@ -6,3 +6,13 @@
 [Uu]ser[Ss]ettings/
 *.csproj
 *.sln
+
+# Secretos / variables de entorno (NO commitear)
+.env
+*.env
+!*.env.example
+
+# Entorno virtual de Python del backend
+.venv/
+__pycache__/
+*.pyc
