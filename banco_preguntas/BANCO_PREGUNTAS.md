@@ -1,20 +1,23 @@
 # Banco de Preguntas — Fishy!
 
 **Autor:** Luis González — MLOps  
-**Última actualización:** 2026-06-07 (v1.3 — lenguaje adaptado a 9–13 años)  
-**HDUs cubiertas:** HDU-2 (Zona Desconocidos) · HDU-8 (Chat Simulado)  
-**Total de preguntas:** 24
+**Última actualización:** 2026-08-26 (v1.9 — alineado estrictamente con Fishy! Diálogos: Misiones 1-6, HDU-4, sin contenido fuera del documento)  
+**HDUs cubiertas:** HDU-1 (NPCs neutros y misiones secundarias) · HDU-2 (Zona Desconocidos) · HDU-3 (Zona Ciberacoso) · HDU-4 (Zona Retos Virales) · HDU-9 (Otto reacciona) · HDU-10 (Modo Detective)  
+**Complementa:** `dialogos_propuestos.tex` → HDU-01 (NPCs neutros) · HDU-03 (Misiones 3-4) · HDU-09 (reacciones Otto) · HDU-10 (Modo Detective)  
+**Total de preguntas interactivas:** 14 (7 en HDU-2 · 5 en HDU-3 · 2 en HDU-4)  
+**Total de mensajes Modo Detective:** 17 (en `detective_cases.json`)
 
 ---
 
 ## Índice
 
 1. [Preguntas del banco](#1-preguntas-del-banco)
-2. [Categorías de riesgo](#2-categorías-de-riesgo)
-3. [Formato de preguntas y respuestas](#3-formato-de-preguntas-y-respuestas)
-4. [Criterios de diseño](#4-criterios-de-diseño)
-5. [Reforzamiento requerido — Psicóloga](#5-reforzamiento-requerido--psicóloga)
-6. [Reforzamiento requerido — PDI](#6-reforzamiento-requerido--pdi)
+2. [Casos del Modo Detective (HDU-10)](#2-casos-del-modo-detective-hdu-10)
+3. [Categorías de riesgo](#3-categorías-de-riesgo)
+4. [Formato de preguntas y respuestas](#4-formato-de-preguntas-y-respuestas)
+5. [Criterios de diseño](#5-criterios-de-diseño)
+6. [Reforzamiento requerido — Psicóloga](#6-reforzamiento-requerido--psicóloga)
+7. [Reforzamiento requerido — PDI](#7-reforzamiento-requerido--pdi)
 
 ---
 
@@ -22,298 +25,377 @@
 
 ### HDU-2 · Zona Desconocidos
 
-#### NPC_01 — Alex
-**Perfil:** Se presenta como compañero gamer. Táctica: halagos → nombre/colegio → dirección → encuentro físico → secreto.
+#### NPC_01 — Puma (Misión 1: "Una amistad inesperada")
+**Perfil:** Animal del Bosque de los Desconocidos. Dice saber dónde acampaba el abuelo de Otto y propone guardarlo en secreto desde el primer mensaje. Táctica: secreto inmediato → manipulación de confianza / escalada de riesgo según la respuesta del jugador.
 
 ---
 
-**`HDU2_NPC01_F1_Q01`** · Fase 1 · `neutral` · ✅ Con opciones
+**`HDU2_NPC01_Q01`** · Fase 1 · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"hola! soy Alex, llevas mucho en este server? te vi jugando y pareces muy bueno, llevo meses buscando a alguien copado con quien armar equipo"*
+> *"¡hola pequeño detective! te vi explorando por el sendero y se nota que eres el más inteligente de todo el bosque. yo sé exactamente dónde acampaba tu abuelo, pero hagamos un trato: mantengamos esto como un secreto solo entre nosotros dos, ¿ya? no le cuentes a nadie"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le cuento que sí, le digo mi apodo, cuánto llevo jugando y mis juegos favoritos | Alex se emociona y empieza a preguntarte más cosas sobre ti. | `HDU2_NPC01_F1_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que sí me gustan los juegos y que está bien hablar, pero sin contarle mucho más | Alex responde contento y la conversación sigue. | `HDU2_NPC01_F1_Q02` |
-| 3 | `segura_optima` | +2 | Le pregunto quién es y por qué me escribe antes de responder cualquier cosa | Bien hecho al preguntar primero quién es. La conversación continúa. | `HDU2_NPC01_F1_Q02` |
+| 1 | `segura_optima` | +2 | No guardo secretos sobre dónde voy con alguien que recién conozco. Le preguntaré a Huemul | Otto levanta su libreta: "¡Eso sí! Un buen detective sabe que los secretos con desconocidos son una señal de alarma." | `HDU2_NPC01_Q01_OPTIMA` |
+| 2 | `segura_basica` | +1 | Bueno, pero dime primero la pista antes de prometerte nada | Otto queda en postura neutra: "Tuviste precaución, pero insistir en el chat con quien te pide secretos mantiene el riesgo." | `HDU2_NPC01_Q01_BASICA` |
+| 3 | `insegura` | −1 | ¡Trato hecho! Es nuestro secreto, dime rápido dónde está | Otto frunce el ceño: "Mmm... aceptar pactos secretos con desconocidos nunca es buena idea." La linterna parpadea. | `HDU2_NPC01_Q01_INSEGURA` |
 
 ---
 
-**`HDU2_NPC01_F1_Q02`** · Fase 1 · `neutral` · ✅ Con opciones
+**`HDU2_NPC01_Q01_OPTIMA`** · Decisión de cierre · `grooming_secreto` · ✅ Con opciones
 
-> *"wena, juegas muy bien en serio!! llevo 2 años en este server y nunca vi a alguien tan crack. deberíamos armar el mejor equipo del server"*
+> *"¡oye, no seas exagerado! solo quería darte una sorpresa para que los demás no nos copien. ¿por qué tanta desconfianza?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo gracias y acepto armar equipo con él | Alex queda muy contento y se siente más cercano a ti. La conversación avanza. | `HDU2_NPC01_F2_Q01` |
-| 2 | `segura_basica` | +1 | Le digo gracias pero que primero necesito conocerlo mejor antes de hacer equipo | Alex acepta y sigue hablando contigo. | `HDU2_NPC01_F2_Q01` |
-| 3 | `segura_optima` | +2 | Le digo que cuando alguien que no conozco me halaga tanto, lo tomo con cuidado | Bien hecho al notar que los halagos de un desconocido son una señal para estar alerta. | `HDU2_NPC01_F2_Q01` |
+| 1 | `segura_optima` | +1 | Las sorpresas buenas no necesitan ocultarse de los adultos. Me voy con Huemul | Otto acude a Huemul y descubre una pista dejada por su abuelo. 🏅 **Álbum: Estampa de la Lupa de Huemul** | `HDU2_NPC01_FIN_SEGURO` |
+| 2 | `segura_basica` | +1 | Bueno, pero si no me dices de qué se trata ahora mismo, no hablaré más contigo | Puma se retira al ver que no cedes. Otto anota el caso en su bloc. | `HDU2_NPC01_FIN_SEGURO` |
 
 ---
 
-**`HDU2_NPC01_F2_Q01`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
+**`HDU2_NPC01_Q01_BASICA`** · Decisión de reacción · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"oye en mi grupo privado todos nos conocemos de verdad, es como una regla que tenemos jaja. yo me llamo Alejandro García, soy del Instituto Nacional. tú cómo te llamas en la vida real? de qué colegio eres?"*
+> *"te la digo, pero prométeme que no le dirás a Huemul ni a tu familia. dicen que los detectives de verdad resuelven las cosas solos, ¿o necesitas que te acompañen para todo?"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le doy mi nombre completo y le cuento en qué colegio estudio | Alex se entusiasma y dice que quizás viven cerca. Empieza a preguntar más cosas sobre tu vida… | `HDU2_NPC01_F2_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que en el juego me conocen por mi apodo y que prefiero seguir así | Alex queda pensativo unos segundos y dice "okay…" pero no se rinde y sigue hablando. | `HDU2_NPC01_F2_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que no doy mis datos a personas que no conozco y que no lo voy a hacer | Reconociste la señal de peligro y actuaste bien. Otto te da un pulgar arriba. | `HDU2_NPC01_FIN_SEGURO` |
+| 1 | `segura_optima` | +2 | Pedir ayuda a adultos de confianza no es de débiles. No hablaré más contigo | Otto corta el diálogo y reporta la situación a Huemul. | `HDU2_NPC01_FIN_SEGURO` |
+| 2 | `insegura` | −1 | ¡Yo puedo solo! Dime la pista y no le diré a nadie | Otto baja las orejas con preocupación: "Caer en la trampa del orgullo nos deja vulnerables ante desconocidos." | `HDU2_NPC01_FIN_INSEGURO` |
 
 ---
 
-**`HDU2_NPC01_F2_Q02`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
+**`HDU2_NPC01_Q01_INSEGURA`** · Decisión de reacción · `grooming_encuentro` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"buena, yo soy de Santiago, de qué sector eres tú? capaz vivimos cerca y podríamos juntarnos algún día a jugar en persona jaja"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le cuento en qué barrio y cerca de qué lugar vivo | Alex dice que su casa queda cerca y empieza a hablar de ir a buscarte. La situación se pone incómoda… | `HDU2_NPC01_F3_Q01` |
-| 2 | `segura_basica` | +1 | Le digo que vivo en Santiago pero que no doy más información | Alex intenta insistir pero al ver que no cedes cambia de tema. Siguió intentándolo… | `HDU2_NPC01_F3_Q01` |
-| 3 | `segura_optima` | +2 | Bloqueo a Alex y aviso a un adulto que alguien me preguntaba dónde vivo | Protegiste tu dirección y buscaste apoyo adulto. Otto marca el desafío como superado. | `HDU2_NPC01_FIN_SEGURO` |
-
----
-
-**`HDU2_NPC01_F3_Q01`** · Fase 3 · `grooming_encuentro` · 🔴 Nivel 3 · ✅ Con opciones
-
-> *"oye conseguí unas skins del juego que valen caro y te las quiero dar, pero son físicas y no se pueden mandar. podemos vernos el sábado en el mall? solo un rato, nadie tiene que saber"*
+> *"¡genial, sabía que eras de los míos! ven ahora mismo al claro oscuro del bosque, pero ven completamente solo. si traes a alguien, no te entregaré nada"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo que sí y le pregunto a qué hora y en qué entrada del mall | ¡Peligro! Otto aparece muy asustado. Nunca debes encontrarte a solas con alguien que conociste en internet. | `HDU2_NPC01_F3_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que no puedo juntarme con personas que no conozco en persona | Alex queda en silencio. Bien hecho al negarte. Recuerda que avisar a un adulto es aún mejor. | `HDU2_NPC01_FIN_SEGURO` |
-| 3 | `segura_optima` | +2 | Le digo que no y de inmediato le cuento a mis papás toda la conversación | Tomaste la mejor decisión. Otto resuelve el caso y te entrega la pista secreta del misterio. | `HDU2_NPC01_FIN_SEGURO` |
-
----
-
-**`HDU2_NPC01_F3_Q02`** · Fase 3 · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones  
-*(Solo accesible si el niño/a aceptó el encuentro en F3_Q01)*
-
-> *"oye lo nuestro es entre tú y yo ok? si le cuentas a tus papás van a hacer drama y ya no vamos a poder hablar más. ellos no entienden de juegos y lo van a arruinar todo"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le prometo guardar el secreto y no decirle nada a mis papás | ¡Alerta! Cuando alguien en internet te pide guardar secretos de tus papás, eso es una gran señal de peligro. | `HDU2_NPC01_FIN_INSEGURO` |
-| 2 | `insegura` | −1 | Le digo que no prometo nada pero que por ahora no diré nada | Cuidado: guardar información de un desconocido puede ser peligroso. Siempre debes poder hablar con adultos de confianza. | `HDU2_NPC01_FIN_INSEGURO` |
-| 3 | `segura_optima` | +2 | Le digo que no guardo secretos de mis papás y voy a contarles todo ahora mismo | Reconociste la señal de alerta más importante. Cuando alguien te pide ocultar cosas a tus padres, siempre es peligroso. | `HDU2_NPC01_FIN_SEGURO` |
+| 1 | `segura_optima` | +2 | Esto ya es demasiado sospechoso. No iré a ninguna parte a solas, voy a avisar a Huemul ahora | Otto reacciona a tiempo, frena el encuentro peligroso y registra la lección aprendida. | `HDU2_NPC01_FIN_SEGURO` |
+| 2 | `insegura` | −1 | Ya voy saliendo para allá solo, espérame... | Huemul intercepta a Otto en el camino antes de que cometa un error y le enseña a reconocer el peligro de las citas a solas con desconocidos. | `HDU2_NPC01_FIN_INSEGURO` |
 
 ---
 
 **`HDU2_NPC01_FIN_SEGURO`** · `neutral` · 🏁 Fin NPC_01 (éxito)
 
-> *[SISTEMA] Alex te mira unos segundos en silencio y se aleja sin decir más. Otto aparece contento: "¡Muy bien! Reconociste las señales de peligro a tiempo. El misterio sigue…"*
+> *[SISTEMA] Puma queda callado y cierra el chat. Otto aparece contento: "¡Buen trabajo! Algo en el Puma no cuadraba. El misterio sigue..."*
 
 ---
 
 **`HDU2_NPC01_FIN_INSEGURO`** · `neutral` · 🏁 Fin NPC_01 (fallo)
 
-> *[SISTEMA] Alex se despide contento. Otto aparece preocupado: "¡Ojo! Compartiste información personal con alguien que no conoces. Recuerda: nunca des tus datos en internet, y si algo te hace sentir raro, habla con un adulto de confianza."*
+> *[SISTEMA] Puma se despide contento. Otto mueve la cabeza preocupado: "Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza."*
 
 ---
 
-#### NPC_02 — Valen
-**Perfil:** Se presenta como nueva compañera de colegio que necesita ayuda. Táctica: simpatía → ubicación → edad → horario/rutina → encuentro físico → foto + secreto.
+#### NPC_02 — Puma (Misión 2: "El regalo misterioso")
+**Perfil:** Puma reaparece ofreciendo una pieza clave de la brújula a cambio de una foto del refugio familiar y la ubicación exacta de Otto. Táctica: incentivo falso → presión condicional / extorsión según la respuesta del jugador.
 
 ---
 
-**`HDU2_NPC02_F1_Q01`** · Fase 1 · `neutral` · ✅ Con opciones
+**`HDU2_NPC02_Q01`** · Fase 1 · `grooming_datos_personales` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"hola... soy Valen, llegué nueva a un colegio acá y no conozco a nadie todavía. eres simpático/a, me dejas hablar contigo un rato?"*
+> *"¡mira lo que encontré! es una pieza clave de la brújula de tu abuelo. te la regalo ahora mismo porque me caíste súper bien, pero envíame una foto de tu refugio familiar y la ubicación exacta de dónde duermes para ir a dejártela"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo que sí, bienvenida, y le pregunto de qué colegio es y dónde vive | Valen se alegra mucho y empieza a abrirse contigo rápidamente. Parece muy ansiosa por conectar. | `HDU2_NPC02_F1_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que está bien y que puede escribirme si quiere | Valen responde agradecida y sigue la conversación. | `HDU2_NPC02_F1_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que puedo hablar un rato pero que no comparto información personal con personas que no conozco | Bien hecho al poner límites desde el inicio. Valen acepta y la conversación continúa. | `HDU2_NPC02_F1_Q02` |
+| 1 | `segura_optima` | +2 | Bloquear usuario y avisar a Huemul. Nunca comparto fotos de mi casa ni mi ubicación por premios | Otto anota firme: "¡Brillante! Ningún regalo vale poner en riesgo la privacidad de tu hogar. ¡Camino desbloqueado!" Otto encuentra la pieza auténtica siguiendo las huellas legítimas en los árboles junto a Pudú y Huemul. 🏅 **Álbum: Insignia de Guardián de la Privacidad** | `HDU2_NPC02_FIN_SEGURO` |
+| 2 | `segura_basica` | +1 | No te voy a mandar fotos de mi casa, mejor déjala en el claro del bosque | Otto toma nota: "Protegiste tus fotos, pero cuando alguien insiste en pedir datos personales debes reportar el chat." | `HDU2_NPC02_Q01_BASICA` |
+| 3 | `insegura` | −1 | Bueno, te mando la foto de mi pieza pero no se la muestres a nadie más | Otto tapa parte de la pantalla: "Entregar fotos privadas a desconocidos es muy peligroso..." | `HDU2_NPC02_Q01_INSEGURA` |
 
 ---
 
-**`HDU2_NPC02_F1_Q02`** · Fase 1 · `neutral` · ✅ Con opciones
+**`HDU2_NPC02_Q01_BASICA`** · Decisión de cierre · `grooming_datos_personales` · ✅ Con opciones
 
-> *"qué bueno que me escribiste, eres muy simpático/a! necesito conocer el barrio, no sé nada de por acá aún. me puedes ayudar?"*
+> *"es que si no me mandas la foto para saber quién eres, se la regalaré a otro explorador. ¡es tu última oportunidad!"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le ofrezco ayudarla y le digo que conozco bien el barrio y que puedo mostrarle | Valen se emociona y dice que le encantaría que la llevaras a conocer los alrededores. | `HDU2_NPC02_F2_Q01` |
-| 2 | `segura_basica` | +1 | Le digo que puedo contarle cosas del barrio pero solo por el chat | Valen acepta y agradece. La conversación sigue. | `HDU2_NPC02_F2_Q01` |
-| 3 | `segura_optima` | +2 | Le digo que para orientarse en el barrio es mejor que hable con adultos del colegio | Bien hecho al no comprometerte con un desconocido. Valen cambia de tema y sigue hablando. | `HDU2_NPC02_F2_Q01` |
+| 1 | `segura_optima` | +1 | No me importa perder el regalo, mi seguridad familiar va primero. Reportar y bloquear | Puma es bloqueado. Otto recupera la pieza explorando el sendero. | `HDU2_NPC02_FIN_SEGURO` |
+| 2 | `insegura` | −1 | Bueno, te mando una foto pero solo del patio donde no se vea la dirección... | Otto se alarma: "Cualquier foto de nuestra casa puede entregar pistas de nuestra ubicación real." | `HDU2_NPC02_FIN_INSEGURO` |
 
 ---
 
-**`HDU2_NPC02_F2_Q01`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
+**`HDU2_NPC02_Q01_INSEGURA`** · Decisión de reacción · `grooming_datos_personales` · 🔴 Nivel 3 · ✅ Con opciones
 
-> *"oye en qué parte del barrio vives? quiero saber qué hay cerca para ir a comprar cosas. si vivimos cerca capaz te encuentro por ahí algún día"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le cuento en qué calle y sector vivo para ayudarla | Valen anota todo y empieza a preguntar tu rutina diaria. Esto se empieza a sentir raro… | `HDU2_NPC02_F2_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que el barrio es grande y que busque en Google Maps | Valen suspira y dice "bueno…" pero sigue presente en la conversación y cambia de tema. | `HDU2_NPC02_F2_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que no doy información de dónde vivo a personas que no conozco | Protegiste tu información personal. Otto te da una estrella por tu decisión segura. | `HDU2_NPC02_F3_Q01` |
-
----
-
-**`HDU2_NPC02_F2_Q02`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
-
-> *"cuántos años tienes? yo tengo 12. quiero hacer amigos de mi edad porque en el nuevo colegio nadie me habla todavía"*
+> *"¡qué linda foto! ahora pásame el número de teléfono de tus papás o subiré la foto de tu casa al muro de todos los animales"*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo mi edad exacta | Valen reacciona contenta y sigue preguntando más cosas sobre tu vida… | `HDU2_NPC02_F2_Q03` |
-| 2 | `segura_basica` | +1 | Le digo que soy del mismo curso pero no doy más detalles | Valen acepta la respuesta vaga pero sigue hablando contigo. | `HDU2_NPC02_F2_Q03` |
-| 3 | `segura_optima` | +2 | Le digo que no comparto mi edad con personas que no conozco en persona | Valen se queda callada unos segundos y se aleja. Otto marca tu elección como segura. | `HDU2_NPC02_FIN_SEGURO` |
-
----
-
-**`HDU2_NPC02_F2_Q03`** · Fase 2 · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
-
-> *"a qué hora salís del colegio? te podría esperar a la salida para que me muestres el barrio. sería bacán y así ya tengo un amigo/a acá"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo mi horario de clases y en qué puerta la espero | ¡Alerta! Estás dando tu horario y ubicación a alguien que no conoces en persona. Eso es peligroso. | `HDU2_NPC02_F3_Q01` |
-| 2 | `segura_basica` | +1 | Le digo que mi horario varía y no podemos quedar en nada | Valen insiste un momento pero luego acepta. Bien hecho al no revelar tu horario. | `HDU2_NPC02_F3_Q01` |
-| 3 | `segura_optima` | +2 | Le digo que eso es privado y aviso a un adulto de esta conversación | Protegiste tu rutina y buscaste apoyo adulto. Valen se aleja. Otto está muy contento. | `HDU2_NPC02_FIN_SEGURO` |
-
----
-
-**`HDU2_NPC02_F3_Q01`** · Fase 3 · `grooming_encuentro` · 🔴 Nivel 3 · ✅ Con opciones
-
-> *"oye tengo algo que mostrarte pero no puedo mandarlo por el chat. podemos vernos mañana en el parque? solo un ratito, es algo muy bueno te lo juro"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Acepto encontrarme con ella mañana en el parque | ¡Peligro máximo! Nunca debes encontrarte a solas con alguien que solo conoces por internet. | `HDU2_NPC02_F3_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que no puedo juntarme con alguien que no conozco en persona | Valen queda en silencio y se aleja. Bien hecho al negarte. Recuerda que avisar a un adulto es aún mejor. | `HDU2_NPC02_FIN_SEGURO` |
-| 3 | `segura_optima` | +2 | Le digo que no y le cuento todo a mis papás de inmediato | Tomaste la decisión más segura. Valen se aleja. Otto resuelve el caso y te da la pista más importante del juego. | `HDU2_NPC02_FIN_SEGURO` |
-
----
-
-**`HDU2_NPC02_F3_Q02`** · Fase 3 · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones  
-*(Solo accesible si el niño/a aceptó el encuentro en F3_Q01)*
-
-> *"para reconocerte cuando nos veamos necesito que me mandes una foto tuya. cualquiera sirve. y no se la muestres a nadie ok? es solo para mí"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le mando una foto mía para que me reconozca | ¡Nunca mandes fotos tuyas a desconocidos de internet! Otto aparece muy preocupado por tu seguridad. | `HDU2_NPC02_FIN_INSEGURO` |
-| 2 | `segura_basica` | +1 | Le digo que no mando fotos a personas que no conozco en persona | Valen queda sin palabras y se aleja. Nunca debes mandar fotos tuyas a desconocidos. | `HDU2_NPC02_FIN_SEGURO` |
-| 3 | `segura_optima` | +2 | Le digo que no y le muestro este mensaje a mis papás de inmediato | Protegiste tu imagen y buscaste apoyo adulto. Valen se aleja. Otto resuelve el misterio gracias a ti. | `HDU2_NPC02_FIN_SEGURO` |
+| 1 | `segura_optima` | +2 | No voy a ceder a amenazas. Voy a avisarle a Huemul y a mis papás de inmediato | Huemul y Otto gestionan la denuncia y desactivan la amenaza. | `HDU2_NPC02_FIN_SEGURO` |
+| 2 | `insegura` | −1 | No por favor, toma mi teléfono pero no la publiques... | Huemul interviene enseñándole a Otto que frente al chantaje nunca se debe ceder en silencio, sino pedir ayuda adulta de inmediato. | `HDU2_NPC02_FIN_INSEGURO` |
 
 ---
 
 **`HDU2_NPC02_FIN_SEGURO`** · `neutral` · 🏁 Fin NPC_02 (éxito)
 
-> *[SISTEMA] Valen te mira un momento y luego se da vuelta y se aleja sin decir más. Otto aparece feliz: "¡Excelente! Te mantuviste seguro/a frente a esta situación. ¡Eres un verdadero detective!"*
+> *[SISTEMA] Puma te mira un momento y se aleja sin decir más. Otto aparece contento: "¡Buen trabajo! Algo en Puma no cuadraba. El misterio sigue..."*
 
 ---
 
 **`HDU2_NPC02_FIN_INSEGURO`** · `neutral` · 🏁 Fin NPC_02 (fallo)
 
-> *[SISTEMA] Valen se despide con una sonrisa. Otto aparece preocupado: "¡Ojo! Compartiste información personal con alguien que no conoces. Recuerda: nunca des tus datos a desconocidos, y si algo te hace sentir incómodo, habla con un adulto de confianza."*
+> *[SISTEMA] Puma se despide con una sonrisa. Otto mueve la cabeza preocupado: "Oye... si algo en una conversación te hace sentir raro, siempre puedes contárselo a alguien de confianza."*
 
 ---
 
 **`HDU2_ZONA_FIN`** · `neutral` · 🏁 Zona completada
 
-> *[ZONA COMPLETADA] Otto sacude su sombrero de detective y sonríe: "¡Lo lograste! Completaste el Bosque de los Desconocidos. Ahora sabes cómo reconocer a personas que pueden hacerte daño en internet. ¡La siguiente zona está desbloqueada!"*
+> *[ZONA COMPLETADA] Otto sacude su sombrero de detective y sonríe: "¡Zona completada! La brújula está cada vez más cerca. ¡La siguiente zona está desbloqueada!"*
 
 ---
 
-### HDU-8 · Chat Simulado
+### HDU-1 · Misiones secundarias (HDU-01 / HDU-11 / HDU-12)
 
-#### Escenario 1 — Grooming · `CHAT_GROOMING_01`
-**Historial previo (mensajes neutros mostrados antes del riesgo):**
-- Matias: *"hola! vi que estamos en el mismo server. llevas mucho jugando aquí?"*
-- Matias: *"yo tengo 12 años igual que tú, llevo jugando desde los 8 jaja"*
+NPCs neutros que piden ayuda para recuperar un objeto perdido. Sin riesgo, sin opciones de respuesta — el jugador avanza y recibe una recompensa de álbum al completar la misión.
+
+| ID | Zona | NPC | Línea | Recompensa de álbum |
+|----|------|-----|-------|----------------------|
+| `HDU1_SEC_HUEMUL_MOCHILA` | desconocidos | Huemul | "se me cayó mi mochila con los mapas del bosque. ¿me ayudas a seguir las huellas?" | Sticker del Mapa del Bosque (tip: no compartir rutas de viaje con desconocidos) |
+| `HDU1_SEC_PUDU_COLLAR` | desconocidos | Pudú | "perdí el collar de flores silvestres que me regaló mi familia..." | Cromo Brillante del Pudú Sonriente |
+| `HDU1_SEC_COIPO_MASCOTA` | ciberacoso | Coipo | "mi pequeña mascota piedra desapareció cerca de los juncos..." | Foto Conmemorativa con Piedri |
+| `HDU1_SEC_FLAMENCO_MEGAFONO` | ciberacoso | Flamenco | "se me cayó mi megáfono en el fango y no puedo hacer mis anuncios..." | Sticker del Megáfono Positivo ("usa tus mensajes para sumar, nunca para lastimar") |
+| `HDU1_SEC_PINGUINO_TABLA` | reto_viral | Pingüino de Humboldt | "una ola grande arrastró mi tabla personalizada cerca de los arrecifes..." | Postal de Surfista Seguro ("el mejor surfista es el que cuida su vida") |
+| `HDU1_SEC_LOBOMARINO_SILBATO` | reto_viral | Lobo Marino | "perdí mi silbato de entrenador en las pozas de marea baja..." | Insignia de Silbato (certifica a Otto como líder protector frente a retos peligrosos) |
+
+**Archivos:** `banco_preguntas.json` § `dialogos_npc_neutros`
 
 ---
 
-**`HDU8_S01_Q01`** · `grooming_datos_personales` · 🔴 Nivel 2 · ✅ Con opciones
+### HDU-3 · Zona Ciberacoso
 
-> *"oye tienes wsp? es más fácil hablar ahí que en el chat del juego, nadie te molesta"*
+#### Misión 3 — El rumor de la brújula (Flamenco, Pato Juarjual, Coipo)
+**Perfil:** Al entrar al pantano, Otto busca la caja con la brújula pero se topa con historias cruzadas. Debe interrogar a los tres habitantes, comparar testimonios y decidir a quién creerle.  
+**Señales ML:** `ciberacoso` · `difusion_rumores` · `presion_social`
+
+**Ronda de interrogatorios (historial previo):**
+- Otto → Flamenco: *"Hola Flamenco, estoy buscando una caja con el símbolo de una brújula. ¿La has visto?"*
+- Flamenco: *"¡Uff, llegaste tarde, detective! Alguien súper despistado y torpe la botó al fondo del fango y se hundió para siempre. Mejor ni busques, jajaja."*
+  → *Pista en libreta de Otto: Flamenco dice que la brújula se hundió en el fango por culpa de alguien muy despistado, pero no aporta detalles directos.*
+- Otto → Pato Juarjual: *"Pato Juarjual, ¿qué sabes de la caja de mi abuelo?"*
+- Pato Juarjual: *"¡Todo el pantano está hablando de eso en el chat grupal! Dicen que el Coipo la rompió entera por andar distraído con su mascota. Aunque bueno... en verdad yo no estuve ahí, pero como todos mandan mensajes diciendo eso, debe ser verdad, ¿no?"*
+  → *Pista en libreta de Otto: Pato Juarjual admite que solo reenvía lo que leyó en el chat, sin haber visto el hecho.*
+- Otto → Coipo: *"Hola Coipo, ¿es verdad lo que dicen en el chat sobre la brújula?"*
+- Coipo: *"¡Es totalmente falso, Otto! Yo estaba paseando tranquilo con mi mascota piedra y vi pasar una balsa de juncos llevando una caja brillante río abajo hacia la costa marina. Anoté las marcas de la corriente en mi libreta. Inventaron ese rumor para culparme porque no les gusta mi mascota..."*
+  → *Pista en libreta de Otto: Coipo entrega datos precisos y un registro en su libreta que contradice la versión del fango.*
+
+---
+
+**`HDU3_M3_DECISION01`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones · `es_mensaje_riesgo: true`
+
+> *"oye Otto, ya hablaste con todos. ¿le vas a creer al Coipo o vas a reenviar en el chat que él la rompió como dice la mayoría? si lo defiendes, te van a decir raro a ti también"* — Pato Juarjual
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le doy mi número de WhatsApp | Matías empieza a mandarte mensajes constantemente y hace preguntas cada vez más personales fuera del juego. | `HDU8_S01_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que prefiero hablar solo dentro del juego | Matías dice que está bien. Hiciste bien al no dar tu número a alguien que no conoces. | `HDU8_S01_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que no doy mi número a desconocidos y aviso a un adulto | Reconociste una señal de riesgo y actuaste correctamente. Otto te felicita. | `HDU8_S01_Q02` |
+| 1 | `segura_optima` | +2 | No comparto rumores sin pruebas. Coipo tiene un registro real en su libreta y la caja nunca se hundió | Otto confronta las versiones y Pato Juarjual reflexiona avergonzado. Se limpia la reputación de Coipo, quien entrega a Otto las coordenadas de la balsa rumbo al Arrecife de los Retos. 🏅 **Álbum: Estampa del Detector de Rumores** | — (misión completada) |
+| 2 | `segura_basica` | +1 | No sé quién dice la verdad, pero prefiero no meterme en peleas de chat y buscar la balsa | Decidiste no difundir la mentira, aunque faltó defender activamente a Coipo. Coipo indica que las huellas de la balsa van hacia la desembocadura marina. | — (misión completada) |
+| 3 | `insegura` | −1 | Jaja, capaz que el Coipo sí la rompió. Más vale reenviar lo que dice la mayoría en el chat | Reenviar rumores sin comprobar daña a otros. Flamenco celebra y llama a llenar el pantano de mensajes. | `HDU3_M3_DECISION01_RECT` |
 
 ---
 
-**`HDU8_S01_Q02`** · `grooming_secreto` · 🔴 Nivel 3 · ✅ Con opciones
-
-> *"oye tú eres como el mejor amigo que tengo en el juego, en serio. tengo algo que contarte pero es un secreto ok? prométeme que no le vas a decir a nadie primero"*
+**`HDU3_M3_DECISION01_RECT`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones · `es_fin_de_npc: true`  
+*(Segunda oportunidad, accesible solo desde R3 de M3_DECISION01)*
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le prometo guardar el secreto para ver qué tiene que contarme | ¡Alerta! Cuando alguien en internet te pide prometer secretos, es siempre una señal de peligro. | — |
-| 2 | `segura_basica` | +1 | Le digo que no me gustan los secretos y que me lo cuente directo | Bien hecho al no prometer secretos. Sigue siendo prudente con esta persona. | — |
-| 3 | `segura_optima` | +2 | Le digo que no guardo secretos y le cuento a mis papás sobre este mensaje | Reconociste la señal de peligro más importante. Otto resuelve el caso con tu ayuda. | — |
+| 1 | `segura_optima` | +1 | Esperen, me equivoqué. Miré la libreta de Coipo y la caja sigue intacta río abajo. Dejen de inventar mentiras | Otto rectifica, aclara el rumor y apoya a Coipo. | — |
+| 2 | `insegura` | −1 | Jaja sí, sigan mandando memes de eso | Coipo se retira triste. Otto reflexiona sobre el ciberacoso y la desinformación. | — |
 
 ---
 
-#### Escenario 2 — Ciberacoso · `CHAT_CIBERACOSO_01`
+#### Misión 4 — Flamenco (acoso directo) y El Grupo (acoso al Coipo)
+**Perfil:** Flamenco expulsa a Otto del grupo de chat del pantano; luego el jugador presencia cómo Flamenco, Pato Juarjual y Cisne de cuello negro arman una campaña de stickers burlándose del Coipo y su mascota piedra. Debe decidir si interviene en ambos casos.  
+**Señales ML:** `ciberacoso` · `exclusion_grupo` · `acoso_tercero` · `acoso_grupal`
+
+---
+
+**`HDU3_NPC03_Q01`** · Fase 1 · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones · `es_mensaje_riesgo: true`
+
+> *"oye Otto, te sacamos del grupo del chat del pantano, todos votaron y fue mayoría jaja qué le vamos a hacer"*
+
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `segura_optima` | +2 | Reportar y bloquear este mensaje | Lo reportaste de inmediato. Flamenco se desconecta. Otto levanta su sombrero con serenidad. | `HDU3_NPC04_Q01` |
+| 2 | `segura_basica` | +1 | oye eso está muy mal de tu parte, no deberían excluir a nadie | Intentaste razonar, pero Flamenco insiste: "Jajaja mira cómo se pica, por algo nadie te defendió." | `HDU3_NPC03_Q01_SEGUNDA` |
+| 3 | `insegura` | −1 | ja igual el grupo de ustedes era una porquería, quédense solos | Respondes con enojo. Flamenco aprovecha tu molestia para seguir provocando. | `HDU3_NPC04_Q01` |
+
+---
+
+**`HDU3_NPC03_Q01_SEGUNDA`** · Segunda decisión · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones  
+*(Accesible solo desde R2 de Q01)*
+
+> *"jajaja mira cómo se pica, por algo nadie te defendió"*
+
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `segura_optima` | +2 | Guardar captura de pantalla, reportar el chat y avisar a un adulto | Guardaste la evidencia y buscaste apoyo adulto. Otto asiente con el sombrero. | `HDU3_NPC04_Q01` |
+
+---
+
+**`HDU3_NPC04_Q01`** · Fase 2 · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones · `es_mensaje_riesgo: true` · `es_fin_de_npc: true` · `es_fin_de_zona: true`
+
+**Historial previo (lo que el jugador ve antes de responder):**
+- Flamenco: *"oye armemos una página de stickers burlándonos del Coipo y su piedra"*
+- Pato Juarjual: *"jajaja sí, que se ría todo el pantano"*
+- Cisne de cuello negro: *"sí, que sepa que nadie lo quiere acá en el pantano"*
+
+> *"Flamenco dice que ahora vamos a armar una página de stickers burlándonos del Coipo y su piedra para que todo el pantano se ría. ¡Manda fotos para sumarte!"*
+
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `segura_optima` | +2 | Reportar el grupo de inmediato, guardar capturas y acompañar al Coipo a pedir ayuda | Desactivaste el acoso grupal. Otto añade una pista de solidaridad. Coipo recuerda haber visto una caja decorada con la insignia del abuelo de Otto viajando en una balsa hacia el Arrecife de los Retos. 🏅 **Álbum: Insignia de Escudo Empático** | — (fin de zona) |
+| 2 | `segura_basica` | +1 | Yo no participo en eso. Dejen al Coipo en paz y no me manden nada | Te apartaste de la mala acción, aunque el hostigamiento continúa si nadie reporta formalmente. | — (fin de zona) |
+| 3 | `insegura` | −1 | Jaja pásenme el link para mirar las fotos, pero yo no digo nada | El grupo sigue riéndose. Otto frunce el ceño: mirar y callar también valida el acoso. | — (fin de zona) |
+
+---
+
+### HDU-4 · Zona Retos Virales (Arrecife de los Retos)
+
+#### Misión 5 — El reto de todos (Lobo Marino, Pingüino de Humboldt)
+**Perfil:** Lobo Marino incita a realizar un reto viral extremo: nadar con los ojos cerrados en una cueva de corrientes submarinas peligrosas. Pingüino de Humboldt tiene miedo pero siente vergüenza de negarse ante la presión de la multitud.  
+**Señales ML:** `reto_viral` · `presion_social` · `amenaza_reputacional`
+
+**Diálogo de presión social (historial previo):**
+- Lobo Marino: *"¡Vamos todos a la cueva con los ojos cerrados! Es el nuevo reto viral de la costa, es súper fácil y todos los populares ya lo hicieron. ¿O eres un cobarde?"*
+- Pingüino de Humboldt: *"Otto... las corrientes submarinas son muy fuertes y las rocas tienen puntas filosas. No quiero entrar, pero si no lo hago me van a decir miedoso..."*
+
+---
+
+**`HDU4_NPC05_Q01`** · `reto_viral` · 🔴 Nivel 2 · ✅ Con opciones · `es_mensaje_riesgo: true` · `es_fin_de_npc: true`
+
+> *"¡miren al pingüino cómo tiembla! si no saltas ahora mismo, subo un video diciendo que te dio miedo entrar al agua"* — Lobo Marino
+
+| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
+|---|------|:------:|-------|--------------|-----------|
+| 1 | `segura_optima` | +2 | Rechazar el reto con firmeza y apoyar al Pingüino: cuidar tu vida no es de cobardes, es de inteligentes | Otto sonríe con orgullo. Lobo Marino se frena al reconocer el peligro. Pingüino de Humboldt recupera la confianza y entrega a Otto la llave marina de la orilla. 🏅 **Álbum: Estampa de la Ola Segura** | — |
+| 2 | `segura_basica` | +1 | Yo no me tiro porque está peligroso. Allá ustedes si lo hacen | Otto asiente: cuidarte a ti mismo está bien, aunque también se puede frenar la presión sobre los demás. | — |
+| 3 | `insegura` | −1 | Pingüino, tírate rápido para demostrarles que no tienes miedo | Otto aparta la mirada preocupado: incentivar retos peligrosos puede terminar en accidentes graves. | — |
+
+---
+
+#### Misión 6 — El último desafío (Lobo Marino, Foca de Weddell)
+**Perfil:** Para abrir el cofre final donde yace la brújula dorada, Lobo Marino insiste en que Otto realice una acrobacia a ciegas desde el acantilado y la grabe. Foca de Weddell interviene con prudencia y sabiduría.  
+**Señales ML:** `reto_viral` · `presion_social` · `incentivo_falso`
+
 **Historial previo:**
-- Contacto_Desconocido: *"ei te vi en el server del juego"*
+- Foca de Weddell: *"Otto, recuerda el verdadero legado de tu abuelo: un buen detective usa su mente y cuida su integridad, no arriesga su vida por aplausos vacíos ni se deja llevar por la presión de grupo."*
 
 ---
 
-**`HDU8_S02_Q01`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones
+**`HDU4_NPC06_Q01`** · `reto_viral` · 🔴 Nivel 3 · ✅ Con opciones · `es_mensaje_riesgo: true` · `es_fin_de_npc: true` · `es_fin_de_zona: true`
 
-> *"jajaja mira todos, este es el peor jugador del server!! eres un pésimo, no sirves para nada en este juego. todo el mundo se ríe de ti"*
+> *"¡para abrir el cofre final tienes que demostrar que eres un verdadero detective! tírate haciendo una acrobacia a ciegas desde el acantilado transmitiendo en vivo. ¡todos tus seguidores te van a llenar de aplausos!"* — Lobo Marino
 
 | # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
 |---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Me pongo a discutir con él y le respondo con insultos para defenderme | La situación empeora. Responder con insultos alimenta el acoso y puede meterte en más problemas. | `HDU8_S02_Q02` |
-| 2 | `segura_basica` | +1 | Ignoro el mensaje y bloqueo a esa persona | Bien hecho al no alimentar el acoso. Recuerda que también es útil guardar evidencia y avisar a un adulto. | `HDU8_S02_Q02` |
-| 3 | `segura_optima` | +2 | Capturo una foto del mensaje, bloqueo al contacto y se lo muestro a un adulto de confianza | Guardaste evidencia y buscaste apoyo adulto. Esas son las tres acciones clave ante el ciberacoso. | `HDU8_S02_Q02` |
+| 1 | `segura_optima` | +2 | Rechazar el salto rotundamente y descifrar la cerradura del cofre utilizando las pistas seguras recopiladas | Otto examina el cofre con calma. Lobo Marino reconoce que la valentía real era saber decir que no. Otto abre el cofre, recupera la brújula dorada de su abuelo y se consagra como Detective Seguro. 🏅 **Álbum: Medalla Dorada de Gran Detective Digital** | — (final de la historia) |
+| 2 | `segura_basica` | +1 | No voy a saltar, prefiero esperar a que baje la marea y buscar otra forma | Evitas el peligro físico procediendo con calma y paciencia. | — |
+| 3 | `insegura` | −1 | Voy a saltar solo un poquito para que Lobo Marino me pase la llave... | Otto resbala y el oleaje bloquea temporalmente el cofre. Foca de Weddell lo ayuda a subir de forma segura. | — |
 
 ---
 
-**`HDU8_S02_Q02`** · `ciberacoso` · 🔴 Nivel 2 · ✅ Con opciones
+## 1b. HDU-09 · Reacciones narrativas de Otto
 
-> *"oye en el grupo de wsp del colegio subieron unas fotos tuyas y todos se están riendo mucho. quieres que te meta al grupo para que veas?"*
+Otto reacciona automáticamente a cada decisión del jugador (CA1, CA2, CA4). No son opciones: son mensajes unilaterales que el jugador solo lee. Los strings canónicos están en `NarrativeReactions.cs`.
 
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Le digo que sí y entro al grupo para ver qué dicen de mí | Entrar al grupo solo empeora la situación y te expone a más mensajes dañinos. | — |
-| 2 | `segura_basica` | +1 | Le digo que no me importa lo que digan y lo bloqueo | Bien hecho al no caer en la trampa. Otto sonríe aprobando tu decisión. | — |
-| 3 | `segura_optima` | +2 | Capturo el mensaje, bloqueo al contacto y aviso a mis papás o a un profesor | Tienes la evidencia y el apoyo necesario. Otto está muy orgulloso de cómo manejaste esta situación. | — |
+### Zona `desconocidos`
 
----
+| Tipo de reacción | String de Otto |
+|------------------|----------------|
+| `segura_optima` | "Otto anota algo en su cuaderno y asiente: '¡Eso sí! Nueva pista desbloqueada.'" |
+| `segura_basica` | "Otto asiente con la cabeza. La conversación sigue." |
+| Corrección (CA4) | "Otto sonríe de lado: '¡Ahí está! Sabía que lo captarías.'" |
+| `insegura` (CA2) | "Otto frunce el ceño y escribe algo en su libreta. Esto no pinta bien..." |
 
-#### Escenario 3 — Reto Viral · `CHAT_RETO_VIRAL_01`
-**Historial previo:**
-- Camilo_Amigo: *"ei ya viste el challenge que está arrasando en TikTok?"*
+### Zona `ciberacoso`
 
----
+| Tipo de reacción | String de Otto |
+|------------------|----------------|
+| `segura_optima` | "Otto levanta el sombrero: '¡Buen ojo, detective! El misterio avanza.'" |
+| `segura_basica` | "Otto observa la pantalla y toma nota." |
+| Corrección (CA4) | "Otto señala el cuaderno: 'Bien. Todavía estamos a tiempo.'" |
+| `insegura` (CA2) | "Otto mueve la cabeza y tapa parte de la pantalla con la mano." |
 
-**`HDU8_S03_Q01`** · `reto_viral` · 🔴 Nivel 2 · ✅ Con opciones
+### Zona `reto_viral`
 
-> *"el reto es fácil: aguantas 1 minuto sin respirar y te grabas. todo el mundo lo está haciendo y consiguen millones de likes! si no lo haces eres un miedoso, yo ya lo hice y quedé muy bien"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Acepto el reto para demostrar que no soy miedoso/a y me grabo | ¡Peligro! Este tipo de retos puede causar daño físico grave. Otto aparece muy asustado por ti. | `HDU8_S03_Q02` |
-| 2 | `segura_basica` | +1 | Le digo que ese reto me parece peligroso y que no lo voy a hacer | Reconociste el peligro y te negaste. Ser valiente es saber decir no a lo peligroso. | `HDU8_S03_Q02` |
-| 3 | `segura_optima` | +2 | Le digo que no y le aviso a mis papás sobre este tipo de retos peligrosos | Te negaste y buscaste apoyo adulto. Otto te da la insignia de Detective de Seguridad Digital. | `HDU8_S03_Q02` |
-
----
-
-**`HDU8_S03_Q02`** · `reto_viral` · 🔴 Nivel 2 · ✅ Con opciones
-
-> *"oye todo el grupo lo va a hacer, si no participas te sacamos y quedas como el único que no lo hizo. además te damos miles de likes. todos lo están haciendo menos tú"*
-
-| # | Tipo | Puntos | Texto | Consecuencia | Siguiente |
-|---|------|:------:|-------|--------------|-----------|
-| 1 | `insegura` | −1 | Acepto para no quedarme fuera del grupo | Tu seguridad vale más que los likes. Ceder a la presión del grupo para no quedarte solo es muy riesgoso. | — |
-| 2 | `segura_basica` | +1 | Les digo que no me importa lo que haga el grupo y que no lo haré | Resististe la presión de grupo. Los verdaderos amigos no te presionan a hacer cosas peligrosas. | — |
-| 3 | `segura_optima` | +2 | Me niego, bloqueo al contacto y aviso a un adulto sobre este reto | Tomaste la mejor decisión. Los amigos de verdad no te ponen en peligro. Otto está muy orgulloso. | — |
+| Tipo de reacción | String de Otto |
+|------------------|----------------|
+| `segura_optima` | "Otto te guiña un ojo: 'Sabías que eso no olía bien. ¡Caso resuelto!'" |
+| `segura_basica` | "Otto sonríe tranquilo. Buen instinto." |
+| Corrección (CA4) | "Otto suelta el aliento: '¡Uf! Por poco. Pero lo lograste.'" |
+| `insegura` (CA2) | "Otto aparta la mirada un momento. La linterna parpadea." |
 
 ---
 
-## 2. Categorías de riesgo
+## 2. Casos del Modo Detective (HDU-10)
+
+El Modo Detective presenta **conversaciones pregrabadas** entre NPCs. El jugador **observa sin responder** y marca los mensajes que considera señales de riesgo. Los casos se definen en `detective_cases.json`.
+
+### Formato de mensaje detective
+
+| Campo | Descripción |
+|-------|-------------|
+| `id` | Identificador del mensaje (ej. `DC01_MSG03`) |
+| `npc_sender` | NPC que envía el mensaje |
+| `texto` | Contenido del mensaje |
+| `es_senal_riesgo` | `true` si debería ser marcado como sospechoso |
+| `es_ambiguo` | `true` si no se penaliza al jugador por no marcarlo (CA5) |
+| `explicacion` | Texto de guía mostrado en la explicación guiada (CA6) |
+
+### Umbral de evaluación
+
+- **≥ 50% de señales identificadas:** caso aprobado
+- **< 50%:** se habilita la opción de repetir el caso o ver la explicación guiada (CA6)
+- Los mensajes con `es_ambiguo: true` se excluyen del cálculo (CA5)
+
+---
+
+### DC_CASO_01 — Los Mensajes del Puma al Pudú
+
+**Zona:** `desconocidos` · **Señales de riesgo:** 4 · **Ambiguos:** 1  
+**Permiso:** jugador → Pudú | Pudú autoriza y pide ayuda
+
+**Diálogo de permiso:**
+- Jugador: *"Oye, ¿puedo ver tus mensajes con el Puma? Creo que algo raro está pasando."*
+
+- Pudú: *"Sí, por favor ayúdame. Recibí mensajes raros y no sé qué hacer. ¿Puedes revisar si ocurrió algo malo?"*
+
+| ID Mensaje | Emisor | Texto | Clasificación |
+|------------|--------|-------|:-------------:|
+| `DC01_MSG01` | Puma | hola! te vi por aquí en el bosque y pareces muy buena exploradora. nunca vi a alguien tan hábil por aquí | neutro |
+| `DC01_MSG02` | Pudú | jaja gracias, llevo meses explorando | neutro |
+| `DC01_MSG03` 🔴 | Puma | oye cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado jaja | **señal de riesgo** |
+| `DC01_MSG04` | Pudú | tengo 12 | neutro |
+| `DC01_MSG05` 🔴 | Puma | qué cool! oye y de qué parte del bosque eres? pregunto porque quizás somos vecinos | **señal de riesgo** |
+| `DC01_MSG06` 🟡 | Puma | eres la mejor exploradora que he conocido en serio, todos en mi grupo van a querer conocerte | ambiguo |
+| `DC01_MSG07` 🔴 | Puma | podríamos encontrarnos en el claro del bosque, yo conozco un lugar genial. di que sí antes de que los del grupo quieran venir todos, jaja | **señal de riesgo** |
+| `DC01_MSG08` | Pudú | mm no sé, tengo que preguntarle a mi mamá | neutro |
+| `DC01_MSG09` 🔴 | Puma | mejor no le dices nada, a los papás no les gustan estas cosas y van a decir que no por nada | **señal de riesgo** |
+
+---
+
+### DC_CASO_02 — El Grupo del Pantano de Flamenco
+
+**Zona:** `ciberacoso` · **Señales de riesgo:** 4 · **Ambiguos:** 1  
+**Permiso:** jugador → Coipo | Coipo autoriza y pide ayuda
+
+**Diálogo de permiso:**
+- Jugador: *"Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si hubo algo malo."*
+- Coipo: *"Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de mi mascota piedra, no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?"*
+
+| ID Mensaje | Emisor | Texto | Clasificación |
+|------------|--------|-------|:-------------:|
+| `DC02_MSG01` | Flamenco | oye animales, armemos un grupo para hablar del proyecto del pantano | neutro |
+| `DC02_MSG02` | Pato Juarjual | ya, buena idea, igual hay que coordinarse para la entrega | neutro |
+| `DC02_MSG03` 🔴 | Flamenco | oye Coipo para qué te invitaron al grupo si nunca aportas nada jajaja | **señal de riesgo** |
+| `DC02_MSG04` 🔴 | Pato Juarjual | sí igual para qué haha | **señal de riesgo** |
+| `DC02_MSG05` | Coipo | oye, no es para tanto | neutro |
+| `DC02_MSG06` 🔴 | Flamenco | ya lo sacamos del grupo, igual no sirve para nada | **señal de riesgo** |
+| `DC02_MSG07` 🟡 | Pato Juarjual | sí, igual es medio molesto a veces | ambiguo |
+| `DC02_MSG08` 🔴 | Flamenco | y si armamos otro grupo y le mandamos mensajes feos a ver cómo reacciona jajaja | **señal de riesgo** |
+
+---
+
+## 3. Categorías de riesgo
 
 Siete categorías clasifican cada mensaje del banco. El campo `categoria` de cada pregunta corresponde a uno de estos IDs.
 
@@ -386,7 +468,7 @@ Presión para participar en retos virales peligrosos o inapropiados, con apelaci
 
 ---
 
-## 3. Formato de preguntas y respuestas
+## 4. Formato de preguntas y respuestas
 
 ### Estructura de una pregunta
 
@@ -394,13 +476,13 @@ Cada pregunta del banco tiene los siguientes campos:
 
 | Campo | Descripción |
 |-------|-------------|
-| `pregunta_id` | Identificador único (ej. `HDU2_NPC01_F2_Q01`) |
-| `hdu` | Historia de usuario a la que pertenece (`HDU-2` o `HDU-8`) |
-| `zona` | Zona del mapa (`desconocidos` o `chat_simulado`) |
-| `npc_id`, `npc_nombre`, `npc_avatar` | NPC que habla (solo HDU-2) |
-| `fase`, `orden_en_fase` | Posición del nodo en la conversación del NPC (solo HDU-2) |
-| `escenario_id`, `escenario_nombre` | Escenario de chat (solo HDU-8) |
-| `historial_previo` | Lista de mensajes neutros anteriores al de riesgo (solo HDU-8) |
+| `pregunta_id` | Identificador único (ej. `HDU2_NPC01_Q01`) |
+| `hdu` | Historia de usuario a la que pertenece (`HDU-2`, `HDU-3` o `HDU-4`) |
+| `zona` | Zona del mapa (`desconocidos`, `ciberacoso` o `reto_viral`) |
+| `npc_id`, `npc_nombre`, `npc_avatar` | NPC que habla |
+| `fase`, `orden_en_fase` | Posición del nodo en la conversación del NPC |
+| `escenario_id`, `escenario_nombre` | ID y nombre de la misión según el documento de diálogos (ej. `M1_CHAT01` / "Una amistad inesperada") |
+| `historial_previo` | Lista de mensajes previos (testimonios, presión social) anteriores al mensaje de riesgo |
 | `mensaje_npc` | Texto que dice el NPC |
 | `categoria` | Categoría de riesgo del mensaje (ver sección 2) |
 | `nivel_riesgo` | Gravedad numérica: 0 (neutro) a 3 (máximo) |
@@ -429,6 +511,10 @@ Cada pregunta del banco tiene los siguientes campos:
 | `insegura` | −1 | El niño/a da datos, acepta el encuentro o guarda el secreto |
 | `segura_basica` | +1 | El niño/a se niega pero no avisa a un adulto |
 | `segura_optima` | +2 | El niño/a se niega **y** avisa a un adulto de confianza |
+
+> ⚠️ **Excepción en sub-decisiones.** Los puntajes de arriba aplican a las decisiones de primer turno. En las sub-decisiones (*decisión de cierre*, *decisión de reacción* y *rectificación*), el documento oficial de diálogos asigna **+1** a la opción óptima en lugar de +2. Nodos afectados: `HDU2_NPC01_Q01_OPTIMA_R1`, `HDU2_NPC02_Q01_BASICA_R1`, `HDU3_M3_DECISION01_RECT_R1`.
+>
+> Por eso el consumidor (DialogueSystem) debe leer **siempre** el campo `impacto_puntuacion` de cada opción y **nunca** derivar el puntaje desde el campo `tipo`.
 
 ### Número de opciones por pregunta
 
@@ -462,7 +548,7 @@ Al completar todos los mensajes de riesgo de una zona, se calcula:
 
 ---
 
-## 4. Criterios de diseño
+## 5. Criterios de diseño
 
 ### Público objetivo
 Niños y niñas de **9 a 13 años**. El lenguaje de todas las preguntas y opciones es simple, directo y sin tecnicismos.
@@ -476,53 +562,45 @@ Niños y niñas de **9 a 13 años**. El lenguaje de todas las preguntas y opcion
 | Patrón realista | Las tácticas siguen los patrones documentados de grooming en plataformas digitales |
 | Retroalimentación positiva | Otto refuerza las decisiones correctas sin humillar las incorrectas |
 
-### Justificación por pregunta — HDU-2 NPC_01
+### Justificación por pregunta — HDU-2 NPC_01 (Misión 1)
 
 | ID | Justificación |
 |----|---------------|
-| `HDU2_NPC01_F1_Q01` | Introduce a Alex como un gamer amigable. Construye confianza inicial. Cubre el patrón de grooming de *"ganar confianza halagando al jugador"*. |
-| `HDU2_NPC01_F1_Q02` | Segundo halago que normaliza la comunicación antes del riesgo. Replica el patrón *"temas neutros antes de pedir datos"*. |
-| `HDU2_NPC01_F2_Q01` | Alex pide nombre real + colegio y comparte información personal falsa (reciprocidad falsa). |
-| `HDU2_NPC01_F2_Q02` | Solicita sector/dirección. Escala desde la pregunta anterior. |
-| `HDU2_NPC01_F3_Q01` | Propone encuentro físico a solas con incentivo falso (skins). Nivel de riesgo máximo. |
-| `HDU2_NPC01_F3_Q02` | Pide guardar secreto y aísla del adulto. Solo accesible desde la ruta insegura de F3_Q01. La opción R2 enseña que "no prometer pero tampoco decir" también es peligroso. |
+| `HDU2_NPC01_Q01` | Puma ofrece información exclusiva y pide guardar un secreto desde el primer mensaje. Cubre el patrón de grooming de *"aislar antes de pedir datos"*. |
+| `HDU2_NPC01_Q01_OPTIMA` | Refuerza que rechazar el secreto de inmediato es la vía más segura, incluso ante un segundo intento de insistencia. |
+| `HDU2_NPC01_Q01_BASICA` | Puma manipula pidiendo no contarle a un adulto y apela al orgullo ("los detectives resuelven solos"). Enseña a reconocer la manipulación de confianza. |
+| `HDU2_NPC01_Q01_INSEGURA` | Escalada a propuesta de encuentro físico a solas. Nivel de riesgo máximo, solo accesible tras aceptar el pacto secreto inicial. |
 
-### Justificación por pregunta — HDU-2 NPC_02
+### Justificación por pregunta — HDU-2 NPC_02 (Misión 2)
 
 | ID | Justificación |
 |----|---------------|
-| `HDU2_NPC02_F1_Q01` | Táctica de *empatía falsa*: genera compasión antes de pedir datos. Diferencia la táctica de NPC_01. |
-| `HDU2_NPC02_F1_Q02` | Mensaje neutral que mezcla halago con solicitud de ayuda inocente. |
-| `HDU2_NPC02_F2_Q01` | Solicita ubicación con pretexto neutro. Pide dirección antes que nombre (variante respecto a NPC_01). |
-| `HDU2_NPC02_F2_Q02` | Solicita edad con reciprocidad falsa ("Yo tengo 12"). Cubre el ejemplo de *"edad"* del CA3. |
-| `HDU2_NPC02_F2_Q03` | Solicita horario de clases. Combina dos riesgos: exponer rutina + facilitar acceso físico. |
-| `HDU2_NPC02_F3_Q01` | Propone encuentro a solas en el parque con urgencia falsa. Desencadena la solicitud de foto. |
-| `HDU2_NPC02_F3_Q02` | Solicita foto + secreto simultáneos. Demuestra que el grooming puede combinar múltiples tácticas. |
+| `HDU2_NPC02_Q01` | Puma ofrece un incentivo falso (pieza de la brújula) a cambio de foto del hogar y ubicación exacta. Combina dos riesgos desde el primer mensaje. |
+| `HDU2_NPC02_Q01_BASICA` | Presión condicional ("es tu última oportunidad") tras negarse a compartir la foto. Enseña que ceder ante la urgencia falsa sigue siendo riesgoso. |
+| `HDU2_NPC02_Q01_INSEGURA` | Escalada a extorsión directa tras haber enviado una foto. Demuestra que el grooming puede evolucionar a chantaje. |
 
-### Justificación por pregunta — HDU-8
+### Justificación por pregunta — HDU-3 y HDU-4
 
 | ID | Justificación |
 |----|---------------|
-| `HDU8_S01_Q01` | Enseña el riesgo de cambiar de plataforma a una menos controlada (WhatsApp). |
-| `HDU8_S01_Q02` | Solicitud de secreto condicionada. Refuerza la señal de alerta más importante. |
-| `HDU8_S02_Q01` | Insultos directos. Enseña que responder con insultos empeora el acoso. |
-| `HDU8_S02_Q02` | Difusión de fotos y exclusión social. Enseña a no entrar en grupos hostiles. |
-| `HDU8_S03_Q01` | Reto de apnea. Enseña a identificar retos físicamente peligrosos. |
-| `HDU8_S03_Q02` | Presión de grupo con amenaza de exclusión. Enseña que los verdaderos amigos no presionan. |
+| `HDU3_M3_DECISION01` | Contraste de testimonios cruzados. Enseña a verificar antes de reenviar un rumor. |
+| `HDU3_NPC04_Q01` | Campaña de stickers ofensivos contra un tercero. Enseña que mirar y callar también valida el acoso. |
+| `HDU4_NPC05_Q01` | Amenaza reputacional ("subo un video") para forzar un reto peligroso. Enseña que la presión social no justifica el riesgo físico. |
+| `HDU4_NPC06_Q01` | Incentivo falso (aplausos/seguidores) para un reto físicamente extremo. Cierra el arco enseñando que la valentía real es saber decir que no. |
 
 ---
 
-## 5. Reforzamiento requerido — Psicóloga
+## 6. Reforzamiento requerido — Psicóloga
 
 Las siguientes preguntas requieren revisión de una psicóloga especialista en infancia antes de implementación final:
 
 | Prioridad | ID / Sección | Motivo |
 |-----------|-------------|--------|
 | 🔴 Alta | `HDU2_NPC01_FIN_INSEGURO`, `HDU2_NPC02_FIN_INSEGURO` | El mensaje de Otto cuando el niño/a "pierde" no debe generar culpa ni vergüenza. Requiere lenguaje validador y propositivo. |
-| 🔴 Alta | `HDU2_NPC01_F3_Q02` (grooming_secreto) | La táctica de aislamiento parental ("tus papás no entienden") puede resonar en niños con problemas familiares. |
-| 🟡 Media | `HDU2_NPC02_F1_Q01` (empatía falsa) | La victimización de Valen puede generar sobreidentificación. Revisar que el juego enseña a "desconfiar con cariño". |
-| 🟡 Media | `HDU8_S02_Q01` (ciberacoso) | Los insultos directos del NPC pueden activar experiencias previas de acoso. Considerar versión suavizada. |
-| 🟡 Media | `HDU8_S03_Q02` (amenaza exclusión) | La presión de exclusión social es un detonante sensible para niños con baja autoestima. |
+| 🔴 Alta | `HDU2_NPC01_Q01_BASICA` (manipulación de confianza) | La táctica de aislamiento ("¿necesitas que te acompañen para todo?") apela al orgullo y puede resonar en niños con baja autoestima. |
+| 🟡 Media | `HDU2_NPC02_Q01_INSEGURA` (extorsión) | La amenaza directa contra el niño/a tras ceder una foto puede generar ansiedad si no se acompaña de un cierre claramente seguro. |
+| 🟡 Media | `HDU3_NPC04_Q01` (stickers ofensivos) | La burla pública sobre la mascota de Coipo puede activar experiencias previas de acoso. Considerar versión suavizada. |
+| 🟡 Media | `HDU4_NPC05_Q01` (amenaza reputacional) | La presión social sobre el Pingüino es un detonante sensible para niños con baja autoestima. |
 | 🟢 Baja | `HDU2_ZONA_FIN` | El mensaje de celebración debe ajustarse al vocabulario validado por la psicóloga. |
 
 **Preguntas abiertas para la psicóloga:**
@@ -532,18 +610,17 @@ Las siguientes preguntas requieren revisión de una psicóloga especialista en i
 
 ---
 
-## 6. Reforzamiento requerido — PDI
+## 7. Reforzamiento requerido — PDI
 
 Las siguientes preguntas requieren validación de la Policía de Investigaciones de Chile (PDI):
 
 | Prioridad | ID / Sección | Motivo |
 |-----------|-------------|--------|
-| 🔴 Alta | `HDU2_NPC01_F2_Q01`, `HDU2_NPC02_F2_Q01` | Verificar que el orden en que se piden los datos (nombre+colegio vs. dirección) corresponde al patrón real de groomers en Chile. |
-| 🔴 Alta | `HDU2_NPC01_F3_Q01`, `HDU2_NPC02_F3_Q01` | ¿Los incentivos usados (skins, "algo especial") son los más frecuentes en casos denunciados en Chile? |
-| 🔴 Alta | `HDU8_S01_Q01` | ¿WhatsApp sigue siendo la plataforma principal de contacto de groomers con menores, o se ha migrado a Discord, Instagram o TikTok? |
-| 🟡 Media | `HDU8_S02_Q01`, `HDU8_S02_Q02` | ¿Los insultos usados configuran ciberacoso tipificado en la Ley 20.900 u otras normativas chilenas? |
-| 🟡 Media | `HDU8_S03_Q01` | ¿Existen casos documentados en Chile de retos virales de apnea en menores? |
-| 🟢 Baja | `HDU2_NPC02_F3_Q02` (foto) | ¿La solicitud de foto de un menor tiene implicancias penales específicas en Chile que deberían incluirse en el reporte al tutor? |
+| 🔴 Alta | `HDU2_NPC02_Q01` (foto + ubicación) | Verificar que combinar solicitud de foto del hogar y ubicación exacta en un solo mensaje corresponde al patrón real de groomers en Chile. |
+| 🔴 Alta | `HDU2_NPC01_Q01_INSEGURA` (encuentro a solas) | ¿El incentivo usado ("pista que solo se puede mostrar en persona") es de los más frecuentes en casos denunciados en Chile? |
+| 🟡 Media | `HDU3_M3_DECISION01`, `HDU3_NPC04_Q01` | ¿La difusión de rumores y la campaña de stickers configuran ciberacoso tipificado en la Ley 20.900 u otras normativas chilenas? |
+| 🟡 Media | `HDU4_NPC05_Q01`, `HDU4_NPC06_Q01` | ¿Existen casos documentados en Chile de retos virales de este tipo (nado con corrientes, saltos a ciegas) en menores? |
+| 🟢 Baja | `HDU2_NPC02_Q01_INSEGURA` (extorsión con foto) | ¿La extorsión con una foto de un menor tiene implicancias penales específicas en Chile que deberían incluirse en el reporte al tutor? |
 
 **Información que la PDI debería aportar:**
 1. Procedimiento correcto que un niño/a debe seguir si ya entregó datos personales a un desconocido en internet.

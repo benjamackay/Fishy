@@ -5,12 +5,16 @@ Uso:
     python manage.py cargar_banco
     python manage.py cargar_banco --archivo /ruta/absoluta/banco_preguntas.json
     python manage.py cargar_banco --limpiar   # borra todo antes de insertar
+
+La carga es atomica: si una pregunta falla, se revierte todo. Sin eso, un
+error a mitad de camino deja el banco incompleto en la BD compartida.
 """
 import json
 from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from api.models import PreguntaBanco, OpcionBanco
 
@@ -33,6 +37,7 @@ class Command(BaseCommand):
             help="Elimina todas las preguntas existentes antes de cargar",
         )
 
+    @transaction.atomic
     def handle(self, *args, **options):
         ruta = Path(options["archivo"])
         if not ruta.exists():
@@ -58,9 +63,9 @@ class Command(BaseCommand):
                 "fase":                   p.get("fase"),
                 "orden_en_fase":          p.get("orden_en_fase"),
                 "narrativa_continuacion": p.get("narrativa_continuacion"),
-                "escenario_id":           p.get("escenario_id", ""),
-                "escenario_nombre":       p.get("escenario_nombre", ""),
-                "historial_previo":       p.get("historial_previo", []),
+                "escenario_id":           p.get("escenario_id") or "",
+                "escenario_nombre":       p.get("escenario_nombre") or "",
+                "historial_previo":       p.get("historial_previo") or [],
                 "categoria":              p.get("categoria", ""),
                 "nivel_riesgo":           p.get("nivel_riesgo", 0),
                 "es_mensaje_riesgo":      p.get("es_mensaje_riesgo", False),

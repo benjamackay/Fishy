@@ -54,17 +54,43 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "juego_backend.wsgi.application"
 
-# ─── Base de datos ─────────────────────────────────────────────────────────────
+# ─── Base de datos (Supabase / Postgres) ───────────────────────────────────────
+# Credenciales por variables de entorno (ver Backend/.env.example).
+# Supabase EXIGE SSL, por eso sslmode=require.
+#
+# DB_CONN_MAX_AGE: Supabase está en la nube, así que abrir la conexión cuesta
+# ~500 ms (handshake TLS) mientras que una consulta ya conectado cuesta ~65 ms.
+# Reutilizar la conexión ahorra esos ~500 ms por request, PERO solo sirve con un
+# servidor de workers persistentes (gunicorn/uwsgi). Con `runserver` —que crea un
+# hilo nuevo por request— no se reutiliza nada y encima las conexiones quedan
+# colgando, y Supabase solo permite 60. Por eso el default es 0 (desactivado):
+# actívalo (ej. 600) solo al desplegar con gunicorn.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "juego_db"),
-        "USER": os.environ.get("DB_USER", "juego_user"),
-        "PASSWORD": os.environ.get("DB_PASSWORD", "supersecreta"),
+        "NAME": os.environ.get("DB_NAME", "postgres"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
         "HOST": os.environ.get("DB_HOST", "localhost"),
         "PORT": os.environ.get("DB_PORT", "5432"),
+        "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "0")),
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": {"sslmode": os.environ.get("DB_SSLMODE", "require")},
     }
 }
+
+# ─── Hashing de contraseñas ───────────────────────────────────────────────────
+# El default de Django (PBKDF2 con 1.5M iteraciones) tarda 2-5 s por login/registro
+# en los equipos del equipo, y eso es CPU local, no latencia de Supabase. Argon2
+# da la misma (o mejor) resistencia a fuerza bruta en decenas de milisegundos.
+# PBKDF2 se deja de segundo para poder validar contraseñas viejas: Django rehashea
+# al hash nuevo de forma transparente en el primer login exitoso.
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
+]
 
 # ─── Validación de contraseñas ────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
@@ -85,8 +111,9 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Usuario custom
-AUTH_USER_MODEL = "api.Usuario"
+# Usuario custom: la cuenta con login es la del adulto responsable (control
+# parental). Los perfiles de menores (`UsuarioJugador`) NO tienen credenciales.
+AUTH_USER_MODEL = "api.AdultoResponsable"
 
 # ─── Django REST Framework ────────────────────────────────────────────────────
 REST_FRAMEWORK = {

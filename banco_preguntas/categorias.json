@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "descripcion": "Categorías del banco de preguntas de Fishy! — define tipos de mensajes y señales de riesgo para clasificación ML (FastAPI/Scikit-learn)",
+  "nota_vocabulario": "Las palabras_clave_ml son features del clasificador y pueden incluir términos del mundo real (colegio, WhatsApp, mall, teléfono, clases); NO son texto visible para el jugador, que siempre usa el mundo animal de Fishy!.",
   "categorias": [
     {
       "id": "neutral",
@@ -10,6 +11,18 @@
       "color_ui": "#4CAF50",
       "hdu_asociadas": ["HDU-2", "HDU-8"],
       "requiere_respuesta": false,
+      "tacticas_manipulacion": [],
+      "palabras_clave_ml": []
+    },
+    {
+      "id": "grooming",
+      "nombre": "Grooming",
+      "descripcion": "Categoría agrupadora usada como etiqueta ML en el Modo Detective (HDU-10), donde el documento de diálogos la referencia como 'Categoría ML: grooming | privacidad'. Agrupa las categorías específicas grooming_confianza, grooming_datos_personales, grooming_encuentro y grooming_secreto.",
+      "nivel_riesgo": 3,
+      "color_ui": "#B71C1C",
+      "hdu_asociadas": ["HDU-2", "HDU-8", "HDU-10"],
+      "requiere_respuesta": true,
+      "subcategorias": ["grooming_confianza", "grooming_datos_personales", "grooming_encuentro", "grooming_secreto"],
       "tacticas_manipulacion": [],
       "palabras_clave_ml": []
     },
@@ -58,6 +71,17 @@
       "palabras_clave_ml": ["no le digas a nadie", "secreto", "entre tú y yo", "no cuentes", "tus papás no entenderían", "solo nosotros", "no le digas a tus papás"]
     },
     {
+      "id": "privacidad",
+      "nombre": "Privacidad",
+      "descripcion": "Solicitud o exposición de datos privados del hogar (fotos del refugio familiar, ubicación exacta). Usada como etiqueta ML en el Modo Detective (HDU-10), donde el documento de diálogos la referencia junto a 'grooming' en el Caso 1.",
+      "nivel_riesgo": 2,
+      "color_ui": "#F44336",
+      "hdu_asociadas": ["HDU-2", "HDU-8", "HDU-10"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["solicitud_foto", "solicitud_ubicacion", "incentivo_falso"],
+      "palabras_clave_ml": ["foto de tu casa", "dónde duermes", "ubicación exacta", "refugio familiar"]
+    },
+    {
       "id": "ciberacoso",
       "nombre": "Ciberacoso",
       "descripcion": "Mensajes ofensivos, burlas, humillaciones, difusión de rumores o amenazas dirigidas al jugador.",
@@ -67,6 +91,17 @@
       "requiere_respuesta": true,
       "tacticas_manipulacion": ["humillacion", "exclusion_social", "difusion_rumores", "amenaza"],
       "palabras_clave_ml": ["perdedor", "nadie te quiere", "todos se ríen", "feo", "ridículo", "te vamos a sacar", "hablan de ti", "fotos tuyas"]
+    },
+    {
+      "id": "exclusion",
+      "nombre": "Exclusión",
+      "descripcion": "Exclusión deliberada y pública de una persona de un grupo (chat, actividad). Usada como etiqueta ML en el Modo Detective (HDU-10), donde el documento de diálogos la referencia junto a 'ciberacoso' en el Caso 2.",
+      "nivel_riesgo": 2,
+      "color_ui": "#9C27B0",
+      "hdu_asociadas": ["HDU-3", "HDU-8", "HDU-10"],
+      "requiere_respuesta": true,
+      "tacticas_manipulacion": ["exclusion_social", "humillacion"],
+      "palabras_clave_ml": ["te sacamos del grupo", "para qué te invitaron", "no aportas nada", "no sirve para nada"]
     },
     {
       "id": "reto_viral",

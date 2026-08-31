@@ -1,12 +1,41 @@
 # Documentación JSON — Comunicación con la Base de Datos
 
+> ⚠️ **Actualizado a la Fase 2 (control parental, 2026-08-12).** El contrato de
+> la API **cambió**: quien inicia sesión es un **adulto responsable**, que
+> gestiona uno o más **perfiles de menores**, y la partida cuelga del perfil, no
+> de la cuenta.
+>
+> `ApiManager.cs` **todavía implementa el contrato viejo** — eso es justamente la
+> Fase 3. Este documento describe lo que el backend espera **hoy**; si algo aquí
+> no calza con el código de Unity, el que está desactualizado es el código.
+
 ## Índice
 1. [Arquitectura general](#arquitectura-general)
 2. [Autenticación](#autenticación)
-3. [Modelos de datos (DTOs)](#modelos-de-datos-dtos)
-4. [Endpoints y payloads](#endpoints-y-payloads)
-5. [Banco de preguntas](#banco-de-preguntas)
-6. [Modo local (fallback)](#modo-local-fallback)
+3. [Perfiles de menores](#perfiles-de-menores)
+4. [Modelos de datos (DTOs)](#modelos-de-datos-dtos)
+5. [Endpoints y payloads](#endpoints-y-payloads)
+6. [Banco de preguntas](#banco-de-preguntas)
+7. [Modo local (fallback)](#modo-local-fallback)
+
+---
+
+## Flujo general
+
+```
+registro / login  ──▶  GET /jugadores/  ──▶  elegir perfil  ──▶  GET /jugadores/{id}/partidas/
+   (adulto)              (o POST si                                      │
+                          es la 1ª vez)                                  ├── hay → retomar
+                                                                         └── no  → POST /partidas/
+                                                                                   con usuario_jugador_id
+```
+
+De ahí en adelante (NPCs, chats, mensajes, banco) todo funciona igual que antes,
+usando el `id` de la partida.
+
+**Cada menor tiene su propio avance.** La partida cuelga del perfil, así que los
+hermanos no comparten progreso y al elegir un perfil se retoma exactamente donde
+ese niño lo dejó.
 
 ---
 
@@ -29,19 +58,33 @@ Authorization: Token <token>
 
 ## Autenticación
 
-### POST `/auth/registro/` — Registro de usuario
+La cuenta que hace login es la del **adulto responsable**. Los perfiles de los
+menores no tienen credenciales propias.
+
+### POST `/auth/registro/` — Registro del adulto responsable
 **Request:**
 ```json
 {
   "nombre": "string",
-  "password": "string"
+  "email": "adulto@ejemplo.cl",
+  "password": "string",
+  "apellido": "string",
+  "edad": 38,
+  "fecha_nacimiento": "1988-04-12"
 }
 ```
-**Response:**
+| Campo | Obligatorio | Notas |
+|---|---|---|
+| `nombre` | sí | único; es el que se usa para el login |
+| `email` | sí | único |
+| `password` | sí | mínimo 4 caracteres |
+| `apellido`, `edad`, `fecha_nacimiento` | no | opcionales |
+
+**Response (`201`):**
 ```json
 {
   "token": "string",
-  "usuario_id": 1
+  "adulto_id": 1
 }
 ```
 
@@ -53,11 +96,29 @@ Authorization: Token <token>
   "password": "string"
 }
 ```
-**Response:**
+**Response (`200`):**
 ```json
 {
   "token": "string",
-  "usuario_id": 1
+  "adulto_id": 1
+}
+```
+
+> ⚠️ El campo se llama **`adulto_id`**, ya no `usuario_id`. Ojo: Newtonsoft
+> **no lanza error** si el DTO busca un campo que no llega — deja el `int` en `0`
+> y sigue. O sea que este cambio falla en silencio.
+
+### GET `/auth/perfil/` — Datos de la cuenta autenticada
+**Response:**
+```json
+{
+  "id": 1,
+  "nombre": "papa_demo",
+  "apellido": "Pérez",
+  "email": "adulto@ejemplo.cl",
+  "edad": 38,
+  "fecha_nacimiento": "1988-04-12",
+  "fecha_creacion": "2026-08-12T10:00:00Z"
 }
 ```
 
@@ -65,23 +126,99 @@ El token recibido se almacena en `ApiManager.Token` y se adjunta a todos los req
 
 ---
 
+## Perfiles de menores
+
+Cada perfil pertenece a **un** adulto. Un adulto puede tener varios perfiles, y
+el nombre no se puede repetir dentro de la misma cuenta.
+
+### GET `/jugadores/` — Perfiles del adulto autenticado
+**Response:** lista de `UsuarioJugadorDto` (vacía si todavía no creó ninguno)
+```json
+[
+  { "id": 1, "adulto": 1, "nombre": "Benja", "edad": 9,  "fecha_creacion": "2026-08-12T10:01:00Z" },
+  { "id": 2, "adulto": 1, "nombre": "Sofi",  "edad": 11, "fecha_creacion": "2026-08-12T10:02:00Z" }
+]
+```
+
+### POST `/jugadores/` — Crear un perfil
+**Request:**
+```json
+{ "nombre": "Benja", "edad": 9 }
+```
+**Response (`201`):** `UsuarioJugadorDto`
+
+> `adulto` **no se manda**: lo asigna el backend con el usuario del token. Si
+> intentas mandarlo, se ignora.
+
+### GET `/jugadores/{jugador_id}/partidas/` — Partidas del perfil
+**Response:** lista de `PartidaDto`, de la jugada **más reciente a la más antigua**.
+
+Es lo que permite **retomar el avance**: cada menor conserva su propia partida
+entre sesiones, independiente de la de sus hermanos.
+
+```
+elegir perfil ──▶ GET /jugadores/{id}/partidas/
+                        │
+                        ├── viene algo  ──▶ continuar con la primera
+                        └── viene vacía ──▶ POST /partidas/ (primera vez)
+```
+
+### GET / PATCH / DELETE `/jugadores/{jugador_id}/`
+```json
+// PATCH — campos opcionales
+{ "nombre": "Benjamín", "edad": 10 }
+```
+- `GET` → `UsuarioJugadorDto`
+- `PATCH` → `UsuarioJugadorDto` actualizado
+- `DELETE` → `204` sin cuerpo. **Arrastra en cascada** las partidas del perfil y
+  todo lo que cuelga de ellas (NPCs, chats, mensajes).
+
+**Errores:**
+
+| Código | Causa |
+|---|---|
+| `400` | ya existe otro perfil con ese nombre en la misma cuenta |
+| `404` | el perfil no existe **o es de otro adulto** (no se distingue, a propósito) |
+
+---
+
 ## Modelos de datos (DTOs)
 
-Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
+Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
+
+> ⚠️ Ese archivo todavía tiene los DTOs viejos (`usuario_id`, `usuario`).
+> Actualizarlos es parte de la Fase 3. Ojo también con que hay una **copia
+> huérfana** del ApiManager en `Assets/Scripts/` (raíz del repo) que Unity no
+> compila: el bueno es el de `Fishy!/Assets/Scripts/`.
 
 ### AuthResponse
 ```json
 {
   "token": "string",
-  "usuario_id": 1
+  "adulto_id": 1
 }
 ```
+
+### UsuarioJugadorDto — Perfil de menor
+```json
+{
+  "id": 1,
+  "adulto": 1,
+  "nombre": "Benja",
+  "edad": 9,
+  "fecha_creacion": "2026-08-12T10:01:00Z"
+}
+```
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `adulto` | int | id del adulto dueño; **solo lectura**, lo asigna el backend |
+| `edad` | int? | opcional |
 
 ### PartidaDto — Sesión de juego
 ```json
 {
   "id": 1,
-  "usuario": 1,
+  "usuario_jugador": 1,
   "progreso": 45.5,
   "nivel_riesgo": 2,
   "fecha_inicio": "2025-01-01T12:00:00Z",
@@ -90,6 +227,7 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
 ```
 | Campo | Tipo | Descripción |
 |---|---|---|
+| `usuario_jugador` | int | id del perfil de menor dueño de la partida (antes era `usuario`) |
 | `progreso` | float | Porcentaje de avance (0–100) |
 | `nivel_riesgo` | int? | ID de nivel de riesgo (opcional) |
 
@@ -134,6 +272,7 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
   "respuesta": "No le voy a dar mi dirección a un desconocido.",
   "calidad_respuesta": "buena",
   "pregunta_banco_id": "HDU2_NPC01_F2_Q01",
+  "opcion_banco_id": "HDU2_NPC01_F2_Q01_R2",
   "timestamp": "2025-01-01T12:05:00Z",
   "posibles_respuestas": [
     {
@@ -156,6 +295,14 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
 | `tipo` | string | `"start"`, `"chain"`, `"request"`, `"end"` |
 | `calidad_respuesta` | string | `"buena"`, `"neutral"`, `"mala"` |
 | `pregunta_banco_id` | string | ID del banco de preguntas (e.g., `"HDU2_NPC01_F1_Q01"`) |
+| `opcion_banco_id` | string | ID de la opción elegida (e.g., `"HDU2_NPC01_F1_Q01_R2"`) |
+
+> **`opcion_banco_id` es lo que hace que la respuesta cuente para el riesgo por
+> zona.** Identifica la opción exacta del banco, con su puntaje real (`-1` / `+1` /
+> `+2`). No basta con `calidad_respuesta`: el cliente colapsa `segura_basica` y
+> `segura_optima` en `"buena"`, así que deducir el puntaje de ahí trataría toda
+> respuesta segura como óptima. Si se omite, el mensaje se guarda igual pero no
+> suma. Ver [riesgo por zona](#get-partidaspartida_idriesgo-por-zona--riesgo-acumulado-por-zona).
 
 **Tipos de mensaje:**
 - `start` — Primer mensaje de una conversación
@@ -182,10 +329,12 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
 **POST `/partidas/`** — Crear partida
 ```json
 // Request
-{ "progreso": 0.0, "nivel_riesgo": null }
+{ "usuario_jugador_id": 1, "progreso": 0.0, "nivel_riesgo": null }
 
 // Response: PartidaDto
 ```
+`usuario_jugador_id` es **obligatorio** y el perfil tiene que ser de la cuenta
+autenticada. Si falta, no existe, o es de otro adulto → `404`.
 
 **PATCH `/partidas/{partida_id}/`** — Actualizar partida
 ```json
@@ -194,6 +343,56 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
 
 // Response: PartidaDto
 ```
+
+**GET `/partidas/{partida_id}/riesgo-por-zona/`** — Riesgo acumulado por zona
+```json
+// Response
+{
+  "partida_id": 1,
+  "zonas": [
+    {
+      "zona": "chat_simulado",
+      "riesgo_acumulado": 3,
+      "respuestas": 3,
+      "minimo_posible": -3,
+      "maximo_posible": 6
+    },
+    {
+      "zona": "desconocidos",
+      "riesgo_acumulado": -2,
+      "respuestas": 4,
+      "minimo_posible": -4,
+      "maximo_posible": 8
+    }
+  ],
+  "total": 1,
+  "respuestas": 7,
+  "sin_clasificar": 0
+}
+```
+Suma el `impacto_puntuacion` de cada opción que el menor eligió, agrupado por la
+`zona` de la pregunta a la que pertenece. El puntaje sale del banco:
+`insegura = -1`, `segura_basica = +1`, `segura_optima = +2`.
+
+**El signo no está invertido: más alto = más seguro.** Un total negativo significa
+que el menor eligió mayoritariamente respuestas inseguras.
+
+| Campo | Significado |
+|---|---|
+| `riesgo_acumulado` | Suma de los impactos de esa zona |
+| `respuestas` | Cuántas respuestas se contaron |
+| `minimo_posible` | Puntaje si hubiera elegido siempre la peor opción |
+| `maximo_posible` | Puntaje si hubiera elegido siempre la mejor |
+| `sin_clasificar` | Respuestas cuyo `opcion_banco_id` no existe en el banco (no suman) |
+
+`minimo_posible` y `maximo_posible` son las cotas de **esas mismas preguntas**, no
+del banco completo, así que sirven para mostrar el resultado como una escala en vez
+de un número suelto.
+
+Solo cuentan los mensajes que traen `opcion_banco_id`. Los flujos que no reportan
+la opción elegida —como el módulo de diálogo antiguo de Desconocidos, con nodos
+escritos a mano (`a0`, `a1`, …) que no existen en el banco— quedan fuera del
+cálculo a propósito, en vez de contribuir con datos inventados.
 
 ---
 
@@ -266,11 +465,15 @@ Definidos en `Fishy!/Assets/Scripts/ApiManager.cs` (líneas 560–639).
   "tipo": "chain",
   "respuesta": "No, no te conozco.",
   "calidad_respuesta": "buena",
-  "pregunta_banco_id": "HDU2_NPC01_F2_Q01"
+  "pregunta_banco_id": "HDU2_NPC01_F2_Q01",
+  "opcion_banco_id": "HDU2_NPC01_F2_Q01_R2"
 }
 ```
 
 **Response de todos los tipos:** `MensajeDto`
+
+> En los mensajes `chain` conviene mandar siempre `opcion_banco_id`: es lo único
+> que permite acumular riesgo por zona. Sin él el mensaje se guarda, pero no puntúa.
 
 **GET `/chats/{chat_id}/mensajes/`** — Historial de mensajes
 ```json
@@ -305,6 +508,34 @@ Query params:
 **GET `/banco/preguntas/{pregunta_id}/`** — Obtener pregunta específica
 **Response:** `PreguntaBancoSerializer`
 
+**GET `/banco/zonas/`** — Catálogo de zonas del banco
+
+Se arma consultando la BD, no desde una lista fija: al cargar un banco con una
+zona nueva, aparece aquí sola y sin tocar código.
+
+**Response:**
+```json
+[
+  { "zona": "chat_simulado", "preguntas": 6,  "hdu": "HDU-8" },
+  { "zona": "ciberacoso",    "preguntas": 4,  "hdu": "HDU-3" },
+  { "zona": "desconocidos",  "preguntas": 18, "hdu": "HDU-2" }
+]
+```
+
+**GET `/banco/zonas/{zona}/preguntas/`** — Preguntas de una zona
+
+Acepta los mismos query params que `/banco/preguntas/`, salvo `?zona=`, que lo
+manda la ruta.
+
+**Response:** lista de `PreguntaBancoSerializer`
+
+Responde **404** si la zona no existe en el banco. Eso permite distinguirla de
+una zona real que todavía no tiene preguntas cargadas, cosa que
+`/banco/preguntas/?zona=` no puede hacer porque devuelve `[]` en ambos casos.
+```json
+{ "detail": "La zona 'inventada' no existe." }
+```
+
 ---
 
 ## Banco de preguntas
@@ -316,7 +547,7 @@ Modelos en: `BancoPreguntasData.cs`
 ### Estructura raíz
 ```json
 {
-  "version": "1.3",
+  "version": "1.7",
   "preguntas": [ ... ]
 }
 ```
@@ -399,3 +630,24 @@ Si el backend no responde en 4 segundos, `ApiManager.cs` activa automáticamente
 - El juego funciona sin conexión
 
 Los archivos relevantes para este modo están en `ApiManager.cs` en las funciones con sufijo `Local`.
+
+> **Fase 3:** el modo local también hay que actualizarlo, o el juego se comporta
+> distinto según haya servidor o no. Necesita simular los perfiles de menores
+> (listar, crear, y recordar cuál está seleccionado) para que el flujo sea el
+> mismo en ambos modos.
+
+---
+
+## Errores comunes
+
+| Código | Dónde | Causa |
+|---|---|---|
+| `400` | registro | falta el `email`, o el nombre/email ya existen |
+| `400` | crear perfil | ya tienes otro perfil con ese nombre |
+| `401` | cualquier endpoint | falta el header `Authorization: Token ...`, o el token no vale |
+| `404` | crear partida | falta `usuario_jugador_id`, o el perfil es de otro adulto |
+| `404` | partida / npc / chat | el recurso es de otro adulto |
+
+Sobre los `404`: el backend **no distingue** entre "no existe" y "existe pero no
+es tuyo", a propósito. Todo lo que cuelga de una partida se filtra por
+`usuario_jugador__adulto`, así que un adulto nunca ve datos de otro.
