@@ -25,6 +25,7 @@ namespace Fishy.World
     [RequireComponent(typeof(Rigidbody2D))]
     public class OttoController : MonoBehaviour
     {
+        
         [Header("Velocidades")]
         [Tooltip("Velocidad al caminar (unidades/segundo).")]
         public float walkSpeed = 3.5f;
