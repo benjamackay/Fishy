@@ -271,13 +271,31 @@ def comparar_banco_con_unity(preguntas_api):
 
     raiz = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
     ruta = os.path.join(raiz, "Fishy!", "Assets", "Resources", "banco_preguntas.json")
+    ruta_backend = os.path.join(raiz, "banco_preguntas", "banco_preguntas.json")
     print("\n-- Banco de la base vs. banco de Unity --")
     if not os.path.isfile(ruta):
         print(f"  [SALTA] no encontré el banco de Unity en {ruta}")
         return
 
     with open(ruta, encoding="utf-8") as f:
-        preguntas_unity = json.load(f).get("preguntas", [])
+        banco_unity = json.load(f)
+    preguntas_unity = banco_unity.get("preguntas", [])
+
+    # Primero lo barato: la versión declarada. Es la señal más temprana de que las
+    # dos copias se separaron, y salta aunque el banco todavía no se haya cargado
+    # a la base (o sea, antes de que la comparación de opciones pueda ver nada).
+    if os.path.isfile(ruta_backend):
+        with open(ruta_backend, encoding="utf-8") as f:
+            v_backend = json.load(f).get("version")
+        v_unity = banco_unity.get("version")
+        if v_backend != v_unity:
+            fail_count += 1
+            print(f"  [FALLA] los dos JSON declaran versiones distintas: "
+                  f"backend v{v_backend} vs Unity v{v_unity}. "
+                  f"Copia banco_preguntas/banco_preguntas.json a Fishy!/Assets/Resources/")
+        else:
+            ok_count += 1
+            print(f"  [OK   ] ambos JSON declaran la misma versión (v{v_unity})")
 
     def indexar_unity(preguntas):
         return {o["id"]: o.get("impacto_puntuacion", 0)
@@ -307,6 +325,18 @@ def comparar_banco_con_unity(preguntas_api):
     else:
         ok_count += 1
         print("  [OK   ] los impactos coinciden en ambos bancos")
+
+    # La dirección contraria: opciones cargadas en la base que Unity no tiene. No
+    # rompen el puntaje, pero son contenido que el juego nunca va a mostrar — señal
+    # de que a Unity le falta una recarga del JSON.
+    inalcanzables = sorted(set(en_base) - set(en_unity))
+    if inalcanzables:
+        fail_count += 1
+        print(f"  [FALLA] {len(inalcanzables)} opción(es) están en la base pero no en Unity "
+              f"(contenido inalcanzable): {', '.join(inalcanzables[:3])}")
+    else:
+        ok_count += 1
+        print(f"  [OK   ] las {len(en_base)} opciones de la base son alcanzables desde Unity")
 
 
 def probar_endpoints_de_zona(preguntas_api, token):
