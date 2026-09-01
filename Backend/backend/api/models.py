@@ -385,3 +385,88 @@ class Zona(models.Model):
     class Meta:
         verbose_name = "Zona"
         verbose_name_plural = "Zonas"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODO DETECTIVE  (HDU-10, contenido estático cargado desde detective_cases.json)
+#
+# El jugador observa una conversación pregrabada entre dos NPCs (sin participar)
+# y marca los mensajes que considera señales de riesgo. `es_ambiguo` no cuenta
+# ni como acierto ni como error (CA5 de HDU-10).
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CasoDetective(models.Model):
+    caso_id              = models.CharField(max_length=60, unique=True)
+    titulo               = models.CharField(max_length=150)
+    zona                 = models.CharField(max_length=50)
+    etiquetas_ml         = models.JSONField(default=list)
+
+    # Permiso: el jugador le pide a un NPC observar sus mensajes con otro.
+    permiso_player_text  = models.TextField()
+    permiso_npc_nombre   = models.CharField(max_length=60)
+    permiso_npc_response = models.TextField()
+
+    def __str__(self):
+        return self.caso_id
+
+    class Meta:
+        verbose_name = "Caso Detective"
+        verbose_name_plural = "Casos Detective"
+        ordering = ["zona", "caso_id"]
+
+
+class MensajeDetective(models.Model):
+    caso            = models.ForeignKey(
+        CasoDetective, on_delete=models.CASCADE, related_name="mensajes"
+    )
+    mensaje_id      = models.CharField(max_length=70, unique=True)
+    npc_sender      = models.CharField(max_length=60)
+    texto           = models.TextField()
+    es_senal_riesgo = models.BooleanField(default=False)
+    es_ambiguo      = models.BooleanField(default=False)
+    explicacion     = models.TextField(blank=True, null=True)
+    nota_ambiguo    = models.TextField(blank=True, null=True)
+    orden           = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.mensaje_id
+
+    class Meta:
+        verbose_name = "Mensaje Detective"
+        verbose_name_plural = "Mensajes Detective"
+        ordering = ["caso", "orden"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO DETECTIVE  (resultado del jugador por partida+caso)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CasoDetectiveProgreso(models.Model):
+    partida           = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="casos_detective"
+    )
+    caso              = models.ForeignKey(
+        CasoDetective, on_delete=models.CASCADE, related_name="progresos"
+    )
+    mensajes_marcados = models.JSONField(
+        default=list,
+        help_text="mensaje_id de los MensajeDetective que el jugador marcó como riesgo"
+    )
+    aciertos          = models.PositiveSmallIntegerField(default=0)
+    total_riesgo      = models.PositiveSmallIntegerField(default=0)
+    porcentaje        = models.FloatField(default=0.0)
+    intentos          = models.PositiveSmallIntegerField(default=1)
+    fecha_inicio      = models.DateTimeField(auto_now_add=True)
+    fecha_termino     = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.caso.caso_id} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso Caso Detective"
+        verbose_name_plural = "Progresos Casos Detective"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "caso"], name="progreso_unico_por_partida_caso"
+            )
+        ]
