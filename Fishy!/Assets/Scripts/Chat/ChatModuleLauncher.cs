@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Fishy.Mision;
 
 namespace Fishy.Chat
 {
@@ -28,6 +30,10 @@ namespace Fishy.Chat
         [Tooltip("Registrar la sesión en el backend (requiere login + partida).")]
         public bool reportToBackend = false;
 
+        [Header("Misión")]
+        [Tooltip("Desafío del panel de misión activa que esta conversación desbloquea/completa. Opcional.")]
+        public DesafioData desafioAsociado;
+
         [Header("Apertura por cercanía (opcional)")]
         public bool openOnTriggerEnter = false;
         public string ottoTag = "Player";
@@ -35,6 +41,15 @@ namespace Fishy.Chat
         public bool openOnce = true;
 
         private bool alreadyOpened;
+
+        /// <summary>
+        /// Se dispara cuando ESTA sesión (la que abrió este launcher) se cierra,
+        /// con el % de respuestas seguras acumulado. A diferencia de
+        /// <see cref="ChatModuleController.OnSesionCerrada"/> (global, cualquier
+        /// launcher), este evento sólo corresponde a la sesión que abrió este
+        /// GameObject en particular.
+        /// </summary>
+        public event Action<float> OnSesionFinalizada;
 
         /// <summary>Abre el módulo de chat (enlazable a un Button.OnClick).</summary>
         public void OpenChat()
@@ -45,8 +60,17 @@ namespace Fishy.Chat
                 ? conversaciones
                 : ChatDefaultConversations.CreateZonaDesconocidos();
 
-            ChatModuleController.GetOrCreate().OpenSession(convos, ottoMood, reportToBackend);
+            var controller = ChatModuleController.GetOrCreate();
+            controller.OnSesionCerrada += HandleSesionCerrada;
+            controller.OpenSession(convos, ottoMood, reportToBackend, desafioAsociado);
             alreadyOpened = true;
+        }
+
+        private void HandleSesionCerrada(float safePercent)
+        {
+            if (ChatModuleController.Instance != null)
+                ChatModuleController.Instance.OnSesionCerrada -= HandleSesionCerrada;
+            OnSesionFinalizada?.Invoke(safePercent);
         }
 
         private void OnTriggerEnter2D(Collider2D other)

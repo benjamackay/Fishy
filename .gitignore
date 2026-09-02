@@ -16,3 +16,7 @@
 .venv/
 __pycache__/
 *.pyc
+
+# Base de datos de la suite de tests (settings_test.py). Django la borra al
+# terminar, pero queda si una corrida se interrumpe.
+*.sqlite3

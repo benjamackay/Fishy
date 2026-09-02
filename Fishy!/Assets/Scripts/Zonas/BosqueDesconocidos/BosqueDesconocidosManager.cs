@@ -4,23 +4,23 @@ using UnityEngine.Events;
 using Fishy.World;
 using Fishy.Net;
 
-namespace Fishy.Desconocidos
+namespace Fishy.Zonas.BosqueDesconocidos
 {
     /// <summary>
-    /// HDU-2 — Gestor de la temática "Desconocidos".
+    /// HDU-2 — Gestor de la temática "Bosque de los Desconocidos".
     ///
     /// Lleva la cuenta de los NPCs de la zona. Cuando el niño/a finaliza la última
     /// interacción de la temática, la marca como completada y habilita el acceso a
     /// la siguiente temática del mapa (desbloqueando una <see cref="BlockedZone"/>
     /// vía <see cref="WorldZoneManager"/>).
     /// </summary>
-    public class ZonaDesconocidosManager : MonoBehaviour
+    public class BosqueDesconocidosManager : MonoBehaviour
     {
-        public static ZonaDesconocidosManager Instance { get; private set; }
+        public static BosqueDesconocidosManager Instance { get; private set; }
 
         [Header("NPCs de la temática")]
-        [Tooltip("Si se deja vacío, se recogen todos los DesconocidosNPC de la escena.")]
-        public List<DesconocidosNPC> npcs = new List<DesconocidosNPC>();
+        [Tooltip("Si se deja vacío, se recogen todos los BosqueDesconocidosNPC de la escena.")]
+        public List<BosqueDesconocidosNPC> npcs = new List<BosqueDesconocidosNPC>();
 
         [Header("Al completar la temática")]
         [Tooltip("zoneId de la BlockedZone que da acceso a la siguiente temática.")]
@@ -39,7 +39,7 @@ namespace Fishy.Desconocidos
         /// <summary>True cuando todas las interacciones de la temática han terminado.</summary>
         public bool Completed { get; private set; }
 
-        private readonly HashSet<DesconocidosNPC> finished = new HashSet<DesconocidosNPC>();
+        private readonly HashSet<BosqueDesconocidosNPC> finished = new HashSet<BosqueDesconocidosNPC>();
 
         private void Awake()
         {
@@ -51,11 +51,11 @@ namespace Fishy.Desconocidos
             Instance = this;
 
             if (npcs.Count == 0)
-                npcs.AddRange(FindObjectsByType<DesconocidosNPC>(FindObjectsSortMode.None));
+                npcs.AddRange(FindObjectsByType<BosqueDesconocidosNPC>());
         }
 
         /// <summary>Llamado por cada NPC cuando su interacción termina (cualquier rama).</summary>
-        public void NotifyNpcFinished(DesconocidosNPC npc, bool success)
+        public void NotifyNpcFinished(BosqueDesconocidosNPC npc, bool success)
         {
             if (Completed) return;
             if (npc != null) finished.Add(npc);
@@ -64,7 +64,7 @@ namespace Fishy.Desconocidos
             int done = 0;
             foreach (var n in npcs)
                 if (n != null && n.Finished) done++;
-            Debug.Log($"[ZonaDesconocidos] NPC '{(npc != null ? npc.NpcName : "?")}' terminado " +
+            Debug.Log($"[BosqueDesconocidos] NPC '{(npc != null ? npc.NpcName : "?")}' terminado " +
                       $"(éxito={success}). Avance: {done}/{npcs.Count} NPCs.");
 
             if (AllFinished())
@@ -90,7 +90,7 @@ namespace Fishy.Desconocidos
                 if (npc == null) continue;
                 if (npc.WasSuccessful) aSalvo++; else capturas++;
             }
-            Debug.Log($"[ZonaDesconocidos] Temática completada (a salvo={aSalvo}, capturas={capturas}). " +
+            Debug.Log($"[BosqueDesconocidos] Temática completada (a salvo={aSalvo}, capturas={capturas}). " +
                       "Se habilita la siguiente zona.");
 
             // Habilita el acceso a la siguiente temática en el mapa (HDU-5).
@@ -113,12 +113,12 @@ namespace Fishy.Desconocidos
                 if (progresoAlCompletar >= 0f)
                 {
                     ApiManager.Instance.ActualizarPartida(progreso: progresoAlCompletar,
-                        onSuccess: _ => Debug.Log($"[ZonaDesconocidos] Progreso {progresoAlCompletar} guardado en la partida."),
-                        onError:   e => Debug.LogWarning($"[ZonaDesconocidos] No se pudo actualizar progreso: {e}"));
+                        onSuccess: _ => Debug.Log($"[BosqueDesconocidos] Progreso {progresoAlCompletar} guardado en la partida."),
+                        onError:   e => Debug.LogWarning($"[BosqueDesconocidos] No se pudo actualizar progreso: {e}"));
                 }
                 else
                 {
-                    Debug.LogWarning("[ZonaDesconocidos] 'progresoAlCompletar' no está configurado (<0): " +
+                    Debug.LogWarning("[BosqueDesconocidos] 'progresoAlCompletar' no está configurado (<0): " +
                                      "el desbloqueo no quedará reflejado en el progreso de la partida. " +
                                      "Asigna un valor 0-100 por zona para registrarlo en la BD.");
                 }

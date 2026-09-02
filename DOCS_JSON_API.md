@@ -16,7 +16,8 @@
 4. [Modelos de datos (DTOs)](#modelos-de-datos-dtos)
 5. [Endpoints y payloads](#endpoints-y-payloads)
 6. [Banco de preguntas](#banco-de-preguntas)
-7. [Modo local (fallback)](#modo-local-fallback)
+7. [Modo Detective (HDU-10)](#modo-detective-hdu-10)
+8. [Modo local (fallback)](#modo-local-fallback)
 
 ---
 
@@ -320,6 +321,59 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
 }
 ```
 
+### CasoDetectiveDto — Caso del modo Detective
+```json
+{
+  "id": 1,
+  "caso_id": "caso_01",
+  "titulo": "Caso de Alex y Sam",
+  "zona": "playa",
+  "etiquetas_ml": ["grooming"],
+  "permiso_player_text": "Oye, ¿me puedes ayudar? Recibí mensajes raros...",
+  "permiso_npc_nombre": "Otto",
+  "permiso_npc_response": "Claro, muéstramelos.",
+  "mensajes": [
+    {
+      "id": 1,
+      "mensaje_id": "m04",
+      "npc_sender": "Alex",
+      "texto": "No le cuentes esto a tus papás, es un secreto entre nosotros.",
+      "es_senal_riesgo": true,
+      "es_ambiguo": false,
+      "explicacion": "Pedir guardar secretos a los papás es una señal de alerta clásica.",
+      "nota_ambiguo": null,
+      "orden": 3
+    }
+  ]
+}
+```
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `mensajes` | lista de `MensajeDetectiveDto` | Ya vienen ordenados por `orden` |
+| `es_ambiguo` | bool | No cuenta ni como acierto ni como error al calificar (CA5 de HDU-10) |
+| `explicacion` | string? | Solo tiene valor en los mensajes de riesgo; se usa para el resumen al final |
+
+### ProgresoDetectiveDto — Resultado de un intento
+```json
+{
+  "id": 1,
+  "partida": 1,
+  "caso": 1,
+  "mensajes_marcados": ["m04", "m06"],
+  "aciertos": 2,
+  "total_riesgo": 3,
+  "porcentaje": 0.67,
+  "intentos": 1,
+  "fecha_inicio": "2026-09-01T12:00:00Z",
+  "fecha_termino": "2026-09-01T12:03:00Z"
+}
+```
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `partida` / `caso` | int | **solo lectura**, los asigna el backend (mismo patrón que `UsuarioJugador.adulto`) |
+| `mensajes_marcados` | lista de string | `mensaje_id` que el jugador marcó como riesgo |
+| `intentos` | int | Se incrementa solo — reintentar el mismo caso no crea una fila nueva |
+
 ---
 
 ## Endpoints y payloads
@@ -538,6 +592,50 @@ una zona real que todavía no tiene preguntas cargadas, cosa que
 
 ---
 
+### Modo Detective
+
+**GET `/casos-detective/`** — Listar casos
+```
+Query params:
+  ?zona=playa
+```
+**Response:** lista de `CasoDetectiveDto` (con sus `mensajes` anidados)
+
+**GET `/casos-detective/{caso_id}/`** — Obtener caso específico
+**Response:** `CasoDetectiveDto`
+
+Responde **404** si `caso_id` no existe (mismo criterio que
+`/banco/preguntas/{pregunta_id}/`).
+
+**POST `/casos-detective/{caso_id}/progreso/`** — Registrar resultado de un intento
+```json
+// Request
+{
+  "partida_id": 1,
+  "mensajes_marcados": ["m04", "m06"],
+  "aciertos": 2,
+  "total_riesgo": 3,
+  "porcentaje": 0.67
+}
+
+// Response: ProgresoDetectiveDto
+```
+`partida_id` debe pertenecer a una partida del adulto autenticado (mismo
+aislamiento que el resto de los endpoints de partida). Reintentar el mismo caso
+**no** crea una fila nueva: actualiza el resultado y suma 1 a `intentos`. La
+primera vez responde `201`, las siguientes `200`.
+
+**GET `/partidas/{partida_id}/casos-detective/`** — Progreso de una partida
+```json
+// Response: lista de ProgresoDetectiveDto
+[{ ... }, { ... }]
+```
+Sirve para que el cliente sepa qué casos ya están completados sin tener que
+llevar la cuenta localmente (mismo rol que cumple `PlayerPrefs` en
+`MissionManager` cuando no hay backend).
+
+---
+
 ## Banco de preguntas
 
 Archivo local: `Fishy!/Assets/Resources/banco_preguntas.json`  
@@ -619,6 +717,72 @@ Ejemplo: `HDU2_NPC01_F2_Q03` = HDU-2, NPC 01, Fase 2, Pregunta 3
 | `"segura_optima"` | `+2` | Respuesta óptima |
 
 `siguiente_pregunta`: ID de la próxima pregunta, o `null` si termina la conversación.
+
+---
+
+## Modo Detective (HDU-10)
+
+Archivo local (contenido fuente, cargado a la BD con `cargar_detective`):
+`banco_preguntas/detective_cases.json`  
+Modelos: `CasoDetective`, `MensajeDetective`, `CasoDetectiveProgreso` (`api/models.py`)
+
+El jugador observa una conversación pregrabada entre dos NPCs (sin participar) y
+marca los mensajes que considera señal de riesgo. A diferencia del banco de
+preguntas, **este contenido no viaja empaquetado con el build de Unity** — se
+consulta en vivo vía `/casos-detective/`, para poder agregar casos nuevos sin
+tener que republicar la app.
+
+### Estructura raíz (`detective_cases.json`, lo que carga `cargar_detective`)
+```json
+{
+  "version": "1.8",
+  "casos": [ ... ]
+}
+```
+
+### Caso — Campos comunes
+```json
+{
+  "id": "caso_01",
+  "titulo": "Caso de Alex y Sam",
+  "zona": "playa",
+  "etiquetas_ml": ["grooming"],
+  "permiso": {
+    "player_text": "Oye, ¿me puedes ayudar? Recibí mensajes raros...",
+    "npc_nombre": "Otto",
+    "npc_response": "Claro, muéstramelos."
+  },
+  "conversacion": [ ... ]
+}
+```
+El "permiso" es el intercambio previo: el jugador le pide a un NPC observar sus
+mensajes con otro, antes de mostrar la conversación grabada.
+
+### Mensaje de la conversación
+```json
+{
+  "id": "m04",
+  "npc_sender": "Alex",
+  "texto": "No le cuentes esto a tus papás, es un secreto entre nosotros.",
+  "es_senal_riesgo": true,
+  "es_ambiguo": false,
+  "explicacion": "Pedir guardar secretos a los papás es una señal de alerta clásica.",
+  "nota_ambiguo": null
+}
+```
+| Campo | Descripción |
+|---|---|
+| `es_senal_riesgo` | Si es `true`, marcarlo cuenta como acierto |
+| `es_ambiguo` | No cuenta ni como acierto ni como error (CA5 de HDU-10) — se excluye del cálculo de `porcentaje` |
+| `explicacion` | Solo en mensajes de riesgo; se muestra en el resumen si el jugador no lo marcó |
+| `nota_ambiguo` | Solo en mensajes ambiguos; aclara por qué no cuenta |
+
+### Cálculo de `porcentaje` (lo hace el cliente, el backend solo lo guarda)
+```
+riesgo_real   = mensajes con es_senal_riesgo=true y es_ambiguo=false
+aciertos      = de esos, cuántos marcó el jugador
+porcentaje    = aciertos / total_riesgo   (1.0 si total_riesgo = 0)
+```
 
 ---
 

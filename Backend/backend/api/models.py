@@ -470,3 +470,150 @@ class CasoDetectiveProgreso(models.Model):
                 fields=["partida", "caso"], name="progreso_unico_por_partida_caso"
             )
         ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MISION  (catalogo — HDU-1 / HDU-11 / HDU-12)
+#
+# Contenido de catalogo: igual para todos los ninos, sin FK a partida. Ojo con
+# no confundirlo con NPC, que si cuelga de una partida y es de runtime.
+#
+# El id lo manda el banco (`mision_desbloquea`), no Unity. Es a proposito: el
+# MissionManager de Unity guarda el estado por `desafioId` en PlayerPrefs, y si
+# cada lado inventa el suyo terminamos como el Modo Detective (caso_01 vs
+# DC_CASO_01). Los DesafioData del editor deben usar este mismo mision_id.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Mision(models.Model):
+    class Tipo(models.TextChoices):
+        PRINCIPAL   = "principal",   "Principal"
+        SECUNDARIA  = "secundaria",  "Secundaria"
+        EXPLORACION = "exploracion", "Exploracion"
+
+    mision_id = models.CharField(max_length=60, unique=True)
+    nombre    = models.CharField(
+        max_length=120, blank=True,
+        help_text="`nombre_mision` del banco. La de exploracion no trae nombre."
+    )
+    tipo      = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.SECUNDARIA)
+    zona      = models.CharField(max_length=50, blank=True)
+
+    def __str__(self):
+        return self.mision_id
+
+    class Meta:
+        verbose_name = "Mision"
+        verbose_name_plural = "Misiones"
+        ordering = ["zona", "mision_id"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DIALOGO NPC  (catalogo — los `dialogos_npc_neutros` del banco)
+#
+# NPCs neutros que hablan sin arbol de decisiones: no tienen opciones ni riesgo,
+# solo lineas y (a veces) una mision. npc_id/npc_nombre van planos, igual que en
+# PreguntaBanco: los dos bloques del banco usan namespaces distintos para el
+# mismo animal (Flamenco es NPC_03 en preguntas y NPC_FLAMENCO_SEC aca), asi que
+# una tabla de NPCs de catalogo lo duplicaria en vez de unificarlo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DialogoNPC(models.Model):
+    dialogo_id   = models.CharField(max_length=60, unique=True)
+    hdu          = models.CharField(max_length=10)
+    zona         = models.CharField(max_length=50)
+    npc_id       = models.CharField(max_length=30, blank=True)
+    npc_nombre   = models.CharField(max_length=60, blank=True)
+    npc_avatar   = models.CharField(max_length=60, blank=True)
+    tipo         = models.CharField(max_length=20, blank=True, help_text="`neutro` en todos los del banco actual")
+    trigger      = models.CharField(max_length=30, blank=True, help_text="Como se dispara en el juego, ej. `boton_E`")
+    lineas       = models.JSONField(default=list, help_text="Lista de strings, en orden de aparicion")
+    pista_mision = models.TextField(blank=True, null=True)
+    mision       = models.ForeignKey(
+        Mision, on_delete=models.SET_NULL, null=True, blank=True, related_name="dialogos",
+        help_text="Mision que este dialogo desbloquea (`mision_desbloquea`)"
+    )
+
+    def __str__(self):
+        return self.dialogo_id
+
+    class Meta:
+        verbose_name = "Dialogo NPC"
+        verbose_name_plural = "Dialogos NPC"
+        ordering = ["zona", "dialogo_id"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECOMPENSA DE ALBUM  (catalogo — HDU-11 / HDU-12)
+#
+# Las 12 recompensas vienen de dos origenes distintos y excluyentes:
+#   - las 6 de misiones secundarias, desde `pista_mision` del dialogo  -> mision
+#   - las 6 de misiones principales, desde `consecuencia_narrativa`    -> opcion
+# Por eso los dos origenes son opcionales, con un check que obliga a tener
+# exactamente uno. El `recompensa_id` se deriva del origen y no del nombre: el
+# nombre es texto que Luis puede reescribir, el id del origen es estable.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RecompensaAlbum(models.Model):
+    recompensa_id   = models.CharField(max_length=90, unique=True)
+    nombre          = models.CharField(max_length=150)
+    tip_educativo   = models.TextField(blank=True, help_text="El tip entre parentesis, cuando el banco lo trae")
+    mision          = models.ForeignKey(
+        Mision, on_delete=models.CASCADE, null=True, blank=True, related_name="recompensas"
+    )
+    opcion_banco_id = models.CharField(
+        max_length=70, blank=True, default="", db_index=True,
+        help_text=(
+            "`opcion_id` de la OpcionBanco que la entrega. Es texto y no FK a proposito: "
+            "cargar_banco borra y recrea las opciones en cada corrida, asi que una FK real "
+            "se llevaria en cascada el album ya obtenido por los ninos. Mismo criterio que "
+            "Mensaje.opcion_banco_id."
+        ),
+    )
+
+    def __str__(self):
+        return f"{self.recompensa_id} — {self.nombre}"
+
+    class Meta:
+        verbose_name = "Recompensa de Album"
+        verbose_name_plural = "Recompensas de Album"
+        ordering = ["recompensa_id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(mision__isnull=False, opcion_banco_id="")
+                    | (models.Q(mision__isnull=True) & ~models.Q(opcion_banco_id=""))
+                ),
+                name="recompensa_con_un_solo_origen",
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECOMPENSA OBTENIDA  (progreso — por partida)
+#
+# Es la tabla que responde "que desbloqueo este nino", que hoy no se puede
+# contestar sin parsear texto libre. No hay `MisionProgreso` a proposito: cada
+# mision entrega exactamente una recompensa, asi que completarla se deduce de
+# aca, y las 6 principales ni siquiera cuelgan de una mision.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RecompensaObtenida(models.Model):
+    partida    = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="recompensas_album"
+    )
+    recompensa = models.ForeignKey(
+        RecompensaAlbum, on_delete=models.CASCADE, related_name="obtenciones"
+    )
+    fecha      = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.recompensa.recompensa_id} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Recompensa Obtenida"
+        verbose_name_plural = "Recompensas Obtenidas"
+        ordering = ["-fecha"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "recompensa"], name="recompensa_unica_por_partida"
+            )
+        ]

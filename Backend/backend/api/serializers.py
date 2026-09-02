@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import (
     AdultoResponsable, UsuarioJugador, NivelRiesgo, Partida, NPC, Chat,
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
+    CasoDetective, MensajeDetective, CasoDetectiveProgreso,
 )
 
 
@@ -105,3 +106,38 @@ class PreguntaBancoSerializer(serializers.ModelSerializer):
             "mensaje_npc", "etiquetas_ml",
             "opciones",
         ]
+
+
+class MensajeDetectiveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MensajeDetective
+        fields = [
+            "id", "mensaje_id", "npc_sender", "texto",
+            "es_senal_riesgo", "es_ambiguo", "explicacion", "nota_ambiguo", "orden",
+        ]
+
+
+class CasoDetectiveSerializer(serializers.ModelSerializer):
+    """Caso completo con sus mensajes anidados (mismo patrón que PreguntaBanco.opciones)."""
+    mensajes = MensajeDetectiveSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = CasoDetective
+        fields = [
+            "id", "caso_id", "titulo", "zona", "etiquetas_ml",
+            "permiso_player_text", "permiso_npc_nombre", "permiso_npc_response",
+            "mensajes",
+        ]
+
+
+class CasoDetectiveProgresoSerializer(serializers.ModelSerializer):
+    """Resultado de un intento del jugador sobre un caso. `partida`/`caso`/`intentos`
+    nunca vienen del cliente: los fija la vista (mismo patrón que UsuarioJugador.adulto)."""
+    class Meta:
+        model = CasoDetectiveProgreso
+        fields = [
+            "id", "partida", "caso", "mensajes_marcados",
+            "aciertos", "total_riesgo", "porcentaje", "intentos",
+            "fecha_inicio", "fecha_termino",
+        ]
+        read_only_fields = ["id", "partida", "caso", "intentos", "fecha_inicio"]

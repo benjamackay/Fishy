@@ -38,4 +38,10 @@ urlpatterns = [
     path("banco/zonas/<str:zona>/preguntas/", views.preguntas_zona, name="preguntas_zona"),
     path("banco/preguntas/", views.preguntas_banco, name="preguntas_banco"),
     path("banco/preguntas/<str:pregunta_id>/", views.pregunta_detalle, name="pregunta_detalle"),
+
+    # Modo Detective (HDU-10)
+    path("casos-detective/", views.casos_detective, name="casos_detective"),
+    path("casos-detective/<str:caso_id>/", views.caso_detective_detalle, name="caso_detective_detalle"),
+    path("casos-detective/<str:caso_id>/progreso/", views.registrar_progreso_detective, name="registrar_progreso_detective"),
+    path("partidas/<int:partida_id>/casos-detective/", views.progreso_detective_partida, name="progreso_detective_partida"),
 ]

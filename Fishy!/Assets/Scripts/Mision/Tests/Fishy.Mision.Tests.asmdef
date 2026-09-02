@@ -6,7 +6,9 @@
         "UnityEditor.TestRunner",
         "Fishy.Mision"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": true,
