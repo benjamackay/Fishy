@@ -154,7 +154,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Detective.DetectiveLauncher
   casoId: caso_01
   resourcePath: detective_caso_01
-  desafioAsociado: {fileID: 0}
+  desafioAsociado: {fileID: 11400000, guid: 468b621f695443b5917f608fa9f60381, type: 2}
   caseManager: {fileID: 0}
   detectiveUI: {fileID: 0}
 --- !u!114 &8087038352355146176

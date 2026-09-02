@@ -106,7 +106,7 @@ namespace Fishy.Chat
             IsActive = true;
             // Habilitar reporte automáticamente si hay sesión activa en el backend.
             reportToBackend = report || AutoReportEnabled();
-            ottoMood = otto != null ? otto : FindFirstObjectByType<OttoMoodController>();
+            ottoMood = otto != null ? otto : FindAnyObjectByType<OttoMoodController>();
             safeCount = 0;
             unsafeCount = 0;
 

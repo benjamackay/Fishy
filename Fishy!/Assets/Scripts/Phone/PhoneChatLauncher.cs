@@ -193,7 +193,7 @@ namespace Fishy.Phone
         public void OpenManual()
         {
             if (_sequenceRunning) return;
-            if (otto == null) otto = FindFirstObjectByType<OttoController>();
+            if (otto == null) otto = FindAnyObjectByType<OttoController>();
             _triggered = true;
             StartCoroutine(PhoneSequence());
         }

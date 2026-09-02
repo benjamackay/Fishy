@@ -90,7 +90,7 @@ namespace Fishy.Zonas.BosqueDesconocidos
         {
             // El NPC se aleja (dirección opuesta a Otto si se encuentra, si no hacia arriba).
             Vector2 dir = Vector2.up;
-            var ottoCtrl = FindFirstObjectByType<OttoController>();
+            var ottoCtrl = FindAnyObjectByType<OttoController>();
             if (ottoCtrl != null)
             {
                 Vector2 away = (Vector2)(transform.position - ottoCtrl.transform.position);

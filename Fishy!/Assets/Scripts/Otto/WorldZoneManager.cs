@@ -42,7 +42,7 @@ namespace Fishy.World
 
             if (zones.Count == 0)
             {
-                foreach (var z in FindObjectsByType<BlockedZone>(FindObjectsSortMode.None))
+                foreach (var z in FindObjectsByType<BlockedZone>())
                     zones.Add(new ZoneRule { zone = z, progresoRequerido = -1f });
             }
         }

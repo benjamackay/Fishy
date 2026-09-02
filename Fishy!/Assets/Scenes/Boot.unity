@@ -300,9 +300,13 @@ MonoBehaviour:
   loadingScreen: {fileID: 0}
   mode: 0
   crearPartidaAlIngresar: 1
+  autoLoginNombre: 
+  autoLoginPassword: 
+  autoLoginPerfil: TesterQA
   panel: {fileID: 0}
   titleLabel: {fileID: 0}
   usernameField: {fileID: 0}
+  emailField: {fileID: 0}
   passwordField: {fileID: 0}
   submitButton: {fileID: 0}
   submitLabel: {fileID: 0}
@@ -310,6 +314,12 @@ MonoBehaviour:
   toggleModeLabel: {fileID: 0}
   statusLabel: {fileID: 0}
   connectionBadge: {fileID: 0}
+  profilePanel: {fileID: 0}
+  profileListContainer: {fileID: 0}
+  newProfileNameField: {fileID: 0}
+  newProfileAgeField: {fileID: 0}
+  createProfileButton: {fileID: 0}
+  profileStatusLabel: {fileID: 0}
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -410,7 +420,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1762040928
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -425,6 +435,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ApiSmokeTest
   nombreBase: unity_test
   password: 1234
+  nombreJugador: Peque de prueba
+  edadJugador: 9
   skipIfLoggedIn: 1
 --- !u!4 &1762040929
 Transform:

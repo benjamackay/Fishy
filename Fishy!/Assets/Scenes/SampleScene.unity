@@ -510,6 +510,7 @@ GameObject:
   - component: {fileID: 170974274}
   - component: {fileID: 170974273}
   - component: {fileID: 170974272}
+  - component: {fileID: 170974277}
   m_Layer: 0
   m_Name: NPC_Alex_Fisico
   m_TagString: Untagged
@@ -529,16 +530,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b82438ca40c024e4f9e327e4887fe664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Desconocidos.DesconocidosNPC
-  scriptSource: 0
-  customDialogue: {fileID: 0}
-  ottoTag: Player
+  umbralExito: 70
   allowReplay: 0
   leaveDistance: 6
   leaveSpeed: 4
   disableAfterLeaving: 1
   showSuccessFeedback: 1
   successMessage: "\U0001F9A6 \xA1Bien hecho! No compartiste tus datos con un desconocido."
-  reportToBackend: 0
 --- !u!61 &170974273
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -686,6 +684,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &170974277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 170974271}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf04e5a0bd7d07f43b890696eacfdd0a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.Chat.ChatModuleLauncher
+  source: 0
+  conversaciones: []
+  ottoMood: {fileID: 0}
+  reportToBackend: 0
+  desafioAsociado: {fileID: 0}
+  openOnTriggerEnter: 0
+  ottoTag: Player
+  openOnce: 1
 --- !u!1 &175460433
 GameObject:
   m_ObjectHideFlags: 0
@@ -3612,6 +3630,7 @@ GameObject:
   - component: {fileID: 1004466970}
   - component: {fileID: 1004466969}
   - component: {fileID: 1004466968}
+  - component: {fileID: 1004466973}
   m_Layer: 0
   m_Name: NPC_Sam
   m_TagString: Untagged
@@ -3631,16 +3650,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b82438ca40c024e4f9e327e4887fe664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Desconocidos.DesconocidosNPC
-  scriptSource: 1
-  customDialogue: {fileID: 0}
-  ottoTag: Player
+  umbralExito: 70
   allowReplay: 0
   leaveDistance: 6
   leaveSpeed: 4
   disableAfterLeaving: 1
   showSuccessFeedback: 1
   successMessage: "\U0001F9A6 \xA1Bien hecho! No compartiste tus datos con un desconocido."
-  reportToBackend: 0
 --- !u!61 &1004466969
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -3788,6 +3804,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1004466973
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1004466967}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf04e5a0bd7d07f43b890696eacfdd0a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.Chat.ChatModuleLauncher
+  source: 0
+  conversaciones: []
+  ottoMood: {fileID: 0}
+  reportToBackend: 0
+  desafioAsociado: {fileID: 0}
+  openOnTriggerEnter: 0
+  ottoTag: Player
+  openOnce: 1
 --- !u!1 &1122945166
 GameObject:
   m_ObjectHideFlags: 0
@@ -51118,7 +51154,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 50357167}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.9477841
+  m_Size: 0.94778407
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -51995,6 +52031,71 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1822564572}
   m_CullTransparentMesh: 1
+--- !u!1001 &1832095653
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_Name
+      value: Detective_NPC
+      objectReference: {fileID: 0}
+    - target: {fileID: 5958660424376028720, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: casoId
+      value: DC_CASO_01
+      objectReference: {fileID: 0}
+    - target: {fileID: 5958660424376028720, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: resourcePath
+      value: detective_caso_01
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 7.46
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
 --- !u!1 &1840793002
 GameObject:
   m_ObjectHideFlags: 0
@@ -52611,6 +52712,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 15e3658a2d39b1646b0b555cc6ca6fab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  interactionIcon: {fileID: 0}
 --- !u!58 &1991218069
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -53545,3 +53647,4 @@ SceneRoots:
   - {fileID: 1901153112}
   - {fileID: 1248244087}
   - {fileID: 463185804}
+  - {fileID: 1832095653}

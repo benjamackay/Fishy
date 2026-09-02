@@ -32,7 +32,7 @@ namespace Fishy.EditorTools
         public static void SetupDesconocidos()
         {
             // 1. BosqueDesconocidosManager (lleva la cuenta de los NPCs).
-            var zdm = Object.FindFirstObjectByType<BosqueDesconocidosManager>();
+            var zdm = Object.FindAnyObjectByType<BosqueDesconocidosManager>();
             bool managerCreado = zdm == null;
             if (zdm == null)
             {
@@ -55,7 +55,7 @@ namespace Fishy.EditorTools
             EditorUtility.SetDirty(zdm);
 
             int npcCount = Object.FindObjectsByType<BosqueDesconocidosNPC>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                FindObjectsInactive.Include).Length;
 
             Selection.activeGameObject = zone.gameObject;
             EditorGUIUtility.PingObject(zone.gameObject);
@@ -86,7 +86,7 @@ namespace Fishy.EditorTools
 
             // Conectar como zona-gatillante de Desconocidos si está libre.
             string vinculo = "• Sin conectar a BosqueDesconocidosManager (no hay, o ya tiene zona).";
-            var zdm = Object.FindFirstObjectByType<BosqueDesconocidosManager>();
+            var zdm = Object.FindAnyObjectByType<BosqueDesconocidosManager>();
             if (zdm != null && string.IsNullOrEmpty(zdm.siguienteZonaId))
             {
                 zdm.siguienteZonaId = zoneId;
@@ -112,7 +112,7 @@ namespace Fishy.EditorTools
         private static BlockedZone CreateZoneObject(out string zoneId)
         {
             var existing = Object.FindObjectsByType<BlockedZone>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None);
+                FindObjectsInactive.Include);
             zoneId = "zona_" + (existing.Length + 2);   // la primera creada = zona_2
 
             Vector3 pos = SceneView.lastActiveSceneView != null
@@ -162,7 +162,7 @@ namespace Fishy.EditorTools
         }
 
         private static WorldZoneManager WorldZoneManagerSafe()
-            => Object.FindFirstObjectByType<WorldZoneManager>();
+            => Object.FindAnyObjectByType<WorldZoneManager>();
 
         /// <summary>
         /// Registra en el manager todas las BlockedZone de la escena que falten.
@@ -171,7 +171,7 @@ namespace Fishy.EditorTools
         private static void SyncZoneRules(WorldZoneManager wzm)
         {
             var all = Object.FindObjectsByType<BlockedZone>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None);
+                FindObjectsInactive.Include);
             foreach (var z in all)
             {
                 bool registered = false;

@@ -44,6 +44,15 @@ namespace Fishy.UI
                  "Si se desactiva, entra al juego sin partida (solo para pruebas).")]
         public bool crearPartidaAlIngresar = true;
 
+        [Header("Auto-login de pruebas (dejar 'Auto Login Nombre' vacío para desactivar)")]
+        [Tooltip("Si tiene texto, al arrancar se loguea solo con estas credenciales " +
+                 "(las crea si no existen) y se salta la pantalla de login por completo. " +
+                 "Vacíalo para volver al login manual normal — nada más cambia.")]
+        [SerializeField] private string autoLoginNombre = "";
+        [SerializeField] private string autoLoginPassword = "";
+        [Tooltip("Perfil de menor a usar/crear automáticamente. Solo aplica si 'Auto Login Nombre' no está vacío.")]
+        [SerializeField] private string autoLoginPerfil = "TesterQA";
+
         [Header("Referencias (opcionales; se generan en runtime)")]
         public GameObject panel;
         public Text titleLabel;
@@ -77,7 +86,7 @@ namespace Fishy.UI
             UiBootstrap.EnsureEventSystem();
             EnsureApiManager();
 
-            if (loadingScreen == null) loadingScreen = FindFirstObjectByType<LoadingScreen>();
+            if (loadingScreen == null) loadingScreen = FindAnyObjectByType<LoadingScreen>();
 
             // La UI se construye SIEMPRE antes de decidir el flujo: aunque ya haya
             // sesión, puede faltar elegir el perfil y ahí necesitamos el panel.
@@ -97,9 +106,12 @@ namespace Fishy.UI
                 return;
             }
 
-            Show();
+            bool autoLogin = !string.IsNullOrEmpty(autoLoginNombre);
+            if (!autoLogin) Show();   // en auto-login no se muestra la UI en absoluto
 
             // Bloquear formulario mientras se verifica la conexión con el backend.
+            // Esto también decide useLocalMode, así que el auto-login funciona
+            // igual de bien sin servidor (cae al modo local simulado).
             SetBusy(true);
             SetStatus("Conectando con el servidor…", false);
 
@@ -109,7 +121,63 @@ namespace Fishy.UI
                 SetBusy(false);
                 UpdateConnectionBadge(ok);
                 SetStatus("", false);
+
+                if (autoLogin) IniciarAutoLogin();
             });
+        }
+
+        // ── Auto-login de pruebas ──────────────────────────────────────────────
+        private void IniciarAutoLogin()
+        {
+            SetBusy(true);
+            SetStatus("Entrando con cuenta de pruebas…", false);
+            Debug.Log($"[AuthScreen] Auto-login de pruebas activo ('{autoLoginNombre}'). " +
+                      "Vacía 'Auto Login Nombre' en el Inspector para volver al login manual.");
+
+            ApiManager.Instance.Login(autoLoginNombre, autoLoginPassword,
+                onSuccess: OnAutoLoginListo,
+                onError: _ =>
+                {
+                    // Cuenta de pruebas todavía no existe: la crea. El email es
+                    // inventado a partir del nombre — no importa para pruebas, el
+                    // backend solo exige que sea único.
+                    string email = $"{autoLoginNombre.ToLowerInvariant()}@pruebas.fishygame.cl";
+                    ApiManager.Instance.Registro(autoLoginNombre, email, autoLoginPassword,
+                        onSuccess: OnAutoLoginListo,
+                        onError: err =>
+                        {
+                            SetBusy(false);
+                            SetStatus("Auto-login de pruebas falló: " + FriendlyError(err), true);
+                            Show();   // recién acá se muestra la UI, como respaldo
+                        });
+                });
+        }
+
+        private void OnAutoLoginListo()
+        {
+            if (!crearPartidaAlIngresar) { StartGame(); return; }
+
+            ApiManager.Instance.ListarJugadores(
+                onSuccess: jugadores =>
+                {
+                    var existente = jugadores?.Find(j => j.nombre == autoLoginPerfil);
+                    if (existente != null) { ChooseProfile(existente); return; }
+
+                    ApiManager.Instance.CrearJugador(autoLoginPerfil, null,
+                        onSuccess: nuevo => ChooseProfile(nuevo),
+                        onError: err =>
+                        {
+                            SetBusy(false);
+                            SetStatus(FriendlyError(err), true);
+                            Show();
+                        });
+                },
+                onError: err =>
+                {
+                    SetBusy(false);
+                    SetStatus(FriendlyError(err), true);
+                    Show();
+                });
         }
 
         // ── Visibilidad ────────────────────────────────────────────────────────

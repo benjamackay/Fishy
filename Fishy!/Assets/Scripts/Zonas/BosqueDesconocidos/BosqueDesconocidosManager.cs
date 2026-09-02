@@ -51,7 +51,7 @@ namespace Fishy.Zonas.BosqueDesconocidos
             Instance = this;
 
             if (npcs.Count == 0)
-                npcs.AddRange(FindObjectsByType<BosqueDesconocidosNPC>(FindObjectsSortMode.None));
+                npcs.AddRange(FindObjectsByType<BosqueDesconocidosNPC>());
         }
 
         /// <summary>Llamado por cada NPC cuando su interacción termina (cualquier rama).</summary>
