@@ -11,7 +11,10 @@ public class ItemData : ScriptableObject //Heredar
         Equipment,
     }
     public string itemName;
-    public string itemIcon;
+    // Era un string: como Sprite el inventario puede dibujarlo sin resolver rutas.
+    [Tooltip("Icono que se muestra en la casilla del inventario.")]
+    public Sprite itemIcon;
+    [TextArea]
     public string itemDescription;
     public ItemType itemType; //definir el objeto
 
