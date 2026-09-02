@@ -6,16 +6,19 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
+from django.utils import timezone
 
 from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
+    CasoDetective, CasoDetectiveProgreso,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
     NivelRiesgoSerializer, PartidaSerializer,
     NPCSerializer, ChatSerializer, MensajeSerializer,
     PreguntaBancoSerializer,
+    CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
 )
 
 
@@ -449,3 +452,87 @@ def riesgo_por_zona(request, partida_id):
         "respuestas": contadas,
         "sin_clasificar": len(elegidos) - contadas,
     })
+
+
+# ── Modo Detective (HDU-10) ───────────────────────────────────────────────────
+
+@api_view(["GET"])
+def casos_detective(request):
+    """
+    Lista los casos del modo Detective, con sus mensajes anidados (mismo patrón
+    que /banco/preguntas/ con sus opciones). Filtro opcional:
+      ?zona=playa
+    """
+    qs = CasoDetective.objects.prefetch_related("mensajes").all()
+    zona = request.query_params.get("zona")
+    if zona:
+        qs = qs.filter(zona=zona)
+    return Response(CasoDetectiveSerializer(qs, many=True).data)
+
+
+@api_view(["GET"])
+def caso_detective_detalle(request, caso_id):
+    """Un caso concreto por su caso_id (ej: caso_01)."""
+    caso = get_object_or_404(
+        CasoDetective.objects.prefetch_related("mensajes"), caso_id=caso_id
+    )
+    return Response(CasoDetectiveSerializer(caso).data)
+
+
+@api_view(["POST"])
+def registrar_progreso_detective(request, caso_id):
+    """
+    Registra el resultado de un intento del jugador sobre un caso.
+
+    Body: {
+        "partida_id": int,
+        "mensajes_marcados": [str],   # mensaje_id que el jugador marcó como riesgo
+        "aciertos": int,
+        "total_riesgo": int,
+        "porcentaje": float
+    }
+
+    Un mismo (partida, caso) tiene una sola fila (constraint del modelo):
+    reintentar no crea una fila nueva, suma 1 a `intentos` y sobrescribe el
+    resultado con el del último intento — mismo patrón idempotente que
+    MissionManager.CompletarDesafio en Unity.
+    """
+    caso = get_object_or_404(CasoDetective, caso_id=caso_id)
+    partida = get_object_or_404(
+        Partida, pk=request.data.get("partida_id"), usuario_jugador__adulto=request.user
+    )
+
+    progreso, created = CasoDetectiveProgreso.objects.get_or_create(
+        partida=partida, caso=caso,
+        defaults={
+            "mensajes_marcados": request.data.get("mensajes_marcados", []),
+            "aciertos": request.data.get("aciertos", 0),
+            "total_riesgo": request.data.get("total_riesgo", 0),
+            "porcentaje": request.data.get("porcentaje", 0.0),
+        },
+    )
+    if not created:
+        progreso.mensajes_marcados = request.data.get("mensajes_marcados", progreso.mensajes_marcados)
+        progreso.aciertos = request.data.get("aciertos", progreso.aciertos)
+        progreso.total_riesgo = request.data.get("total_riesgo", progreso.total_riesgo)
+        progreso.porcentaje = request.data.get("porcentaje", progreso.porcentaje)
+        progreso.intentos += 1
+    progreso.fecha_termino = timezone.now()
+    progreso.save()
+
+    return Response(
+        CasoDetectiveProgresoSerializer(progreso).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+def progreso_detective_partida(request, partida_id):
+    """Progreso de todos los casos Detective jugados en una partida (para que
+    Unity sepa cuáles ya están completados, igual que hace localmente
+    MissionManager con PlayerPrefs)."""
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+    progresos = partida.casos_detective.select_related("caso").all()
+    return Response(CasoDetectiveProgresoSerializer(progresos, many=True).data)

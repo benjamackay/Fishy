@@ -1,7 +1,9 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Fishy.Net;
+using Fishy.Mision;
 
 namespace Fishy.Chat
 {
@@ -53,6 +55,14 @@ namespace Fishy.Chat
 
         public bool IsActive { get; private set; }
 
+        /// <summary>
+        /// Se dispara al cerrar la sesión (normal o abortada), con el % de
+        /// respuestas seguras acumulado. Lo usan componentes zonales (p.ej.
+        /// <c>BosqueDesconocidosNPC</c>) para decidir si la interacción cuenta
+        /// como éxito, sin que ChatModuleController necesite saber nada de zonas.
+        /// </summary>
+        public event Action<float> OnSesionCerrada;
+
         private ChatModuleUI ui;
         private OttoMoodController ottoMood;
         private readonly Queue<ChatConversation> queue = new Queue<ChatConversation>();
@@ -60,6 +70,7 @@ namespace Fishy.Chat
         private ChatBackendLogger logger;
         private bool reportToBackend;
         private bool firstLineLogged;
+        private DesafioData desafioActual;
 
         private int safeCount;
         private int unsafeCount;
@@ -85,10 +96,10 @@ namespace Fishy.Chat
         }
 
         // ── Apertura de la sesión ──────────────────────────────────────────────
-        public void OpenSession(ChatConversation single, OttoMoodController otto = null, bool report = false)
-            => OpenSession(new List<ChatConversation> { single }, otto, report);
+        public void OpenSession(ChatConversation single, OttoMoodController otto = null, bool report = false, DesafioData desafio = null)
+            => OpenSession(new List<ChatConversation> { single }, otto, report, desafio);
 
-        public void OpenSession(IList<ChatConversation> conversations, OttoMoodController otto = null, bool report = false)
+        public void OpenSession(IList<ChatConversation> conversations, OttoMoodController otto = null, bool report = false, DesafioData desafio = null)
         {
             if (IsActive || conversations == null || conversations.Count == 0) return;
 
@@ -98,6 +109,10 @@ namespace Fishy.Chat
             ottoMood = otto != null ? otto : FindFirstObjectByType<OttoMoodController>();
             safeCount = 0;
             unsafeCount = 0;
+
+            desafioActual = desafio;
+            if (desafioActual != null)
+                MissionManager.GetOrCreate().RegistrarDesafioDisponible(desafioActual);
 
             queue.Clear();
             foreach (var c in conversations)
@@ -261,12 +276,22 @@ namespace Fishy.Chat
 
         private void CloseModule()
         {
+            float percentAlCierre = SafePercent();
+
             StopAllCoroutines();
             if (ui != null) ui.Hide();
             IsActive = false;
             conversation = null;
             logger = null;
             queue.Clear();
+
+            if (desafioActual != null)
+            {
+                MissionManager.Instance?.CompletarDesafio(desafioActual);
+                desafioActual = null;
+            }
+
+            OnSesionCerrada?.Invoke(percentAlCierre);
         }
     }
 }

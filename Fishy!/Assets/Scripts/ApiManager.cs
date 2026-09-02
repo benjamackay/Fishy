@@ -525,6 +525,97 @@ namespace Fishy.Net
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  MODO DETECTIVE (HDU-10)                                                ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Lista los casos del modo Detective (zona opcional). A diferencia del banco
+        /// de preguntas, este contenido no viaja empaquetado con el build de Unity —
+        /// se consulta en vivo, para poder agregar casos sin republicar la app.
+        /// </summary>
+        public void ObtenerCasosDetective(string zona = null,
+            Action<List<CasoDetectiveDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: los casos Detective no están disponibles sin backend.");
+                return;
+            }
+
+            string path = "/casos-detective/";
+            if (!string.IsNullOrEmpty(zona))
+                path += "?zona=" + UnityWebRequest.EscapeURL(zona);
+
+            StartCoroutine(Send<List<CasoDetectiveDto>>("GET", path, null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>Un caso concreto por su caso_id (ej: "caso_01").</summary>
+        public void ObtenerCasoDetective(string casoId,
+            Action<CasoDetectiveDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: los casos Detective no están disponibles sin backend.");
+                return;
+            }
+
+            StartCoroutine(Send<CasoDetectiveDto>("GET", $"/casos-detective/{casoId}/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Registra el resultado de un intento del jugador sobre un caso, para la
+        /// partida activa (o la indicada). Reintentar el mismo caso no crea una fila
+        /// nueva: el backend actualiza el resultado y suma 1 a <c>intentos</c>.
+        /// </summary>
+        public void RegistrarProgresoDetective(string casoId, List<string> mensajesMarcados,
+            int aciertos, int totalRiesgo, float porcentaje, int? partidaId = null,
+            Action<ProgresoDetectiveDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso Detective no se registra sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new
+            {
+                partida_id = pId.Value,
+                mensajes_marcados = mensajesMarcados ?? new List<string>(),
+                aciertos,
+                total_riesgo = totalRiesgo,
+                porcentaje,
+            };
+            StartCoroutine(Send<ProgresoDetectiveDto>("POST", $"/casos-detective/{casoId}/progreso/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Progreso de todos los casos Detective jugados en una partida — para saber
+        /// cuáles ya están completados sin llevar la cuenta local (mismo rol que
+        /// cumple PlayerPrefs en MissionManager cuando no hay backend).
+        /// </summary>
+        public void ObtenerProgresoDetective(int? partidaId = null,
+            Action<List<ProgresoDetectiveDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso Detective no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<ProgresoDetectiveDto>>("GET", $"/partidas/{pId}/casos-detective/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -1134,5 +1225,48 @@ namespace Fishy.Net
             this.orden = orden;
             this.calidad_respuesta = calidadRespuesta;
         }
+    }
+
+    [Serializable]
+    public class MensajeDetectiveDto
+    {
+        public int id;
+        public string mensaje_id;
+        public string npc_sender;
+        public string texto;
+        public bool es_senal_riesgo;
+        public bool es_ambiguo;
+        public string explicacion;
+        public string nota_ambiguo;
+        public int orden;
+    }
+
+    [Serializable]
+    public class CasoDetectiveDto
+    {
+        public int id;
+        public string caso_id;
+        public string titulo;
+        public string zona;
+        public List<string> etiquetas_ml = new List<string>();
+        public string permiso_player_text;
+        public string permiso_npc_nombre;
+        public string permiso_npc_response;
+        public List<MensajeDetectiveDto> mensajes = new List<MensajeDetectiveDto>();
+    }
+
+    [Serializable]
+    public class ProgresoDetectiveDto
+    {
+        public int id;
+        public int partida;
+        public int caso;
+        public List<string> mensajes_marcados = new List<string>();
+        public int aciertos;
+        public int total_riesgo;
+        public float porcentaje;
+        public int intentos;
+        public string fecha_inicio;
+        public string fecha_termino;
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using Fishy.World;
+using Fishy.Mision;
 
 namespace Fishy.Detective
 {
@@ -11,6 +12,10 @@ namespace Fishy.Detective
     {
         [Header("Caso")]
         [SerializeField] private string resourcePath = "detective_caso_01";
+
+        [Header("Misión")]
+        [Tooltip("Desafío del panel de misión activa que este caso desbloquea/completa. Opcional.")]
+        [SerializeField] private DesafioData desafioAsociado;
 
         [Header("Referencias (se crean solas si están vacías)")]
         [SerializeField] private DetectiveCaseManager caseManager;
@@ -49,6 +54,9 @@ namespace Fishy.Detective
 
             caseManager.CargarCaso(caso);
 
+            if (desafioAsociado != null)
+                MissionManager.GetOrCreate().RegistrarDesafioDisponible(desafioAsociado);
+
             // 3. Bloquear movimiento de Otto (mismo patrón que PhoneChatLauncher)
             var otto = GameObject.FindWithTag("Player");
             var controller = otto?.GetComponent<OttoController>();
@@ -81,6 +89,10 @@ namespace Fishy.Detective
         {
             controller?.EnableMovement();
             _enCurso = false;
+
+            if (desafioAsociado != null)
+                MissionManager.Instance?.CompletarDesafio(desafioAsociado);
+
             Debug.Log("[Detective] Modo detective terminado.");
         }
     }
