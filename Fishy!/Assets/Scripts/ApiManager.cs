@@ -106,6 +106,22 @@ namespace Fishy.Net
             StartCoroutine(HealthRoutine(onResult));
         }
 
+        /// <summary>
+        /// Vuelve a preguntarle al backend si esta vivo, saliendo del modo local si
+        /// se habia activado. Hace falta para poder REINTENTAR: una vez que
+        /// HealthRoutine prende useLocalMode, CheckHealth corta antes de llegar a la
+        /// red y siempre devuelve false, asi que la sesion se quedaria pegada en
+        /// PlayerPrefs aunque el servidor ya hubiera vuelto.
+        ///
+        /// La usa la pantalla de ingreso, que exige backend real: sin el, los datos
+        /// no llegarian a Supabase.
+        /// </summary>
+        public void ReintentarConexion(Action<bool> onResult)
+        {
+            useLocalMode = false;
+            StartCoroutine(HealthRoutine(onResult));
+        }
+
         private IEnumerator HealthRoutine(Action<bool> onResult)
         {
             string url = baseUrl + "/health/";

@@ -781,7 +781,7 @@ MonoBehaviour:
   m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 800, y: 600}
+  m_ReferenceResolution: {x: 1920, y: 1080}
   m_ScreenMatchMode: 0
   m_MatchWidthOrHeight: 0
   m_PhysicalUnit: 3
@@ -845,6 +845,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c4989af363c5e34dac3861d1e1b790b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  escenaDestino: MenuDos
+  usuarioInput: {fileID: 0}
+  passwordInput: {fileID: 0}
+  ingresarButton: {fileID: 0}
+  registerButton: {fileID: 0}
+  tituloLabel: {fileID: 0}
+  cuentaLabel: {fileID: 0}
+  registerLabel: {fileID: 0}
+  colorError: {r: 0.94, g: 0.38, b: 0.38, a: 1}
+  colorInfo: {r: 0.85, g: 0.85, b: 0.85, a: 1}
+  colorOk: {r: 0.42, g: 0.85, b: 0.48, a: 1}
 --- !u!1 &754296536
 GameObject:
   m_ObjectHideFlags: 0
