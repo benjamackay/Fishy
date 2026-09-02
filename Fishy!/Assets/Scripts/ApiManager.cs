@@ -566,7 +566,7 @@ namespace Fishy.Net
                 onSuccess: onSuccess, onError: onError));
         }
 
-        /// <summary>Un caso concreto por su caso_id (ej: "caso_01").</summary>
+        /// <summary>Un caso concreto por su caso_id (ej: "DC_CASO_01").</summary>
         public void ObtenerCasoDetective(string casoId,
             Action<CasoDetectiveDto> onSuccess = null, Action<string> onError = null)
         {

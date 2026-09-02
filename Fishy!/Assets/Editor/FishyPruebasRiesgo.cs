@@ -80,8 +80,19 @@ namespace Fishy.EditorTools
 
         private static void ProbarOpcionesLlevanSuId(StringBuilder log)
         {
-            foreach (var (nombre, convs) in Conversaciones())
+            foreach (var (nombre, hdu, convs) in Conversaciones())
             {
+                // Cero opciones significa dos cosas muy distintas: que el banco no
+                // trae contenido de esa HDU (nada que probar) o que sí lo trae y el
+                // loader perdió los ids por el camino (eso sí es una falla). El
+                // banco v1.8 reorganizó HDU-8 en HDU-3 y HDU-4, así que la primera
+                // situación es real y no debe pintarse de rojo.
+                if (!BancoTienePreguntasDe(hdu))
+                {
+                    log.AppendLine($"  [--   ] {nombre}: el banco no trae preguntas {hdu}, no hay nada que probar");
+                    continue;
+                }
+
                 int total = 0, sinId = 0;
                 foreach (var conv in convs)
                     foreach (var nodo in conv.nodes)
@@ -96,7 +107,7 @@ namespace Fishy.EditorTools
 
                 Comprobar(log, $"{nombre}: las {total} opciones llevan bancoOptionId",
                     total > 0 && sinId == 0,
-                    () => total == 0 ? "no se generó ninguna opción"
+                    () => total == 0 ? $"el banco trae preguntas {hdu} pero no se generó ninguna opción"
                                      : $"{sinId} de {total} opciones sin id");
             }
         }
@@ -111,8 +122,10 @@ namespace Fishy.EditorTools
                     if (!string.IsNullOrEmpty(op.id)) delBanco.Add(op.id);
             }
 
-            foreach (var (nombre, convs) in Conversaciones())
+            foreach (var (nombre, hdu, convs) in Conversaciones())
             {
+                if (!BancoTienePreguntasDe(hdu)) continue;
+
                 var desconocidos = new List<string>();
                 foreach (var conv in convs)
                     foreach (var nodo in conv.nodes)
@@ -134,7 +147,17 @@ namespace Fishy.EditorTools
 
         private static void ProbarImpactosSonLosEsperados(StringBuilder log)
         {
+            // El banco se desvía de la tabla a propósito en las sub-decisiones
+            // (cierre / reacción / rectificación), donde el documento oficial de
+            // diálogos da +1 a la opción óptima en lugar de +2, y lo deja escrito
+            // en `formato_respuesta.nota_subdecisiones` con los nodos afectados.
+            // La lista sale de ahí y no de acá: si el banco declara una excepción
+            // nueva, esta prueba la sigue sin que nadie la edite. Lo que ya no
+            // tolera es una desviación que el banco NO haya declarado.
+            string nota = NotaDeSubdecisiones();
+            var excepciones = new List<string>();
             var malos = new List<string>();
+
             foreach (var p in BancoPreguntasLoader.Load().preguntas)
             {
                 if (p.opciones_respuesta == null) continue;
@@ -148,16 +171,26 @@ namespace Fishy.EditorTools
                         case "segura_optima": esperado =  2; break;
                         default: continue;
                     }
-                    if (op.impacto_puntuacion != esperado)
+                    if (op.impacto_puntuacion == esperado) continue;
+
+                    if (!string.IsNullOrEmpty(op.id) && nota.Contains(op.id))
+                        excepciones.Add($"{op.id}={op.impacto_puntuacion}");
+                    else
                         malos.Add($"{op.id} ({op.tipo}={op.impacto_puntuacion}, se esperaba {esperado})");
                 }
             }
 
-            // Si el banco se desviara de la tabla, el puntaje del backend seguiría
-            // siendo "correcto" pero ya no significaría lo que dice la HDU.
-            Comprobar(log, "el impacto de cada opción calza con su tipo (-1 / +1 / +2)",
+            // Si el banco se desviara de la tabla sin declararlo, el puntaje del
+            // backend seguiría siendo "correcto" pero ya no significaría lo que
+            // dice la HDU.
+            Comprobar(log, "el impacto de cada opción calza con su tipo (-1 / +1 / +2) "
+                         + "o es una excepción declarada por el banco",
                 malos.Count == 0,
                 () => string.Join("; ", malos.GetRange(0, Mathf.Min(3, malos.Count))));
+
+            if (excepciones.Count > 0)
+                log.AppendLine($"         {excepciones.Count} excepción(es) declarada(s) en el banco: "
+                             + string.Join(", ", excepciones));
         }
 
         private static void ProbarZonasConocidas(StringBuilder log)
@@ -166,21 +199,69 @@ namespace Fishy.EditorTools
             foreach (var p in BancoPreguntasLoader.Load().preguntas)
                 if (!string.IsNullOrEmpty(p.zona)) zonas.Add(p.zona);
 
-            Comprobar(log, "las zonas del banco son las que espera el juego",
-                zonas.Contains("desconocidos") && zonas.Contains("chat_simulado"),
-                () => "zonas encontradas: " + string.Join(", ", zonas));
+            // Antes esto exigía que existieran zonas concretas, y se puso en rojo
+            // cuando el banco v1.8 repartió `chat_simulado` en `ciberacoso` y
+            // `reto_viral`. Lo que importa de verdad no es qué zonas hay, sino que
+            // no aparezca una que el juego no sepa manejar: una zona desconocida
+            // (o un typo) llega igual al backend y termina agrupando el riesgo en
+            // un casillero que ninguna pantalla muestra.
+            var desconocidas = new List<string>();
+            foreach (var z in zonas)
+                if (!ZonasQueElJuegoManeja.Contains(z)) desconocidas.Add(z);
+
+            Comprobar(log, "todas las zonas del banco son zonas que el juego maneja",
+                zonas.Count > 0 && desconocidas.Count == 0,
+                () => zonas.Count == 0
+                    ? "el banco no declara ninguna zona"
+                    : "zona(s) que el juego no maneja: " + string.Join(", ", desconocidas)
+                      + " (conocidas: " + string.Join(", ", ZonasQueElJuegoManeja) + ")");
 
             log.AppendLine($"         zonas: {string.Join(", ", zonas)}");
         }
 
         // ── Infraestructura ────────────────────────────────────────────────────
 
-        private static List<(string, List<ChatConversation>)> Conversaciones()
+        /// <summary>
+        /// Las zonas que el juego sabe manejar. Salen de
+        /// <c>BancoPreguntasLoader.EscenarioToCategoria</c>, que es el único lugar
+        /// donde el juego traduce contenido del banco a una zona. Si allá se
+        /// agrega una zona, hay que agregarla acá.
+        /// </summary>
+        private static readonly SortedSet<string> ZonasQueElJuegoManeja =
+            new SortedSet<string> { "ciberacoso", "desconocidos", "reto_viral" };
+
+        /// <summary>Texto de `formato_respuesta.nota_subdecisiones`, o "" si no está.</summary>
+        private static string NotaDeSubdecisiones()
         {
-            return new List<(string, List<ChatConversation>)>
+            // Se lee del JSON crudo a propósito: `BancoRaiz` solo modela `version` y
+            // `preguntas`, y no vale la pena tocar un tipo de producción para que
+            // una prueba de editor pueda leer un campo de metadatos.
+            var asset = Resources.Load<TextAsset>("banco_preguntas");
+            if (asset == null) return "";
+
+            const string clave = "\"nota_subdecisiones\"";
+            int i = asset.text.IndexOf(clave, System.StringComparison.Ordinal);
+            if (i < 0) return "";
+
+            int abre = asset.text.IndexOf('"', i + clave.Length + 1);   // tras los dos puntos
+            if (abre < 0) return "";
+            int cierra = asset.text.IndexOf('"', abre + 1);             // la nota no lleva comillas dentro
+            return cierra < 0 ? "" : asset.text.Substring(abre + 1, cierra - abre - 1);
+        }
+
+        private static bool BancoTienePreguntasDe(string hdu)
+        {
+            foreach (var p in BancoPreguntasLoader.Load().preguntas)
+                if (p.hdu == hdu) return true;
+            return false;
+        }
+
+        private static List<(string, string, List<ChatConversation>)> Conversaciones()
+        {
+            return new List<(string, string, List<ChatConversation>)>
             {
-                ("HDU-2 (desconocidos)", BancoPreguntasLoader.CreateHDU2Conversations()),
-                ("HDU-8 (chat simulado)", BancoPreguntasLoader.CreateHDU8Conversations()),
+                ("HDU-2 (desconocidos)",  "HDU-2", BancoPreguntasLoader.CreateHDU2Conversations()),
+                ("HDU-8 (chat simulado)", "HDU-8", BancoPreguntasLoader.CreateHDU8Conversations()),
             };
         }
 

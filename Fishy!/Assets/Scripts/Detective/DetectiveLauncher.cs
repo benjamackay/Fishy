@@ -11,8 +11,10 @@ namespace Fishy.Detective
     public class DetectiveLauncher : MonoBehaviour
     {
         [Header("Caso")]
-        [Tooltip("caso_id en el backend (ej: caso_01). Se intenta cargar de ahí primero.")]
-        [SerializeField] private string casoId = "caso_01";
+        [Tooltip("caso_id en el backend (ej: DC_CASO_01). Se intenta cargar de ahí primero. " +
+                 "Tiene que existir en la base: si no, el caso se juega desde el respaldo local " +
+                 "y el resultado NO se guarda.")]
+        [SerializeField] private string casoId = "DC_CASO_01";
         [Tooltip("Respaldo local si no hay sesión/backend: Resources/<esto>.json.")]
         [SerializeField] private string resourcePath = "detective_caso_01";
 

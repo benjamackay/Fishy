@@ -54,7 +54,8 @@ namespace Fishy.EditorTools
                 "Ahora, en la instancia:\n" +
                 "1. Asigna el sprite del NPC en el SpriteRenderer.\n" +
                 "2. Ajusta el tamaño del BoxCollider2D (radio de cercanía).\n" +
-                "3. En DetectiveLauncher: 'Caso Id' (ej. caso_01) y, si corresponde, 'Desafío Asociado'.\n" +
+                "3. En DetectiveLauncher: 'Caso Id' (ej. DC_CASO_01, tal como está en la base) " +
+                "y, si corresponde, 'Desafío Asociado'.\n" +
                 "4. GUARDA LA ESCENA (Ctrl+S).",
                 "OK");
 
