@@ -845,6 +845,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c4989af363c5e34dac3861d1e1b790b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  perfiles:
+  - Perfil 1
+  - Perfil 2
+  perfilActivo: 2
   escenaDestino: MenuDos
   usuarioInput: {fileID: 0}
   passwordInput: {fileID: 0}
