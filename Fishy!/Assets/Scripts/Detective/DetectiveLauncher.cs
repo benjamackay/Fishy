@@ -36,28 +36,26 @@ namespace Fishy.Detective
         private bool _enCurso   = false;
         private bool _completado = false;
 
-        /// <summary>Respaldo local del "ya completado", por si no hay backend. Se
-        /// separa por partida para que el avance de un perfil no oculte el NPC en
-        /// otro (mismo riesgo que corre MissionManager con sus PlayerPrefs).</summary>
+        /// <summary>A que partida corresponde <see cref="_completado"/>. Sin esto, el
+        /// estado en memoria de una cuenta se seguiria aplicando tras cambiar a otra.</summary>
+        private int? _partidaDelEstado;
+
+        /// <summary>Respaldo local del "ya completado", SIEMPRE bajo la partida que lo
+        /// completo. Sin partida identificada no se guarda nada: una clave compartida
+        /// le apagaria el NPC a la cuenta siguiente en el mismo PC.</summary>
         private const string PrefsKeyPrefix = "Fishy.Detective.Completado.";
 
-        private string PrefsKey
-        {
-            get
-            {
-                var api = ApiManager.Instance;
-                string ambito = api != null && api.PartidaId.HasValue
-                    ? api.PartidaId.Value.ToString()
-                    : "local";
-                return $"{PrefsKeyPrefix}{ambito}.{casoId}";
-            }
-        }
+        private int? PartidaActual => ApiManager.Instance?.PartidaId;
+
+        private string PrefsKey(int partidaId) => $"{PrefsKeyPrefix}{partidaId}.{casoId}";
 
         // ── Estado inicial ─────────────────────────────────────────────
 
         private void Start()
         {
-            _completado = PlayerPrefs.GetInt(PrefsKey, 0) == 1;
+            // Resto de la version que guardaba bajo la clave compartida "local":
+            // esa apagaba el NPC para cualquier cuenta posterior en el mismo equipo.
+            PlayerPrefs.DeleteKey($"{PrefsKeyPrefix}local.{casoId}");
 
             // La verdad la tiene la base: si esta partida ya tiene progreso de este
             // caso, el NPC no se activa aunque los PlayerPrefs digan otra cosa (por
@@ -160,16 +158,36 @@ namespace Fishy.Detective
         /// <summary>Se relee PlayerPrefs en vez de confiar solo en lo que se leyó en
         /// Start: si el login terminó después de cargar la escena, la clave de Start
         /// era la genérica ("local") y no la de esta partida.</summary>
-        private bool YaCompletado() =>
-            _completado || PlayerPrefs.GetInt(PrefsKey, 0) == 1;
+        private bool YaCompletado()
+        {
+            int? partida = PartidaActual;
+            if (partida == null) return false;
+
+            if (_partidaDelEstado != partida)
+            {
+                _partidaDelEstado = partida;
+                _completado = PlayerPrefs.GetInt(PrefsKey(partida.Value), 0) == 1;
+            }
+            return _completado;
+        }
 
         /// <summary>Deja el caso cerrado para este NPC. Idempotente: repetir el caso
         /// y volver a terminarlo no cambia nada.</summary>
         private void MarcarCompletado()
         {
+            int? partida = PartidaActual;
+            if (partida == null)
+            {
+                Debug.Log($"[Detective] Caso {casoId} terminado sin partida activa: no se " +
+                           "registra el avance y el NPC seguira disponible.");
+                return;
+            }
+
+            _partidaDelEstado = partida;
             if (_completado) return;
+
             _completado = true;
-            PlayerPrefs.SetInt(PrefsKey, 1);
+            PlayerPrefs.SetInt(PrefsKey(partida.Value), 1);
             PlayerPrefs.Save();
         }
     }
