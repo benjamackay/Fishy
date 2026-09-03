@@ -10,3 +10,26 @@
 
 *.sh   text eol=lf
 *.ps1  text eol=crlf
+
+# Merge de los archivos YAML de Unity (escenas, prefabs, assets).
+#
+# Va aquí y no en Fishy!/.gitattributes porque merge=unityyamlmerge tiene que
+# resolverse desde la raíz: allá se declaraba vía un macro [attr], y git
+# ignora los macros fuera del .gitattributes raíz. Resultado: SampleScene.unity
+# se mergeaba línea a línea y cualquier merge de dev era un campo minado.
+#
+# Solo se declara el driver: nada de eol ni de lfs, para no renormalizar
+# archivos ya versionados.
+#
+# Cada quien debe registrar el driver una vez en su clon (ver README):
+#   git config merge.unityyamlmerge.name "Unity SmartMerge"
+#   git config merge.unityyamlmerge.driver '"<Unity>/Editor/Data/Tools/UnityYAMLMerge.exe" merge -p "$BASE" "$REMOTE" "$LOCAL" "$MERGED"'
+#   git config merge.unityyamlmerge.recursive binary
+
+*.unity       merge=unityyamlmerge
+*.prefab      merge=unityyamlmerge
+*.asset       merge=unityyamlmerge
+*.anim        merge=unityyamlmerge
+*.controller  merge=unityyamlmerge
+*.mat         merge=unityyamlmerge
+*.physicMaterial2D merge=unityyamlmerge
