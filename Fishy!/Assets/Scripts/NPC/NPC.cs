@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Fishy.World;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -23,6 +24,14 @@ public class NPC : MonoBehaviour, IInteractable
         DialogoNpcLoader.LoadAsync(dialogoId, dialogo => dialogueData = dialogo);
     }
 
+    [Header("Movimiento")]
+    [Tooltip("Le quita el control a Otto mientras dura la conversación y se lo " +
+             "devuelve al cerrarse, incluso si el diálogo se corta a medias.")]
+    public bool bloquearMovimiento = true;
+
+    [Tooltip("Otto, para quitarle el control. Se busca solo si se deja vacío.")]
+    public OttoController otto;
+
     [Header("Repetición")]
     [Tooltip("Cuenta el diálogo completo una sola vez. Al volver a interactuar no se " +
              "reabre el panel, pero la conversación igual cuenta: se dispara " +
@@ -37,6 +46,7 @@ public class NPC : MonoBehaviour, IInteractable
     private int dialogueIndex;
     private bool isTyping, isDialogueActive;
     private bool yaSeConto;
+    private bool movimientoBloqueado;
 
     public bool CanInteract()
     {
@@ -95,6 +105,18 @@ public class NPC : MonoBehaviour, IInteractable
         isDialogueActive = true;
         dialogueIndex = 0;
 
+        // Otto no debería poder caminarse la conversación. DisableMovement le pone
+        // además la velocidad a cero, así que no queda deslizándose al soltarlo.
+        if (bloquearMovimiento)
+        {
+            if (otto == null) otto = FindAnyObjectByType<OttoController>();
+            if (otto != null)
+            {
+                otto.DisableMovement();
+                movimientoBloqueado = true;
+            }
+        }
+
         // El nombre y el retrato son decorativos, así que si faltan se conversa igual.
         // Con portraitImage sin asignar esta línea tiraba NullReference y el panel no
         // llegaba a abrirse nunca: el NPC parecía mudo.
@@ -150,20 +172,57 @@ public class NPC : MonoBehaviour, IInteractable
 
     public void EndDialogue()
     {
-        StopAllCoroutines();
-        isDialogueActive = false;
-
         // Se marca al terminar y no al empezar: si la conversación se corta a medias,
         // el jugador no se queda sin haberla leído nunca.
         yaSeConto = true;
 
-        // Se protegen las dos referencias porque onDialogueEnded es lo que entrega la
-        // misión: si esto reventaba antes del Invoke, el MissionGiver no se enteraba de
-        // que la conversación había terminado.
-        if (dialogueText != null) dialogueText.SetText("");
-        if (dialoguePanel != null) dialoguePanel.SetActive(false);
+        // Se devuelve el control ANTES de avisar, no después: de onDialogueEnded cuelga
+        // MissionGiver, que puede lanzar la cinemática de desbloqueo, y esa vuelve a
+        // quitarle el movimiento a Otto. Restaurarlo al final se lo pisaría.
+        CerrarDialogo();
 
         //pausa
         onDialogueEnded?.Invoke();
+    }
+
+    /// <summary>
+    /// Corta la conversación porque el jugador dejó de estar al alcance. No dispara
+    /// onDialogueEnded —no llegó a escucharla— ni la da por contada, así que el NPC
+    /// podrá retomarla cuando vuelva.
+    /// </summary>
+    public void AbandonarDialogo()
+    {
+        if (isDialogueActive) CerrarDialogo();
+    }
+
+    private void OnDisable()
+    {
+        // Un NPC puede apagarse a media charla —el del bosque lo hace al alejarse— o
+        // desaparecer con un cambio de escena. Sin esto isDialogueActive se quedaba en
+        // true, su CanInteract() no volvía a ser true nunca y dejaba de poder hablarse;
+        // y ahora, además, Otto se quedaría sin poder moverse.
+        if (isDialogueActive) CerrarDialogo();
+    }
+
+    /// <summary>
+    /// Deja al NPC y a Otto como estaban antes de la charla, sin avisar de que la
+    /// conversación terminó. <see cref="EndDialogue"/> es esto más el onDialogueEnded.
+    /// </summary>
+    private void CerrarDialogo()
+    {
+        StopAllCoroutines();
+        isTyping = false;
+        isDialogueActive = false;
+
+        // Se protegen las dos referencias porque de esto depende que el NPC vuelva a
+        // quedar interactuable: si reventaba, isDialogueActive se quedaba en true.
+        if (dialogueText != null) dialogueText.SetText("");
+        if (dialoguePanel != null) dialoguePanel.SetActive(false);
+
+        if (movimientoBloqueado)
+        {
+            movimientoBloqueado = false;
+            if (otto != null) otto.EnableMovement();
+        }
     }
 }

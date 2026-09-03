@@ -98,9 +98,18 @@ public class InteractionDetector : MonoBehaviour
         if (!collision.TryGetComponent(out IInteractable interactable)) return;
 
         if (interactable is Component componente) enRango.Remove(componente);
+
         // Si el que se va era con quien estábamos hablando, se corta aquí: nadie
         // debería seguir avanzando un diálogo desde el otro lado del mapa.
-        if (ReferenceEquals(interactable, objetivo)) objetivo = null;
+        if (ReferenceEquals(interactable, objetivo))
+        {
+            // Soltarlo no basta: al NPC hay que cerrarle la conversación o se queda
+            // con isDialogueActive en true, su CanInteract() no vuelve a ser true y
+            // deja de poder hablarse en toda la partida (además de dejar a Otto sin
+            // movimiento, que se le devuelve ahí dentro).
+            if (interactable is NPC npc) npc.AbandonarDialogo();
+            objetivo = null;
+        }
     }
 
     /// <summary>
