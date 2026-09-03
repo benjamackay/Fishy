@@ -1,0 +1,273 @@
+fileFormatVersion: 2
+guid: 58600121cabb244438bb52edca8e409c
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 6074311345752114785
+    second: pantano_0
+  - first:
+      213: -8743125168712008913
+    second: pantano_1
+  - first:
+      213: -580824942491275951
+    second: pantano_2
+  - first:
+      213: -1161997514389306545
+    second: pantano_3
+  - first:
+      213: -5630711991690712291
+    second: pantano_4
+  - first:
+      213: 7838968135499384606
+    second: pantano_5
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 32
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: pantano_0
+      rect:
+        serializedVersion: 2
+        x: 37
+        y: 771
+        width: 178
+        height: 188
+      alignment: 9
+      pivot: {x: 0.5168034, y: 0.07839284}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1660ea26cf94c4450800000000000000
+      internalID: 6074311345752114785
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pantano_1
+      rect:
+        serializedVersion: 2
+        x: 264
+        y: 770
+        width: 136
+        height: 194
+      alignment: 9
+      pivot: {x: 0.48900336, y: 0.060597215}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f2bb42c6bfd2aa680800000000000000
+      internalID: -8743125168712008913
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pantano_2
+      rect:
+        serializedVersion: 2
+        x: 449
+        y: 769
+        width: 74
+        height: 112
+      alignment: 9
+      pivot: {x: 0.5, y: 0.077365875}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 15dee1acace70f7f0800000000000000
+      internalID: -580824942491275951
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pantano_3
+      rect:
+        serializedVersion: 2
+        x: 576
+        y: 768
+        width: 141
+        height: 141
+      alignment: 9
+      pivot: {x: 0.5145956, y: 0.06211864}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f4340fcca61cfdfe0800000000000000
+      internalID: -1161997514389306545
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pantano_4
+      rect:
+        serializedVersion: 2
+        x: 770
+        y: 767
+        width: 65
+        height: 97
+      alignment: 9
+      pivot: {x: 0.48944563, y: 0.12516737}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d1b2ebeb641bbd1b0800000000000000
+      internalID: -5630711991690712291
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: pantano_5
+      rect:
+        serializedVersion: 2
+        x: 895
+        y: 765
+        width: 77
+        height: 93
+      alignment: 9
+      pivot: {x: 0.5178175, y: 0.07953931}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e170c029cfb99cc60800000000000000
+      internalID: 7838968135499384606
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 8f78fbef529ac6a4da2d7fd238362c07
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      pantano_0: 6074311345752114785
+      pantano_1: -8743125168712008913
+      pantano_2: -580824942491275951
+      pantano_3: -1161997514389306545
+      pantano_4: -5630711991690712291
+      pantano_5: 7838968135499384606
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
