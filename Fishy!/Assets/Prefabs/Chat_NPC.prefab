@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 8935019312824024043}
   - component: {fileID: 386172524196624259}
   - component: {fileID: 5479489533958605667}
+  - component: {fileID: 894725528437385346}
   m_Layer: 0
   m_Name: Chat_NPC
   m_TagString: Untagged
@@ -131,7 +132,7 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1.95, y: 2.49}
+    oldSize: {x: 2.56, y: 2.56}
     newSize: {x: 1.95, y: 2.49}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -154,6 +155,7 @@ MonoBehaviour:
   source: 3
   conversaciones: []
   npcId: NPC_01
+  escenarioIds: 
   otto: {fileID: 0}
   phone: {fileID: 0}
   ottoMood: {fileID: 0}
@@ -167,5 +169,26 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   onChatClosed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &894725528437385346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4819045752595667910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23759498eb8ee2b4a800c911435091a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NPC
+  dialogueData: {fileID: 0}
+  dialoguePanel: {fileID: 0}
+  dialogueText: {fileID: 0}
+  nameText: {fileID: 0}
+  portraitImage: {fileID: 0}
+  dialogoId: 
+  onDialogueEnded:
     m_PersistentCalls:
       m_Calls: []
