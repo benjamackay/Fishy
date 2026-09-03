@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474c95c758920a545a6213e0df89fcaf, type: 3}
+  m_Name: brujula
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemName: Brujula
+  itemIcon: {fileID: -5502465461007319794, guid: 9b8132a2f0f189b4d8f29d442f127e98, type: 3}
+  itemDescription: Cuando estes perdido, puedes siempre recurrir a ella
+  itemType: 1

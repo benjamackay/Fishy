@@ -1,0 +1,84 @@
+{
+  "caseId": "DC_CASO_02",
+  "npcObservado1": "Flamenco",
+  "npcObservado2": "Pato Juarjual",
+  "permisoPlayerText": "Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si hubo algo malo.",
+  "permisoNpcNombre": "Coipo",
+  "permisoNpcResponse": "Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de mi mascota piedra, no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?",
+  "mensajes": [
+    {
+      "id": "DC02_MSG01",
+      "autor": "Flamenco",
+      "texto": "oye animales, armemos un grupo para hablar del proyecto del pantano",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC02_MSG02",
+      "autor": "Pato Juarjual",
+      "texto": "ya, buena idea, igual hay que coordinarse para la entrega",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC02_MSG03",
+      "autor": "Flamenco",
+      "texto": "oye Coipo para qué te invitaron al grupo si nunca aportas nada jajaja",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC02_MSG04",
+      "autor": "Pato Juarjual",
+      "texto": "sí igual para qué haha",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC02_MSG05",
+      "autor": "Coipo",
+      "texto": "oye, no es para tanto",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC02_MSG06",
+      "autor": "Flamenco",
+      "texto": "ya lo sacamos del grupo, igual no sirve para nada",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC02_MSG07",
+      "autor": "Pato Juarjual",
+      "texto": "sí, igual es medio molesto a veces",
+      "esRiesgo": false,
+      "esAmbiguo": true
+    },
+    {
+      "id": "DC02_MSG08",
+      "autor": "Flamenco",
+      "texto": "y si armamos otro grupo y le mandamos mensajes feos a ver cómo reacciona jajaja",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    }
+  ],
+  "explicacionGuiada": [
+    {
+      "mensajeId": "DC02_MSG03",
+      "explicacion": "Ridiculizar a alguien frente al grupo es ciberacoso aunque esté redactado como broma."
+    },
+    {
+      "mensajeId": "DC02_MSG04",
+      "explicacion": "Unirse a la burla contra alguien también es parte del ciberacoso."
+    },
+    {
+      "mensajeId": "DC02_MSG06",
+      "explicacion": "Excluir a alguien de un grupo de forma deliberada y pública es ciberacoso."
+    },
+    {
+      "mensajeId": "DC02_MSG08",
+      "explicacion": "Organizar el envío de mensajes ofensivos es una señal de riesgo grave de ciberacoso."
+    }
+  ]
+}

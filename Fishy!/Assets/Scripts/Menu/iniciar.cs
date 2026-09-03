@@ -202,9 +202,10 @@ public class iniciar : MonoBehaviour
             return;
         }
 
-        Debug.LogWarning($"[Ingresar] La escena '{escenaDestino}' no esta en Build Settings. " +
-                         "Se carga el indice 2, que es el que usaba esta pantalla antes.");
-        SceneManager.LoadScene(2);
+        Debug.LogError($"[Ingresar] La escena '{escenaDestino}' no esta en Build Settings. " +
+                       "El login fue correcto, pero no es seguro continuar sin una escena valida.");
+        SetOcupado(false);
+        SetEstado($"No se encontro la escena '{escenaDestino}'. Revisa Build Settings.", colorError);
     }
 
     /// <summary>
