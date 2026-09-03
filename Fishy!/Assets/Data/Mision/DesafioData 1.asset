@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: DesafioData 1
   m_EditorClassIdentifier: Fishy.Mision::Fishy.Mision.DesafioData
   desafioId: MISION_NPC_02
-  titulo: HABLA CON TODOS LOS PERUANOS
-  descripcion: "NECESITAS HABLAR CON TODOS LOS PERSOJANES PARA PODER PASAR AL ARRECIFE
-    DE COERA\xD1KMLKSDAF\xD1"
+  titulo: "Entiende la situaci\xF3n de Coipo"
+  descripcion: 
   icono: {fileID: 0}

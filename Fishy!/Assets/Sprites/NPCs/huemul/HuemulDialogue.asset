@@ -15,8 +15,13 @@ MonoBehaviour:
   npcName: Huemul
   npcPortrait: {fileID: 0}
   dialogueLines:
-  - HOLA PELAO JUAN
-  - "TRAEME TODAS LAS FLORES PELAITO P\xD3RFA "
+  - "\xA1Hola! Yo soy Huemul, guardian del Bosque de los Desconocidos."
+  - "La br\xFAjula de tu abuelo cay\xF3 por aqu\xED. El bosque la escondi\xF3 junto
+    a mis tres flores."
+  - "B\xFAscalas y tr\xE1emelas todas. Con ellas puedo abrirte el camino al otro
+    lado."
+  - 'Y recuerda: si alguien te incomoda o te pide guardar secretos raros, vuelve
+    a verme.'
   autoProgressLine: 
   typingSpeed: 0.05
   voiceSound: {fileID: 0}

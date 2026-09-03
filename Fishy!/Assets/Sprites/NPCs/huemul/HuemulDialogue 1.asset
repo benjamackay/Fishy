@@ -15,8 +15,13 @@ MonoBehaviour:
   npcName: Huemul
   npcPortrait: {fileID: 0}
   dialogueLines:
-  - HOLA PELAO JUAN
-  - "TRAEME TODAS LAS FLORES PELAITO P\xD3RFA "
+  - Hola de nuevo
+  - Ten mucho cuidado por esta zona
+  - Los flamencos en grupo pueden no ser del todo agradables
+  - ...
+  - ah y por cierto
+  - me traes mis cosas?
+  - "no querr\xEDa toparme con esas bestias rosadas"
   autoProgressLine: 
   typingSpeed: 0.05
   voiceSound: {fileID: 0}

@@ -14,6 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Fishy.Mision::Fishy.Mision.DesafioData
   desafioId: MISION_NPC_01
   titulo: Recolectar todos los objetos
-  descripcion: Necesito que me traigas todos los objetos de la zona pq los necesito
-    para cultivar zapallo?
+  descripcion: 
   icono: {fileID: 0}
