@@ -10,3 +10,6 @@
 
 *.sh   text eol=lf
 *.ps1  text eol=crlf
+
+# Los PDF generados son artefactos binarios; evita que Git intente mostrarlos como texto.
+*.pdf  binary
