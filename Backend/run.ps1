@@ -5,6 +5,8 @@
 .EXAMPLE
     .\run.ps1                  # servidor en 127.0.0.1:8000
     .\run.ps1 0.0.0.0:8000     # escuchando en todas las interfaces
+    .\run.ps1 --global         # test global: todas las capas de una
+    .\run.ps1 --global --fase 5  # solo esa fase del test global
     .\run.ps1 --smoke          # smoke test end-to-end
     .\run.ps1 --check          # verifica config y drift de migraciones
 
@@ -58,6 +60,11 @@ if ($args.Count -gt 0) { $modo = [string]$args[0] }
 $resto = @($args | Select-Object -Skip 1)
 
 switch ($modo) {
+    "--global" {
+        Escribir-Verde "Test global: todas las capas (levanta y baja el servidor solo)"
+        & $py .\scripts\test_global.py @resto
+        exit $LASTEXITCODE
+    }
     "--smoke" {
         Escribir-Verde "Smoke test end-to-end (necesita el servidor corriendo en otra terminal)"
         & $py .\scripts\smoke_test.py @resto

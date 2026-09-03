@@ -4,6 +4,8 @@
 #
 #   ./run.sh                    → servidor en 127.0.0.1:8000
 #   ./run.sh 0.0.0.0:8000       → escuchando en todas las interfaces
+#   ./run.sh --global           → test global: todas las capas de una
+#   ./run.sh --global --fase 5  → solo esa fase del test global
 #   ./run.sh --smoke            → corre el smoke test end-to-end
 #   ./run.sh --check            → verifica config y drift de migraciones
 #
@@ -64,6 +66,10 @@ gris "Usando $ENTORNO · BD en ${DB_HOST:-?}:${DB_PORT:-?}"
 
 # ── 4. Qué hacer ──────────────────────────────────────────────────────────────
 case "${1:-}" in
+  --global)
+    verde "Test global: todas las capas (levanta y baja el servidor solo)"
+    exec "$PY" scripts/test_global.py "${@:2}"
+    ;;
   --smoke)
     verde "Smoke test end-to-end (necesita el servidor corriendo en otra terminal)"
     exec "$PY" scripts/smoke_test.py "${@:2}"
