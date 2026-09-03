@@ -580,6 +580,20 @@ namespace Fishy.Net
                 onSuccess: onSuccess, onError: onError));
         }
 
+        /// <summary>Diálogo de un NPC neutro (HDU-1), por su dialogo_id (ej: NPC_FLAMENCO_SEC).</summary>
+        public void ObtenerDialogoNpc(string dialogoId,
+            Action<DialogoNpcDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: los diálogos de NPC no están disponibles sin backend.");
+                return;
+            }
+
+            StartCoroutine(Send<DialogoNpcDto>("GET", $"/dialogos-npc/{dialogoId}/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
         /// <summary>
         /// Registra el resultado de un intento del jugador sobre un caso, para la
         /// partida activa (o la indicada). Reintentar el mismo caso no crea una fila
@@ -1269,6 +1283,22 @@ namespace Fishy.Net
         public string permiso_npc_nombre;
         public string permiso_npc_response;
         public List<MensajeDetectiveDto> mensajes = new List<MensajeDetectiveDto>();
+    }
+
+    [Serializable]
+    public class DialogoNpcDto
+    {
+        public string dialogo_id;
+        public string hdu;
+        public string zona;
+        public string npc_id;
+        public string npc_nombre;
+        public string npc_avatar;
+        public string tipo;
+        public string trigger;
+        public List<string> lineas = new List<string>();
+        public string pista_mision;
+        public string mision_id;
     }
 
     [Serializable]

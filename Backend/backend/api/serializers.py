@@ -3,6 +3,7 @@ from .models import (
     AdultoResponsable, UsuarioJugador, NivelRiesgo, Partida, NPC, Chat,
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
+    DialogoNPC,
 )
 
 
@@ -127,6 +128,19 @@ class CasoDetectiveSerializer(serializers.ModelSerializer):
             "id", "caso_id", "titulo", "zona", "etiquetas_ml",
             "permiso_player_text", "permiso_npc_nombre", "permiso_npc_response",
             "mensajes",
+        ]
+
+
+class DialogoNPCSerializer(serializers.ModelSerializer):
+    """Diálogo de un NPC neutro (sin árbol de decisiones): líneas planas + la
+    misión que desbloquea, si tiene una (mision_id, no el FK entero)."""
+    mision_id = serializers.CharField(source="mision.mision_id", read_only=True, default=None)
+
+    class Meta:
+        model = DialogoNPC
+        fields = [
+            "dialogo_id", "hdu", "zona", "npc_id", "npc_nombre", "npc_avatar",
+            "tipo", "trigger", "lineas", "pista_mision", "mision_id",
         ]
 
 

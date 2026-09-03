@@ -44,4 +44,8 @@ urlpatterns = [
     path("casos-detective/<str:caso_id>/", views.caso_detective_detalle, name="caso_detective_detalle"),
     path("casos-detective/<str:caso_id>/progreso/", views.registrar_progreso_detective, name="registrar_progreso_detective"),
     path("partidas/<int:partida_id>/casos-detective/", views.progreso_detective_partida, name="progreso_detective_partida"),
+
+    # Diálogos de NPCs neutros (HDU-1)
+    path("dialogos-npc/", views.dialogos_npc, name="dialogos_npc"),
+    path("dialogos-npc/<str:dialogo_id>/", views.dialogo_npc_detalle, name="dialogo_npc_detalle"),
 ]

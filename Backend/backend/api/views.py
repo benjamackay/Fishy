@@ -12,6 +12,7 @@ from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, CasoDetectiveProgreso,
+    DialogoNPC,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -19,6 +20,7 @@ from .serializers import (
     NPCSerializer, ChatSerializer, MensajeSerializer,
     PreguntaBancoSerializer,
     CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
+    DialogoNPCSerializer,
 )
 
 
@@ -477,6 +479,30 @@ def caso_detective_detalle(request, caso_id):
         CasoDetective.objects.prefetch_related("mensajes"), caso_id=caso_id
     )
     return Response(CasoDetectiveSerializer(caso).data)
+
+
+# ── Diálogos de NPCs neutros (HDU-1) ───────────────────────────────────────────
+
+@api_view(["GET"])
+def dialogos_npc(request):
+    """
+    Lista los diálogos de NPCs neutros (sin árbol de decisiones). Filtro opcional:
+      ?zona=playa
+    """
+    qs = DialogoNPC.objects.select_related("mision").all()
+    zona = request.query_params.get("zona")
+    if zona:
+        qs = qs.filter(zona=zona)
+    return Response(DialogoNPCSerializer(qs, many=True).data)
+
+
+@api_view(["GET"])
+def dialogo_npc_detalle(request, dialogo_id):
+    """Un diálogo concreto por su dialogo_id (ej: NPC_FLAMENCO_SEC)."""
+    dialogo = get_object_or_404(
+        DialogoNPC.objects.select_related("mision"), dialogo_id=dialogo_id
+    )
+    return Response(DialogoNPCSerializer(dialogo).data)
 
 
 @api_view(["POST"])

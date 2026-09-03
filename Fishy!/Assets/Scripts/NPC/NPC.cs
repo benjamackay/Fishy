@@ -12,6 +12,17 @@ public class NPC : MonoBehaviour, IInteractable
     public TMP_Text dialogueText, nameText;
     public Image portraitImage;
 
+    [Header("Backend (opcional)")]
+    [Tooltip("dialogo_id en la tabla DialogoNPC (ej: NPC_FLAMENCO_SEC). Si hay backend " +
+             "disponible, reemplaza a 'Dialogue Data' con lo que traiga de la BD; si no, " +
+             "se usa 'Dialogue Data' tal cual quedó en el Inspector.")]
+    public string dialogoId;
+
+    private void Awake()
+    {
+        DialogoNpcLoader.LoadAsync(dialogoId, dialogo => dialogueData = dialogo);
+    }
+
     [Header("Eventos")]
     [Tooltip("Se dispara al cerrar el diálogo. MissionGiver lo usa para entregar la misión " +
              "cuando la conversación termina, y MissionTracker para los objetivos de 'hablar con'.")]
