@@ -339,6 +339,11 @@ namespace Fishy.World
             if (HasParam("MoveY", AnimatorControllerParameterType.Float)) animator.SetFloat("MoveY", lastFacing.y);
             if (HasParam("Speed", AnimatorControllerParameterType.Float)) animator.SetFloat("Speed", currentMove.magnitude);
             if (HasParam("IsRunning", AnimatorControllerParameterType.Bool)) animator.SetBool("IsRunning", (vRun || RunPressed()) && currentMove != Vector2.zero);
+            // Girar el sprite horizontalmente
+            SpriteRenderer sprite = animator.GetComponent<SpriteRenderer>();
+
+            if (sprite != null && currentMove.x != 0)
+                sprite.flipX = currentMove.x > 0;
         }
 
         private bool HasParam(string name, AnimatorControllerParameterType type)
