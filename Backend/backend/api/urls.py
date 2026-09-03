@@ -5,9 +5,15 @@ urlpatterns = [
     # Health
     path("health/", views.health_check, name="health_check"),
 
-    # Auth
+    # Auth (cuenta del adulto responsable)
     path("auth/registro/", views.registro, name="registro"),
     path("auth/login/", views.auth_login, name="auth_login"),
+    path("auth/perfil/", views.perfil_adulto, name="perfil_adulto"),
+
+    # Perfiles de menores (control parental)
+    path("jugadores/", views.jugadores, name="jugadores"),
+    path("jugadores/<int:jugador_id>/", views.jugador_detalle, name="jugador_detalle"),
+    path("jugadores/<int:jugador_id>/partidas/", views.partidas_jugador, name="partidas_jugador"),
 
     # Catálogos
     path("niveles-riesgo/", views.niveles_riesgo, name="niveles_riesgo"),
@@ -16,6 +22,7 @@ urlpatterns = [
     path("partidas/", views.crear_partida, name="crear_partida"),
     path("partidas/<int:partida_id>/", views.partida_detalle, name="partida_detalle"),
     path("partidas/<int:partida_id>/npcs/", views.npcs_partida, name="npcs_partida"),
+    path("partidas/<int:partida_id>/riesgo-por-zona/", views.riesgo_por_zona, name="riesgo_por_zona"),
 
     # NPC (HDU-2)
     path("npcs/<int:npc_id>/", views.npc_actualizar, name="npc_actualizar"),
@@ -27,6 +34,14 @@ urlpatterns = [
     path("chats/<int:chat_id>/finalizar/", views.finalizar_chat, name="finalizar_chat"),
 
     # Banco de Preguntas (HDU-2 y HDU-8)
+    path("banco/zonas/", views.zonas_banco, name="zonas_banco"),
+    path("banco/zonas/<str:zona>/preguntas/", views.preguntas_zona, name="preguntas_zona"),
     path("banco/preguntas/", views.preguntas_banco, name="preguntas_banco"),
     path("banco/preguntas/<str:pregunta_id>/", views.pregunta_detalle, name="pregunta_detalle"),
+
+    # Modo Detective (HDU-10)
+    path("casos-detective/", views.casos_detective, name="casos_detective"),
+    path("casos-detective/<str:caso_id>/", views.caso_detective_detalle, name="caso_detective_detalle"),
+    path("casos-detective/<str:caso_id>/progreso/", views.registrar_progreso_detective, name="registrar_progreso_detective"),
+    path("partidas/<int:partida_id>/casos-detective/", views.progreso_detective_partida, name="progreso_detective_partida"),
 ]

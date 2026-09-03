@@ -1,20 +1,91 @@
 {
-  "caseId": "caso_01",
-  "npcObservado1": "Alex",
-  "npcObservado2": "Sam",
-  "mensajePermiso": "Oye, ¿me puedes ayudar? Recibí mensajes raros y no sé si son peligrosos.",
+  "caseId": "DC_CASO_01",
+  "npcObservado1": "Puma",
+  "npcObservado2": "Pudú",
+  "permisoPlayerText": "Oye, ¿puedo ver tus mensajes con el Puma? Creo que algo raro está pasando.",
+  "permisoNpcNombre": "Pudú",
+  "permisoNpcResponse": "Sí, por favor ayúdame. Recibí mensajes raros y no sé qué hacer. ¿Puedes revisar si ocurrió algo malo?",
   "mensajes": [
-    { "id": "m01", "autor": "Alex", "texto": "Hola! ¿Cómo estás?", "esRiesgo": false, "esAmbiguo": false },
-    { "id": "m02", "autor": "Sam",  "texto": "Bien, ¿y tú?", "esRiesgo": false, "esAmbiguo": false },
-    { "id": "m03", "autor": "Alex", "texto": "¿Cuántos años tienes?", "esRiesgo": false, "esAmbiguo": true },
-    { "id": "m04", "autor": "Alex", "texto": "No le cuentes esto a tus papás, es un secreto entre nosotros.", "esRiesgo": true, "esAmbiguo": false },
-    { "id": "m05", "autor": "Sam",  "texto": "Hmm... no sé.", "esRiesgo": false, "esAmbiguo": false },
-    { "id": "m06", "autor": "Alex", "texto": "Tengo un regalo para ti, pero necesito saber dónde vives.", "esRiesgo": true, "esAmbiguo": false },
-    { "id": "m07", "autor": "Alex", "texto": "Eres muy maduro para tu edad.", "esRiesgo": true, "esAmbiguo": false }
+    {
+      "id": "DC01_MSG01",
+      "autor": "Puma",
+      "texto": "hola! te vi por aquí en el bosque y pareces muy buena exploradora. nunca vi a alguien tan hábil por aquí",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC01_MSG02",
+      "autor": "Pudú",
+      "texto": "jaja gracias, llevo meses explorando",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC01_MSG03",
+      "autor": "Puma",
+      "texto": "oye cuántos años tienes? yo tengo 14, capaz nos conocemos de algún lado jaja",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC01_MSG04",
+      "autor": "Pudú",
+      "texto": "tengo 12",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC01_MSG05",
+      "autor": "Puma",
+      "texto": "qué cool! oye y de qué parte del bosque eres? pregunto porque quizás somos vecinos",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC01_MSG06",
+      "autor": "Puma",
+      "texto": "eres la mejor exploradora que he conocido en serio, todos en mi grupo van a querer conocerte",
+      "esRiesgo": false,
+      "esAmbiguo": true
+    },
+    {
+      "id": "DC01_MSG07",
+      "autor": "Puma",
+      "texto": "podríamos encontrarnos en el claro del bosque, yo conozco un lugar genial. di que sí antes de que los del grupo quieran venir todos, jaja",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC01_MSG08",
+      "autor": "Pudú",
+      "texto": "mm no sé, tengo que preguntarle a mi mamá",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC01_MSG09",
+      "autor": "Puma",
+      "texto": "mejor no le dices nada, a los papás no les gustan estas cosas y van a decir que no por nada",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    }
   ],
   "explicacionGuiada": [
-    { "mensajeId": "m04", "explicacion": "Pedir guardar secretos a los papás es una señal de alerta clásica." },
-    { "mensajeId": "m06", "explicacion": "Nunca se debe entregar la dirección a desconocidos en internet." },
-    { "mensajeId": "m07", "explicacion": "Los halagos exagerados son una táctica de manipulación frecuente." }
+    {
+      "mensajeId": "DC01_MSG03",
+      "explicacion": "Pedir la edad a un desconocido de internet es una alerta, especialmente si dice saber cosas de ti."
+    },
+    {
+      "mensajeId": "DC01_MSG05",
+      "explicacion": "Preguntar dónde vive alguien que recién conociste en internet es raro: con eso ya sabe dónde encontrarte en la vida real."
+    },
+    {
+      "mensajeId": "DC01_MSG07",
+      "explicacion": "Proponer juntarse en persona con alguien que recién conociste en internet y apresurarte para que no lo sepa nadie son señales de riesgo."
+    },
+    {
+      "mensajeId": "DC01_MSG09",
+      "explicacion": "Pedir que no se le cuente a los padres es la alerta más importante. Nadie con buenas intenciones pide eso."
+    }
   ]
 }

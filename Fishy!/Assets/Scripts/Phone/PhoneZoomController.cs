@@ -50,7 +50,7 @@ namespace Fishy.Phone
             DontDestroyOnLoad(gameObject);
 
             _cam    = Camera.main;
-            _follow = FindFirstObjectByType<CameraFollow2D>();
+            _follow = FindAnyObjectByType<CameraFollow2D>();
             if (_cam != null) _savedOrtho = _cam.orthographicSize;
 
             BuildFadeOverlay();

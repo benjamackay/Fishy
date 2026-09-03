@@ -89,9 +89,9 @@ namespace Fishy.World
             IsPlaying = true;
 
             // Bloquear movimiento de Otto y pausar el seguimiento de la cámara.
-            var otto = FindFirstObjectByType<OttoController>();
+            var otto = FindAnyObjectByType<OttoController>();
             if (otto != null) otto.DisableMovement();
-            if (_follow == null) _follow = FindFirstObjectByType<CameraFollow2D>();
+            if (_follow == null) _follow = FindAnyObjectByType<CameraFollow2D>();
             if (_follow != null) _follow.enabled = false;
 
             float   startOrtho = _cam.orthographicSize;

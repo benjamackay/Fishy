@@ -102,6 +102,69 @@ namespace Fishy.Chat
             return result;
         }
 
+        /// <summary>
+        /// Retorna la <see cref="ChatConversation"/> de un único NPC buscando en
+        /// TODO el banco (cualquier HDU/zona), a diferencia de
+        /// <see cref="CreateHDU2ConversationForNpc"/> que sólo mira HDU-2.
+        /// zoneId/categoriaRiesgo se toman de los datos del NPC en el banco
+        /// (campos "zona"/"categoria"), no quedan fijos en "desconocidos"/"grooming".
+        /// </summary>
+        public static List<ChatConversation> CreateConversationForNpcId(string npcId, bool introComoTelefono = true)
+        {
+            var banco = Load();
+            var preguntas = new List<PreguntaBanco>();
+            foreach (var p in banco.preguntas)
+                if (p.npc_id == npcId) preguntas.Add(p);
+
+            var result = new List<ChatConversation>();
+            if (preguntas.Count == 0)
+            {
+                Debug.LogWarning($"[BancoPreguntasLoader] No se encontró el NPC '{npcId}' en el banco.");
+                return result;
+            }
+
+            string zoneId = !string.IsNullOrEmpty(preguntas[0].zona) ? preguntas[0].zona : "desconocidos";
+            var conv = BuildConversationFromPreguntas(npcId, preguntas, zoneId, introComoTelefono);
+            if (!string.IsNullOrEmpty(preguntas[0].categoria))
+                conv.categoriaRiesgo = preguntas[0].categoria;
+
+            result.Add(conv);
+            return result;
+        }
+
+        /// <summary>
+        /// Retorna la <see cref="ChatConversation"/> de un único escenario_id,
+        /// buscando en TODO el banco (cualquier HDU). A diferencia de npc_id,
+        /// escenario_id identifica la conversación en sí — evita ambigüedad si
+        /// un mismo NPC (mismo npc_id) reaparece en más de una conversación.
+        /// </summary>
+        public static List<ChatConversation> CreateConversationForEscenarioId(string escenarioId)
+            => CreateConversationsForEscenarioIds(new[] { escenarioId });
+
+        /// <summary>
+        /// Igual que <see cref="CreateConversationForEscenarioId"/> pero para varias
+        /// escenario_id en orden — útil para encadenar fases de una misma historia
+        /// (ej. "M4_FASE01,M4_FASE02") como una sola sesión de chat.
+        /// </summary>
+        public static List<ChatConversation> CreateConversationsForEscenarioIds(IList<string> escenarioIds)
+        {
+            var banco = Load();
+            var byEscena = GroupByEscenarioGlobal(banco.preguntas);
+            var result = new List<ChatConversation>();
+
+            foreach (var escenarioId in escenarioIds)
+            {
+                if (!byEscena.TryGetValue(escenarioId, out var preguntas))
+                {
+                    Debug.LogWarning($"[BancoPreguntasLoader] No se encontró el escenario '{escenarioId}' en el banco.");
+                    continue;
+                }
+                result.Add(BuildEscenarioConversation(escenarioId, preguntas));
+            }
+
+            return result;
+        }
+
         // ── Agrupación ─────────────────────────────────────────────────────────
         private static Dictionary<string, List<PreguntaBanco>> GroupByNpc(List<PreguntaBanco> all)
         {
@@ -129,9 +192,21 @@ namespace Fishy.Chat
             return dict;
         }
 
+        private static Dictionary<string, List<PreguntaBanco>> GroupByEscenarioGlobal(List<PreguntaBanco> all)
+        {
+            var dict = new Dictionary<string, List<PreguntaBanco>>();
+            foreach (var p in all)
+            {
+                if (string.IsNullOrEmpty(p.escenario_id)) continue;
+                if (!dict.ContainsKey(p.escenario_id)) dict[p.escenario_id] = new List<PreguntaBanco>();
+                dict[p.escenario_id].Add(p);
+            }
+            return dict;
+        }
+
         // ── Construcción de ChatConversation para HDU-2 ───────────────────────
         private static ChatConversation BuildConversationFromPreguntas(
-            string npcId, List<PreguntaBanco> preguntas, string zoneId)
+            string npcId, List<PreguntaBanco> preguntas, string zoneId, bool introComoTelefono = true)
         {
             var conv = ScriptableObject.CreateInstance<ChatConversation>();
             conv.zoneId         = zoneId;
@@ -147,17 +222,26 @@ namespace Fishy.Chat
             var allNodes = new List<ChatNode>();
 
             // Nodo de apertura del celular (mensaje introductorio del sistema).
-            var intro = new ChatNode
+            // Sólo tiene sentido con la secuencia de celular; en chat cara a cara
+            // se arranca directo en la primera pregunta del banco.
+            if (introComoTelefono)
             {
-                id         = $"{npcId}_INTRO",
-                text       = $"📱 {npcNombre} te está escribiendo…",
-                kind       = ChatMessageKind.Neutral,
-                isSystem   = true,
-                closesChat = false,
-                nextNodeId = preguntas.Count > 0 ? preguntas[0].id : ""
-            };
-            allNodes.Add(intro);
-            conv.startNodeId = intro.id;
+                var intro = new ChatNode
+                {
+                    id         = $"{npcId}_INTRO",
+                    text       = $"📱 {npcNombre} te está escribiendo…",
+                    kind       = ChatMessageKind.Neutral,
+                    isSystem   = true,
+                    closesChat = false,
+                    nextNodeId = preguntas.Count > 0 ? preguntas[0].id : ""
+                };
+                allNodes.Add(intro);
+                conv.startNodeId = intro.id;
+            }
+            else
+            {
+                conv.startNodeId = preguntas.Count > 0 ? preguntas[0].id : "";
+            }
 
             // Construir un nodo por pregunta.
             foreach (var p in preguntas)
@@ -198,7 +282,7 @@ namespace Fishy.Chat
                         allNodes.Add(consecNode);
 
                         // La opción apunta al nodo de consecuencia.
-                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId));
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id));
                     }
                 }
                 // Sin opciones y sin nextNodeId definido: fin automático.
@@ -295,7 +379,98 @@ namespace Fishy.Chat
                             nextNodeId = termina ? "" : op.siguiente_pregunta
                         });
 
-                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId));
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id));
+                    }
+                }
+
+                allNodes.Add(node);
+            }
+
+            conv.startNodeId = startNodeId ?? (allNodes.Count > 0 ? allNodes[0].id : "");
+            conv.nodes = allNodes;
+            return conv;
+        }
+
+        // ── Construcción de ChatConversation por escenario_id (cualquier HDU) ──
+        private static ChatConversation BuildEscenarioConversation(
+            string escenarioId, List<PreguntaBanco> preguntas)
+        {
+            var conv = ScriptableObject.CreateInstance<ChatConversation>();
+            conv.zoneId = !string.IsNullOrEmpty(preguntas[0].zona) ? preguntas[0].zona : "chat_simulado";
+            conv.categoriaRiesgo = !string.IsNullOrEmpty(preguntas[0].categoria)
+                ? preguntas[0].categoria
+                : EscenarioToCategoria(escenarioId);
+
+            // Nombre del contacto: primero se busca en el historial (estilo HDU-8),
+            // si no hay se usa el npc_nombre de la propia pregunta (estilo HDU-2/3).
+            string contactName = DeducirContactName(preguntas);
+            if (contactName == "Desconocido")
+            {
+                foreach (var p in preguntas)
+                    if (!string.IsNullOrEmpty(p.npc_nombre)) { contactName = p.npc_nombre; break; }
+            }
+            conv.contactName = contactName;
+
+            var allNodes = new List<ChatNode>();
+            string startNodeId = null;
+
+            foreach (var p in preguntas)
+            {
+                if (p.historial_previo != null && p.historial_previo.Count > 0)
+                {
+                    string prevNext = p.id;
+                    for (int h = p.historial_previo.Count - 1; h >= 0; h--)
+                    {
+                        var hist = p.historial_previo[h];
+                        string histId = $"HIST_{escenarioId}_{h}";
+                        allNodes.Add(new ChatNode
+                        {
+                            id = histId,
+                            text = hist.mensaje,
+                            kind = ChatMessageKind.Neutral,
+                            isSystem = false,
+                            closesChat = false,
+                            nextNodeId = prevNext
+                        });
+                        prevNext = histId;
+                    }
+                    if (startNodeId == null) startNodeId = prevNext;
+                }
+                else if (startNodeId == null)
+                {
+                    startNodeId = p.id;
+                }
+
+                bool isFin = p.es_fin_de_npc || p.es_fin_de_zona;
+                var node = new ChatNode
+                {
+                    id = p.id,
+                    text = LimpiarTextoSistema(p.mensaje_npc),
+                    kind = p.es_mensaje_riesgo ? ChatMessageKind.Risk : ChatMessageKind.Neutral,
+                    isSystem = false,
+                    closesChat = isFin && (p.opciones_respuesta == null || p.opciones_respuesta.Count == 0),
+                    nextNodeId = p.narrativa_continuacion ?? ""
+                };
+
+                if (p.opciones_respuesta != null && p.opciones_respuesta.Count > 0)
+                {
+                    foreach (var op in p.opciones_respuesta)
+                    {
+                        OptionSafety safety = TipoToSafety(op.tipo);
+                        string consecNodeId = $"CONS_{op.id}";
+                        bool termina = string.IsNullOrEmpty(op.siguiente_pregunta) || isFin;
+
+                        allNodes.Add(new ChatNode
+                        {
+                            id = consecNodeId,
+                            text = op.consecuencia_narrativa ?? "",
+                            kind = ChatMessageKind.Neutral,
+                            isSystem = true,
+                            closesChat = termina,
+                            nextNodeId = termina ? "" : op.siguiente_pregunta
+                        });
+
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id));
                     }
                 }
 

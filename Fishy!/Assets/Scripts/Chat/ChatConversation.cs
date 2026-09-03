@@ -29,13 +29,19 @@ namespace Fishy.Chat
         public OptionSafety safety = OptionSafety.Neutral;
         [Tooltip("Nodo al que continúa la narrativa tras elegir esta opción.")]
         public string nextNodeId;
+        [Tooltip("ID de la opción en el banco de preguntas (ej: HDU2_NPC01_F2_Q01_R2). " +
+                 "Se manda al backend para acumular riesgo por zona con el puntaje " +
+                 "real del banco. Vacío en conversaciones escritas a mano.")]
+        public string bancoOptionId;
 
         public ChatOption() { }
-        public ChatOption(string text, OptionSafety safety, string nextNodeId)
+        public ChatOption(string text, OptionSafety safety, string nextNodeId,
+            string bancoOptionId = null)
         {
             this.text = text;
             this.safety = safety;
             this.nextNodeId = nextNodeId;
+            this.bancoOptionId = bancoOptionId;
         }
 
         /// <summary>True si cuenta para el porcentaje de seguras (Safe o Unsafe).</summary>

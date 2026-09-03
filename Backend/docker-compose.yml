@@ -1,23 +1,4 @@
 services:
-  db:
-    image: postgres:16
-    restart: always
-    environment:
-      POSTGRES_DB: juego_db
-      POSTGRES_USER: juego_user
-      POSTGRES_PASSWORD: supersecreta
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U juego_user -d juego_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - fishy-net
-
   web:
     build: .
     command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
@@ -25,23 +6,13 @@ services:
       - ./backend:/app
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DJANGO_SECRET_KEY: "cambiar-esto-en-produccion"
-      DJANGO_DEBUG: "True"
-      DB_NAME: juego_db
-      DB_USER: juego_user
-      DB_PASSWORD: supersecreta
-      DB_HOST: db
-      DB_PORT: "5432"
+    # La base de datos ahora es Supabase (Postgres administrado).
+    # Las credenciales de conexion viven en `.env` (ver `.env.example`).
+    env_file:
+      - .env
     networks:
       - fishy-net
 
 networks:
   fishy-net:
     driver: bridge
-
-volumes:
-  postgres_data:

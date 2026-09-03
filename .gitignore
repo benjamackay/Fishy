@@ -6,3 +6,17 @@
 [Uu]ser[Ss]ettings/
 *.csproj
 *.sln
+
+# Secretos / variables de entorno (NO commitear)
+.env
+*.env
+!*.env.example
+
+# Entorno virtual de Python del backend
+.venv/
+__pycache__/
+*.pyc
+
+# Base de datos de la suite de tests (settings_test.py). Django la borra al
+# terminar, pero queda si una corrida se interrumpe.
+*.sqlite3

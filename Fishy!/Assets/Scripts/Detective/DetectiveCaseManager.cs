@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Fishy.Net;
 
 namespace Fishy.Detective
 {
@@ -63,13 +64,33 @@ namespace Fishy.Detective
 
             Debug.Log($"[Detective] Resultado: {aciertos}/{total} ({porcentaje * 100:F0}%)");
 
-            return new DetectiveCaseResult
+            var resultado = new DetectiveCaseResult
             {
                 aciertos        = aciertos,
                 totalRiesgo     = total,
                 porcentaje      = porcentaje,
                 noIdentificados = noIdentificados
             };
+
+            ReportarProgreso(resultado);
+            return resultado;
+        }
+
+        /// <summary>Registro best-effort en el backend: si no hay sesión/partida
+        /// activa, o falla la llamada, el resultado ya calculado en memoria sigue
+        /// siendo válido para la UI — esto no bloquea nada.</summary>
+        private void ReportarProgreso(DetectiveCaseResult resultado)
+        {
+            var api = ApiManager.Instance;
+            if (api == null || api.IsLocalMode || !api.IsLoggedIn || api.PartidaId == null) return;
+
+            api.RegistrarProgresoDetective(
+                _caso.caseId,
+                new List<string>(_marcados),
+                resultado.aciertos,
+                resultado.totalRiesgo,
+                resultado.porcentaje,
+                onError: e => Debug.LogWarning($"[Detective] No se pudo registrar el progreso: {e}"));
         }
     }
 }

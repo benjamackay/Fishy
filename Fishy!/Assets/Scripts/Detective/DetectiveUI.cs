@@ -21,12 +21,18 @@ namespace Fishy.Detective
         private RectTransform _content;
         private ScrollRect    _scrollRect;
         private GameObject    _panelResultado;
+        private Text          _txtMarcador;
         private Text          _txtResultado;
         private Button        _btnConfirmar;
         private Button        _btnRepetir;
         private Button        _btnVerExplicacion;
         private RectTransform _contenedorExplicaciones;
         private Font          _font;
+
+        // ── Ritual de permiso (HDU-10 CA1) ───────────────────────────────────
+        private GameObject    _panelPermiso;
+        private RectTransform _permisoBurbujas;
+        private Button        _btnContinuarPermiso;
 
         // ── Estado ────────────────────────────────────────────────────────────
         private DetectiveCaseManager _manager;
@@ -47,6 +53,7 @@ namespace Fishy.Detective
         private static readonly Color ColCard          = new Color(0.12f, 0.16f, 0.18f, 1f);
         private static readonly Color ColBtnRepetir    = new Color(0.18f, 0.22f, 0.27f, 1f);
         private static readonly Color ColBtnExplica    = new Color(0.28f, 0.16f, 0.38f, 1f);
+        private static readonly Color ColBurbujaOtto   = new Color(0.13f, 0.35f, 0.55f, 1f); // jugador (derecha)
 
         // ─────────────────────────────────────────────────────────────────────
         private void Awake()
@@ -77,11 +84,37 @@ namespace Fishy.Detective
             _onRepetir = onRepetir;
         }
 
+        /// <summary>
+        /// Ritual de permiso previo al caso (HDU-10 CA1): Otto le pide permiso al
+        /// NPC para revisar su conversación, y el NPC autoriza explícitamente
+        /// pidiendo ayuda para identificar señales de riesgo. Al continuar, recién
+        /// ahí se abre el bloque de conversación observada (estilo WhatsApp).
+        /// </summary>
+        public void MostrarPermiso(DetectiveCase caso, Action onContinuar)
+        {
+            LimpiarPermiso();
+            _panelResultado.SetActive(false);
+            _window.SetActive(true);
+            _panelPermiso.SetActive(true);
+            _panelPermiso.transform.SetAsLastSibling();
+
+            CrearBurbujaPermiso(caso.permisoPlayerText, "Otto", esIzquierda: false, ColBurbujaOtto);
+            CrearBurbujaPermiso(caso.permisoNpcResponse, caso.permisoNpcNombre, esIzquierda: true, ColBurbuja1);
+
+            _btnContinuarPermiso.onClick.RemoveAllListeners();
+            _btnContinuarPermiso.onClick.AddListener(() =>
+            {
+                _panelPermiso.SetActive(false);
+                onContinuar?.Invoke();
+            });
+        }
+
         public void MostrarConversacion()
         {
             LimpiarHistorial();
             LimpiarExplicaciones();
             _panelResultado.SetActive(false);
+            _panelPermiso.SetActive(false);
             _btnConfirmar.interactable = false;
             _window.SetActive(true);
             StartCoroutine(ReproducirMensajes(_manager.GetMensajes()));
@@ -214,6 +247,49 @@ namespace Fishy.Detective
             ScrollToBottom();
         }
 
+        private void CrearBurbujaPermiso(string texto, string autor, bool esIzquierda, Color colorBase)
+        {
+            var row = new GameObject("RowPermiso", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            row.transform.SetParent(_permisoBurbujas, false);
+            var hlg = row.GetComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment        = esIzquierda ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
+            hlg.childControlWidth     = true; hlg.childControlHeight     = true;
+            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
+
+            if (!esIzquierda) AgendarSpacer(row.transform);
+
+            var bubble = new GameObject("Bubble",
+                typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
+            bubble.transform.SetParent(row.transform, false);
+            bubble.GetComponent<Image>().color = colorBase;
+            var vlg = bubble.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(16, 16, 10, 10); vlg.spacing = 4f;
+            vlg.childControlWidth     = true; vlg.childControlHeight     = true;
+            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
+            var fitter = bubble.GetComponent<ContentSizeFitter>();
+            fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            bubble.GetComponent<LayoutElement>().preferredWidth = 380f;
+
+            var autorGO = new GameObject("Autor", typeof(RectTransform), typeof(Text));
+            autorGO.transform.SetParent(bubble.transform, false);
+            var at = autorGO.GetComponent<Text>();
+            at.font = _font; at.fontSize = 16; at.fontStyle = FontStyle.Bold;
+            at.color = new Color(1f, 1f, 1f, 0.7f);
+            at.text  = autor;
+
+            var txtGO = new GameObject("Texto", typeof(RectTransform), typeof(Text));
+            txtGO.transform.SetParent(bubble.transform, false);
+            var txt = txtGO.GetComponent<Text>();
+            txt.font = _font; txt.fontSize = 20; txt.color = Color.white;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.verticalOverflow   = VerticalWrapMode.Overflow;
+            txt.text = texto;
+
+            if (esIzquierda) AgendarSpacer(row.transform);
+        }
+
         private static void AgendarSpacer(Transform parent)
         {
             var sp = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
@@ -236,12 +312,16 @@ namespace Fishy.Detective
             _panelResultado.SetActive(true);
             _panelResultado.transform.SetAsLastSibling();
 
+            _txtMarcador.text = $"{r.aciertos} / {r.totalRiesgo}";
+            _txtMarcador.gameObject.SetActive(r.totalRiesgo > 0);
+
             _txtResultado.text = r.totalRiesgo > 0
-                ? $"Identificaste {r.aciertos} de {r.totalRiesgo} señales de riesgo."
+                ? "señales de riesgo identificadas"
                 : "¡No había señales de riesgo en esta conversación!";
 
+            // Repetir solo se ofrece si le fue mal (< 50%); la explicación, siempre.
             _btnRepetir.gameObject.SetActive(r.DebeOfrecerRepetir);
-            _btnVerExplicacion.gameObject.SetActive(r.DebeOfrecerRepetir);
+            _btnVerExplicacion.gameObject.SetActive(true);
             _noIdentificados = r.noIdentificados;
         }
 
@@ -314,6 +394,48 @@ namespace Fishy.Detective
             BuildScroll(panel.transform);
             BuildBarraInferior(panel.transform);
             BuildPanelResultado(_window.transform);
+            BuildPanelPermiso(_window.transform);
+        }
+
+        private void BuildPanelPermiso(Transform parent)
+        {
+            _panelPermiso = new GameObject("PanelPermiso", typeof(RectTransform), typeof(Image));
+            _panelPermiso.transform.SetParent(parent, false);
+            Stretch(_panelPermiso.GetComponent<RectTransform>());
+            _panelPermiso.GetComponent<Image>().color = ColPanelRes;
+
+            var card = new GameObject("Card",
+                typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            card.transform.SetParent(_panelPermiso.transform, false);
+            var cardRT = card.GetComponent<RectTransform>();
+            cardRT.anchorMin = new Vector2(0.5f, 0.5f); cardRT.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRT.pivot     = new Vector2(0.5f, 0.5f);
+            cardRT.sizeDelta = new Vector2(560f, 0f);
+            card.GetComponent<Image>().color = ColCard;
+            var cvlg = card.GetComponent<VerticalLayoutGroup>();
+            cvlg.padding = new RectOffset(24, 24, 24, 24); cvlg.spacing = 16f;
+            cvlg.childControlWidth     = true; cvlg.childControlHeight     = true;
+            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
+            card.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+
+            AgregarTexto(card.transform, "🔍 Pidiendo permiso…", 26, FontStyle.Bold, TextAnchor.MiddleCenter);
+
+            var burbujasGO = new GameObject("Burbujas",
+                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            burbujasGO.transform.SetParent(card.transform, false);
+            _permisoBurbujas = burbujasGO.GetComponent<RectTransform>();
+            var bvlg = burbujasGO.GetComponent<VerticalLayoutGroup>();
+            bvlg.spacing = 10f;
+            bvlg.childControlWidth     = true; bvlg.childControlHeight     = true;
+            bvlg.childForceExpandWidth = true; bvlg.childForceExpandHeight = false;
+            burbujasGO.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+
+            _btnContinuarPermiso = CrearBotonCard(card.transform, "Continuar →", ColBtnConfirmar, null);
+
+            _panelPermiso.SetActive(false);
         }
 
         private void BuildHeader(Transform parent)
@@ -453,6 +575,16 @@ namespace Fishy.Detective
 
             AgregarTexto(card.transform, "🔍 Resultado", 26, FontStyle.Bold, TextAnchor.MiddleCenter);
 
+            var marGO = new GameObject("Marcador", typeof(RectTransform), typeof(Text));
+            marGO.transform.SetParent(card.transform, false);
+            _txtMarcador = marGO.GetComponent<Text>();
+            _txtMarcador.font      = _font; _txtMarcador.fontSize = 52;
+            _txtMarcador.fontStyle = FontStyle.Bold;
+            _txtMarcador.color     = Color.white;
+            _txtMarcador.alignment = TextAnchor.MiddleCenter;
+            _txtMarcador.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _txtMarcador.verticalOverflow   = VerticalWrapMode.Overflow;
+
             var resGO = new GameObject("Resultado", typeof(RectTransform), typeof(Text));
             resGO.transform.SetParent(card.transform, false);
             _txtResultado = resGO.GetComponent<Text>();
@@ -525,6 +657,13 @@ namespace Fishy.Detective
             if (_content == null) return;
             for (int i = _content.childCount - 1; i >= 0; i--)
                 Destroy(_content.GetChild(i).gameObject);
+        }
+
+        private void LimpiarPermiso()
+        {
+            if (_permisoBurbujas == null) return;
+            for (int i = _permisoBurbujas.childCount - 1; i >= 0; i--)
+                Destroy(_permisoBurbujas.GetChild(i).gameObject);
         }
 
         private void LimpiarExplicaciones()

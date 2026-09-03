@@ -15,6 +15,11 @@ public class ApiSmokeTest : MonoBehaviour
     public string nombreBase = "unity_test";
     public string password = "1234";
 
+    [Header("Perfil de menor")]
+    [Tooltip("Nombre del perfil de menor que crea la prueba (control parental).")]
+    public string nombreJugador = "Peque de prueba";
+    public int edadJugador = 9;
+
     [Tooltip("Si está activo y ya hay una sesión iniciada, NO corre la prueba " +
              "(evita sobrescribir el token/partida del jugador real).")]
     public bool skipIfLoggedIn = true;
@@ -40,27 +45,45 @@ public class ApiSmokeTest : MonoBehaviour
         }
 
         string nombre = $"{nombreBase}_{Random.Range(1000, 999999)}";
-        Debug.Log($"[SmokeTest] === INICIO === usuario='{nombre}'");
+        string email  = $"{nombre}@fishy.test";
+        Debug.Log($"[SmokeTest] === INICIO === adulto='{nombre}' email='{email}'");
 
-        // 1) Registro -> 2) Partida -> 3) NPC -> 4) Chat -> 5) Mensajes -> 6) Historial -> 7) Finalizar
-        ApiManager.Instance.Registro(nombre, password,
+        // 1) Registro (adulto) -> 1b) Perfil de menor -> 2) Partida -> 3) NPC
+        // -> 4) Chat -> 5) Mensajes -> 6) Historial -> 7) Finalizar
+        ApiManager.Instance.Registro(nombre, email, password,
             onSuccess: () =>
             {
-                Debug.Log($"[OK] 1. Registro. token={ApiManager.Instance.Token[..10]}... usuario_id={ApiManager.Instance.UsuarioId}");
-                PasoCrearPartida();
+                Debug.Log($"[OK] 1. Registro. token={ApiManager.Instance.Token[..10]}... adulto_id={ApiManager.Instance.AdultoId}");
+                PasoCrearJugador();
             },
             onError: err => Debug.LogError($"[FALLO] 1. Registro: {err}\n(Si dice 'ya existe', cambia 'nombreBase' o reinicia Play.)"));
     }
 
+    private void PasoCrearJugador()
+    {
+        // Sin perfil de menor no se puede crear partida: el backend la exige.
+        ApiManager.Instance.CrearJugador(nombreJugador, edadJugador,
+            onSuccess: j =>
+            {
+                Debug.Log($"[OK] 1b. Perfil de menor creado. jugador_id={j.id} nombre={j.nombre}");
+                ApiManager.Instance.SeleccionarJugador(j.id);
+                PasoCrearPartida();
+            },
+            onError: err => Debug.LogError($"[FALLO] 1b. CrearJugador: {err}"));
+    }
+
     private void PasoCrearPartida()
     {
-        ApiManager.Instance.CrearPartida(progreso: 0f,
-            onSuccess: p =>
+        // ContinuarOCrearPartida es el flujo real del juego: retoma la última
+        // partida del menor y solo crea una si nunca ha jugado.
+        ApiManager.Instance.ContinuarOCrearPartida(
+            onSuccess: (p, esNueva) =>
             {
-                Debug.Log($"[OK] 2. Partida creada. partida_id={p.id}");
+                Debug.Log($"[OK] 2. Partida {(esNueva ? "creada" : "retomada")}. " +
+                          $"partida_id={p.id} perfil={p.usuario_jugador} progreso={p.progreso}");
                 PasoRegistrarNPC();
             },
-            onError: err => Debug.LogError($"[FALLO] 2. CrearPartida: {err}"));
+            onError: err => Debug.LogError($"[FALLO] 2. ContinuarOCrearPartida: {err}"));
     }
 
     private void PasoRegistrarNPC()
@@ -87,6 +110,16 @@ public class ApiSmokeTest : MonoBehaviour
             onError: err => Debug.LogError($"[FALLO] 4. IniciarChat: {err}"));
     }
 
+    // Pregunta y opción reales del banco v1.8 (zona "desconocidos"), verificadas
+    // contra la base: R1 es segura_optima, así que el riesgo de esa zona debe
+    // quedar en +2. Si cambian estos ids, el paso 8 falla avisando que la opción
+    // no existe en el banco — que es justo lo que pasaba con los ids viejos
+    // "HDU2_NPC01_F2_Q01_R3": ese formato con fase (_F2_) ya no existe, la
+    // respuesta se guardaba igual pero caía en sin_clasificar y no sumaba riesgo.
+    private const string PreguntaBanco = "HDU2_NPC01_Q01";
+    private const string OpcionElegida = "HDU2_NPC01_Q01_R1";
+    private const int    ImpactoEsperado = 2;
+
     private void PasoMensajes()
     {
         // start (NPC neutro)
@@ -97,18 +130,31 @@ public class ApiSmokeTest : MonoBehaviour
                 // request (NPC con riesgo + opciones)
                 var opciones = new List<OpcionRespuesta>
                 {
-                    new("Aceptar y dar mi direccion", 0, "mala"),
-                    new("Rechazar y decir que no me siento comodo", 1, "buena"),
-                    new("Bloquear al contacto", 2, "buena"),
+                    new("Le doy mi nombre completo y mi colegio", 0, "mala"),
+                    new("Le digo que me conocen por mi apodo", 1, "buena"),
+                    new("Le digo que no doy mis datos a desconocidos", 2, "buena"),
                 };
                 ApiManager.Instance.RegistrarMensaje("request",
-                    "Podemos encontrarnos en el parque despues del colegio?", "", opciones,
+                    "Oye, en mi grupo privado todos nos conocemos de verdad. Como te llamas?",
+                    "", opciones,
                     onSuccess: m =>
                     {
                         Debug.Log($"[OK] 5b. Mensaje REQUEST con {m.posibles_respuestas.Count} opciones");
-                        // chain (respuesta del jugador)
-                        ApiManager.Instance.RegistrarRespuestaJugador("Rechazar y decir que no me siento comodo", "buena",
-                            onSuccess: _ => { Debug.Log("[OK] 5c. Respuesta del jugador (CHAIN) registrada"); PasoHistorial(); },
+                        // chain (respuesta del jugador). El opcion_banco_id es lo que
+                        // hace que esta respuesta cuente para el riesgo por zona.
+                        ApiManager.Instance.RegistrarRespuestaJugador(
+                            "Le digo que no doy mis datos a desconocidos", "buena",
+                            preguntaBancoId: PreguntaBanco,
+                            opcionBancoId: OpcionElegida,
+                            onSuccess: msg =>
+                            {
+                                if (msg.opcion_banco_id == OpcionElegida)
+                                    Debug.Log($"[OK] 5c. Respuesta (CHAIN) registrada con opcion_banco_id={msg.opcion_banco_id}");
+                                else
+                                    Debug.LogError($"[FALLO] 5c. el backend devolvio opcion_banco_id='{msg.opcion_banco_id}', " +
+                                                   $"se esperaba '{OpcionElegida}'. Sin ese campo el riesgo por zona no suma.");
+                                PasoHistorial();
+                            },
                             onError: err => Debug.LogError($"[FALLO] 5c. RespuestaJugador: {err}"));
                     },
                     onError: err => Debug.LogError($"[FALLO] 5b. REQUEST: {err}"));
@@ -135,8 +181,41 @@ public class ApiSmokeTest : MonoBehaviour
             onSuccess: end =>
             {
                 Debug.Log($"[OK] 7. Chat finalizado (mensaje END id={end.id})");
-                Debug.Log("[SmokeTest] === TODO OK: el ApiManager habla con el backend correctamente ===");
+                PasoRiesgoPorZona();
             },
             onError: err => Debug.LogError($"[FALLO] 7. FinalizarChat: {err}"));
+    }
+
+    private void PasoRiesgoPorZona()
+    {
+        ApiManager.Instance.ObtenerRiesgoPorZona(
+            onSuccess: riesgo =>
+            {
+                foreach (var z in riesgo.zonas)
+                    Debug.Log($"        zona '{z.zona}': {z.riesgo_acumulado:+#;-#;0} " +
+                              $"en {z.respuestas} respuesta(s), escala {z.minimo_posible} a {z.maximo_posible} " +
+                              $"({z.Normalizado:P0})");
+
+                // La única respuesta registrada fue segura_optima, así que el total
+                // tiene que ser exactamente +2 y nada puede quedar sin clasificar.
+                bool bien = riesgo.total == ImpactoEsperado
+                            && riesgo.respuestas == 1
+                            && riesgo.sin_clasificar == 0;
+
+                if (bien)
+                {
+                    Debug.Log($"[OK] 8. Riesgo por zona: total={riesgo.total} (mas alto = mas seguro)");
+                    Debug.Log("[SmokeTest] === TODO OK: el ApiManager habla con el backend correctamente ===");
+                }
+                else
+                {
+                    Debug.LogError($"[FALLO] 8. Riesgo por zona: total={riesgo.total} (esperado {ImpactoEsperado}), " +
+                                   $"respuestas={riesgo.respuestas} (esperado 1), " +
+                                   $"sin_clasificar={riesgo.sin_clasificar} (esperado 0).\n" +
+                                   "Si sin_clasificar es 1, el banco de la base no tiene la opcion " +
+                                   $"'{OpcionElegida}': recarga el banco con 'manage.py cargar_banco'.");
+                }
+            },
+            onError: err => Debug.LogError($"[FALLO] 8. ObtenerRiesgoPorZona: {err}"));
     }
 }

@@ -1,37 +1,52 @@
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# USUARIO
+# CUENTAS  (control parental)
+#
+# `AdultoResponsable` es la única entidad con login (AUTH_USER_MODEL): el tutor
+# se autentica y gestiona uno o más `UsuarioJugador`, que son los perfiles de
+# los menores y NO tienen credenciales propias. Toda la data de juego
+# (`Partida` y lo que cuelga de ella) pertenece a un `UsuarioJugador`.
 # ─────────────────────────────────────────────────────────────────────────────
 
-class UsuarioManager(BaseUserManager):
-    def create_user(self, nombre, password=None):
+class AdultoResponsableManager(BaseUserManager):
+    def create_user(self, nombre, email, password=None, **extra_fields):
         if not nombre:
-            raise ValueError("El usuario debe tener un nombre")
-        user = self.model(nombre=nombre)
+            raise ValueError("El adulto responsable debe tener un nombre")
+        if not email:
+            raise ValueError("El adulto responsable debe tener un email")
+        user = self.model(nombre=nombre, email=self.normalize_email(email), **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, nombre, password=None):
-        user = self.create_user(nombre, password)
+    def create_superuser(self, nombre, email, password=None, **extra_fields):
+        user = self.create_user(nombre, email, password, **extra_fields)
         user.is_admin = True
         user.save(using=self._db)
         return user
 
 
-class Usuario(AbstractBaseUser):
-    nombre   = models.CharField(max_length=150, unique=True)
-    is_admin = models.BooleanField(default=False)
+class AdultoResponsable(AbstractBaseUser):
+    """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
+    nombre           = models.CharField(max_length=150, unique=True)
+    apellido         = models.CharField(max_length=150, blank=True)
+    email            = models.EmailField(unique=True)
+    edad             = models.PositiveSmallIntegerField(null=True, blank=True)
+    fecha_nacimiento = models.DateField(null=True, blank=True)
+    fecha_creacion   = models.DateTimeField(auto_now_add=True)
+    is_admin         = models.BooleanField(default=False)
 
-    objects = UsuarioManager()
+    objects = AdultoResponsableManager()
 
     USERNAME_FIELD = "nombre"
+    REQUIRED_FIELDS = ["email"]   # lo pide `createsuperuser` además del nombre
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} {self.apellido}".strip()
 
     # Requerido por Django admin
     def has_perm(self, perm, obj=None): return self.is_admin
@@ -41,8 +56,33 @@ class Usuario(AbstractBaseUser):
     def is_staff(self): return self.is_admin
 
     class Meta:
-        verbose_name = "Usuario"
-        verbose_name_plural = "Usuarios"
+        verbose_name = "Adulto Responsable"
+        verbose_name_plural = "Adultos Responsables"
+
+
+class UsuarioJugador(models.Model):
+    """Perfil del menor que juega, gestionado por un AdultoResponsable."""
+    adulto         = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="jugadores"
+    )
+    nombre         = models.CharField(max_length=150)
+    edad           = models.PositiveSmallIntegerField(null=True, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Usuario Jugador"
+        verbose_name_plural = "Usuarios Jugadores"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["adulto", "nombre"],
+                name="jugador_unico_por_adulto"
+            )
+        ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -70,8 +110,8 @@ class NivelRiesgo(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class Partida(models.Model):
-    usuario      = models.ForeignKey(
-        Usuario,
+    usuario_jugador = models.ForeignKey(
+        UsuarioJugador,
         on_delete=models.CASCADE,
         related_name="partidas"
     )
@@ -86,7 +126,7 @@ class Partida(models.Model):
     fecha_update = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Partida #{self.pk} — {self.usuario.nombre}"
+        return f"Partida #{self.pk} — {self.usuario_jugador.nombre}"
 
     class Meta:
         verbose_name = "Partida"
@@ -209,6 +249,17 @@ class Mensaje(models.Model):
         null=True,
         help_text="ID de la pregunta del banco que originó este mensaje (ej: HDU2_NPC01_F2_Q01)."
     )
+    opcion_banco_id   = models.CharField(
+        max_length=70,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text=(
+            "ID de la opción del banco que eligió el jugador (ej: HDU2_NPC01_F2_Q01_R2). "
+            "Es la llave que permite acumular riesgo por zona: se resuelve contra "
+            "OpcionBanco para obtener impacto_puntuacion y la zona de su pregunta."
+        )
+    )
     timestamp         = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -316,3 +367,253 @@ class OpcionBanco(models.Model):
         verbose_name = "Opción Banco"
         verbose_name_plural = "Opciones Banco"
         ordering = ["orden"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ZONA
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Zona(models.Model):
+    """Zona del mapa. Base para el cálculo de riesgo por zona (ver HDU riesgo)."""
+    nombre         = models.CharField(max_length=100, unique=True)
+    descripcion    = models.TextField(blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
+
+    class Meta:
+        verbose_name = "Zona"
+        verbose_name_plural = "Zonas"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODO DETECTIVE  (HDU-10, contenido estático cargado desde detective_cases.json)
+#
+# El jugador observa una conversación pregrabada entre dos NPCs (sin participar)
+# y marca los mensajes que considera señales de riesgo. `es_ambiguo` no cuenta
+# ni como acierto ni como error (CA5 de HDU-10).
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CasoDetective(models.Model):
+    caso_id              = models.CharField(max_length=60, unique=True)
+    titulo               = models.CharField(max_length=150)
+    zona                 = models.CharField(max_length=50)
+    etiquetas_ml         = models.JSONField(default=list)
+
+    # Permiso: el jugador le pide a un NPC observar sus mensajes con otro.
+    permiso_player_text  = models.TextField()
+    permiso_npc_nombre   = models.CharField(max_length=60)
+    permiso_npc_response = models.TextField()
+
+    def __str__(self):
+        return self.caso_id
+
+    class Meta:
+        verbose_name = "Caso Detective"
+        verbose_name_plural = "Casos Detective"
+        ordering = ["zona", "caso_id"]
+
+
+class MensajeDetective(models.Model):
+    caso            = models.ForeignKey(
+        CasoDetective, on_delete=models.CASCADE, related_name="mensajes"
+    )
+    mensaje_id      = models.CharField(max_length=70, unique=True)
+    npc_sender      = models.CharField(max_length=60)
+    texto           = models.TextField()
+    es_senal_riesgo = models.BooleanField(default=False)
+    es_ambiguo      = models.BooleanField(default=False)
+    explicacion     = models.TextField(blank=True, null=True)
+    nota_ambiguo    = models.TextField(blank=True, null=True)
+    orden           = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.mensaje_id
+
+    class Meta:
+        verbose_name = "Mensaje Detective"
+        verbose_name_plural = "Mensajes Detective"
+        ordering = ["caso", "orden"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO DETECTIVE  (resultado del jugador por partida+caso)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CasoDetectiveProgreso(models.Model):
+    partida           = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="casos_detective"
+    )
+    caso              = models.ForeignKey(
+        CasoDetective, on_delete=models.CASCADE, related_name="progresos"
+    )
+    mensajes_marcados = models.JSONField(
+        default=list,
+        help_text="mensaje_id de los MensajeDetective que el jugador marcó como riesgo"
+    )
+    aciertos          = models.PositiveSmallIntegerField(default=0)
+    total_riesgo      = models.PositiveSmallIntegerField(default=0)
+    porcentaje        = models.FloatField(default=0.0)
+    intentos          = models.PositiveSmallIntegerField(default=1)
+    fecha_inicio      = models.DateTimeField(auto_now_add=True)
+    fecha_termino     = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.caso.caso_id} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso Caso Detective"
+        verbose_name_plural = "Progresos Casos Detective"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "caso"], name="progreso_unico_por_partida_caso"
+            )
+        ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MISION  (catalogo — HDU-1 / HDU-11 / HDU-12)
+#
+# Contenido de catalogo: igual para todos los ninos, sin FK a partida. Ojo con
+# no confundirlo con NPC, que si cuelga de una partida y es de runtime.
+#
+# El id lo manda el banco (`mision_desbloquea`), no Unity. Es a proposito: el
+# MissionManager de Unity guarda el estado por `desafioId` en PlayerPrefs, y si
+# cada lado inventa el suyo terminamos como el Modo Detective (caso_01 vs
+# DC_CASO_01). Los DesafioData del editor deben usar este mismo mision_id.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Mision(models.Model):
+    class Tipo(models.TextChoices):
+        PRINCIPAL   = "principal",   "Principal"
+        SECUNDARIA  = "secundaria",  "Secundaria"
+        EXPLORACION = "exploracion", "Exploracion"
+
+    mision_id = models.CharField(max_length=60, unique=True)
+    nombre    = models.CharField(
+        max_length=120, blank=True,
+        help_text="`nombre_mision` del banco. La de exploracion no trae nombre."
+    )
+    tipo      = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.SECUNDARIA)
+    zona      = models.CharField(max_length=50, blank=True)
+
+    def __str__(self):
+        return self.mision_id
+
+    class Meta:
+        verbose_name = "Mision"
+        verbose_name_plural = "Misiones"
+        ordering = ["zona", "mision_id"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DIALOGO NPC  (catalogo — los `dialogos_npc_neutros` del banco)
+#
+# NPCs neutros que hablan sin arbol de decisiones: no tienen opciones ni riesgo,
+# solo lineas y (a veces) una mision. npc_id/npc_nombre van planos, igual que en
+# PreguntaBanco: los dos bloques del banco usan namespaces distintos para el
+# mismo animal (Flamenco es NPC_03 en preguntas y NPC_FLAMENCO_SEC aca), asi que
+# una tabla de NPCs de catalogo lo duplicaria en vez de unificarlo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DialogoNPC(models.Model):
+    dialogo_id   = models.CharField(max_length=60, unique=True)
+    hdu          = models.CharField(max_length=10)
+    zona         = models.CharField(max_length=50)
+    npc_id       = models.CharField(max_length=30, blank=True)
+    npc_nombre   = models.CharField(max_length=60, blank=True)
+    npc_avatar   = models.CharField(max_length=60, blank=True)
+    tipo         = models.CharField(max_length=20, blank=True, help_text="`neutro` en todos los del banco actual")
+    trigger      = models.CharField(max_length=30, blank=True, help_text="Como se dispara en el juego, ej. `boton_E`")
+    lineas       = models.JSONField(default=list, help_text="Lista de strings, en orden de aparicion")
+    pista_mision = models.TextField(blank=True, null=True)
+    mision       = models.ForeignKey(
+        Mision, on_delete=models.SET_NULL, null=True, blank=True, related_name="dialogos",
+        help_text="Mision que este dialogo desbloquea (`mision_desbloquea`)"
+    )
+
+    def __str__(self):
+        return self.dialogo_id
+
+    class Meta:
+        verbose_name = "Dialogo NPC"
+        verbose_name_plural = "Dialogos NPC"
+        ordering = ["zona", "dialogo_id"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECOMPENSA DE ALBUM  (catalogo — HDU-11 / HDU-12)
+#
+# Las 12 recompensas vienen de dos origenes distintos y excluyentes:
+#   - las 6 de misiones secundarias, desde `pista_mision` del dialogo  -> mision
+#   - las 6 de misiones principales, desde `consecuencia_narrativa`    -> opcion
+# Por eso los dos origenes son opcionales, con un check que obliga a tener
+# exactamente uno. El `recompensa_id` se deriva del origen y no del nombre: el
+# nombre es texto que Luis puede reescribir, el id del origen es estable.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RecompensaAlbum(models.Model):
+    recompensa_id   = models.CharField(max_length=90, unique=True)
+    nombre          = models.CharField(max_length=150)
+    tip_educativo   = models.TextField(blank=True, help_text="El tip entre parentesis, cuando el banco lo trae")
+    mision          = models.ForeignKey(
+        Mision, on_delete=models.CASCADE, null=True, blank=True, related_name="recompensas"
+    )
+    opcion_banco_id = models.CharField(
+        max_length=70, blank=True, default="", db_index=True,
+        help_text=(
+            "`opcion_id` de la OpcionBanco que la entrega. Es texto y no FK a proposito: "
+            "cargar_banco borra y recrea las opciones en cada corrida, asi que una FK real "
+            "se llevaria en cascada el album ya obtenido por los ninos. Mismo criterio que "
+            "Mensaje.opcion_banco_id."
+        ),
+    )
+
+    def __str__(self):
+        return f"{self.recompensa_id} — {self.nombre}"
+
+    class Meta:
+        verbose_name = "Recompensa de Album"
+        verbose_name_plural = "Recompensas de Album"
+        ordering = ["recompensa_id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(mision__isnull=False, opcion_banco_id="")
+                    | (models.Q(mision__isnull=True) & ~models.Q(opcion_banco_id=""))
+                ),
+                name="recompensa_con_un_solo_origen",
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECOMPENSA OBTENIDA  (progreso — por partida)
+#
+# Es la tabla que responde "que desbloqueo este nino", que hoy no se puede
+# contestar sin parsear texto libre. No hay `MisionProgreso` a proposito: cada
+# mision entrega exactamente una recompensa, asi que completarla se deduce de
+# aca, y las 6 principales ni siquiera cuelgan de una mision.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RecompensaObtenida(models.Model):
+    partida    = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="recompensas_album"
+    )
+    recompensa = models.ForeignKey(
+        RecompensaAlbum, on_delete=models.CASCADE, related_name="obtenciones"
+    )
+    fecha      = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.recompensa.recompensa_id} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Recompensa Obtenida"
+        verbose_name_plural = "Recompensas Obtenidas"
+        ordering = ["-fecha"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "recompensa"], name="recompensa_unica_por_partida"
+            )
+        ]
