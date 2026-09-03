@@ -1276,7 +1276,8 @@ namespace Fishy.Net
     {
         public int id;
         public int partida;
-        public int caso;
+        public int caso;         // PK numerica
+        public string caso_id;   // "DC_CASO_01" — lo que el prefab tiene serializado
         public List<string> mensajes_marcados = new List<string>();
         public int aciertos;
         public int total_riesgo;

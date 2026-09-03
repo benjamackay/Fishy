@@ -24,6 +24,7 @@ namespace Fishy.Detective
         private Text          _txtMarcador;
         private Text          _txtResultado;
         private Button        _btnConfirmar;
+        private Button        _btnRepetir;
         private Button        _btnVerExplicacion;
         private RectTransform _contenedorExplicaciones;
         private Font          _font;
@@ -36,6 +37,7 @@ namespace Fishy.Detective
         // ── Estado ────────────────────────────────────────────────────────────
         private DetectiveCaseManager _manager;
         private Action _onCerrar;
+        private Action _onRepetir;
         private List<(DetectiveMessage mensaje, string explicacion)> _noIdentificados;
 
         // ── Paleta ────────────────────────────────────────────────────────────
@@ -49,6 +51,7 @@ namespace Fishy.Detective
         private static readonly Color ColBtnConfirmar  = new Color(0.08f, 0.47f, 0.35f, 1f);
         private static readonly Color ColPanelRes      = new Color(0.05f, 0.07f, 0.09f, 0.97f);
         private static readonly Color ColCard          = new Color(0.12f, 0.16f, 0.18f, 1f);
+        private static readonly Color ColBtnRepetir    = new Color(0.18f, 0.22f, 0.27f, 1f);
         private static readonly Color ColBtnExplica    = new Color(0.28f, 0.16f, 0.38f, 1f);
         private static readonly Color ColBurbujaOtto   = new Color(0.13f, 0.35f, 0.55f, 1f); // jugador (derecha)
 
@@ -74,10 +77,11 @@ namespace Fishy.Detective
 
         // ── API pública ───────────────────────────────────────────────────────
 
-        public void Inicializar(DetectiveCaseManager manager, Action onCerrar)
+        public void Inicializar(DetectiveCaseManager manager, Action onCerrar, Action onRepetir)
         {
             _manager   = manager;
             _onCerrar  = onCerrar;
+            _onRepetir = onRepetir;
         }
 
         /// <summary>
@@ -315,6 +319,8 @@ namespace Fishy.Detective
                 ? "señales de riesgo identificadas"
                 : "¡No había señales de riesgo en esta conversación!";
 
+            // Repetir solo se ofrece si le fue mal (< 50%); la explicación, siempre.
+            _btnRepetir.gameObject.SetActive(r.DebeOfrecerRepetir);
             _btnVerExplicacion.gameObject.SetActive(true);
             _noIdentificados = r.noIdentificados;
         }
@@ -599,6 +605,8 @@ namespace Fishy.Detective
             expGO.GetComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;
 
+            _btnRepetir = CrearBotonCard(card.transform, "↺ Repetir caso", ColBtnRepetir,
+                () => { Hide(); _onRepetir?.Invoke(); });
             _btnVerExplicacion = CrearBotonCard(card.transform, "💡 Ver explicación", ColBtnExplica,
                 () => MostrarExplicaciones());
             CrearBotonCard(card.transform, "Continuar", ColBtnConfirmar,

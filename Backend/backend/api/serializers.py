@@ -132,11 +132,17 @@ class CasoDetectiveSerializer(serializers.ModelSerializer):
 
 class CasoDetectiveProgresoSerializer(serializers.ModelSerializer):
     """Resultado de un intento del jugador sobre un caso. `partida`/`caso`/`intentos`
-    nunca vienen del cliente: los fija la vista (mismo patrón que UsuarioJugador.adulto)."""
+    nunca vienen del cliente: los fija la vista (mismo patrón que UsuarioJugador.adulto).
+
+    `caso` es la PK numérica; se agrega `caso_id` (el string, ej. DC_CASO_01) porque es
+    lo que el cliente tiene serializado en el prefab y lo único con lo que puede saber
+    si un caso ya está completado."""
+    caso_id = serializers.CharField(source="caso.caso_id", read_only=True)
+
     class Meta:
         model = CasoDetectiveProgreso
         fields = [
-            "id", "partida", "caso", "mensajes_marcados",
+            "id", "partida", "caso", "caso_id", "mensajes_marcados",
             "aciertos", "total_riesgo", "porcentaje", "intentos",
             "fecha_inicio", "fecha_termino",
         ]
