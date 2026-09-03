@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Fishy.Net;
 using Fishy.UI;
@@ -34,6 +36,17 @@ using UnityEngine.UI;
 public class iniciar : MonoBehaviour
 {
     public enum Modo { Login, Registro }
+
+    [Header("Perfiles de menor")]
+    [Tooltip("Parche hasta que exista la pantalla de seleccion de perfil. Al entrar se " +
+             "crean estos perfiles si la cuenta todavia no los tiene.")]
+    public string[] perfiles = { "Perfil 1", "Perfil 2" };
+
+    [Tooltip("Cual de los perfiles de arriba se juega (1 = el primero). Cada perfil tiene " +
+             "su propia partida, asi que cambiarlo devuelve los NPC de Detective sin tocar " +
+             "la base. En un build se puede cambiar sin recompilar: pon un archivo " +
+             "'perfil.txt' junto al .exe con el numero adentro.")]
+    [Min(1)] public int perfilActivo = 1;
 
     [Header("Destino")]
     [Tooltip("Escena que se carga despues de autenticarse. Debe estar en Build Settings.")]
@@ -184,7 +197,93 @@ public class iniciar : MonoBehaviour
     private void OnAuthOk()
     {
         // No se libera `ocupado`: la pantalla se descarga al cambiar de escena.
-        SetEstado("Listo. Entrando...", colorOk);
+        //
+        // Autenticarse deja al ADULTO logueado, pero el avance del juego cuelga de
+        // la partida, y la partida cuelga del perfil del menor. Sin ese paso
+        // PartidaId queda en null y nada se guarda: ni el Modo Detective, ni los
+        // mensajes del chat, ni el riesgo por zona, todos salen en silencio por su
+        // guarda de "sin partida". Por eso aca se asegura perfil + partida antes de
+        // entrar al juego.
+        SetEstado("Preparando perfil...", colorInfo);
+        AsegurarPerfil(0, null);
+    }
+
+    /// <summary>Crea los perfiles de <see cref="perfiles"/> que la cuenta no tenga,
+    /// uno a uno (el backend rechaza nombres repetidos dentro de la misma cuenta), y
+    /// al terminar abre la partida del perfil activo.</summary>
+    private void AsegurarPerfil(int indice, List<UsuarioJugadorDto> existentes)
+    {
+        if (existentes == null)
+        {
+            ApiManager.Instance.ListarJugadores(
+                onSuccess: lista => AsegurarPerfil(0, lista ?? new List<UsuarioJugadorDto>()),
+                onError:   e => EntrarSinPartida($"no se pudieron listar los perfiles ({e})"));
+            return;
+        }
+
+        if (indice >= perfiles.Length) { AbrirPartida(existentes); return; }
+
+        string nombre = perfiles[indice];
+        if (existentes.Any(j => j.nombre == nombre)) { AsegurarPerfil(indice + 1, existentes); return; }
+
+        ApiManager.Instance.CrearJugador(nombre, null,
+            onSuccess: creado =>
+            {
+                Debug.Log($"[Ingresar] Perfil de menor creado: '{nombre}' (id {creado.id}).");
+                existentes.Add(creado);
+                AsegurarPerfil(indice + 1, existentes);
+            },
+            onError: e => EntrarSinPartida($"no se pudo crear el perfil '{nombre}' ({e})"));
+    }
+
+    /// <summary>Retoma la partida del perfil activo, o le crea una si nunca jugo.</summary>
+    private void AbrirPartida(List<UsuarioJugadorDto> existentes)
+    {
+        int indice = Mathf.Clamp(LeerPerfilActivo(), 1, perfiles.Length) - 1;
+        string nombre = perfiles[indice];
+
+        var elegido = existentes.FirstOrDefault(j => j.nombre == nombre)
+                   ?? existentes.FirstOrDefault();
+        if (elegido == null) { EntrarSinPartida("la cuenta no tiene ningun perfil"); return; }
+
+        ApiManager.Instance.ContinuarOCrearPartida(elegido.id,
+            onSuccess: (partida, esNueva) =>
+            {
+                Debug.Log($"[Ingresar] Perfil '{elegido.nombre}' (id {elegido.id}), " +
+                          $"partida {partida.id} {(esNueva ? "creada" : "retomada")}.");
+                SetEstado("Listo. Entrando...", colorOk);
+                Continuar();
+            },
+            onError: e => EntrarSinPartida($"no se pudo abrir la partida ({e})"));
+    }
+
+    /// <summary>Numero de perfil a jugar. Un 'perfil.txt' junto al ejecutable le gana
+    /// al valor del inspector, para poder cambiar de perfil en un build ya compilado.</summary>
+    private int LeerPerfilActivo()
+    {
+        try
+        {
+            string ruta = Path.Combine(Application.dataPath, "..", "perfil.txt");
+            if (File.Exists(ruta) && int.TryParse(File.ReadAllText(ruta).Trim(), out int n))
+            {
+                Debug.Log($"[Ingresar] perfil.txt indica el perfil {n}.");
+                return n;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[Ingresar] No se pudo leer perfil.txt: {e.Message}");
+        }
+        return perfilActivo;
+    }
+
+    /// <summary>Ultimo recurso: entrar igual, pero dejando claro que no se guarda nada.
+    /// Dejar al jugador atrapado en el login por esto seria peor.</summary>
+    private void EntrarSinPartida(string motivo)
+    {
+        Debug.LogWarning($"[Ingresar] Se entra SIN partida activa: {motivo}. " +
+                          "El avance no se va a guardar en el backend.");
+        SetEstado("Entrando (el avance no se guardara)...", colorError);
         Continuar();
     }
 
