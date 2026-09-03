@@ -81,8 +81,11 @@ namespace Fishy.Phone
         [Range(0.5f, 4f)] public float previewDuration = 1.5f;
 
         [Header("Eventos")]
-        public UnityEvent onChatOpened;
-        public UnityEvent onChatClosed;
+        public UnityEvent onChatOpened = new UnityEvent();
+        [Tooltip("Se dispara al cerrarse el chat. MissionTracker se engancha aquí para " +
+                 "los objetivos de misión de tipo 'Chatear Por Telefono', igual que se " +
+                 "engancha al onDialogueEnded de un NPC.")]
+        public UnityEvent onChatClosed = new UnityEvent();
 
         // ── Estado interno ─────────────────────────────────────────────────────
         private bool               _triggered;

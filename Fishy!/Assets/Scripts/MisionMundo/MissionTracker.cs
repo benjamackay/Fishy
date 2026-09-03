@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Fishy.Mision;
 using UnityEngine;
+using UnityEngine.Events;
 
 /// <summary>
 /// Vigila los objetivos de las misiones entregadas y marca la misión como
@@ -11,9 +12,12 @@ using UnityEngine;
 /// dejaría de seguir el progreso a media misión.
 ///
 /// Los objetos se detectan escuchando <see cref="InventoryManager.OnInventoryChanged"/>;
-/// las conversaciones, suscribiéndose al <c>onDialogueEnded</c> de cada NPC
-/// listado. Ojo: haber hablado con un NPC ANTES de recibir la misión no cuenta
-/// (no hay historial), hay que volver a hablarle.
+/// las conversaciones, suscribiéndose al evento que las cierra: el
+/// <c>onDialogueEnded</c> del NPC, o el <c>onChatClosed</c> del PhoneChatLauncher
+/// cuando el objetivo es un chat de celular. Ojo: haber hablado (o haber atendido
+/// el chat) ANTES de recibir la misión no cuenta —no hay historial—, hay que
+/// volver a hacerlo; y si el launcher tiene 'openOnce' activo y ya se disparó, no
+/// se volverá a abrir solo.
 /// </summary>
 public class MissionTracker : MonoBehaviour
 {
@@ -76,10 +80,13 @@ public class MissionTracker : MonoBehaviour
 
         foreach (ObjetivoMision objetivo in seguimiento.objetivos)
         {
-            if (objetivo.tipo != TipoObjetivo.HablarConNpc || objetivo.npc == null) continue;
+            // Cada tipo de objetivo dice cuál es el evento que lo cumple; los que se
+            // resuelven consultando el mundo (recoger objetos) devuelven null.
+            UnityEvent evento = objetivo.EventoQueLoCumple();
+            if (evento == null) continue;
 
             ObjetivoMision capturado = objetivo;   // sin esto la lambda vería el último del bucle
-            objetivo.npc.onDialogueEnded.AddListener(() =>
+            evento.AddListener(() =>
             {
                 if (capturado.cumplido) return;
                 capturado.cumplido = true;
