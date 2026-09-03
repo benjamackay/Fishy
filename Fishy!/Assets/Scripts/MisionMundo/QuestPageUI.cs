@@ -45,14 +45,18 @@ public class QuestPageUI : MonoBehaviour
 
     private void OnEnable()
     {
-        MissionManager.GetOrCreate().onPanelActualizado.AddListener(Refresh);
+        MissionManager manager = MissionManager.GetOrCreate();
+        if (manager.onPanelActualizado == null)
+            manager.onPanelActualizado = new UnityEngine.Events.UnityEvent();
+
+        manager.onPanelActualizado.AddListener(Refresh);
         Refresh();
     }
 
     private void OnDisable()
     {
         if (MissionManager.Instance != null)
-            MissionManager.Instance.onPanelActualizado.RemoveListener(Refresh);
+            MissionManager.Instance.onPanelActualizado?.RemoveListener(Refresh);
     }
 
     /// <summary>Reconstruye la lista desde el estado actual del MissionManager.</summary>
@@ -68,7 +72,7 @@ public class QuestPageUI : MonoBehaviour
         }
         filas.Clear();
 
-        List<DesafioRuntime> misiones = MissionManager.Instance.GetListaOrdenada();
+        List<DesafioRuntime> misiones = MissionManager.GetOrCreate().GetListaOrdenada();
         foreach (DesafioRuntime mision in misiones) filas.Add(ConstruirFila(mision));
 
         if (misiones.Count == 0 && !string.IsNullOrEmpty(emptyMessage))

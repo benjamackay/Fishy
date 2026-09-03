@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Fishy.Mision;
+using Fishy.World;
 using UnityEngine;
 
 /// <summary>
@@ -30,8 +31,23 @@ public class MissionGiver : MonoBehaviour
              "que termina una conversación (el MissionManager igual ignora duplicados).")]
     public bool soloUnaVez = true;
 
+    [Header("Entrega al volver")]
+    [Tooltip("Si está activo, al hablar nuevamente con este NPC después de completar " +
+             "la misión se entrega la recompensa y se desbloquea la zona indicada.")]
+    public bool requiereVolverParaEntregar;
+
+    [Tooltip("Zona que se desbloquea al entregar la misión completada.")]
+    public BlockedZone zonaADesbloquear;
+
+    [Tooltip("Muestra el movimiento de cámara y el aviso antes de abrir la zona.")]
+    public bool usarCinematicaDesbloqueo = true;
+
+    public string mensajeDesbloqueo = "¡Zona 2 desbloqueada!";
+    public string mensajeMisionPendiente = "Aún no has completado la misión.";
+
     private NPC npc;
     private bool entregada;
+    private bool recompensaEntregada;
 
     private void Awake()
     {
@@ -48,14 +64,71 @@ public class MissionGiver : MonoBehaviour
         if (npc != null) npc.onDialogueEnded.RemoveListener(Entregar);
     }
 
-    /// <summary>Registra la misión y empieza a seguir sus objetivos.</summary>
+    /// <summary>
+    /// En la primera conversación registra la misión. En las siguientes, si la
+    /// misión está completa, permite entregarla y desbloquea su zona.
+    /// </summary>
     public void Entregar()
     {
         if (desafio == null) return;
-        if (soloUnaVez && entregada) return;
 
-        entregada = true;
-        MissionManager.GetOrCreate().RegistrarDesafioDisponible(desafio);
-        MissionTracker.GetOrCreate().Seguir(desafio, objetivos);
+        MissionManager manager = MissionManager.GetOrCreate();
+
+        if (!entregada)
+        {
+            DesafioRuntime runtime = manager.RegistrarDesafioDisponible(desafio);
+            entregada = true;
+
+            // También cubre una partida cargada donde la misión ya estaba completa.
+            if (runtime != null && runtime.estado == EstadoDesafio.Completado)
+            {
+                IntentarEntregarCompletada(manager);
+                return;
+            }
+
+            MissionTracker.GetOrCreate().Seguir(desafio, objetivos);
+            return;
+        }
+
+        if (requiereVolverParaEntregar)
+        {
+            IntentarEntregarCompletada(manager);
+            return;
+        }
+
+        if (!soloUnaVez)
+        {
+            manager.RegistrarDesafioDisponible(desafio);
+            MissionTracker.GetOrCreate().Seguir(desafio, objetivos);
+        }
+    }
+
+    private void IntentarEntregarCompletada(MissionManager manager)
+    {
+        if (!requiereVolverParaEntregar || recompensaEntregada) return;
+
+        if (!manager.EstaCompletado(desafio.desafioId))
+        {
+            if (!string.IsNullOrWhiteSpace(mensajeMisionPendiente))
+                ZonePopupUI.Show(mensajeMisionPendiente);
+            return;
+        }
+
+        if (zonaADesbloquear == null)
+        {
+            Debug.LogWarning(
+                $"[{name}] La misión está completa, pero falta asignar 'Zona A Desbloquear'.",
+                this);
+            return;
+        }
+
+        recompensaEntregada = true;
+
+        if (!zonaADesbloquear.isLocked) return;
+
+        if (usarCinematicaDesbloqueo)
+            ZoneUnlockCinematic.GetOrCreate().Play(zonaADesbloquear, mensajeDesbloqueo);
+        else
+            zonaADesbloquear.Unlock();
     }
 }
