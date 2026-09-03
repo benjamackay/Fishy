@@ -43,19 +43,23 @@ namespace Fishy.World
         public string ottoTag = "Player";
 
         private Collider2D[] colliders;
+        private PolygonColliderVisual[] meshOverlays;
         private float lastShown = -999f;
 
         private void Awake()
         {
             colliders = GetComponentsInChildren<Collider2D>();
+            meshOverlays = GetComponentsInChildren<PolygonColliderVisual>(true);
             ApplyState();
         }
 
         private void OnValidate()
         {
             // Refleja el estado en el editor para previsualizar el oscurecido.
+            // Sólo el sprite: la malla se construye en runtime y crear su
+            // material en modo edición dejaría instancias colgando.
             if (overlay != null)
-                SetOverlayVisible(isLocked);
+                SetSpriteOverlayVisible(isLocked);
         }
 
         /// <summary>Aplica el estado actual (bloqueo + oscurecido) a colliders y overlay.</summary>
@@ -74,6 +78,11 @@ namespace Fishy.World
         }
 
         private void SetOverlayVisible(bool visible)
+        {
+            SetOverlayAlpha(visible ? darkenAlpha : 0f);
+        }
+
+        private void SetSpriteOverlayVisible(bool visible)
         {
             if (overlay == null) return;
             var c = overlay.color;
@@ -115,14 +124,30 @@ namespace Fishy.World
             }
         }
 
+        /// <summary>
+        /// Opacidad actual del oscurecido, venga del sprite o de la malla.
+        /// La cinemática la usa como punto de partida del fundido.
+        /// </summary>
+        public float CurrentDarkenAlpha =>
+            overlay != null ? overlay.color.a : (isLocked ? darkenAlpha : 0f);
+
         /// <summary>Ajusta la opacidad del oscurecido (para animar el desbloqueo).</summary>
         public void SetOverlayAlpha(float a)
         {
-            if (overlay == null) return;
-            var c = overlay.color;
-            c.a = a;
-            overlay.color = c;
-            overlay.enabled = a > 0.001f;
+            if (overlay != null)
+            {
+                var c = overlay.color;
+                c.a = a;
+                overlay.color = c;
+                overlay.enabled = a > 0.001f;
+            }
+
+            if (meshOverlays == null) return;
+            foreach (var m in meshOverlays)
+            {
+                if (m == null) continue;
+                m.SetAlpha(a);
+            }
         }
 
         /// <summary>
