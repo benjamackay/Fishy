@@ -14,7 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NPCDialogue
   npcName: Huemul
   npcPortrait: {fileID: 0}
-  dialogueLines: []
+  dialogueLines:
+  - HOLA PELAO JUAN
+  - "TRAEME TODAS LAS FLORES PELAITO P\xD3RFA "
   autoProgressLine: 
   typingSpeed: 0.05
   voiceSound: {fileID: 0}
