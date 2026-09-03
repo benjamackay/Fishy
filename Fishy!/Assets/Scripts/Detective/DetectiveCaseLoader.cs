@@ -59,7 +59,9 @@ namespace Fishy.Detective
                 caseId = dto.caso_id,
                 npcObservado1 = npcs.Count > 0 ? npcs[0] : dto.permiso_npc_nombre,
                 npcObservado2 = npcs.Count > 1 ? npcs[1] : "",
-                mensajePermiso = dto.permiso_player_text,
+                permisoPlayerText = dto.permiso_player_text,
+                permisoNpcNombre = dto.permiso_npc_nombre,
+                permisoNpcResponse = dto.permiso_npc_response,
                 mensajes = mensajes,
                 explicacionGuiada = mensajesDto
                     .Where(m => !string.IsNullOrEmpty(m.explicacion))

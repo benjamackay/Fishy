@@ -64,10 +64,9 @@ namespace Fishy.Detective
             var controller = otto?.GetComponent<OttoController>();
             controller?.DisableMovement();
 
-            // 3. Mostrar mensaje de permiso en consola (la UI real viene después)
-            Debug.Log($"[Detective] NPC dice: \"{caso.mensajePermiso}\"");
-
-            // 4. Iniciar la UI
+            // 3. Iniciar la UI: primero el ritual de permiso (Otto pide, el NPC
+            //    autoriza explícitamente), y solo al continuar se abre la
+            //    conversación observada.
             if (detectiveUI == null)
                 detectiveUI = DetectiveUI.GetOrCreate();
 
@@ -77,7 +76,7 @@ namespace Fishy.Detective
                 onRepetir: () => ReiniciarCaso(controller)
             );
 
-            detectiveUI.MostrarConversacion();
+            detectiveUI.MostrarPermiso(caso, onContinuar: () => detectiveUI.MostrarConversacion());
         }
 
         private void ReiniciarCaso(OttoController controller)

@@ -2,7 +2,9 @@
   "caseId": "DC_CASO_01",
   "npcObservado1": "Puma",
   "npcObservado2": "Pudú",
-  "mensajePermiso": "Oye, ¿puedo ver tus mensajes con el Puma? Creo que algo raro está pasando.",
+  "permisoPlayerText": "Oye, ¿puedo ver tus mensajes con el Puma? Creo que algo raro está pasando.",
+  "permisoNpcNombre": "Pudú",
+  "permisoNpcResponse": "Sí, por favor ayúdame. Recibí mensajes raros y no sé qué hacer. ¿Puedes revisar si ocurrió algo malo?",
   "mensajes": [
     {
       "id": "DC01_MSG01",

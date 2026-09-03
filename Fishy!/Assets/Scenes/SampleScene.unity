@@ -698,6 +698,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Chat.ChatModuleLauncher
   source: 0
   conversaciones: []
+  npcId: 
   ottoMood: {fileID: 0}
   reportToBackend: 0
   desafioAsociado: {fileID: 0}
@@ -1690,6 +1691,8 @@ MonoBehaviour:
     progresoRequerido: -1
   - zone: {fileID: 0}
     progresoRequerido: -1
+  - zone: {fileID: 0}
+    progresoRequerido: -1
 --- !u!4 &463185804
 Transform:
   m_ObjectHideFlags: 0
@@ -2060,9 +2063,11 @@ MonoBehaviour:
   source: 3
   conversaciones: []
   npcId: NPC_01
+  escenarioIds: 
   otto: {fileID: 1596115614}
   phone: {fileID: 0}
   ottoMood: {fileID: 0}
+  modoTelefono: 1
   openOnce: 1
   ottoTag: Player
   reportToBackend: 0
@@ -2393,9 +2398,11 @@ MonoBehaviour:
   source: 3
   conversaciones: []
   npcId: NPC_01
+  escenarioIds: 
   otto: {fileID: 1596115614}
   phone: {fileID: 0}
   ottoMood: {fileID: 0}
+  modoTelefono: 1
   openOnce: 1
   ottoTag: Player
   reportToBackend: 0
@@ -3818,6 +3825,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Chat.ChatModuleLauncher
   source: 0
   conversaciones: []
+  npcId: 
   ottoMood: {fileID: 0}
   reportToBackend: 0
   desafioAsociado: {fileID: 0}
@@ -44411,9 +44419,11 @@ MonoBehaviour:
   source: 3
   conversaciones: []
   npcId: NPC_01
+  escenarioIds: 
   otto: {fileID: 1596115614}
   phone: {fileID: 0}
   ottoMood: {fileID: 0}
+  modoTelefono: 1
   openOnce: 1
   ottoTag: Player
   reportToBackend: 0
@@ -50945,6 +50955,58 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1646205108}
   m_CullTransparentMesh: 1
+--- !u!1 &1655660286
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1655660288}
+  - component: {fileID: 1655660287}
+  m_Layer: 0
+  m_Name: BosqueDesconocidosManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1655660287
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1655660286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70a4de0d40455204dbfd1dcf967f8518, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.Zonas.BosqueDesconocidos.BosqueDesconocidosManager
+  npcs: []
+  siguienteZonaId: zona_2
+  progresoAlCompletar: 25
+  mostrarCinematicaDesbloqueo: 1
+  mensajeDesbloqueo: "\u2728 \xA1Nueva zona desbloqueada!"
+  onTematicaCompletada:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!4 &1655660288
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1655660286}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1660309741
 GameObject:
   m_ObjectHideFlags: 0
@@ -51347,9 +51409,11 @@ MonoBehaviour:
   source: 3
   conversaciones: []
   npcId: NPC_01
+  escenarioIds: 
   otto: {fileID: 1596115614}
   phone: {fileID: 0}
   ottoMood: {fileID: 0}
+  modoTelefono: 1
   openOnce: 1
   ottoTag: Player
   reportToBackend: 0
@@ -53606,9 +53670,11 @@ MonoBehaviour:
   source: 3
   conversaciones: []
   npcId: NPC_01
+  escenarioIds: 
   otto: {fileID: 1596115614}
   phone: {fileID: 0}
   ottoMood: {fileID: 0}
+  modoTelefono: 1
   openOnce: 1
   ottoTag: Player
   reportToBackend: 0
@@ -53620,6 +53686,75 @@ MonoBehaviour:
   onChatClosed:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1001 &5518634559837808659
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -7.23
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -7.62
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_Name
+      value: Chat_NPC
+      objectReference: {fileID: 0}
+    - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: npcId
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: source
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: escenarioIds
+      value: M4_FASE01
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -53648,3 +53783,5 @@ SceneRoots:
   - {fileID: 1248244087}
   - {fileID: 463185804}
   - {fileID: 1832095653}
+  - {fileID: 1655660288}
+  - {fileID: 5518634559837808659}

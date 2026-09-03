@@ -37,6 +37,8 @@ namespace Fishy.Chat
         // ── Modo teléfono ──────────────────────────────────────────────────────
         private bool           _phoneMode;
         private RectTransform  _chatPanelRT;  // referencia al panel del chat
+        private Image          _backdropImage;
+        private static readonly Vector2 NormalWindowSize = new Vector2(560f, 900f);
         private GameObject     _phoneChromeRoot; // bezel + status bar generados
         private Text           _phoneClockText;
         private Coroutine      _clockCoroutine;
@@ -82,6 +84,9 @@ namespace Fishy.Chat
 
             if (_phoneMode) ApplyPhoneChrome(contactName);
             else            RemovePhoneChrome();
+
+            if (_backdropImage != null)
+                _backdropImage.color = new Color(0f, 0f, 0f, _phoneMode ? 0.55f : 0.12f);
 
             ClearHistory();
             ClearOptions();
@@ -162,7 +167,7 @@ namespace Fishy.Chat
             var fitter = bubble.GetComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            bubble.GetComponent<LayoutElement>().preferredWidth = 720f;
+            bubble.GetComponent<LayoutElement>().preferredWidth = 420f;
 
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
             txtGO.transform.SetParent(bubble.transform, false);
@@ -241,16 +246,19 @@ namespace Fishy.Chat
             var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
             backdrop.transform.SetParent(window.transform, false);
             Stretch(backdrop.GetComponent<RectTransform>());
-            backdrop.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+            backdrop.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.12f);
+            _backdropImage = backdrop.GetComponent<Image>();
 
-            // Ventana del chat.
+            // Ventana del chat: angosta y alargada, pegada a una esquina para
+            // dejar ver al personaje en el resto de la pantalla.
             var chatPanel = new GameObject("ChatWindow", typeof(RectTransform), typeof(Image));
             chatPanel.transform.SetParent(window.transform, false);
             var winRT = chatPanel.GetComponent<RectTransform>();
-            winRT.anchorMin = new Vector2(0.5f, 0.5f);
-            winRT.anchorMax = new Vector2(0.5f, 0.5f);
-            winRT.pivot = new Vector2(0.5f, 0.5f);
-            winRT.sizeDelta = new Vector2(1040f, 1500f);
+            winRT.anchorMin = new Vector2(1f, 0f);
+            winRT.anchorMax = new Vector2(1f, 0f);
+            winRT.pivot = new Vector2(1f, 0f);
+            winRT.anchoredPosition = new Vector2(-40f, 40f);
+            winRT.sizeDelta = NormalWindowSize;
             chatPanel.GetComponent<Image>().color = new Color(0.07f, 0.09f, 0.13f, 1f);
             _chatPanelRT = winRT; // guardamos referencia para el modo teléfono
 
@@ -401,7 +409,12 @@ namespace Fishy.Chat
 
             if (_chatPanelRT == null) return;
 
-            // 1. Redimensionar el panel a proporción de celular (9:16).
+            // 1. Centrar y redimensionar el panel a proporción de celular (9:16)
+            //    (el modo normal lo deja anclado a una esquina, más chico).
+            _chatPanelRT.anchorMin = new Vector2(0.5f, 0.5f);
+            _chatPanelRT.anchorMax = new Vector2(0.5f, 0.5f);
+            _chatPanelRT.pivot = new Vector2(0.5f, 0.5f);
+            _chatPanelRT.anchoredPosition = Vector2.zero;
             _chatPanelRT.sizeDelta = new Vector2(600f, 1060f);
 
             // Actualizar etiqueta de contacto en el header existente.
@@ -499,9 +512,15 @@ namespace Fishy.Chat
             if (_phoneChromeRoot != null) { Destroy(_phoneChromeRoot); _phoneChromeRoot = null; }
             _phoneClockText = null;
 
-            // Restaurar tamaño original del panel.
+            // Restaurar posición/tamaño del panel normal (esquina, angosto).
             if (_chatPanelRT != null && !_phoneMode)
-                _chatPanelRT.sizeDelta = new Vector2(1040f, 1500f);
+            {
+                _chatPanelRT.anchorMin = new Vector2(1f, 0f);
+                _chatPanelRT.anchorMax = new Vector2(1f, 0f);
+                _chatPanelRT.pivot = new Vector2(1f, 0f);
+                _chatPanelRT.anchoredPosition = new Vector2(-40f, 40f);
+                _chatPanelRT.sizeDelta = NormalWindowSize;
+            }
         }
 
         private System.Collections.IEnumerator ClockRoutine()

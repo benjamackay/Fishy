@@ -15,12 +15,14 @@ namespace Fishy.Chat
     /// </summary>
     public class ChatModuleLauncher : MonoBehaviour
     {
-        public enum Source { ZonaDesconocidosPorDefecto, ConversacionesAsignadas }
+        public enum Source { ZonaDesconocidosPorDefecto, ConversacionesAsignadas, BancoPorNpcId }
 
         [Header("Contenido")]
         public Source source = Source.ZonaDesconocidosPorDefecto;
         [Tooltip("Conversaciones a usar si source = ConversacionesAsignadas.")]
         public List<ChatConversation> conversaciones = new List<ChatConversation>();
+        [Tooltip("npc_id del banco (banco_preguntas.json, HDU-2) a usar si source = BancoPorNpcId. Ej: \"NPC_01\".")]
+        public string npcId = "";
 
         [Header("Otto")]
         [Tooltip("Controlador de estado emocional de Otto. Si está vacío se busca en la escena.")]
@@ -56,9 +58,13 @@ namespace Fishy.Chat
         {
             if (ChatModuleController.Instance != null && ChatModuleController.Instance.IsActive) return;
 
-            var convos = source == Source.ConversacionesAsignadas && conversaciones.Count > 0
-                ? conversaciones
-                : ChatDefaultConversations.CreateZonaDesconocidos();
+            List<ChatConversation> convos;
+            if (source == Source.ConversacionesAsignadas && conversaciones.Count > 0)
+                convos = conversaciones;
+            else if (source == Source.BancoPorNpcId && !string.IsNullOrEmpty(npcId))
+                convos = BancoPreguntasLoader.CreateHDU2ConversationForNpc(npcId);
+            else
+                convos = ChatDefaultConversations.CreateZonaDesconocidos();
 
             var controller = ChatModuleController.GetOrCreate();
             controller.OnSesionCerrada += HandleSesionCerrada;

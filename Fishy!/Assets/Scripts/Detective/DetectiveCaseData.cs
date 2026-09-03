@@ -26,7 +26,9 @@ namespace Fishy.Detective
         public string caseId;
         public string npcObservado1;
         public string npcObservado2;
-        public string mensajePermiso;
+        public string permisoPlayerText;
+        public string permisoNpcNombre;
+        public string permisoNpcResponse;
         public List<DetectiveMessage> mensajes;
         public List<ExplicacionEntry> explicacionGuiada;
     }

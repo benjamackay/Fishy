@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using Fishy.Chat;
@@ -30,8 +31,12 @@ namespace Fishy.Phone
             ZonaChatSimulado,
             /// <summary>Conversaciones asignadas manualmente en el Inspector.</summary>
             ConversacionesAsignadas,
-            /// <summary>Un único NPC de HDU-2 identificado por <see cref="PhoneChatLauncher.npcId"/>.</summary>
+            /// <summary>Un único NPC del banco (cualquier HDU/zona) identificado por <see cref="PhoneChatLauncher.npcId"/>.
+            /// Ojo: npc_id puede repetirse entre conversaciones distintas — si eso pasa, usa SoloEscenario.</summary>
             SoloNpc,
+            /// <summary>Una o varias escenario_id del banco (cualquier HDU), identificadas por <see cref="PhoneChatLauncher.escenarioIds"/>.
+            /// Preferible a SoloNpc: escenario_id identifica la conversación en sí, sin ambigüedad si el NPC se repite.</summary>
+            SoloEscenario,
             /// <summary>Alias legacy — equivale a ZonaDesconocidos.</summary>
             ZonaDesconocidosPorDefecto = ZonaDesconocidos,
         }
@@ -43,6 +48,9 @@ namespace Fishy.Phone
         public List<ChatConversation> conversaciones = new List<ChatConversation>();
         [Tooltip("ID del NPC cuando source = SoloNpc. Ej: 'NPC_01' (Alex) o 'NPC_02' (Valen).")]
         public string npcId = "NPC_01";
+        [Tooltip("escenario_id del banco cuando source = SoloEscenario, separadas por coma si son " +
+                 "varias fases de una misma historia (se reproducen en ese orden). Ej: 'M4_FASE01,M4_FASE02'.")]
+        public string escenarioIds = "";
 
         // ── Referencias opcionales ─────────────────────────────────────────────
         [Header("Referencias (se buscan si quedan vacías)")]
@@ -55,6 +63,10 @@ namespace Fishy.Phone
 
         // ── Configuración ──────────────────────────────────────────────────────
         [Header("Comportamiento")]
+        [Tooltip("Si está activo, la secuencia diegética del celular (vibración + " +
+                 "notificación + zoom). Si no, el chat se abre directo frente al NPC " +
+                 "visible, sin celular ni zoom — útil para NPCs con sprite en el mapa.")]
+        public bool modoTelefono = true;
         [Tooltip("Si está activo solo se dispara una vez.")]
         public bool openOnce    = true;
         public string ottoTag   = "Player";
@@ -114,6 +126,18 @@ namespace Fishy.Phone
         {
             _sequenceRunning = true;
 
+            if (modoTelefono)
+                yield return PhoneSequenceConCelular();
+            else
+                yield return PhoneSequenceDirecta();
+
+            onChatClosed?.Invoke();
+            _sequenceRunning = false;
+        }
+
+        /// <summary>Secuencia diegética completa: celular vibra, notificación, zoom.</summary>
+        private IEnumerator PhoneSequenceConCelular()
+        {
             // 1. Encontrar / crear el OttoPhone.
             if (phone == null) phone = OttoPhone.FindOrCreateOnOtto(otto);
 
@@ -164,9 +188,22 @@ namespace Fishy.Phone
 
             // 12. Limpiar modo teléfono para usos futuros (sesiones normales de chat).
             ui.EnablePhoneMode(false);
+        }
 
-            onChatClosed?.Invoke();
-            _sequenceRunning = false;
+        /// <summary>Sin celular ni zoom: el chat se abre directo frente al NPC visible.</summary>
+        private IEnumerator PhoneSequenceDirecta()
+        {
+            if (otto != null) otto.DisableMovement();
+
+            onChatOpened?.Invoke();
+
+            var convos = BuildConversationList();
+            var controller = ChatModuleController.GetOrCreate();
+            controller.OpenSession(convos, ottoMood, reportToBackend);
+
+            yield return new WaitUntil(() => !controller.IsActive);
+
+            if (otto != null) otto.EnableMovement();
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────
@@ -178,7 +215,12 @@ namespace Fishy.Phone
                     return conversaciones;
 
                 case Source.SoloNpc:
-                    return BancoPreguntasLoader.CreateHDU2ConversationForNpc(npcId);
+                    return BancoPreguntasLoader.CreateConversationForNpcId(npcId, modoTelefono);
+
+                case Source.SoloEscenario:
+                    var ids = escenarioIds.Split(',').Select(s => s.Trim())
+                        .Where(s => !string.IsNullOrEmpty(s)).ToList();
+                    return BancoPreguntasLoader.CreateConversationsForEscenarioIds(ids);
 
                 case Source.ZonaChatSimulado:
                     return ChatDefaultConversations.CreateZonaChatSimulado();
