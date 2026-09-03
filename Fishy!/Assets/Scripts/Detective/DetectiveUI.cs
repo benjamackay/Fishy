@@ -21,9 +21,9 @@ namespace Fishy.Detective
         private RectTransform _content;
         private ScrollRect    _scrollRect;
         private GameObject    _panelResultado;
+        private Text          _txtMarcador;
         private Text          _txtResultado;
         private Button        _btnConfirmar;
-        private Button        _btnRepetir;
         private Button        _btnVerExplicacion;
         private RectTransform _contenedorExplicaciones;
         private Font          _font;
@@ -36,7 +36,6 @@ namespace Fishy.Detective
         // ── Estado ────────────────────────────────────────────────────────────
         private DetectiveCaseManager _manager;
         private Action _onCerrar;
-        private Action _onRepetir;
         private List<(DetectiveMessage mensaje, string explicacion)> _noIdentificados;
 
         // ── Paleta ────────────────────────────────────────────────────────────
@@ -50,7 +49,6 @@ namespace Fishy.Detective
         private static readonly Color ColBtnConfirmar  = new Color(0.08f, 0.47f, 0.35f, 1f);
         private static readonly Color ColPanelRes      = new Color(0.05f, 0.07f, 0.09f, 0.97f);
         private static readonly Color ColCard          = new Color(0.12f, 0.16f, 0.18f, 1f);
-        private static readonly Color ColBtnRepetir    = new Color(0.18f, 0.22f, 0.27f, 1f);
         private static readonly Color ColBtnExplica    = new Color(0.28f, 0.16f, 0.38f, 1f);
         private static readonly Color ColBurbujaOtto   = new Color(0.13f, 0.35f, 0.55f, 1f); // jugador (derecha)
 
@@ -76,11 +74,10 @@ namespace Fishy.Detective
 
         // ── API pública ───────────────────────────────────────────────────────
 
-        public void Inicializar(DetectiveCaseManager manager, Action onCerrar, Action onRepetir)
+        public void Inicializar(DetectiveCaseManager manager, Action onCerrar)
         {
             _manager   = manager;
             _onCerrar  = onCerrar;
-            _onRepetir = onRepetir;
         }
 
         /// <summary>
@@ -311,12 +308,14 @@ namespace Fishy.Detective
             _panelResultado.SetActive(true);
             _panelResultado.transform.SetAsLastSibling();
 
+            _txtMarcador.text = $"{r.aciertos} / {r.totalRiesgo}";
+            _txtMarcador.gameObject.SetActive(r.totalRiesgo > 0);
+
             _txtResultado.text = r.totalRiesgo > 0
-                ? $"Identificaste {r.aciertos} de {r.totalRiesgo} señales de riesgo."
+                ? "señales de riesgo identificadas"
                 : "¡No había señales de riesgo en esta conversación!";
 
-            _btnRepetir.gameObject.SetActive(r.DebeOfrecerRepetir);
-            _btnVerExplicacion.gameObject.SetActive(r.DebeOfrecerRepetir);
+            _btnVerExplicacion.gameObject.SetActive(true);
             _noIdentificados = r.noIdentificados;
         }
 
@@ -570,6 +569,16 @@ namespace Fishy.Detective
 
             AgregarTexto(card.transform, "🔍 Resultado", 26, FontStyle.Bold, TextAnchor.MiddleCenter);
 
+            var marGO = new GameObject("Marcador", typeof(RectTransform), typeof(Text));
+            marGO.transform.SetParent(card.transform, false);
+            _txtMarcador = marGO.GetComponent<Text>();
+            _txtMarcador.font      = _font; _txtMarcador.fontSize = 52;
+            _txtMarcador.fontStyle = FontStyle.Bold;
+            _txtMarcador.color     = Color.white;
+            _txtMarcador.alignment = TextAnchor.MiddleCenter;
+            _txtMarcador.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _txtMarcador.verticalOverflow   = VerticalWrapMode.Overflow;
+
             var resGO = new GameObject("Resultado", typeof(RectTransform), typeof(Text));
             resGO.transform.SetParent(card.transform, false);
             _txtResultado = resGO.GetComponent<Text>();
@@ -590,8 +599,6 @@ namespace Fishy.Detective
             expGO.GetComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;
 
-            _btnRepetir = CrearBotonCard(card.transform, "↺ Repetir caso", ColBtnRepetir,
-                () => { Hide(); _onRepetir?.Invoke(); });
             _btnVerExplicacion = CrearBotonCard(card.transform, "💡 Ver explicación", ColBtnExplica,
                 () => MostrarExplicaciones());
             CrearBotonCard(card.transform, "Continuar", ColBtnConfirmar,

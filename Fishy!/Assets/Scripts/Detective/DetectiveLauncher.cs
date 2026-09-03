@@ -71,22 +71,11 @@ namespace Fishy.Detective
                 detectiveUI = DetectiveUI.GetOrCreate();
 
             detectiveUI.Inicializar(
-                manager:   caseManager,
-                onCerrar:  () => TerminarModoDetective(controller),
-                onRepetir: () => ReiniciarCaso(controller)
+                manager:  caseManager,
+                onCerrar: () => TerminarModoDetective(controller)
             );
 
             detectiveUI.MostrarPermiso(caso, onContinuar: () => detectiveUI.MostrarConversacion());
-        }
-
-        private void ReiniciarCaso(OttoController controller)
-        {
-            DetectiveCaseLoader.LoadAsync(casoId, resourcePath, caso =>
-            {
-                if (caso == null) return;
-                caseManager.CargarCaso(caso);
-                detectiveUI.MostrarConversacion();
-            });
         }
 
         private void TerminarModoDetective(OttoController controller)
