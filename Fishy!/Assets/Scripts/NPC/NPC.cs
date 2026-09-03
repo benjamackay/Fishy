@@ -62,15 +62,37 @@ public class NPC : MonoBehaviour, IInteractable
             return;
         }
 
+        // dialogueText y dialoguePanel son imprescindibles: sin ellos no hay dónde
+        // escribir ni qué abrir. Se comprueban ANTES de tocar isDialogueActive porque
+        // si StartDialogue reventaba a medio camino, CanInteract() se quedaba en false
+        // y el NPC no volvía a responder en toda la partida.
+        if (dialogueText == null || dialoguePanel == null)
+        {
+            string falta = dialogueText == null ? "Dialogue Text" : "Dialogue Panel";
+            Debug.LogError(
+                $"[{name}] Falta asignar '{falta}' en el inspector: este NPC no puede hablar.",
+                this);
+            return;
+        }
+
         isDialogueActive = true;
         dialogueIndex = 0;
 
-        nameText.SetText(dialogueData.name);
-        portraitImage.sprite = dialogueData.npcPortrait;
+        // El nombre y el retrato son decorativos, así que si faltan se conversa igual.
+        // Con portraitImage sin asignar esta línea tiraba NullReference y el panel no
+        // llegaba a abrirse nunca: el NPC parecía mudo.
+        if (nameText != null)
+        {
+            nameText.SetText(string.IsNullOrEmpty(dialogueData.npcName)
+                ? dialogueData.name
+                : dialogueData.npcName);
+        }
+
+        if (portraitImage != null)
+            portraitImage.sprite = dialogueData.npcPortrait;
 
         dialoguePanel.SetActive(true);
         StartCoroutine(Typeline());
-        //typeline
     }
 
     void NextLine()
@@ -113,8 +135,13 @@ public class NPC : MonoBehaviour, IInteractable
     {
         StopAllCoroutines();
         isDialogueActive = false;
-        dialogueText.SetText("");
-        dialoguePanel.SetActive(false);
+
+        // Se protegen las dos referencias porque onDialogueEnded es lo que entrega la
+        // misión: si esto reventaba antes del Invoke, el MissionGiver no se enteraba de
+        // que la conversación había terminado.
+        if (dialogueText != null) dialogueText.SetText("");
+        if (dialoguePanel != null) dialoguePanel.SetActive(false);
+
         //pausa
         onDialogueEnded?.Invoke();
     }
