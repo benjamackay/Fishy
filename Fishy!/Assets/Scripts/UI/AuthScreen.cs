@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Fishy.Mision;
 using Fishy.Net;
 
 namespace Fishy.UI
@@ -348,6 +349,8 @@ namespace Fishy.UI
             ApiManager.Instance.ContinuarOCrearPartida(jugador.id,
                 onSuccess: (partida, esNueva) =>
                 {
+                    MissionManager.GetOrCreate().ConfigurarPersistenciaParaPartida(partida.id);
+
                     if (!esNueva)
                         Debug.Log($"[AuthScreen] Retomando partida {partida.id} de " +
                                   $"{jugador.nombre} (progreso {partida.progreso}).");

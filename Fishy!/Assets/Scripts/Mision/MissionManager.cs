@@ -42,17 +42,18 @@ namespace Fishy.Mision
 
         [Header("Eventos")]
         [Tooltip("Se dispara cuando un desafío nuevo queda disponible.")]
-        public DesafioDisponibleEvent onDesafioDisponible;
+        public DesafioDisponibleEvent onDesafioDisponible = new DesafioDisponibleEvent();
         [Tooltip("Se dispara cuando un desafío se marca como completado.")]
-        public DesafioCompletadoEvent onDesafioCompletado;
+        public DesafioCompletadoEvent onDesafioCompletado = new DesafioCompletadoEvent();
         [Tooltip("Se dispara cada vez que la lista cambia (para refrescar la UI).")]
-        public UnityEvent onPanelActualizado;
+        public UnityEvent onPanelActualizado = new UnityEvent();
 
         [Header("Persistencia local (fallback sin backend)")]
-        [Tooltip("Si está activo, los desafíos completados se recuerdan entre sesiones vía PlayerPrefs.")]
-        public bool persistirLocalmente = true;
+        [Tooltip("Se activa al elegir una partida. El progreso se guarda separado para cada partida.")]
+        public bool persistirLocalmente;
 
         private const string PrefsKeyPrefix = "Fishy.Desafio.Completado.";
+        private string contextoPersistencia;
 
         private readonly Dictionary<string, DesafioRuntime> desafios = new Dictionary<string, DesafioRuntime>();
 
@@ -82,6 +83,42 @@ namespace Fishy.Mision
         }
 
         /// <summary>
+        /// Asocia el progreso de misiones a una partida concreta. Antes se usaba
+        /// una clave global, por lo que completar una misión en una prueba o en el
+        /// perfil de otro jugador hacía que apareciera completada para todos.
+        /// </summary>
+        public void ConfigurarPersistenciaParaPartida(int partidaId)
+        {
+            if (partidaId <= 0)
+            {
+                Debug.LogWarning("[MissionManager] No se puede configurar una PartidaId inválida.");
+                return;
+            }
+
+            string nuevoContexto = $"Partida.{partidaId}.";
+            if (contextoPersistencia == nuevoContexto)
+            {
+                persistirLocalmente = true;
+                return;
+            }
+
+            // Si se cambia de perfil/partida dentro de la misma ejecución, jamás
+            // debe verse el estado que estaba cargado para la partida anterior.
+            desafios.Clear();
+            contextoPersistencia = nuevoContexto;
+            persistirLocalmente = true;
+            onPanelActualizado?.Invoke();
+
+            Debug.Log($"[MissionManager] Progreso asociado a la partida {partidaId}.");
+        }
+
+        private bool PuedePersistir =>
+            persistirLocalmente && !string.IsNullOrEmpty(contextoPersistencia);
+
+        private string PrefsKey(string desafioId) =>
+            PrefsKeyPrefix + contextoPersistencia + desafioId;
+
+        /// <summary>
         /// Registra un desafío como disponible en el panel de misión activa (criterio 4).
         /// Llamar al finalizar la interacción con el objeto/NPC que lo desbloquea.
         /// Si ya estaba registrado (p.ej. se vuelve a interactuar), no hace nada nuevo.
@@ -98,8 +135,8 @@ namespace Fishy.Mision
             if (desafios.TryGetValue(data.desafioId, out var existente))
                 return existente;
 
-            bool yaCompletado = persistirLocalmente &&
-                PlayerPrefs.GetInt(PrefsKeyPrefix + data.desafioId, 0) == 1;
+            bool yaCompletado = PuedePersistir &&
+                PlayerPrefs.GetInt(PrefsKey(data.desafioId), 0) == 1;
 
             var runtime = new DesafioRuntime
             {
@@ -137,8 +174,11 @@ namespace Fishy.Mision
 
             runtime.estado = EstadoDesafio.Completado;
 
-            if (persistirLocalmente)
-                PlayerPrefs.SetInt(PrefsKeyPrefix + desafioId, 1);
+            if (PuedePersistir)
+            {
+                PlayerPrefs.SetInt(PrefsKey(desafioId), 1);
+                PlayerPrefs.Save();
+            }
 
             onDesafioCompletado?.Invoke(runtime);
             onPanelActualizado?.Invoke();
