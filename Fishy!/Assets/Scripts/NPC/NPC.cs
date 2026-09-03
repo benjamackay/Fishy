@@ -23,12 +23,20 @@ public class NPC : MonoBehaviour, IInteractable
         DialogoNpcLoader.LoadAsync(dialogoId, dialogo => dialogueData = dialogo);
     }
 
+    [Header("Repetición")]
+    [Tooltip("Cuenta el diálogo completo una sola vez. Al volver a interactuar no se " +
+             "reabre el panel, pero la conversación igual cuenta: se dispara " +
+             "onDialogueEnded para que MissionGiver entregue la misión o recuerde lo " +
+             "que falta. Desactívalo si este NPC debe repetir su discurso siempre.")]
+    public bool soloLaPrimeraVez = true;
+
     [Header("Eventos")]
     [Tooltip("Se dispara al cerrar el diálogo. MissionGiver lo usa para entregar la misión " +
              "cuando la conversación termina, y MissionTracker para los objetivos de 'hablar con'.")]
     public UnityEvent onDialogueEnded = new UnityEvent();
     private int dialogueIndex;
     private bool isTyping, isDialogueActive;
+    private bool yaSeConto;
 
     public bool CanInteract()
     {
@@ -44,11 +52,20 @@ public class NPC : MonoBehaviour, IInteractable
         if (isDialogueActive)
         {
             NextLine();
+            return;
         }
-        else
+
+        // Volver a hablarle no repite el discurso, pero sigue contando como
+        // conversación: MissionGiver escucha onDialogueEnded para entregar la misión
+        // al volver y para avisar de lo que falta, así que tragarse el evento dejaría
+        // la misión sin poder completarse y la zona sin abrirse.
+        if (soloLaPrimeraVez && yaSeConto)
         {
-            StartDialogue();
+            onDialogueEnded?.Invoke();
+            return;
         }
+
+        StartDialogue();
     }
 
     void StartDialogue()
@@ -135,6 +152,10 @@ public class NPC : MonoBehaviour, IInteractable
     {
         StopAllCoroutines();
         isDialogueActive = false;
+
+        // Se marca al terminar y no al empezar: si la conversación se corta a medias,
+        // el jugador no se queda sin haberla leído nunca.
+        yaSeConto = true;
 
         // Se protegen las dos referencias porque onDialogueEnded es lo que entrega la
         // misión: si esto reventaba antes del Invoke, el MissionGiver no se enteraba de
