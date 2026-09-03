@@ -109,7 +109,7 @@ namespace Fishy.World
             ShowBanner(mensaje);
 
             // 3) Revelar: desvanecer el oscurecido (darkenAlpha -> 0).
-            float a0 = zone.Overlay != null ? zone.Overlay.color.a : 0f;
+            float a0 = zone.CurrentDarkenAlpha;
             float elapsed = 0f;
             while (elapsed < revealDuration)
             {

@@ -1,0 +1,1313 @@
+fileFormatVersion: 2
+guid: 3b0a85d10a979d94ca8617475b2fbe3c
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -6691718366712507755
+    second: logos colab 1_0
+  - first:
+      213: 4493657243525205911
+    second: logos colab 1_1
+  - first:
+      213: 4846801763924953599
+    second: logos colab 1_2
+  - first:
+      213: -2617536065563085924
+    second: logos colab 1_3
+  - first:
+      213: 2565753820667729500
+    second: logos colab 1_4
+  - first:
+      213: -3616018816491263601
+    second: logos colab 1_5
+  - first:
+      213: 1407643697163120488
+    second: logos colab 1_6
+  - first:
+      213: -7253335327684903929
+    second: logos colab 1_7
+  - first:
+      213: 1426007463736583685
+    second: logos colab 1_8
+  - first:
+      213: -5980876306260865432
+    second: logos colab 1_9
+  - first:
+      213: -8574874432900325359
+    second: logos colab 1_10
+  - first:
+      213: -2188043269405637610
+    second: logos colab 1_11
+  - first:
+      213: 2336157739617969872
+    second: logos colab 1_12
+  - first:
+      213: 6920764824267536804
+    second: logos colab 1_13
+  - first:
+      213: -3764030927313464636
+    second: logos colab 1_14
+  - first:
+      213: 2998147075450268858
+    second: logos colab 1_15
+  - first:
+      213: -5811260497917976733
+    second: logos colab 1_16
+  - first:
+      213: 8458944953263035362
+    second: logos colab 1_17
+  - first:
+      213: -1580817100455182385
+    second: logos colab 1_18
+  - first:
+      213: 5157743850745180281
+    second: logos colab 1_19
+  - first:
+      213: -3314182368786440450
+    second: logos colab 1_20
+  - first:
+      213: -5545911877918478289
+    second: logos colab 1_21
+  - first:
+      213: -2604002789540052477
+    second: logos colab 1_22
+  - first:
+      213: -8167887270529509401
+    second: logos colab 1_23
+  - first:
+      213: 7119647611153428203
+    second: logos colab 1_24
+  - first:
+      213: 3909979265539704685
+    second: logos colab 1_25
+  - first:
+      213: 743523293641980058
+    second: logos colab 1_26
+  - first:
+      213: 7628328234749616887
+    second: logos colab 1_27
+  - first:
+      213: -7553789429963560938
+    second: logos colab 1_28
+  - first:
+      213: 1819907794840127583
+    second: logos colab 1_29
+  - first:
+      213: -4665317716282610043
+    second: logos colab 1_30
+  - first:
+      213: 9137976335468085884
+    second: logos colab 1_31
+  - first:
+      213: -3775412426211386532
+    second: logos colab 1_32
+  - first:
+      213: -8953954054420509020
+    second: logos colab 1_33
+  - first:
+      213: 8314251698453016622
+    second: logos colab 1_34
+  - first:
+      213: 1943632846056841086
+    second: logos colab 1_35
+  - first:
+      213: -6024301100100620643
+    second: logos colab 1_36
+  - first:
+      213: 3580038191013907870
+    second: logos colab 1_37
+  - first:
+      213: -3773802638569981324
+    second: logos colab 1_38
+  - first:
+      213: -1868675608202997888
+    second: logos colab 1_39
+  - first:
+      213: -4151597268144317510
+    second: logos colab 1_40
+  - first:
+      213: 621475814366800625
+    second: logos colab 1_41
+  - first:
+      213: -8409416518452828091
+    second: logos colab 1_42
+  - first:
+      213: 7267052292280580949
+    second: logos colab 1_43
+  - first:
+      213: -1455613415268731075
+    second: logos colab 1_44
+  - first:
+      213: 6444014348179820993
+    second: logos colab 1_45
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: logos colab 1_0
+      rect:
+        serializedVersion: 2
+        x: 129
+        y: 834
+        width: 59
+        height: 80
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 592d427899d3223a0800000000000000
+      internalID: -6691718366712507755
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_1
+      rect:
+        serializedVersion: 2
+        x: 188
+        y: 839
+        width: 54
+        height: 57
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 79f4eae547dac5e30800000000000000
+      internalID: 4493657243525205911
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_2
+      rect:
+        serializedVersion: 2
+        x: 279
+        y: 838
+        width: 54
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ff9cb7b568c434340800000000000000
+      internalID: 4846801763924953599
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_3
+      rect:
+        serializedVersion: 2
+        x: 390
+        y: 835
+        width: 88
+        height: 76
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c93b65111d4acabd0800000000000000
+      internalID: -2617536065563085924
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_4
+      rect:
+        serializedVersion: 2
+        x: 479
+        y: 836
+        width: 60
+        height: 78
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c56500681836b9320800000000000000
+      internalID: 2565753820667729500
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_5
+      rect:
+        serializedVersion: 2
+        x: 595
+        y: 838
+        width: 52
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f89e8ed7b0251ddc0800000000000000
+      internalID: -3616018816491263601
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_6
+      rect:
+        serializedVersion: 2
+        x: 645
+        y: 836
+        width: 57
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 86fa9bb0c74f88310800000000000000
+      internalID: 1407643697163120488
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_7
+      rect:
+        serializedVersion: 2
+        x: 702
+        y: 839
+        width: 54
+        height: 57
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 70cbc8403f9f65b90800000000000000
+      internalID: -7253335327684903929
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_8
+      rect:
+        serializedVersion: 2
+        x: 756
+        y: 896
+        width: 25
+        height: 18
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5062313ab323ac310800000000000000
+      internalID: 1426007463736583685
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_9
+      rect:
+        serializedVersion: 2
+        x: 757
+        y: 834
+        width: 25
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 86e45cfffa8affca0800000000000000
+      internalID: -5980876306260865432
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_10
+      rect:
+        serializedVersion: 2
+        x: 782
+        y: 836
+        width: 110
+        height: 60
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 110a569822deff880800000000000000
+      internalID: -8574874432900325359
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_11
+      rect:
+        serializedVersion: 2
+        x: 801
+        y: 894
+        width: 22
+        height: 24
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 61484ed3d3282a1e0800000000000000
+      internalID: -2188043269405637610
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_12
+      rect:
+        serializedVersion: 2
+        x: 930
+        y: 838
+        width: 53
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0d665313613bb6020800000000000000
+      internalID: 2336157739617969872
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_13
+      rect:
+        serializedVersion: 2
+        x: 1038
+        y: 838
+        width: 55
+        height: 58
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4a93c7c90fe7b0060800000000000000
+      internalID: 6920764824267536804
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_14
+      rect:
+        serializedVersion: 2
+        x: 334
+        y: 836
+        width: 55
+        height: 59
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4c295e570d973cbc0800000000000000
+      internalID: -3764030927313464636
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_15
+      rect:
+        serializedVersion: 2
+        x: 538
+        y: 836
+        width: 57
+        height: 59
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: abce69851ee8b9920800000000000000
+      internalID: 2998147075450268858
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_16
+      rect:
+        serializedVersion: 2
+        x: 983
+        y: 836
+        width: 56
+        height: 59
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 36fd654dd514a5fa0800000000000000
+      internalID: -5811260497917976733
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_17
+      rect:
+        serializedVersion: 2
+        x: 587
+        y: 607
+        width: 125
+        height: 143
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2e393d91e95346570800000000000000
+      internalID: 8458944953263035362
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_18
+      rect:
+        serializedVersion: 2
+        x: 724
+        y: 650
+        width: 70
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fcf7180093fcf0ae0800000000000000
+      internalID: -1580817100455182385
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_19
+      rect:
+        serializedVersion: 2
+        x: 724
+        y: 638
+        width: 625
+        height: 13
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9703f1294bcf39740800000000000000
+      internalID: 5157743850745180281
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_20
+      rect:
+        serializedVersion: 2
+        x: 806
+        y: 650
+        width: 71
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: efe1f93e1b8a102d0800000000000000
+      internalID: -3314182368786440450
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_21
+      rect:
+        serializedVersion: 2
+        x: 890
+        y: 650
+        width: 81
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f20bc01d786f803b0800000000000000
+      internalID: -5545911877918478289
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_22
+      rect:
+        serializedVersion: 2
+        x: 977
+        y: 650
+        width: 81
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 302c65f6249bcdbd0800000000000000
+      internalID: -2604002789540052477
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_23
+      rect:
+        serializedVersion: 2
+        x: 1058
+        y: 650
+        width: 101
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7e757a28dc5d5ae80800000000000000
+      internalID: -8167887270529509401
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_24
+      rect:
+        serializedVersion: 2
+        x: 1165
+        y: 650
+        width: 81
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: bee22c4e7c11ec260800000000000000
+      internalID: 7119647611153428203
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_25
+      rect:
+        serializedVersion: 2
+        x: 1246
+        y: 650
+        width: 100
+        height: 99
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d6703a11d69034630800000000000000
+      internalID: 3909979265539704685
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_26
+      rect:
+        serializedVersion: 2
+        x: 724
+        y: 607
+        width: 25
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a9832c70f76815a00800000000000000
+      internalID: 743523293641980058
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_27
+      rect:
+        serializedVersion: 2
+        x: 754
+        y: 607
+        width: 27
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7f26556ec144dd960800000000000000
+      internalID: 7628328234749616887
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_28
+      rect:
+        serializedVersion: 2
+        x: 786
+        y: 607
+        width: 32
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 618ebeef88c8b2790800000000000000
+      internalID: -7553789429963560938
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_29
+      rect:
+        serializedVersion: 2
+        x: 823
+        y: 607
+        width: 29
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f5809634f7c914910800000000000000
+      internalID: 1819907794840127583
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_30
+      rect:
+        serializedVersion: 2
+        x: 858
+        y: 607
+        width: 25
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 58e63a44146714fb0800000000000000
+      internalID: -4665317716282610043
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_31
+      rect:
+        serializedVersion: 2
+        x: 890
+        y: 607
+        width: 25
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c724081ef0d90de70800000000000000
+      internalID: 9137976335468085884
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_32
+      rect:
+        serializedVersion: 2
+        x: 922
+        y: 607
+        width: 25
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c5b131fb66a0b9bc0800000000000000
+      internalID: -3775412426211386532
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_33
+      rect:
+        serializedVersion: 2
+        x: 952
+        y: 607
+        width: 32
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4aec8134a3a2db380800000000000000
+      internalID: -8953954054420509020
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_34
+      rect:
+        serializedVersion: 2
+        x: 991
+        y: 607
+        width: 25
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e20fa737ed7226370800000000000000
+      internalID: 8314251698453016622
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_35
+      rect:
+        serializedVersion: 2
+        x: 1044
+        y: 607
+        width: 22
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e7fdff296cb29fa10800000000000000
+      internalID: 1943632846056841086
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_36
+      rect:
+        serializedVersion: 2
+        x: 1073
+        y: 607
+        width: 28
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d9ee18c4112656ca0800000000000000
+      internalID: -6024301100100620643
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_37
+      rect:
+        serializedVersion: 2
+        x: 1108
+        y: 607
+        width: 25
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e9d47b154c9dea130800000000000000
+      internalID: 3580038191013907870
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_38
+      rect:
+        serializedVersion: 2
+        x: 1140
+        y: 607
+        width: 22
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 47aba93ae72c0abc0800000000000000
+      internalID: -3773802638569981324
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_39
+      rect:
+        serializedVersion: 2
+        x: 1170
+        y: 607
+        width: 27
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 08f8f9c5f612116e0800000000000000
+      internalID: -1868675608202997888
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_40
+      rect:
+        serializedVersion: 2
+        x: 1204
+        y: 607
+        width: 13
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: abb96cdd7409266c0800000000000000
+      internalID: -4151597268144317510
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_41
+      rect:
+        serializedVersion: 2
+        x: 1222
+        y: 607
+        width: 32
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1fa64dfd5fcef9800800000000000000
+      internalID: 621475814366800625
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_42
+      rect:
+        serializedVersion: 2
+        x: 1262
+        y: 607
+        width: 22
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 54821514b30cb4b80800000000000000
+      internalID: -8409416518452828091
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_43
+      rect:
+        serializedVersion: 2
+        x: 1291
+        y: 607
+        width: 22
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 55b729dae81c9d460800000000000000
+      internalID: 7267052292280580949
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_44
+      rect:
+        serializedVersion: 2
+        x: 1321
+        y: 607
+        width: 28
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d373d9c9f4f9ccbe0800000000000000
+      internalID: -1455613415268731075
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: logos colab 1_45
+      rect:
+        serializedVersion: 2
+        x: 832
+        y: 138
+        width: 318
+        height: 412
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c157c668ecbd6950800000000000000
+      internalID: 6444014348179820993
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      logos colab 1_0: -6691718366712507755
+      logos colab 1_1: 4493657243525205911
+      logos colab 1_10: -8574874432900325359
+      logos colab 1_11: -2188043269405637610
+      logos colab 1_12: 2336157739617969872
+      logos colab 1_13: 6920764824267536804
+      logos colab 1_14: -3764030927313464636
+      logos colab 1_15: 2998147075450268858
+      logos colab 1_16: -5811260497917976733
+      logos colab 1_17: 8458944953263035362
+      logos colab 1_18: -1580817100455182385
+      logos colab 1_19: 5157743850745180281
+      logos colab 1_2: 4846801763924953599
+      logos colab 1_20: -3314182368786440450
+      logos colab 1_21: -5545911877918478289
+      logos colab 1_22: -2604002789540052477
+      logos colab 1_23: -8167887270529509401
+      logos colab 1_24: 7119647611153428203
+      logos colab 1_25: 3909979265539704685
+      logos colab 1_26: 743523293641980058
+      logos colab 1_27: 7628328234749616887
+      logos colab 1_28: -7553789429963560938
+      logos colab 1_29: 1819907794840127583
+      logos colab 1_3: -2617536065563085924
+      logos colab 1_30: -4665317716282610043
+      logos colab 1_31: 9137976335468085884
+      logos colab 1_32: -3775412426211386532
+      logos colab 1_33: -8953954054420509020
+      logos colab 1_34: 8314251698453016622
+      logos colab 1_35: 1943632846056841086
+      logos colab 1_36: -6024301100100620643
+      logos colab 1_37: 3580038191013907870
+      logos colab 1_38: -3773802638569981324
+      logos colab 1_39: -1868675608202997888
+      logos colab 1_4: 2565753820667729500
+      logos colab 1_40: -4151597268144317510
+      logos colab 1_41: 621475814366800625
+      logos colab 1_42: -8409416518452828091
+      logos colab 1_43: 7267052292280580949
+      logos colab 1_44: -1455613415268731075
+      logos colab 1_45: 6444014348179820993
+      logos colab 1_5: -3616018816491263601
+      logos colab 1_6: 1407643697163120488
+      logos colab 1_7: -7253335327684903929
+      logos colab 1_8: 1426007463736583685
+      logos colab 1_9: -5980876306260865432
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
