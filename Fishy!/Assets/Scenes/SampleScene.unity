@@ -3712,7 +3712,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!60 &774275076
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -4674,10 +4674,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1855939100}
+    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}, insertIndex: -1, addedObject: {fileID: 1855939100}}]
   m_SourcePrefab: {fileID: 100100000, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
 --- !u!1 &1124251868
 GameObject:
@@ -4905,8 +4902,7 @@ PrefabInstance:
       propertyPath: modoTelefono
       value: 1
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 894725528437385346, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+    m_RemovedComponents: [{fileID: 894725528437385346, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}]
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -5458,10 +5454,18 @@ PrefabInstance:
       propertyPath: escenarioIds
       value: M2_CHAT01
       objectReference: {fileID: 0}
+    - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: modoTelefono
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 4356589255417746392, guid: e7e8883dbdbe29e40970c04055eafd53, type: 3}
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_WasSpriteAssigned
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -10011,10 +10015,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1449131416}
+    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}, insertIndex: -1, addedObject: {fileID: 1449131416}}]
   m_SourcePrefab: {fileID: 100100000, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
 --- !u!1001 &1743882143
 PrefabInstance:
@@ -10683,7 +10684,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!60 &1848732942
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -11029,10 +11030,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 43148942}
+    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}, insertIndex: -1, addedObject: {fileID: 43148942}}]
   m_SourcePrefab: {fileID: 100100000, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
 --- !u!1 &1895705142
 GameObject:
@@ -13912,10 +13910,22 @@ PrefabInstance:
       propertyPath: escenarioIds
       value: M1_CHAT01
       objectReference: {fileID: 0}
+    - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: modoTelefono
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 4356589255417746392, guid: e7e8883dbdbe29e40970c04055eafd53, type: 3}
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_WasSpriteAssigned
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
