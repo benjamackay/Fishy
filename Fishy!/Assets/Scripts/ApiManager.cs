@@ -645,6 +645,124 @@ namespace Fishy.Net
                 onSuccess: onSuccess, onError: onError));
         }
 
+        // ╔═════════════════════════════════════════════════════════════════════╗
+        // ║  PROGRESO DE MISIONES Y ZONAS (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)     ║
+        // ╚═════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Misiones que esta partida tiene desbloqueadas, con su estado. Es lo que
+        /// necesita <c>MissionManager</c> al cargar una partida para saber qué ya
+        /// estaba completado, en vez de fiarse solo de PlayerPrefs (que vive en el
+        /// dispositivo y no sigue al niño si juega en otro).
+        /// </summary>
+        public void ObtenerProgresoMisiones(int? partidaId = null,
+            Action<List<MisionProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de misiones no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<MisionProgresoDto>>("GET", $"/partidas/{pId}/misiones/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Registra una misión como disponible (<paramref name="completada"/> = false, al
+        /// desbloquearla) o como completada, en la partida activa o la indicada.
+        ///
+        /// Es idempotente: repetir la llamada no duplica la fila ni mueve la fecha.
+        /// <b>Completar es un camino de ida</b>: mandar <c>false</c> sobre una misión ya
+        /// completada no la reabre, porque el orden en que llegan estas llamadas no
+        /// está garantizado y el registro para el adulto no puede retroceder.
+        ///
+        /// El <paramref name="misionId"/> es el <c>desafioId</c> del DesafioData. Si el
+        /// banco no lo tiene, el backend lo guarda igual y responde con
+        /// <c>en_catalogo: false</c> — hoy pasa con MISION_NPC_01 y MISION_NPC_02.
+        /// </summary>
+        public void RegistrarProgresoMision(string misionId, bool completada, int? partidaId = null,
+            Action<MisionProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de misiones no se registra sin backend.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(misionId))
+            {
+                onError?.Invoke("Falta el misionId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new
+            {
+                mision_id = misionId,
+                estado = completada ? "completada" : "disponible",
+            };
+            StartCoroutine(Send<MisionProgresoDto>("POST", $"/partidas/{pId}/misiones/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Zonas desbloqueadas en esta partida, y cuáles además quedaron completadas.
+        /// Lo que no viene en la lista sigue oscurecido en el mapa.
+        /// </summary>
+        public void ObtenerProgresoZonas(int? partidaId = null,
+            Action<List<ZonaProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de zonas no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<ZonaProgresoDto>>("GET", $"/partidas/{pId}/zonas/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca una zona como desbloqueada (<paramref name="completada"/> = false) o como
+        /// completada. Que la fila exista ya significa desbloqueada, así que al abrir
+        /// una zona nueva se llama con <c>false</c>.
+        ///
+        /// La <paramref name="zona"/> es el slug del banco (<c>desconocidos</c>,
+        /// <c>ciberacoso</c>, <c>reto_viral</c>). El backend no valida contra una lista
+        /// fija: agregar una temática es contenido, no código.
+        /// </summary>
+        public void RegistrarProgresoZona(string zona, bool completada, int? partidaId = null,
+            Action<ZonaProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de zonas no se registra sin backend.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(zona))
+            {
+                onError?.Invoke("Falta el id de la zona.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new { zona, completada };
+            StartCoroutine(Send<ZonaProgresoDto>("POST", $"/partidas/{pId}/zonas/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
@@ -1315,5 +1433,33 @@ namespace Fishy.Net
         public int intentos;
         public string fecha_inicio;
         public string fecha_termino;
+    }
+
+    /// <summary>Progreso de una misión dentro de una partida (HDU-1 CA4/CA5).</summary>
+    [Serializable]
+    public class MisionProgresoDto
+    {
+        public int id;
+        public string mision_id;     // "MISION_NPC_01" — el desafioId del DesafioData
+        public string estado;        // "disponible" | "completada"
+        public string nombre;        // del catálogo del banco; vacío si el id no está ahí
+        public string zona;          // idem
+        public bool en_catalogo;     // false = el banco no tiene ese id (se guarda igual)
+        public string fecha_desbloqueo;
+        public string fecha_completada;
+
+        public bool Completada => estado == "completada";
+    }
+
+    /// <summary>Progreso de una zona dentro de una partida (HDU-3 CA5, HDU-4 CA5).</summary>
+    [Serializable]
+    public class ZonaProgresoDto
+    {
+        public int id;
+        public string zona;          // slug del banco: "desconocidos" | "ciberacoso" | ...
+        public bool desbloqueada;    // siempre true: la fila sólo existe si se desbloqueó
+        public bool completada;
+        public string fecha_desbloqueo;
+        public string fecha_completada;
     }
 }

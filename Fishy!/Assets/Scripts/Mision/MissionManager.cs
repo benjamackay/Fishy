@@ -47,6 +47,9 @@ namespace Fishy.Mision
         public DesafioCompletadoEvent onDesafioCompletado = new DesafioCompletadoEvent();
         [Tooltip("Se dispara cada vez que la lista cambia (para refrescar la UI).")]
         public UnityEvent onPanelActualizado = new UnityEvent();
+        [Tooltip("Se dispara al registrar un desafío, esté disponible o ya completado. " +
+                 "Es el enganche para sincronizar con el backend.")]
+        public DesafioDisponibleEvent onDesafioRegistrado = new DesafioDisponibleEvent();
 
         [Header("Persistencia local (fallback sin backend)")]
         [Tooltip("Se activa al elegir una partida. El progreso se guarda separado para cada partida.")]
@@ -56,6 +59,9 @@ namespace Fishy.Mision
         private string contextoPersistencia;
 
         private readonly Dictionary<string, DesafioRuntime> desafios = new Dictionary<string, DesafioRuntime>();
+
+        /// <summary>Ids que el backend reporta como completados en esta partida.</summary>
+        private readonly HashSet<string> completadosRemotos = new HashSet<string>();
 
         /// <summary>Todos los desafíos registrados en esta sesión (disponibles + completados).</summary>
         public IReadOnlyCollection<DesafioRuntime> Desafios => desafios.Values;
@@ -105,6 +111,7 @@ namespace Fishy.Mision
             // Si se cambia de perfil/partida dentro de la misma ejecución, jamás
             // debe verse el estado que estaba cargado para la partida anterior.
             desafios.Clear();
+            completadosRemotos.Clear();
             contextoPersistencia = nuevoContexto;
             persistirLocalmente = true;
             onPanelActualizado?.Invoke();
@@ -135,8 +142,11 @@ namespace Fishy.Mision
             if (desafios.TryGetValue(data.desafioId, out var existente))
                 return existente;
 
-            bool yaCompletado = PuedePersistir &&
-                PlayerPrefs.GetInt(PrefsKey(data.desafioId), 0) == 1;
+            // El backend manda sobre PlayerPrefs: es el progreso del niño, no el de
+            // este dispositivo. PlayerPrefs sigue valiendo cuando se juega sin sesión.
+            bool yaCompletado =
+                completadosRemotos.Contains(data.desafioId) ||
+                (PuedePersistir && PlayerPrefs.GetInt(PrefsKey(data.desafioId), 0) == 1);
 
             var runtime = new DesafioRuntime
             {
@@ -147,10 +157,44 @@ namespace Fishy.Mision
 
             if (!yaCompletado)
                 onDesafioDisponible?.Invoke(runtime);
+            onDesafioRegistrado?.Invoke(runtime);
             onPanelActualizado?.Invoke();
 
             Debug.Log($"[MissionManager] Desafío '{data.titulo}' registrado ({runtime.estado}).");
             return runtime;
+        }
+
+        /// <summary>
+        /// Aplica el progreso que vino del backend: los ids que ya estaban completados
+        /// en esta partida, jugara donde jugara el niño/a.
+        ///
+        /// Se llama antes de que las fichas se registren (los objetos y NPCs de la
+        /// escena lo hacen al interactuar), así que además de corregir lo que ya está
+        /// en memoria se guarda la lista para que un desafío que se registre después
+        /// nazca completado. Es lo que PlayerPrefs no puede dar: si el niño empezó en
+        /// el PC de la feria y sigue en otro, PlayerPrefs viene vacío.
+        /// </summary>
+        public void PrecargarCompletados(IEnumerable<string> idsCompletados)
+        {
+            if (idsCompletados == null) return;
+
+            bool cambio = false;
+            foreach (var id in idsCompletados)
+            {
+                if (string.IsNullOrEmpty(id)) continue;
+                completadosRemotos.Add(id);
+
+                // Si la ficha ya estaba registrada en esta sesión, corregirla ahora.
+                if (desafios.TryGetValue(id, out var runtime) &&
+                    runtime.estado != EstadoDesafio.Completado)
+                {
+                    runtime.estado = EstadoDesafio.Completado;
+                    cambio = true;
+                }
+            }
+
+            if (cambio) onPanelActualizado?.Invoke();
+            Debug.Log($"[MissionManager] {completadosRemotos.Count} misión(es) completadas según el backend.");
         }
 
         /// <summary>
@@ -208,6 +252,10 @@ namespace Fishy.Mision
         }
 
         /// <summary>Sólo para tests/depuración: limpia todo el estado en memoria (no borra PlayerPrefs).</summary>
-        internal void ResetEnMemoria() => desafios.Clear();
+        internal void ResetEnMemoria()
+        {
+            desafios.Clear();
+            completadosRemotos.Clear();
+        }
     }
 }

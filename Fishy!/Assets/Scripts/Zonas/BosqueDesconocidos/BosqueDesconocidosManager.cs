@@ -23,6 +23,9 @@ namespace Fishy.Zonas.BosqueDesconocidos
         public List<BosqueDesconocidosNPC> npcs = new List<BosqueDesconocidosNPC>();
 
         [Header("Al completar la temática")]
+        [Tooltip("Slug de esta temática en el banco (desconocidos, ciberacoso, reto_viral). " +
+                 "Es lo que se marca como completado en la BD.")]
+        public string zonaBanco = "desconocidos";
         [Tooltip("zoneId de la BlockedZone que da acceso a la siguiente temática.")]
         public string siguienteZonaId = "";
         [Tooltip("Progreso (0-100) a fijar en la partida del backend al completar. <0 = no actualizar.")]
@@ -121,6 +124,21 @@ namespace Fishy.Zonas.BosqueDesconocidos
                     Debug.LogWarning("[BosqueDesconocidos] 'progresoAlCompletar' no está configurado (<0): " +
                                      "el desbloqueo no quedará reflejado en el progreso de la partida. " +
                                      "Asigna un valor 0-100 por zona para registrarlo en la BD.");
+                }
+
+                // HDU-3 CA5 / HDU-4 CA5: "marca la temática como completada". El
+                // `progreso` de la partida es un porcentaje suelto que no dice cuál se
+                // cerró; esto sí, y es lo que lee el reporte del adulto.
+                if (!string.IsNullOrEmpty(zonaBanco))
+                {
+                    ApiManager.Instance.RegistrarProgresoZona(zonaBanco, completada: true,
+                        onSuccess: _ => Debug.Log($"[BosqueDesconocidos] Zona '{zonaBanco}' marcada como completada en la BD."),
+                        onError:   e => Debug.LogWarning($"[BosqueDesconocidos] No se pudo marcar la zona completada: {e}"));
+                }
+                else
+                {
+                    Debug.LogWarning("[BosqueDesconocidos] 'zonaBanco' está vacío: la temática no " +
+                                     "quedará marcada como completada en la BD.");
                 }
             }
 

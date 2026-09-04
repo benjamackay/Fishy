@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Fishy.World
@@ -20,6 +21,26 @@ namespace Fishy.World
         [Header("Identidad")]
         [Tooltip("Nombre/clave de la zona (para desbloquearla desde el gestor de misiones).")]
         public string zoneId = "zona_bloqueada";
+
+        [Tooltip("Slug de la zona en el banco de preguntas (desconocidos, ciberacoso, " +
+                 "reto_viral). Es lo que se guarda en la BD. Si se deja vacío se manda " +
+                 "el zoneId, que no siempre coincide.")]
+        public string zonaBanco = "";
+
+        /// <summary>
+        /// Id con el que esta zona viaja al backend. El <see cref="zoneId"/> nombra el
+        /// collider de la escena y el slug del banco nombra la temática: no tienen por
+        /// qué coincidir, así que se pueden separar sin renombrar nada en la escena.
+        /// </summary>
+        public string ZonaBackend => string.IsNullOrEmpty(zonaBanco) ? zoneId : zonaBanco;
+
+        /// <summary>
+        /// Se dispara cuando cualquier zona se desbloquea, venga de WorldZoneManager,
+        /// de un MissionGiver o de la cinemática. Es estático a propósito: el desbloqueo
+        /// se dispara desde varios lados y suscribirse a cada zona de la escena dejaría
+        /// fuera las que se instancian después.
+        /// </summary>
+        public static event Action<BlockedZone> OnZonaDesbloqueada;
 
         [Header("Estado")]
         [Tooltip("Si está bloqueada, Otto no puede entrar y se muestra el mensaje.")]
@@ -192,6 +213,7 @@ namespace Fishy.World
             if (!isLocked) return;
             isLocked = false;
             ApplyState();
+            OnZonaDesbloqueada?.Invoke(this);
         }
 
         /// <summary>Vuelve a bloquear la zona (caso poco común, p.ej. reinicio).</summary>
