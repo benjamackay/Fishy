@@ -3,7 +3,7 @@ from .models import (
     AdultoResponsable, UsuarioJugador, NivelRiesgo, Partida, NPC, Chat,
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
-    DialogoNPC,
+    DialogoNPC, MisionProgreso, ZonaProgreso,
 )
 
 
@@ -161,3 +161,58 @@ class CasoDetectiveProgresoSerializer(serializers.ModelSerializer):
             "fecha_inicio", "fecha_termino",
         ]
         read_only_fields = ["id", "partida", "caso", "intentos", "fecha_inicio"]
+
+
+class MisionProgresoSerializer(serializers.ModelSerializer):
+    """Progreso de una mision dentro de una partida.
+
+    `estado` y `en_catalogo` no son columnas: el primero se deriva de
+    `fecha_completada` (ver el modelo) y el segundo lo resuelve la vista de una
+    sola consulta al catalogo y lo pasa por `context["en_catalogo"]`, para no
+    hacer un SELECT por fila."""
+    estado      = serializers.CharField(read_only=True)
+    nombre      = serializers.SerializerMethodField()
+    zona        = serializers.SerializerMethodField()
+    en_catalogo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MisionProgreso
+        fields = [
+            "id", "mision_id", "estado", "nombre", "zona", "en_catalogo",
+            "fecha_desbloqueo", "fecha_completada",
+        ]
+        read_only_fields = fields
+
+    def _catalogo(self, obj):
+        return (self.context.get("catalogo") or {}).get(obj.mision_id)
+
+    def get_nombre(self, obj):
+        mision = self._catalogo(obj)
+        return mision.nombre if mision else ""
+
+    def get_zona(self, obj):
+        mision = self._catalogo(obj)
+        return mision.zona if mision else ""
+
+    def get_en_catalogo(self, obj):
+        return self._catalogo(obj) is not None
+
+
+class ZonaProgresoSerializer(serializers.ModelSerializer):
+    """Progreso de una zona dentro de una partida. Que la fila exista significa
+    que la zona esta desbloqueada; `completada` se deriva de la fecha."""
+    completada   = serializers.BooleanField(read_only=True)
+    desbloqueada = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ZonaProgreso
+        fields = [
+            "id", "zona", "desbloqueada", "completada",
+            "fecha_desbloqueo", "fecha_completada",
+        ]
+        read_only_fields = fields
+
+    def get_desbloqueada(self, obj):
+        # Siempre True: la fila solo existe si la zona se desbloqueo. Va explicito
+        # igual porque Unity pinta el mapa leyendo este campo, no la ausencia de fila.
+        return True

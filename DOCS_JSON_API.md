@@ -508,6 +508,81 @@ mejorable—, y mezclarlas le quitaría sentido a la lista.
 > Etiquetarle la pantalla con sus errores lo señala y rompe el tono del juego,
 > que corrige por consecuencia narrativa (el NPC reacciona, Otto cambia de ánimo).
 
+**GET / POST `/partidas/{partida_id}/misiones/`** — Progreso de misiones (HDU-1 CA4 y CA5)
+
+```json
+// POST Request
+{ "mision_id": "MISION_NPC_01", "estado": "completada" }   // estado: "disponible" | "completada"
+
+// Response
+{
+  "id": 7,
+  "mision_id": "MISION_NPC_01",
+  "estado": "completada",
+  "nombre": "",
+  "zona": "",
+  "en_catalogo": false,
+  "fecha_desbloqueo": "2026-09-04T14:02:11.031Z",
+  "fecha_completada": "2026-09-04T14:09:47.882Z"
+}
+```
+
+El `GET` devuelve la lista de las misiones que esa partida tiene desbloqueadas.
+Es lo que `MissionManager` necesita al cargar la partida y hoy solo tiene en
+PlayerPrefs.
+
+| Campo | Significado |
+|---|---|
+| `mision_id` | El `desafioId` del `DesafioData` de Unity, o el `mision_id` del banco |
+| `estado` | `disponible` o `completada`. **No es una columna**: se deriva de `fecha_completada` |
+| `nombre` / `zona` | Vienen del catálogo `Mision`. Vacíos si el id no está ahí |
+| `en_catalogo` | `false` avisa que el id no existe en el banco. El progreso se guarda igual |
+
+**Es idempotente**, igual que `MissionManager.CompletarDesafio`: repetir el POST no
+duplica la fila ni mueve `fecha_completada`. **Completar es un camino de ida:** un
+POST con `disponible` sobre una misión ya completada se ignora, porque el orden en
+que llegan los mensajes desde el juego no está garantizado y el registro para el
+adulto no puede retroceder.
+
+> ⚠️ Hoy `en_catalogo` llega en `false` para `MISION_NPC_01` y `MISION_NPC_02`: los
+> `DesafioData` de Unity usan esos ids y el banco define otros
+> (`MISION_EXPLORACION_01`, `MISION_SEC_*`). Se guarda igual y queda el aviso en el
+> log del servidor y la columna del admin, en vez de responder 404 y perder el dato.
+
+**GET / POST `/partidas/{partida_id}/zonas/`** — Progreso de zonas (HDU-3 CA5, HDU-4 CA5)
+
+```json
+// POST Request
+{ "zona": "ciberacoso", "completada": true }
+
+// Response
+{
+  "id": 3,
+  "zona": "ciberacoso",
+  "desbloqueada": true,
+  "completada": true,
+  "fecha_desbloqueo": "2026-09-04T14:02:11.031Z",
+  "fecha_completada": "2026-09-04T14:31:02.774Z"
+}
+```
+
+Es el *"marca la temática como completada y habilita el acceso a la siguiente"* de
+los CA de las zonas de riesgo.
+
+**Que la fila exista significa que la zona está desbloqueada**, así que el POST con
+`completada: false` es lo que se manda al abrir una zona nueva. El `GET` devuelve
+solo las zonas abiertas de esa partida: lo que no está en la lista sigue oscurecido
+en el mapa. Completar también es un camino de ida.
+
+`zona` es el slug del banco (`desconocidos`, `ciberacoso`, `reto_viral`) y **no se
+valida contra una lista fija a propósito**: agregar una temática es contenido, no
+una migración.
+
+> El progreso cuelga de la **partida**, no del perfil del menor. Un mismo perfil
+> puede tener varias partidas (HDU-15, "continuar mi última partida"): si viviera en
+> `UsuarioJugador`, la segunda partida empezaría con todo completado y resetearla
+> borraría el registro de la primera.
+
 ---
 
 ### NPCs

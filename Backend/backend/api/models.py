@@ -591,9 +591,10 @@ class RecompensaAlbum(models.Model):
 # RECOMPENSA OBTENIDA  (progreso — por partida)
 #
 # Es la tabla que responde "que desbloqueo este nino", que hoy no se puede
-# contestar sin parsear texto libre. No hay `MisionProgreso` a proposito: cada
-# mision entrega exactamente una recompensa, asi que completarla se deduce de
-# aca, y las 6 principales ni siquiera cuelgan de una mision.
+# contestar sin parsear texto libre. No reemplaza a `MisionProgreso` ni al
+# reves: aca esta lo que el nino se llevo al album, alla si la mision quedo
+# disponible o completada. Las 6 recompensas principales ni siquiera cuelgan
+# de una mision, y una mision disponible todavia no entrego nada.
 # ─────────────────────────────────────────────────────────────────────────────
 
 class RecompensaObtenida(models.Model):
@@ -615,5 +616,109 @@ class RecompensaObtenida(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["partida", "recompensa"], name="recompensa_unica_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO DE MISIONES  (HDU-1 CA4 y CA5 — por partida)
+#
+# Espeja el `MissionManager` de Unity, que hoy solo guarda en PlayerPrefs: una
+# fila por (partida, mision) con los dos estados que maneja `EstadoDesafio`.
+#
+# `mision_id` es texto y no FK a `Mision` por las mismas dos razones que
+# `Mensaje.opcion_banco_id`, y una tercera propia:
+#   1. `cargar_banco` hace `Mision.objects.all().delete()` en cada corrida, asi
+#      que una FK real se llevaria en cascada las misiones ya completadas por
+#      los ninos cada vez que se recarga el banco.
+#   2. Los ids todavia no calzan: los `DesafioData` de Unity usan MISION_NPC_01
+#      y MISION_NPC_02, que no existen en el banco (ahi son MISION_EXPLORACION_01
+#      y los MISION_SEC_*). Con FK estricta esto responderia 404 al primer POST.
+#   3. El progreso es del nino; el catalogo es contenido. Que el segundo cambie
+#      no puede borrar al primero.
+# `en_catalogo` (en la vista) avisa cuando un id no esta en `Mision`, para que
+# el desajuste se vea en vez de pasar callado.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class MisionProgreso(models.Model):
+    partida          = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="misiones"
+    )
+    mision_id        = models.CharField(
+        max_length=60, db_index=True,
+        help_text="`desafioId` del DesafioData de Unity / `mision_id` del banco, ej. MISION_NPC_01"
+    )
+    fecha_desbloqueo = models.DateTimeField(auto_now_add=True)
+    fecha_completada = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def estado(self):
+        """`disponible` | `completada`, los mismos dos valores de `EstadoDesafio`.
+
+        Se deriva de `fecha_completada` en vez de guardarse aparte para que no
+        puedan contradecirse: una fila completada sin fecha, o con fecha y
+        marcada disponible, no es representable."""
+        return "completada" if self.fecha_completada else "disponible"
+
+    def __str__(self):
+        return f"{self.mision_id} ({self.estado}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de Mision"
+        verbose_name_plural = "Progreso de Misiones"
+        ordering = ["partida", "fecha_desbloqueo"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "mision_id"], name="mision_unica_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO DE ZONAS  (HDU-3 CA5 y HDU-4 CA5 — por partida)
+#
+# Cuelga de `Partida` y no de `UsuarioJugador` porque un mismo menor puede tener
+# varias partidas (HDU-15, "continuar mi ultima partida"): en el perfil, la
+# segunda partida empezaria con todo completado y resetearla borraria el
+# registro de la primera.
+#
+# Una fila por zona en vez de una columna por zona: agregar una tematica pasa a
+# ser contenido y no una migracion, y se puede preguntar "que zonas completo"
+# sin nombrar las tres a mano. `zona` es el slug del banco (`desconocidos`,
+# `ciberacoso`, `reto_viral`), igual que en `PreguntaBanco.zona`.
+#
+# Que exista la fila significa que la zona esta desbloqueada. El desbloqueo
+# tiene mas de un origen — hoy la zona 2 se abre porque el Huemul entrega una
+# mision, mientras que "completada" viene del `es_fin_de_zona` del banco — asi
+# que no se puede derivar de una sola fuente y por eso se escribe explicito.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ZonaProgreso(models.Model):
+    partida          = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="zonas"
+    )
+    zona             = models.CharField(
+        max_length=50, db_index=True,
+        help_text="Slug de la zona del banco, ej. `ciberacoso`"
+    )
+    fecha_desbloqueo = models.DateTimeField(auto_now_add=True)
+    fecha_completada = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def completada(self):
+        """Derivado de `fecha_completada`, mismo criterio que MisionProgreso.estado."""
+        return self.fecha_completada is not None
+
+    def __str__(self):
+        estado = "completada" if self.completada else "en curso"
+        return f"{self.zona} ({estado}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de Zona"
+        verbose_name_plural = "Progreso de Zonas"
+        ordering = ["partida", "zona"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "zona"], name="zona_unica_por_partida"
             )
         ]

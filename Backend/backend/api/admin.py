@@ -8,6 +8,7 @@ from .models import (
     PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
+    MisionProgreso, ZonaProgreso,
 )
 
 
@@ -381,3 +382,60 @@ class RecompensaObtenidaAdmin(admin.ModelAdmin):
     list_filter   = ("recompensa__mision__zona",)
     search_fields = ("partida__usuario_jugador__nombre", "recompensa__nombre")
     readonly_fields = ("fecha",)
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO POR PARTIDA  (misiones y zonas)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@admin.register(MisionProgreso)
+class MisionProgresoAdmin(admin.ModelAdmin):
+    list_display  = ("mision_id", "jugador", "partida", "estado", "en_catalogo",
+                     "fecha_desbloqueo", "fecha_completada")
+    list_filter   = ("partida__usuario_jugador",)
+    search_fields = ("mision_id", "partida__usuario_jugador__nombre")
+    readonly_fields = ("fecha_desbloqueo",)
+
+    def get_queryset(self, request):
+        # El catálogo entero de una vez: son unas pocas decenas de misiones y
+        # así la columna `en_catalogo` no dispara un SELECT por fila.
+        qs = super().get_queryset(request).select_related("partida__usuario_jugador")
+        self._catalogo = set(Mision.objects.values_list("mision_id", flat=True))
+        return qs
+
+    @admin.display(description="menor")
+    def jugador(self, obj):
+        return obj.partida.usuario_jugador.nombre
+
+    @admin.display(description="estado")
+    def estado(self, obj):
+        return obj.estado
+
+    @admin.display(description="en el banco", boolean=True)
+    def en_catalogo(self, obj):
+        # False significa que Unity manda un id que el banco no tiene — hoy pasa
+        # con MISION_NPC_01 y MISION_NPC_02. El progreso se guarda igual.
+        return obj.mision_id in getattr(self, "_catalogo", set())
+
+
+@admin.register(ZonaProgreso)
+class ZonaProgresoAdmin(admin.ModelAdmin):
+    # Que la fila exista ya significa que la zona está desbloqueada; la columna
+    # que importa mirar es si además quedó completada.
+    list_display  = ("zona", "jugador", "partida", "completada",
+                     "fecha_desbloqueo", "fecha_completada")
+    list_filter   = ("zona",)
+    search_fields = ("zona", "partida__usuario_jugador__nombre")
+    readonly_fields = ("fecha_desbloqueo",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("partida__usuario_jugador")
+
+    @admin.display(description="menor")
+    def jugador(self, obj):
+        return obj.partida.usuario_jugador.nombre
+
+    @admin.display(description="completada", boolean=True)
+    def completada(self, obj):
+        return obj.completada

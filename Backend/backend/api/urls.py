@@ -25,6 +25,10 @@ urlpatterns = [
     path("partidas/<int:partida_id>/riesgo-por-zona/", views.riesgo_por_zona, name="riesgo_por_zona"),
     path("partidas/<int:partida_id>/oportunidades-mejora/", views.oportunidades_mejora, name="oportunidades_mejora"),
 
+    # Progreso por partida (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)
+    path("partidas/<int:partida_id>/misiones/", views.misiones_partida, name="misiones_partida"),
+    path("partidas/<int:partida_id>/zonas/", views.zonas_partida, name="zonas_partida"),
+
     # NPC (HDU-2)
     path("npcs/<int:npc_id>/", views.npc_actualizar, name="npc_actualizar"),
 

@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -12,7 +14,7 @@ from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, CasoDetectiveProgreso,
-    DialogoNPC,
+    DialogoNPC, Mision, MisionProgreso, ZonaProgreso,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -20,8 +22,10 @@ from .serializers import (
     NPCSerializer, ChatSerializer, MensajeSerializer,
     PreguntaBancoSerializer,
     CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
-    DialogoNPCSerializer,
+    DialogoNPCSerializer, MisionProgresoSerializer, ZonaProgresoSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -684,3 +688,116 @@ def progreso_detective_partida(request, partida_id):
     )
     progresos = partida.casos_detective.select_related("caso").all()
     return Response(CasoDetectiveProgresoSerializer(progresos, many=True).data)
+
+
+# ── Progreso de misiones (HDU-1 CA4 y CA5) ────────────────────────────────────
+
+@api_view(["GET", "POST"])
+def misiones_partida(request, partida_id):
+    """
+    GET  — misiones que esta partida tiene desbloqueadas, con su estado.
+    POST — registra o actualiza una. Body:
+           { "mision_id": "MISION_NPC_01", "estado": "disponible" | "completada" }
+
+    Es idempotente, igual que `MissionManager.CompletarDesafio` en Unity: repetir
+    el POST no duplica la fila ni mueve `fecha_completada`. **Una mision
+    completada no vuelve a disponible**: un POST con `disponible` sobre una ya
+    completada se ignora, porque el orden en que llegan los mensajes desde el
+    juego no esta garantizado y el registro para el adulto no puede retroceder.
+
+    Un `mision_id` que no esta en el catalogo se guarda igual (el progreso del
+    nino no depende de que el banco este al dia) pero se avisa por log y la
+    respuesta lo marca con `en_catalogo: false`.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        mision_id = (request.data.get("mision_id") or "").strip()
+        if not mision_id:
+            return Response(
+                {"mision_id": "Este campo es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        estado = (request.data.get("estado") or "disponible").strip()
+        if estado not in ("disponible", "completada"):
+            return Response(
+                {"estado": "Debe ser 'disponible' o 'completada'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not Mision.objects.filter(mision_id=mision_id).exists():
+            logger.warning(
+                "MisionProgreso: '%s' no existe en el catalogo de misiones. Se guarda "
+                "igual, pero el id de Unity y el del banco no estan alineados.",
+                mision_id,
+            )
+
+        progreso, created = MisionProgreso.objects.get_or_create(
+            partida=partida, mision_id=mision_id
+        )
+        if estado == "completada" and progreso.fecha_completada is None:
+            progreso.fecha_completada = timezone.now()
+            progreso.save(update_fields=["fecha_completada"])
+
+        progresos = [progreso]
+        codigo = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    else:
+        progresos = list(partida.misiones.all())
+        codigo = status.HTTP_200_OK
+
+    catalogo = {
+        m.mision_id: m
+        for m in Mision.objects.filter(
+            mision_id__in={p.mision_id for p in progresos}
+        )
+    }
+    datos = MisionProgresoSerializer(
+        progresos, many=True, context={"catalogo": catalogo}
+    ).data
+    return Response(datos[0] if request.method == "POST" else datos, status=codigo)
+
+
+# ── Progreso de zonas (HDU-3 CA5 y HDU-4 CA5) ─────────────────────────────────
+
+@api_view(["GET", "POST"])
+def zonas_partida(request, partida_id):
+    """
+    GET  — zonas desbloqueadas en esta partida, y cuales estan completadas.
+    POST — desbloquea o completa una. Body:
+           { "zona": "ciberacoso", "completada": true | false }
+
+    Que exista la fila significa que la zona esta desbloqueada, asi que un POST
+    con `completada: false` es lo que se manda al abrir una zona nueva. Igual que
+    las misiones, completar es un camino de ida: `completada: false` sobre una
+    zona ya completada no la reabre.
+
+    La `zona` es el slug del banco (`desconocidos`, `ciberacoso`, `reto_viral`).
+    No se valida contra una lista fija a proposito: agregar una tematica es
+    contenido, no una migracion ni un cambio de codigo.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "GET":
+        return Response(ZonaProgresoSerializer(partida.zonas.all(), many=True).data)
+
+    zona = (request.data.get("zona") or "").strip()
+    if not zona:
+        return Response(
+            {"zona": "Este campo es obligatorio."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    progreso, created = ZonaProgreso.objects.get_or_create(partida=partida, zona=zona)
+    if request.data.get("completada") and progreso.fecha_completada is None:
+        progreso.fecha_completada = timezone.now()
+        progreso.save(update_fields=["fecha_completada"])
+
+    return Response(
+        ZonaProgresoSerializer(progreso).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
