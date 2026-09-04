@@ -22,6 +22,7 @@ from api.models import (
     UsuarioJugador,
     ZonaProgreso,
 )
+from api.views import ZONA_INICIAL
 
 
 class BaseAPI(TestCase):
@@ -232,17 +233,70 @@ class ProgresoDeZonasTests(BaseAPI):
 
     def test_dos_partidas_del_mismo_menor_no_comparten_zonas(self):
         # La razón por la que esto no vive en UsuarioJugador: la partida de mañana
-        # en la feria tiene que empezar con el mapa cerrado.
+        # en la feria tiene que empezar como si fuera la primera vez.
         self.post(self.ruta, {"zona": "ciberacoso", "completada": True}, self.token, 201)
 
-        jugador = self.partida.usuario_jugador
-        segunda = Partida.objects.create(
-            usuario_jugador=jugador, nivel_riesgo=self.partida.nivel_riesgo
+        segunda = self.post(
+            "/api/partidas/",
+            {"usuario_jugador_id": self.partida.usuario_jugador_id},
+            self.token, 201,
         )
-        lista = self.get(f"/api/partidas/{segunda.pk}/zonas/", self.token)
-        self.assertEqual(lista, [])
+        lista = self.get(f"/api/partidas/{segunda['id']}/zonas/", self.token)
+        # Solo la zona inicial: nada de la partida anterior se hereda.
+        self.assertEqual([z["zona"] for z in lista], [ZONA_INICIAL])
+        self.assertFalse(lista[0]["completada"])
 
     def test_otro_adulto_no_puede_escribir_en_la_partida_ajena(self):
         _, token_ajeno = self._adulto("otra@test.local", "AdultaAjena")
         self.post(self.ruta, {"zona": "ciberacoso"}, token_ajeno, 404)
         self.assertEqual(ZonaProgreso.objects.count(), 0)
+
+
+class ZonaInicialTests(BaseAPI):
+    """La zona 1 viene abierta de fábrica: Otto empieza ahí y nunca está oscurecida,
+    así que tiene que existir en la BD desde que se crea la partida. Antes una
+    partida recién creada traía cero zonas, que se lee como "el mapa está todo
+    cerrado" hasta que el niño/a abría la zona 2."""
+
+    def setUp(self):
+        self.adulto, self.token = self._adulto("inicial@test.local", "AdultoInicial")
+        self.jugador = UsuarioJugador.objects.create(
+            adulto=self.adulto, nombre="Otto", edad=9
+        )
+
+    def _crear_partida(self):
+        return self.post(
+            "/api/partidas/", {"usuario_jugador_id": self.jugador.pk}, self.token, 201
+        )
+
+    def test_una_partida_nueva_nace_con_la_zona_inicial_desbloqueada(self):
+        partida = self._crear_partida()
+        lista = self.get(f"/api/partidas/{partida['id']}/zonas/", self.token)
+        self.assertEqual([z["zona"] for z in lista], [ZONA_INICIAL])
+        self.assertTrue(lista[0]["desbloqueada"])
+
+    def test_la_zona_inicial_nace_sin_completar(self):
+        # Desbloqueada no es lo mismo que completada: el niño/a todavía no juega nada.
+        partida = self._crear_partida()
+        fila = ZonaProgreso.objects.get(partida_id=partida["id"], zona=ZONA_INICIAL)
+        self.assertIsNone(fila.fecha_completada)
+
+    def test_completar_la_zona_inicial_no_duplica_la_fila(self):
+        partida = self._crear_partida()
+        datos = self.post(
+            f"/api/partidas/{partida['id']}/zonas/",
+            {"zona": ZONA_INICIAL, "completada": True},
+            self.token, 200,   # 200 y no 201: la fila ya existía
+        )
+        self.assertTrue(datos["completada"])
+        self.assertEqual(
+            ZonaProgreso.objects.filter(partida_id=partida["id"], zona=ZONA_INICIAL).count(), 1
+        )
+
+    def test_cada_partida_del_mismo_menor_trae_la_suya(self):
+        primera = self._crear_partida()
+        segunda = self._crear_partida()
+        self.assertNotEqual(primera["id"], segunda["id"])
+        self.assertEqual(
+            ZonaProgreso.objects.filter(zona=ZONA_INICIAL).count(), 2
+        )

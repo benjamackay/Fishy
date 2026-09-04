@@ -229,6 +229,14 @@ def main():
     if misiones_api:
         print(f"  [FALLA] la partida recien creada trae {len(misiones_api)} misiones")
 
+    # La zona 1 viene abierta de fabrica: Otto empieza ahi y nunca esta oscurecida.
+    zonas_al_crear = req("GET", f"/partidas/{pid}/zonas/", token=tok_a, espera=200)
+    if [z["zona"] for z in zonas_al_crear] != ["desconocidos"]:
+        print(f"  [FALLA] la partida deberia nacer solo con 'desconocidos' abierta, "
+              f"trae {[z['zona'] for z in zonas_al_crear]}")
+    elif zonas_al_crear[0]["completada"]:
+        print("  [FALLA] la zona inicial nace completada; deberia estar solo desbloqueada")
+
     # Desbloquear deja la mision disponible, sin fecha de completada.
     m = req("POST", f"/partidas/{pid}/misiones/",
             {"mision_id": "MISION_SEC_MOCHILA_HUEMUL"}, token=tok_a, espera=201)
@@ -299,8 +307,12 @@ def main():
     # empieza con el mapa cerrado. Es la razon de no ponerlo en UsuarioJugador.
     pid_otra = req("POST", "/partidas/", {"usuario_jugador_id": jid, "progreso": 0},
                    token=tok_a, espera=201)["id"]
-    if req("GET", f"/partidas/{pid_otra}/zonas/", token=tok_a, espera=200):
-        print("  [FALLA] una partida nueva del mismo menor hereda zonas")
+    zonas_otra = req("GET", f"/partidas/{pid_otra}/zonas/", token=tok_a, espera=200)
+    if [z["zona"] for z in zonas_otra] != ["desconocidos"]:
+        print(f"  [FALLA] una partida nueva deberia traer solo la zona inicial, "
+              f"trae {[z['zona'] for z in zonas_otra]}")
+    elif any(z["completada"] for z in zonas_otra):
+        print("  [FALLA] una partida nueva hereda una zona completada de la anterior")
     if req("GET", f"/partidas/{pid_otra}/misiones/", token=tok_a, espera=200):
         print("  [FALLA] una partida nueva del mismo menor hereda misiones")
 

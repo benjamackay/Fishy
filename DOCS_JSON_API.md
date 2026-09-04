@@ -569,6 +569,11 @@ adulto no puede retroceder.
 Es el *"marca la temática como completada y habilita el acceso a la siguiente"* de
 los CA de las zonas de riesgo.
 
+**La zona inicial (`desconocidos`) ya viene en la lista**: `POST /partidas/` la deja
+escrita al crear la partida, porque Otto empieza ahí y esa zona nunca está
+oscurecida. Sin eso, una partida recién creada devolvía una lista vacía, que se lee
+como "el mapa está todo cerrado".
+
 **Que la fila exista significa que la zona está desbloqueada**, así que el POST con
 `completada: false` es lo que se manda al abrir una zona nueva. El `GET` devuelve
 solo las zonas abiertas de esa partida: lo que no está en la lista sigue oscurecido

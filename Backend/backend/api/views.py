@@ -135,10 +135,21 @@ def niveles_riesgo(request):
 
 # ── Partida (HDU-2) ───────────────────────────────────────────────────────────
 
+# La zona donde empieza el juego. No es contenido del banco sino una regla de la
+# partida: Otto parte en el Bosque de los Desconocidos y esa zona nunca está
+# oscurecida, así que tiene que existir en la BD desde el minuto cero. Sin esto,
+# una partida recién creada aparecía con cero zonas desbloqueadas — que es lo que
+# se lee como "el mapa está todo cerrado" — hasta que el niño abría la zona 2.
+ZONA_INICIAL = "desconocidos"
+
+
 @api_view(["POST"])
 def crear_partida(request):
     """Body: { "usuario_jugador_id": int, "nivel_riesgo": int (opcional) }.
-    El perfil debe pertenecer al adulto autenticado."""
+    El perfil debe pertenecer al adulto autenticado.
+
+    La partida nace con `ZONA_INICIAL` ya desbloqueada (HDU-3 CA5 / HDU-4 CA5: el
+    mapa se abre por zonas, y la primera viene abierta de fábrica)."""
     jugador = get_object_or_404(
         UsuarioJugador,
         pk=request.data.get("usuario_jugador_id"),
@@ -148,6 +159,7 @@ def crear_partida(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     partida = serializer.save(usuario_jugador=jugador)
+    ZonaProgreso.objects.get_or_create(partida=partida, zona=ZONA_INICIAL)
     return Response(PartidaSerializer(partida).data, status=status.HTTP_201_CREATED)
 
 
