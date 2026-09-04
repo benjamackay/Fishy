@@ -295,6 +295,7 @@ namespace Fishy.Chat
             }
 
             conv.nodes = allNodes;
+            AvisarReferenciasColgando(conv);
             return conv;
         }
 
@@ -388,6 +389,7 @@ namespace Fishy.Chat
 
             conv.startNodeId = startNodeId ?? (allNodes.Count > 0 ? allNodes[0].id : "");
             conv.nodes = allNodes;
+            AvisarReferenciasColgando(conv);
             return conv;
         }
 
@@ -479,10 +481,35 @@ namespace Fishy.Chat
 
             conv.startNodeId = startNodeId ?? (allNodes.Count > 0 ? allNodes[0].id : "");
             conv.nodes = allNodes;
+            AvisarReferenciasColgando(conv);
             return conv;
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Avisa por consola si la conversación recién armada apunta a nodos que no
+        /// contiene.
+        ///
+        /// Pasa cuando una opción tiene `siguiente_pregunta` hacia una pregunta de
+        /// otro `escenario_id` (o sin escenario, como los nodos FIN_*) que este
+        /// cargador no incluyó: la rama queda muerta y el chat se corta como si
+        /// hubiera terminado. Se avisa acá, al construir, porque es el único punto
+        /// donde se sabe qué preguntas se pidieron y cuáles no.
+        /// </summary>
+        private static void AvisarReferenciasColgando(ChatConversation conv)
+        {
+            if (conv == null) return;
+            var colgando = conv.ReferenciasColgando();
+            if (colgando.Count == 0) return;
+
+            Debug.LogWarning(
+                $"[BancoPreguntas] La conversación '{conv.contactName}' (zona {conv.zoneId}) " +
+                $"apunta a {colgando.Count} pregunta(s) que no se cargaron: " +
+                $"{string.Join(", ", colgando)}. Esas ramas terminan el chat antes de tiempo. " +
+                "Asigna el escenario_id que las contiene a algún launcher de la escena.");
+        }
+
         private static OptionSafety TipoToSafety(string tipo)
         {
             switch (tipo)

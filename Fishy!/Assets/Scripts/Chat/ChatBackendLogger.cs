@@ -22,6 +22,7 @@ namespace Fishy.Chat
     {
         private bool _ready;
         private bool _failed;
+        private bool _ended;
         private readonly Queue<Action> _pending = new Queue<Action>();
 
         /// <summary>True si el logger está activo y el chat fue abierto en el backend.</summary>
@@ -77,9 +78,20 @@ namespace Fishy.Chat
             => Enqueue(() => ApiManager.Instance.RegistrarRespuestaJugador(
                 playerText, calidad, preguntaBancoId, opcionBancoId: opcionBancoId));
 
-        /// <summary>Cierra el chat en el backend (tipo "end").</summary>
+        /// <summary>
+        /// Cierra el chat en el backend (tipo "end").
+        ///
+        /// Idempotente: solo la primera llamada cuenta. Hace falta porque el cierre
+        /// se puede disparar por más de un camino (nodo con <c>closesChat</c>, fin
+        /// de conversación, o el jugador cerrando el chat), y el backend rechaza
+        /// con 400 cualquier mensaje posterior a un chat ya finalizado.
+        /// </summary>
         public void LogEnd(string mensajeCierre = "")
-            => Enqueue(() => ApiManager.Instance.FinalizarChat(mensajeCierre));
+        {
+            if (_ended) return;
+            _ended = true;
+            Enqueue(() => ApiManager.Instance.FinalizarChat(mensajeCierre));
+        }
 
         // ── Infraestructura ────────────────────────────────────────────────────
         private void Enqueue(Action action)

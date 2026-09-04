@@ -152,11 +152,44 @@ namespace Fishy.Chat
         }
 
         // ── Recorrido del grafo ────────────────────────────────────────────────
+        /// <summary>
+        /// Avanza al nodo indicado, distinguiendo los dos motivos por los que
+        /// puede no haber a dónde seguir:
+        ///  • id vacío → la rama termina ahí; es un final legítimo.
+        ///  • id que no existe en el grafo → falta contenido por cargar (la
+        ///    pregunta vive en otro <c>escenario_id</c> que ningún launcher pidió).
+        ///    Se avisa por consola y se cierra igual, para no dejar el chat abierto
+        ///    en el backend. Si más adelante se engancha ese contenido, el nodo
+        ///    resuelve y la advertencia desaparece sola: la guarda no lo tapa.
+        /// </summary>
+        private void Avanzar(string nextNodeId)
+        {
+            if (string.IsNullOrEmpty(nextNodeId))
+            {
+                EndCurrentConversation("fin_de_rama");
+                return;
+            }
+
+            var siguiente = conversation.GetNode(nextNodeId);
+            if (siguiente == null)
+            {
+                Debug.LogWarning(
+                    $"[ChatModule] '{conversation.contactName}' (zona {conversation.zoneId}) " +
+                    $"apunta a '{nextNodeId}', que no está cargado en esta conversación. " +
+                    "Se cierra el chat ahí. Revisa que el escenario_id que contiene esa " +
+                    "pregunta esté asignado a algún launcher de la escena.");
+                EndCurrentConversation($"contenido_faltante:{nextNodeId}");
+                return;
+            }
+
+            EnterNode(siguiente);
+        }
+
         private void EnterNode(ChatNode node)
         {
             if (node == null)
             {
-                EndCurrentConversation();
+                EndCurrentConversation("nodo_nulo");
                 return;
             }
 
@@ -177,7 +210,7 @@ namespace Fishy.Chat
             if (node.closesChat)
             {
                 logger.LogEnd(node.text);
-                EndCurrentConversation();
+                EndCurrentConversation("cierre_narrativo");
                 return;
             }
 
@@ -195,7 +228,7 @@ namespace Fishy.Chat
                 return;
             }
 
-            EndCurrentConversation();
+            EndCurrentConversation("fin_de_rama");
         }
 
         private IEnumerator AdvanceAfterDelay(string nextNodeId)
@@ -203,7 +236,7 @@ namespace Fishy.Chat
             if (autoAdvanceDelay > 0f)
                 yield return new WaitForSecondsRealtime(autoAdvanceDelay);
             if (!IsActive) yield break;
-            EnterNode(conversation.GetNode(nextNodeId));
+            Avanzar(nextNodeId);
         }
 
         private void OnOption(ChatNode node, int index)
@@ -225,11 +258,22 @@ namespace Fishy.Chat
             logger.LogChoice(option.text, option.QualityKey,
                 preguntaBancoId: node.id, opcionBancoId: option.bancoOptionId);
 
-            EnterNode(conversation.GetNode(option.nextNodeId));
+            Avanzar(option.nextNodeId);
         }
 
-        private void EndCurrentConversation()
+        /// <summary>
+        /// Cierra la conversación actual y pasa a la siguiente de la cola.
+        ///
+        /// Registra el cierre en el backend antes de soltar el logger. Sin esto el
+        /// chat quedaba con <c>fecha_termino</c> en NULL cada vez que la
+        /// conversación no terminaba en un nodo con <c>closesChat</c> — el caso de
+        /// las ramas que apuntan a contenido de otro escenario. <c>LogEnd</c> es
+        /// idempotente, así que si el nodo de cierre ya lo registró con su texto
+        /// narrativo, esta llamada no pisa nada.
+        /// </summary>
+        private void EndCurrentConversation(string motivo)
         {
+            logger?.LogEnd(motivo);
             if (queue.Count > 0) StartNextConversation();
             else EndSession();
         }

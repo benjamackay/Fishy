@@ -120,5 +120,39 @@ namespace Fishy.Chat
         }
 
         public ChatNode StartNode => GetNode(startNodeId);
+
+        /// <summary>True si el grafo contiene un nodo con ese id.</summary>
+        public bool HasNode(string id) => GetNode(id) != null;
+
+        /// <summary>
+        /// Ids a los que apunta el grafo pero que no existen en él.
+        ///
+        /// No es lo mismo que una conversación que termina: un `nextNodeId` vacío
+        /// es un final legítimo, mientras que uno que apunta a un nodo ausente
+        /// significa que falta contenido por cargar — típicamente una pregunta que
+        /// vive en otro `escenario_id` que ningún launcher pidió. Sin esta
+        /// distinción el chat se corta en seco y parece un final normal.
+        /// </summary>
+        public List<string> ReferenciasColgando()
+        {
+            var colgando = new List<string>();
+            if (nodes == null) return colgando;
+
+            void Revisar(string id)
+            {
+                if (string.IsNullOrEmpty(id) || HasNode(id)) return;
+                if (!colgando.Contains(id)) colgando.Add(id);
+            }
+
+            foreach (var n in nodes)
+            {
+                if (n == null) continue;
+                Revisar(n.nextNodeId);
+                if (n.options == null) continue;
+                foreach (var o in n.options)
+                    if (o != null) Revisar(o.nextNodeId);
+            }
+            return colgando;
+        }
     }
 }
