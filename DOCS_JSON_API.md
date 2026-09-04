@@ -917,12 +917,23 @@ mensajes con otro, antes de mostrar la conversación grabada.
 | `explicacion` | Solo en mensajes de riesgo; se muestra en el resumen si el jugador no lo marcó |
 | `nota_ambiguo` | Solo en mensajes ambiguos; aclara por qué no cuenta |
 
-### Cálculo de `porcentaje` (lo hace el cliente, el backend solo lo guarda)
+### Cálculo de `porcentaje` (lo hace el backend; el cliente aplica la misma fórmula para mostrarla)
 ```
 riesgo_real   = mensajes con es_senal_riesgo=true y es_ambiguo=false
 aciertos      = de esos, cuántos marcó el jugador
 porcentaje    = aciertos / total_riesgo   (1.0 si total_riesgo = 0)
 ```
+
+`POST /casos-detective/{caso_id}/progreso/` **solo necesita `mensajes_marcados`**:
+`aciertos`, `total_riesgo` y `porcentaje` los recalcula el servidor con esa misma
+fórmula y son los que quedan guardados. Si el cuerpo los trae, se usan únicamente
+para comparar y avisar por log cuando no coinciden — señal de que el cliente y el
+banco no están viendo la misma versión del caso.
+
+Es a propósito: el resultado alimenta el reporte del adulto responsable (HDU-13),
+y un cliente con un bug o una petición hecha a mano dejarían números que después
+nadie puede auditar. Las marcas sí vienen del cliente: son lo que el niño/a hizo,
+no algo que el servidor pueda deducir.
 
 ---
 

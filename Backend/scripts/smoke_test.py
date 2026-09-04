@@ -319,6 +319,48 @@ def main():
     req("GET", "/partidas/999999999/misiones/", token=tok_a, espera=404)
     req("GET", "/partidas/999999999/zonas/", token=tok_a, espera=404)
 
+    print("\n-- Modo Detective: el servidor corrige, no copia (HDU-10 CA4/CA5) --")
+    casos = req("GET", "/casos-detective/", token=tok_a, espera=200)
+    if not casos:
+        print("  [AVISO] no hay casos Detective cargados (¿falta cargar_detective?)")
+    else:
+        caso = req("GET", f"/casos-detective/{casos[0]['caso_id']}/", token=tok_a, espera=200)
+        mensajes = caso["mensajes"]
+        riesgo_real = [m["mensaje_id"] for m in mensajes
+                       if m["es_senal_riesgo"] and not m["es_ambiguo"]]
+        ambiguos = [m["mensaje_id"] for m in mensajes if m["es_ambiguo"]]
+        print(f"          -> {caso['caso_id']}: {len(mensajes)} mensajes, "
+              f"{len(riesgo_real)} señales reales, {len(ambiguos)} ambiguo(s)")
+
+        # Se marca una sola señal real y se mienten los numeros a proposito: lo que
+        # queda guardado tiene que ser lo que da el caso, no lo que mando el cliente.
+        r = req("POST", f"/casos-detective/{caso['caso_id']}/progreso/",
+                {"partida_id": pid, "mensajes_marcados": riesgo_real[:1],
+                 "aciertos": 999, "total_riesgo": 999, "porcentaje": 1.0},
+                token=tok_a, espera=201)
+        if r["aciertos"] != min(1, len(riesgo_real)) or r["total_riesgo"] != len(riesgo_real):
+            print(f"  [FALLA] el servidor no corrigio: guardo aciertos={r['aciertos']}, "
+                  f"total={r['total_riesgo']} y el caso da {min(1, len(riesgo_real))}/{len(riesgo_real)}")
+        else:
+            print(f"          -> el cliente dijo 999 aciertos y quedo {r['aciertos']}/{r['total_riesgo']}")
+
+        # CA5: sumar un ambiguo a las marcas no cambia el resultado.
+        if ambiguos:
+            r2 = req("POST", f"/casos-detective/{caso['caso_id']}/progreso/",
+                     {"partida_id": pid, "mensajes_marcados": riesgo_real[:1] + ambiguos[:1]},
+                     token=tok_a, espera=200)
+            if r2["aciertos"] != r["aciertos"] or r2["porcentaje"] != r["porcentaje"]:
+                print("  [FALLA] marcar un mensaje ambiguo cambio el puntaje")
+        else:
+            print(f"  [AVISO] {caso['caso_id']} no tiene mensajes ambiguos: CA5 sin verificar aca")
+
+        # Marcarlas todas: 100%.
+        r3 = req("POST", f"/casos-detective/{caso['caso_id']}/progreso/",
+                 {"partida_id": pid, "mensajes_marcados": riesgo_real},
+                 token=tok_a, espera=200)
+        if r3["porcentaje"] != 1.0:
+            print(f"  [FALLA] marcando todas las señales el porcentaje deberia ser 1.0, es {r3['porcentaje']}")
+
     print("\n-- Aislamiento entre adultos (B no debe ver nada de A) --")
     tok_b = req("POST", "/auth/registro/",
                 {"nombre": user_b, "email": f"{user_b}@ejemplo.cl", "password": PWD},

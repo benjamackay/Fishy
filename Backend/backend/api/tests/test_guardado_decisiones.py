@@ -177,9 +177,10 @@ class GuardarDecisionDetectiveTests(BaseAPI):
         return {
             "partida_id": self.partida.pk,
             "mensajes_marcados": marcados,
+            # Estos tres los recalcula el servidor; se mandan igual porque es lo que
+            # sigue enviando Unity y hay que comprobar que no rompe (ver CorreccionEnElServidorTests).
             "aciertos": aciertos,
             "total_riesgo": 2,
-            # La API guarda la fraccion 0-1 que calcula el cliente (ver DOCS_JSON_API.md).
             "porcentaje": aciertos / 2,
         }
 
@@ -244,3 +245,116 @@ class GuardarDecisionDetectiveTests(BaseAPI):
             token_b, 404,
         )
         self.assertEqual(CasoDetectiveProgreso.objects.count(), 0)
+
+
+
+class CorreccionEnElServidorTests(BaseAPI):
+    """HDU-10 CA4 y CA5: el resultado lo corrige el servidor contra las señales del
+    propio caso, no lo copia del cliente.
+
+    El cliente sigue mandando sus números (Unity los necesita para pintar la
+    pantalla al tiro), pero lo que queda guardado es lo que da el caso. Importa
+    porque de acá sale el reporte del adulto responsable en HDU-13: si el juego
+    tiene un bug o alguien manda la petición a mano, los números quedarían sin
+    forma de auditarse."""
+
+    def setUp(self):
+        self.adulto, self.token = self._adulto("correccion@test.local", "AdultoCorreccion")
+        self.partida = self._partida(self.adulto)
+        self.caso = CasoDetective.objects.create(
+            caso_id="caso_corr_01", titulo="Caso con ambiguo", zona="ciberacoso",
+            permiso_player_text="me muestras?", permiso_npc_nombre="Pudu",
+            permiso_npc_response="ya",
+        )
+        # 2 señales de riesgo reales, 1 ambigua y 1 inocente.
+        for i, (riesgo, ambiguo) in enumerate(
+            [(True, False), (False, False), (True, True), (True, False)], start=1
+        ):
+            MensajeDetective.objects.create(
+                caso=self.caso, mensaje_id=f"caso_corr_01_m{i}", npc_sender="Puma",
+                texto=f"mensaje {i}", es_senal_riesgo=riesgo, es_ambiguo=ambiguo, orden=i,
+            )
+        self.ruta = f"/api/casos-detective/{self.caso.caso_id}/progreso/"
+
+    def _marcar(self, marcados, extra=None, espera=201):
+        cuerpo = {"partida_id": self.partida.pk, "mensajes_marcados": marcados}
+        if extra:
+            cuerpo.update(extra)
+        return self.post(self.ruta, cuerpo, self.token, espera)
+
+    def test_no_hace_falta_mandar_los_numeros(self):
+        # El cuerpo mínimo es la partida y lo que el niño/a marcó.
+        datos = self._marcar(["caso_corr_01_m1"])
+        self.assertEqual(datos["aciertos"], 1)
+        self.assertEqual(datos["total_riesgo"], 2)
+        self.assertEqual(datos["porcentaje"], 0.5)
+
+    def test_el_servidor_ignora_los_aciertos_que_manda_el_cliente(self):
+        datos = self._marcar(
+            ["caso_corr_01_m1"],
+            {"aciertos": 99, "total_riesgo": 99, "porcentaje": 1.0},
+        )
+        self.assertEqual(datos["aciertos"], 1)
+        self.assertEqual(datos["total_riesgo"], 2)
+        self.assertEqual(datos["porcentaje"], 0.5)
+
+        fila = CasoDetectiveProgreso.objects.get()
+        self.assertEqual(fila.aciertos, 1)
+        self.assertEqual(fila.porcentaje, 0.5)
+
+    def test_un_ambiguo_marcado_no_suma_ni_resta(self):
+        # CA5: marcar el ambiguo no puede mejorar ni empeorar el resultado.
+        solo_riesgo = self._marcar(["caso_corr_01_m1"])
+        CasoDetectiveProgreso.objects.all().delete()
+        con_ambiguo = self._marcar(["caso_corr_01_m1", "caso_corr_01_m3"])
+
+        self.assertEqual(con_ambiguo["aciertos"], solo_riesgo["aciertos"])
+        self.assertEqual(con_ambiguo["porcentaje"], solo_riesgo["porcentaje"])
+
+    def test_el_ambiguo_no_entra_en_el_total(self):
+        # m3 tiene es_senal_riesgo=True pero es ambiguo: no cuenta para el total.
+        datos = self._marcar([])
+        self.assertEqual(datos["total_riesgo"], 2)
+
+    def test_marcar_un_mensaje_inocente_no_suma(self):
+        datos = self._marcar(["caso_corr_01_m2"])
+        self.assertEqual(datos["aciertos"], 0)
+        self.assertEqual(datos["porcentaje"], 0.0)
+
+    def test_un_id_que_no_esta_en_el_caso_no_suma(self):
+        datos = self._marcar(["caso_corr_01_m1", "mensaje_de_otro_caso"])
+        self.assertEqual(datos["aciertos"], 1)
+
+    def test_marcarlas_todas_da_el_cien_por_ciento(self):
+        datos = self._marcar(["caso_corr_01_m1", "caso_corr_01_m4"])
+        self.assertEqual(datos["aciertos"], 2)
+        self.assertEqual(datos["porcentaje"], 1.0)
+
+    def test_reintentar_recalcula_con_las_marcas_nuevas(self):
+        self._marcar(["caso_corr_01_m1"])
+        datos = self._marcar(
+            ["caso_corr_01_m1", "caso_corr_01_m4"],
+            {"aciertos": 0},   # el cliente miente, el servidor corrige igual
+            espera=200,
+        )
+        self.assertEqual(datos["aciertos"], 2)
+        self.assertEqual(datos["intentos"], 2)
+
+    def test_un_caso_sin_senales_de_riesgo_no_revienta(self):
+        # Dividir por cero daria un 500, y un 0% castigaria al jugador por un caso
+        # que no tenia nada que encontrar.
+        caso = CasoDetective.objects.create(
+            caso_id="caso_corr_02", titulo="Sin trampa", zona="ciberacoso",
+            permiso_player_text="?", permiso_npc_nombre="Coipo", permiso_npc_response="ya",
+        )
+        MensajeDetective.objects.create(
+            caso=caso, mensaje_id="caso_corr_02_m1", npc_sender="Coipo",
+            texto="hola", es_senal_riesgo=False, orden=1,
+        )
+        datos = self.post(
+            f"/api/casos-detective/{caso.caso_id}/progreso/",
+            {"partida_id": self.partida.pk, "mensajes_marcados": []},
+            self.token, 201,
+        )
+        self.assertEqual(datos["total_riesgo"], 0)
+        self.assertEqual(datos["porcentaje"], 1.0)

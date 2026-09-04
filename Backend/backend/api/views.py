@@ -643,6 +643,32 @@ def dialogo_npc_detalle(request, dialogo_id):
     return Response(DialogoNPCSerializer(dialogo).data)
 
 
+def _corregir_caso(caso, mensajes_marcados):
+    """Corrige un intento del Modo Detective contra las señales del propio caso.
+
+    Es la misma fórmula que `DetectiveCaseManager` aplica en Unity (HDU-10 CA4 y
+    CA5): solo cuentan los mensajes de riesgo **no ambiguos**, y un ambiguo que el
+    jugador marcó no suma ni resta. Se calcula acá y no se copia lo que mandó el
+    cliente porque este resultado alimenta el reporte del adulto (HDU-13): un
+    cliente con un bug, una versión vieja del juego o una petición a mano dejarían
+    números que después nadie puede auditar. Las marcas sí vienen del cliente —
+    son lo que el niño/a hizo, no algo que el servidor pueda deducir.
+
+    Devuelve (aciertos, total_riesgo, porcentaje).
+    """
+    marcados = set(mensajes_marcados or [])
+    riesgo_real = [
+        m.mensaje_id for m in caso.mensajes.all()
+        if m.es_senal_riesgo and not m.es_ambiguo
+    ]
+    total = len(riesgo_real)
+    aciertos = sum(1 for mid in riesgo_real if mid in marcados)
+    # Sin señales de riesgo el caso está 100% resuelto por definición: dividir
+    # daría ZeroDivision y un 0% castigaría al jugador por un caso sin trampa.
+    porcentaje = (aciertos / total) if total else 1.0
+    return aciertos, total, porcentaje
+
+
 @api_view(["POST"])
 def registrar_progreso_detective(request, caso_id):
     """
@@ -651,35 +677,54 @@ def registrar_progreso_detective(request, caso_id):
     Body: {
         "partida_id": int,
         "mensajes_marcados": [str],   # mensaje_id que el jugador marcó como riesgo
-        "aciertos": int,
-        "total_riesgo": int,
-        "porcentaje": float
     }
+
+    `aciertos`, `total_riesgo` y `porcentaje` **los calcula el servidor** a partir
+    de las marcas y de las señales del caso (ver `_corregir_caso`). Si el cuerpo
+    los trae igual, se usan solo para comparar: una diferencia se avisa por log,
+    porque significa que el cliente y el banco no están viendo el mismo caso.
+
+    Se guardan en vez de derivarse en cada lectura porque un intento es un hecho
+    con fecha: si mañana se corrige el contenido del caso, el resultado de esa
+    tarde no debería cambiar solo.
 
     Un mismo (partida, caso) tiene una sola fila (constraint del modelo):
     reintentar no crea una fila nueva, suma 1 a `intentos` y sobrescribe el
     resultado con el del último intento — mismo patrón idempotente que
     MissionManager.CompletarDesafio en Unity.
     """
-    caso = get_object_or_404(CasoDetective, caso_id=caso_id)
+    caso = get_object_or_404(
+        CasoDetective.objects.prefetch_related("mensajes"), caso_id=caso_id
+    )
     partida = get_object_or_404(
         Partida, pk=request.data.get("partida_id"), usuario_jugador__adulto=request.user
     )
 
+    marcados = request.data.get("mensajes_marcados", [])
+    aciertos, total, porcentaje = _corregir_caso(caso, marcados)
+
+    enviados = request.data.get("aciertos")
+    if enviados is not None and enviados != aciertos:
+        logger.warning(
+            "Detective %s: el cliente reportó %s aciertos y el caso da %s. Se guarda "
+            "el del servidor. Revisa si Unity y el banco tienen la misma versión del caso.",
+            caso.caso_id, enviados, aciertos,
+        )
+
     progreso, created = CasoDetectiveProgreso.objects.get_or_create(
         partida=partida, caso=caso,
         defaults={
-            "mensajes_marcados": request.data.get("mensajes_marcados", []),
-            "aciertos": request.data.get("aciertos", 0),
-            "total_riesgo": request.data.get("total_riesgo", 0),
-            "porcentaje": request.data.get("porcentaje", 0.0),
+            "mensajes_marcados": marcados,
+            "aciertos": aciertos,
+            "total_riesgo": total,
+            "porcentaje": porcentaje,
         },
     )
     if not created:
-        progreso.mensajes_marcados = request.data.get("mensajes_marcados", progreso.mensajes_marcados)
-        progreso.aciertos = request.data.get("aciertos", progreso.aciertos)
-        progreso.total_riesgo = request.data.get("total_riesgo", progreso.total_riesgo)
-        progreso.porcentaje = request.data.get("porcentaje", progreso.porcentaje)
+        progreso.mensajes_marcados = marcados
+        progreso.aciertos = aciertos
+        progreso.total_riesgo = total
+        progreso.porcentaje = porcentaje
         progreso.intentos += 1
     progreso.fecha_termino = timezone.now()
     progreso.save()
