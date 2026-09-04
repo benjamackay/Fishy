@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.db.models import Q
 from .models import (
     AdultoResponsable, UsuarioJugador, Zona,
     NivelRiesgo, Partida, PersonajeJugador,
@@ -68,16 +69,155 @@ class NPCAdmin(admin.ModelAdmin):
     search_fields = ("nombre",)
 
 
+class MensajeInline(admin.TabularInline):
+    """El chat completo, en orden, dentro de la ficha del Chat.
+
+    Es la forma de leer una conversación como conversación —qué dijo el NPC, qué
+    contestó el niño y con qué opción del banco— en vez de reconstruirla saltando
+    entre filas sueltas del listado de mensajes.
+    """
+    model = Mensaje
+    extra = 0
+    can_delete = False
+    fields = ("timestamp", "tipo", "respuesta", "calidad_respuesta",
+              "pregunta_banco_id", "opcion_banco_id")
+    readonly_fields = fields
+    ordering = ("timestamp",)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(Chat)
 class ChatAdmin(admin.ModelAdmin):
-    list_display  = ("id", "npc", "partida", "categoria_riesgo", "fecha_inicio")
+    list_display  = ("id", "npc", "partida", "categoria_riesgo",
+                     "fecha_inicio", "estado")
     list_filter   = ("categoria_riesgo",)
+    search_fields = ("npc__nombre", "partida__usuario_jugador__nombre")
+    list_select_related = ("npc", "partida__usuario_jugador")
+    inlines = (MensajeInline,)
+
+    @admin.display(description="estado")
+    def estado(self, obj):
+        # Un chat sin `fecha_termino` es uno que quedó abierto: la conversación se
+        # cortó sin registrar el mensaje de cierre. Verlo de una permite pillar
+        # ramas del banco que apuntan a contenido que no se cargó.
+        return "cerrado" if obj.fecha_termino else "SIN CERRAR"
+
+
+class SoloDecisionesFilter(admin.SimpleListFilter):
+    """Separa las decisiones del jugador del resto del historial del chat.
+
+    Un `Mensaje` puede ser el mensaje del NPC, las opciones ofrecidas o el cierre.
+    Solo los que traen `opcion_banco_id` son una decisión que tomó el niño.
+    """
+    title = "es una decisión del jugador"
+    parameter_name = "es_decision"
+
+    def lookups(self, request, model_admin):
+        return [("si", "Sí — el niño eligió una opción"),
+                ("no", "No — mensaje del NPC o cierre")]
+
+    def queryset(self, request, qs):
+        if self.value() == "si":
+            return qs.exclude(opcion_banco_id__isnull=True).exclude(opcion_banco_id="")
+        if self.value() == "no":
+            return qs.filter(Q(opcion_banco_id__isnull=True) | Q(opcion_banco_id=""))
+        return qs
+
+
+class ZonaDelBancoFilter(admin.SimpleListFilter):
+    """Filtra por la zona de la pregunta que originó el mensaje.
+
+    `pregunta_banco_id` es un CharField, no una FK, así que no existe un camino
+    ORM tipo `pregunta__zona`. Se resuelven los ids de la zona y se filtra por
+    `pregunta_banco_id__in`: el banco son decenas de filas, así que sale barato y
+    evita migrar el campo a FK solo para poder filtrar.
+    """
+    title = "zona del banco"
+    parameter_name = "zona_banco"
+
+    def lookups(self, request, model_admin):
+        # El `.order_by()` vacío no es decorativo: PreguntaBanco.Meta.ordering
+        # agrega sus campos al SELECT, y con eso el DISTINCT deja de deduplicar y
+        # la zona sale repetida una vez por pregunta.
+        zonas = (
+            PreguntaBanco.objects
+            .order_by()
+            .values_list("zona", flat=True)
+            .distinct()
+        )
+        return [(z, z) for z in sorted(zonas) if z]
+
+    def queryset(self, request, qs):
+        if not self.value():
+            return qs
+        ids = list(
+            PreguntaBanco.objects
+            .filter(zona=self.value())
+            .values_list("pregunta_id", flat=True)
+        )
+        return qs.filter(pregunta_banco_id__in=ids)
 
 
 @admin.register(Mensaje)
 class MensajeAdmin(admin.ModelAdmin):
-    list_display  = ("id", "chat", "tipo", "calidad_respuesta", "timestamp")
-    list_filter   = ("tipo", "calidad_respuesta")
+    """Lo que el niño respondió, legible desde el listado.
+
+    Antes el listado mostraba solo id/chat/tipo/calidad/hora, así que "ver qué
+    decidió el jugador" no se podía: ni el texto elegido ni el `opcion_banco_id`
+    —la llave de la decisión— aparecían, y no había con qué buscar ni filtrar.
+    """
+    list_display  = ("timestamp", "jugador", "npc", "tipo", "eligio",
+                     "opcion_banco_id", "tipo_de_opcion", "impacto", "zona")
+    list_filter   = (SoloDecisionesFilter, ZonaDelBancoFilter, "tipo",
+                     "calidad_respuesta", "chat__categoria_riesgo")
+    search_fields = ("respuesta", "opcion_banco_id", "pregunta_banco_id",
+                     "chat__partida__usuario_jugador__nombre", "chat__npc__nombre")
+    date_hierarchy = "timestamp"
+    list_select_related = ("chat__npc", "chat__partida__usuario_jugador")
+
+    def get_queryset(self, request):
+        # El banco completo son decenas de filas: se carga una vez por vista para
+        # que las columnas que lo resuelven (tipo de opción, impacto, zona) no
+        # hagan una consulta por fila. Se rearma en cada request, así que una
+        # recarga del banco con `cargar_banco` se refleja de inmediato.
+        self._banco = {
+            o.opcion_id: o
+            for o in OpcionBanco.objects.select_related("pregunta").all()
+        }
+        return super().get_queryset(request)
+
+    def _opcion(self, obj):
+        return getattr(self, "_banco", {}).get(obj.opcion_banco_id or "")
+
+    @admin.display(description="menor")
+    def jugador(self, obj):
+        return obj.chat.partida.usuario_jugador.nombre
+
+    @admin.display(description="NPC")
+    def npc(self, obj):
+        return obj.chat.npc.nombre
+
+    @admin.display(description="lo que eligió")
+    def eligio(self, obj):
+        texto = obj.respuesta or ""
+        return texto if len(texto) <= 70 else texto[:69] + "…"
+
+    @admin.display(description="tipo de opción")
+    def tipo_de_opcion(self, obj):
+        opcion = self._opcion(obj)
+        return opcion.tipo if opcion else "—"
+
+    @admin.display(description="impacto")
+    def impacto(self, obj):
+        opcion = self._opcion(obj)
+        return f"{opcion.impacto_puntuacion:+d}" if opcion else "—"
+
+    @admin.display(description="zona")
+    def zona(self, obj):
+        opcion = self._opcion(obj)
+        return opcion.pregunta.zona if opcion else "—"
 
 
 @admin.register(PosibleRespuesta)

@@ -9,6 +9,7 @@
     .\run.ps1 --global --fase 5  # solo esa fase del test global
     .\run.ps1 --smoke          # smoke test end-to-end
     .\run.ps1 --check          # verifica config y drift de migraciones
+    .\run.ps1 --superusuario   # crea la cuenta para entrar a /admin/
 
 .NOTES
     Equivalente en PowerShell de run.sh. Compatible con Windows PowerShell 5.1.
@@ -74,6 +75,14 @@ switch ($modo) {
         & $py .\backend\manage.py check
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         & $py .\backend\manage.py makemigrations --check --dry-run
+        exit $LASTEXITCODE
+    }
+    "--superusuario" {
+        # Sin una cuenta con is_admin no se puede entrar a /admin/, que es la
+        # unica pantalla donde alguien que no programa puede revisar que decidio
+        # cada menor. Es interactivo a proposito: la contrasena no se pone aca.
+        Escribir-Verde "Crear una cuenta con acceso al panel /admin/"
+        & $py .\backend\manage.py createsuperuser @resto
         exit $LASTEXITCODE
     }
     default {

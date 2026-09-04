@@ -78,6 +78,13 @@ case "${1:-}" in
     "$PY" backend/manage.py check
     exec "$PY" backend/manage.py makemigrations --check --dry-run
     ;;
+  --superusuario)
+    # Sin una cuenta con is_admin no se puede entrar a /admin/, que es la única
+    # pantalla donde alguien que no programa puede revisar qué decidió cada
+    # menor. Es interactivo a propósito: la contraseña no se pone acá.
+    verde "Crear una cuenta con acceso al panel /admin/"
+    exec "$PY" backend/manage.py createsuperuser "${@:2}"
+    ;;
   *)
     DIR="${1:-127.0.0.1:8000}"
     verde "Servidor en http://$DIR/api/  ·  Ctrl+C para detener"
