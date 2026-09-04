@@ -224,6 +224,89 @@ def main():
         req("POST", f"/chats/{cid2}/finalizar/", {"respuesta": "fin"}, token=tok_a, espera=200)
         req("GET", "/partidas/999999999/riesgo-por-zona/", token=tok_a, espera=404)
 
+    print("\n-- Progreso de misiones y zonas (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5) --")
+    misiones_api = req("GET", f"/partidas/{pid}/misiones/", token=tok_a, espera=200)
+    if misiones_api:
+        print(f"  [FALLA] la partida recien creada trae {len(misiones_api)} misiones")
+
+    # Desbloquear deja la mision disponible, sin fecha de completada.
+    m = req("POST", f"/partidas/{pid}/misiones/",
+            {"mision_id": "MISION_SEC_MOCHILA_HUEMUL"}, token=tok_a, espera=201)
+    if m["estado"] != "disponible" or m["fecha_completada"] is not None:
+        print(f"  [FALLA] recien desbloqueada deberia estar disponible y sin fecha: {m}")
+    if not m["en_catalogo"]:
+        print("  [AVISO] MISION_SEC_MOCHILA_HUEMUL no esta en el banco cargado "
+              "(¿falta correr cargar_banco?)")
+
+    # Completarla le pone fecha; repetirlo no la mueve ni duplica la fila.
+    m = req("POST", f"/partidas/{pid}/misiones/",
+            {"mision_id": "MISION_SEC_MOCHILA_HUEMUL", "estado": "completada"},
+            token=tok_a, espera=200)
+    if m["estado"] != "completada" or not m["fecha_completada"]:
+        print(f"  [FALLA] completada deberia traer fecha_completada: {m}")
+    fecha = m["fecha_completada"]
+    m = req("POST", f"/partidas/{pid}/misiones/",
+            {"mision_id": "MISION_SEC_MOCHILA_HUEMUL", "estado": "completada"},
+            token=tok_a, espera=200)
+    if m["fecha_completada"] != fecha:
+        print("  [FALLA] repetir el POST movio fecha_completada")
+
+    # Completar es un camino de ida: no vuelve a disponible.
+    m = req("POST", f"/partidas/{pid}/misiones/",
+            {"mision_id": "MISION_SEC_MOCHILA_HUEMUL", "estado": "disponible"},
+            token=tok_a, espera=200)
+    if m["estado"] != "completada":
+        print(f"  [FALLA] una mision completada volvio a '{m['estado']}'")
+
+    # El id que usa Unity hoy no esta en el banco: se guarda igual y se marca.
+    m = req("POST", f"/partidas/{pid}/misiones/",
+            {"mision_id": "MISION_NPC_01"}, token=tok_a, espera=201)
+    if m["en_catalogo"]:
+        print("  [AVISO] MISION_NPC_01 ahora si esta en el banco: los ids de Unity "
+              "y del banco quedaron alineados, se puede sacar este aviso")
+
+    req("POST", f"/partidas/{pid}/misiones/", {"estado": "completada"}, token=tok_a, espera=400)
+    req("POST", f"/partidas/{pid}/misiones/",
+        {"mision_id": "MISION_NPC_01", "estado": "abandonada"}, token=tok_a, espera=400)
+
+    misiones_api = req("GET", f"/partidas/{pid}/misiones/", token=tok_a, espera=200)
+    estados = {x["mision_id"]: x["estado"] for x in misiones_api}
+    if estados != {"MISION_SEC_MOCHILA_HUEMUL": "completada", "MISION_NPC_01": "disponible"}:
+        print(f"  [FALLA] el listado de misiones no calza: {estados}")
+    else:
+        print(f"          -> {len(misiones_api)} misiones, 1 completada")
+
+    # Zonas: la fila existe = desbloqueada; completar tambien es de ida.
+    z = req("POST", f"/partidas/{pid}/zonas/", {"zona": "ciberacoso"}, token=tok_a, espera=201)
+    if not z["desbloqueada"] or z["completada"]:
+        print(f"  [FALLA] zona recien abierta deberia estar desbloqueada sin completar: {z}")
+    z = req("POST", f"/partidas/{pid}/zonas/",
+            {"zona": "ciberacoso", "completada": True}, token=tok_a, espera=200)
+    if not z["completada"]:
+        print("  [FALLA] la zona no quedo completada")
+    z = req("POST", f"/partidas/{pid}/zonas/",
+            {"zona": "ciberacoso", "completada": False}, token=tok_a, espera=200)
+    if not z["completada"]:
+        print("  [FALLA] una zona completada se reabrio")
+
+    req("POST", f"/partidas/{pid}/zonas/", {"zona": "reto_viral"}, token=tok_a, espera=201)
+    req("POST", f"/partidas/{pid}/zonas/", {}, token=tok_a, espera=400)
+    zonas_api = req("GET", f"/partidas/{pid}/zonas/", token=tok_a, espera=200)
+    print(f"          -> {len(zonas_api)} zonas desbloqueadas, "
+          f"{sum(1 for x in zonas_api if x['completada'])} completada(s)")
+
+    # El progreso es de la partida, no del perfil: otra partida del mismo menor
+    # empieza con el mapa cerrado. Es la razon de no ponerlo en UsuarioJugador.
+    pid_otra = req("POST", "/partidas/", {"usuario_jugador_id": jid, "progreso": 0},
+                   token=tok_a, espera=201)["id"]
+    if req("GET", f"/partidas/{pid_otra}/zonas/", token=tok_a, espera=200):
+        print("  [FALLA] una partida nueva del mismo menor hereda zonas")
+    if req("GET", f"/partidas/{pid_otra}/misiones/", token=tok_a, espera=200):
+        print("  [FALLA] una partida nueva del mismo menor hereda misiones")
+
+    req("GET", "/partidas/999999999/misiones/", token=tok_a, espera=404)
+    req("GET", "/partidas/999999999/zonas/", token=tok_a, espera=404)
+
     print("\n-- Aislamiento entre adultos (B no debe ver nada de A) --")
     tok_b = req("POST", "/auth/registro/",
                 {"nombre": user_b, "email": f"{user_b}@ejemplo.cl", "password": PWD},
@@ -244,6 +327,11 @@ def main():
     req("POST", f"/chats/{cid}/mensajes/registrar/",
         {"tipo": "start", "respuesta": "x"}, token=tok_b, espera=404)
     req("GET", f"/partidas/{pid}/riesgo-por-zona/", token=tok_b, espera=404)
+    req("GET", f"/partidas/{pid}/misiones/", token=tok_b, espera=404)
+    req("POST", f"/partidas/{pid}/misiones/", {"mision_id": "MISION_NPC_01"},
+        token=tok_b, espera=404)
+    req("GET", f"/partidas/{pid}/zonas/", token=tok_b, espera=404)
+    req("POST", f"/partidas/{pid}/zonas/", {"zona": "ciberacoso"}, token=tok_b, espera=404)
 
     if not args.no_limpiar:
         print("\n-- Limpieza --")
