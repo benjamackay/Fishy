@@ -448,6 +448,66 @@ la opción elegida —como el módulo de diálogo antiguo de Desconocidos, con n
 escritos a mano (`a0`, `a1`, …) que no existen en el banco— quedan fuera del
 cálculo a propósito, en vez de contribuir con datos inventados.
 
+**GET `/partidas/{partida_id}/oportunidades-mejora/`** — Decisiones inseguras
+
+Filtro opcional: `?zona=ciberacoso`
+
+```json
+// Response
+{
+  "partida_id": 42,
+  "jugador": "Perfil 2",
+  "oportunidades": [
+    {
+      "fecha": "2026-09-03T16:31:19.462636Z",
+      "zona": "ciberacoso",
+      "categoria": "ciberacoso",
+      "npc": "Flamenco",
+      "chat_id": 84,
+      "pregunta_banco_id": "HDU3_NPC03_Q01",
+      "mensaje_npc": "oye Otto, te sacamos del grupo del chat del pantano…",
+      "eligio": {
+        "opcion_banco_id": "HDU3_NPC03_Q01_R3",
+        "texto": "ja igual el grupo de ustedes era una porquería, quédense solos",
+        "impacto_puntuacion": -1,
+        "consecuencia": "Respondes con enojo. Flamenco aprovecha tu molestia…"
+      },
+      "mejor_opcion": {
+        "opcion_banco_id": "HDU3_NPC03_Q01_R1",
+        "texto": "Reportar y bloquear este mensaje",
+        "impacto_puntuacion": 2,
+        "consecuencia": "Lo reportaste de inmediato. Flamenco se desconecta…"
+      },
+      "puntos_perdidos": 3
+    }
+  ],
+  "total": 1,
+  "por_zona": [{ "zona": "ciberacoso", "oportunidades": 1 }]
+}
+```
+
+Es el *"registro como oportunidad de mejora"* que piden los criterios de
+aceptación de las zonas de riesgo (p. ej. HDU-3 CA3: el menor responde a un
+mensaje de ciberacoso con otra burla).
+
+**No existe un campo que las marque.** Una oportunidad de mejora **es** un
+`Mensaje` cuyo `opcion_banco_id` resuelve a una `OpcionBanco` de tipo `insegura`.
+Se deriva en vez de guardarse aparte para que no pueda quedar desincronizada del
+banco: si mañana una opción deja de ser insegura, la lista lo refleja sola.
+
+| Campo | Significado |
+|---|---|
+| `eligio` | La opción insegura que marcó, con su consecuencia narrativa |
+| `mejor_opcion` | La de mayor `impacto_puntuacion` de esa misma pregunta |
+| `puntos_perdidos` | `mejor_opcion` − `eligio`. Sirve para ordenar por gravedad |
+
+Solo cuenta `insegura`. Una `segura_basica` no es un error —es correcta pero
+mejorable—, y mezclarlas le quitaría sentido a la lista.
+
+> ⚠️ **Es para el reporte del adulto responsable, no para mostrárselo al menor.**
+> Etiquetarle la pantalla con sus errores lo señala y rompe el tono del juego,
+> que corrige por consecuencia narrativa (el NPC reacciona, Otto cambia de ánimo).
+
 ---
 
 ### NPCs

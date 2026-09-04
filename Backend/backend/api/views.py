@@ -456,6 +456,128 @@ def riesgo_por_zona(request, partida_id):
     })
 
 
+@api_view(["GET"])
+def oportunidades_mejora(request, partida_id):
+    """
+    Decisiones inseguras del menor, con la alternativa que se le escapó.
+
+    Es el "registro como oportunidad de mejora" que piden los criterios de
+    aceptación de las zonas de riesgo (p. ej. HDU-3 CA3: el menor responde a un
+    mensaje de ciberacoso con otra burla). No hay un campo que las marque: una
+    oportunidad de mejora **es** un `Mensaje` cuyo `opcion_banco_id` resuelve a
+    una `OpcionBanco` de tipo `insegura`. Se deriva en vez de guardarse aparte
+    para que no pueda quedar desincronizada del banco: si mañana una opción deja
+    de ser insegura, esta lista lo refleja sola.
+
+    Solo cuenta `insegura`. Una `segura_basica` no es un error: es una respuesta
+    correcta pero mejorable, y mezclarlas le quitaría sentido a la lista.
+
+    Está pensado para el reporte del adulto responsable, no para mostrárselo al
+    menor: etiquetarle la pantalla con sus errores lo señala y rompe el tono del
+    juego, que corrige por consecuencia narrativa.
+
+    Filtro opcional:  ?zona=ciberacoso
+
+    Respuesta:
+    {
+      "partida_id": 42,
+      "jugador": "Perfil 2",
+      "oportunidades": [
+        {"fecha": "...", "zona": "ciberacoso", "npc": "Flamenco",
+         "pregunta_banco_id": "HDU3_NPC03_Q01", "mensaje_npc": "...",
+         "eligio":       {"opcion_banco_id": "...", "texto": "...",
+                          "impacto_puntuacion": -1, "consecuencia": "..."},
+         "mejor_opcion": {"opcion_banco_id": "...", "texto": "...",
+                          "impacto_puntuacion": 2,  "consecuencia": "..."},
+         "puntos_perdidos": 3}
+      ],
+      "total": 1,
+      "por_zona": [{"zona": "ciberacoso", "oportunidades": 1}]
+    }
+
+    `puntos_perdidos` es la distancia contra la mejor opción de esa misma
+    pregunta. Sirve para ordenar por gravedad: no es lo mismo fallar donde la
+    alternativa era reportar (+2) que donde era apartarse (+1).
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    mensajes = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .select_related("chat__npc")
+        .order_by("timestamp")
+    )
+
+    # Una sola consulta al banco para resolver todas las opciones elegidas.
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in={m.opcion_banco_id for m in mensajes})
+        .select_related("pregunta")
+        .prefetch_related("pregunta__opciones")
+    }
+
+    zona_filtro = request.query_params.get("zona")
+    oportunidades = []
+    por_zona = {}
+
+    for mensaje in mensajes:
+        elegida = opciones.get(mensaje.opcion_banco_id)
+        if elegida is None or elegida.tipo != "insegura":
+            continue
+        pregunta = elegida.pregunta
+        if zona_filtro and pregunta.zona != zona_filtro:
+            continue
+
+        # La mejor alternativa que tenía disponible en esa misma pregunta.
+        mejor = max(
+            pregunta.opciones.all(),
+            key=lambda o: o.impacto_puntuacion,
+            default=None,
+        )
+
+        oportunidades.append({
+            "fecha": mensaje.timestamp,
+            "zona": pregunta.zona,
+            "categoria": pregunta.categoria,
+            "npc": mensaje.chat.npc.nombre,
+            "chat_id": mensaje.chat_id,
+            "pregunta_banco_id": pregunta.pregunta_id,
+            "mensaje_npc": pregunta.mensaje_npc,
+            "eligio": {
+                "opcion_banco_id": elegida.opcion_id,
+                "texto": elegida.texto,
+                "impacto_puntuacion": elegida.impacto_puntuacion,
+                "consecuencia": elegida.consecuencia_narrativa,
+            },
+            "mejor_opcion": None if mejor is None else {
+                "opcion_banco_id": mejor.opcion_id,
+                "texto": mejor.texto,
+                "impacto_puntuacion": mejor.impacto_puntuacion,
+                "consecuencia": mejor.consecuencia_narrativa,
+            },
+            "puntos_perdidos": (
+                0 if mejor is None
+                else mejor.impacto_puntuacion - elegida.impacto_puntuacion
+            ),
+        })
+        por_zona[pregunta.zona] = por_zona.get(pregunta.zona, 0) + 1
+
+    return Response({
+        "partida_id": partida.id,
+        "jugador": partida.usuario_jugador.nombre,
+        "oportunidades": oportunidades,
+        "total": len(oportunidades),
+        "por_zona": [
+            {"zona": z, "oportunidades": n} for z, n in sorted(por_zona.items())
+        ],
+    })
+
+
 # ── Modo Detective (HDU-10) ───────────────────────────────────────────────────
 
 @api_view(["GET"])
