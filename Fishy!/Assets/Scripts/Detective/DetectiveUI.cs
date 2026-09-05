@@ -1,9 +1,15 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using Col = Fishy.Detective.DetectiveUITheme.Colores;
+using Med = Fishy.Detective.DetectiveUITheme.Medidas;
+using Fnt = Fishy.Detective.DetectiveUITheme.Fuente;
+using Txt = Fishy.Detective.DetectiveUITheme.Textos;
+using Spr = Fishy.Detective.DetectiveUITheme.Sprites;
 
 namespace Fishy.Detective
 {
@@ -11,23 +17,33 @@ namespace Fishy.Detective
     /// HDU-10 — Interfaz del modo detective.
     /// Burbujas izquierda/derecha según autor. Click en burbuja = marcar/desmarcar con borde rojo.
     /// Se autogenera en runtime sin prefabs ni referencias en inspector.
+    ///
+    /// Usa TextMeshPro (no el Text legacy): a los tamaños grandes que pide el
+    /// diseño, el Text legacy se ve borroso porque escala un bitmap, mientras que
+    /// TMP renderiza desde SDF y se mantiene nítido. Además es lo que ya usa el
+    /// resto del juego (menú del Tab, panel de diálogo).
     /// </summary>
     public class DetectiveUI : MonoBehaviour
     {
         public static DetectiveUI Instance { get; private set; }
 
         // ── Referencias runtime ───────────────────────────────────────────────
-        private GameObject    _window;
-        private RectTransform _content;
-        private ScrollRect    _scrollRect;
-        private GameObject    _panelResultado;
-        private Text          _txtMarcador;
-        private Text          _txtResultado;
-        private Button        _btnConfirmar;
-        private Button        _btnRepetir;
-        private Button        _btnVerExplicacion;
-        private RectTransform _contenedorExplicaciones;
-        private Font          _font;
+        private GameObject       _window;
+        private RectTransform    _content;
+        private ScrollRect       _scrollRect;
+        private GameObject       _panelResultado;
+        private TextMeshProUGUI  _txtMarcador;
+        private TextMeshProUGUI  _txtResultado;
+        private Button           _btnConfirmar;
+        private Button           _btnRepetir;
+        private Button           _btnVerExplicacion;
+        private RectTransform    _contenedorExplicaciones;
+
+        // ── Fuentes ───────────────────────────────────────────────────────────
+        private TMP_FontAsset _fontTitulos;   // Mango, la fuente de la marca
+        private TMP_FontAsset _fontCuerpo;    // respaldo por si a Mango le falta un glifo
+        private TMP_FontAsset _fontIconos;    // símbolos que no están en las otras dos
+        private Sprite        _spriteRedondeado;
 
         // ── Ritual de permiso (HDU-10 CA1) ───────────────────────────────────
         private GameObject    _panelPermiso;
@@ -40,27 +56,12 @@ namespace Fishy.Detective
         private Action _onRepetir;
         private List<(DetectiveMessage mensaje, string explicacion)> _noIdentificados;
 
-        // ── Paleta ────────────────────────────────────────────────────────────
-        private static readonly Color ColFondo         = new Color(0.10f, 0.12f, 0.15f, 1f);
-        private static readonly Color ColHeader        = new Color(0.13f, 0.20f, 0.18f, 1f);
-        private static readonly Color ColScroll        = new Color(0.08f, 0.10f, 0.13f, 1f);
-        private static readonly Color ColBurbuja1      = new Color(0.18f, 0.21f, 0.26f, 1f); // izquierda
-        private static readonly Color ColBurbuja2      = new Color(0.10f, 0.28f, 0.22f, 1f); // derecha
-        private static readonly Color ColBorde         = new Color(0.85f, 0.15f, 0.15f, 1f); // rojo marcado
-        private static readonly Color ColBarraInferior = new Color(0.10f, 0.14f, 0.16f, 1f);
-        private static readonly Color ColBtnConfirmar  = new Color(0.08f, 0.47f, 0.35f, 1f);
-        private static readonly Color ColPanelRes      = new Color(0.05f, 0.07f, 0.09f, 0.97f);
-        private static readonly Color ColCard          = new Color(0.12f, 0.16f, 0.18f, 1f);
-        private static readonly Color ColBtnRepetir    = new Color(0.18f, 0.22f, 0.27f, 1f);
-        private static readonly Color ColBtnExplica    = new Color(0.28f, 0.16f, 0.38f, 1f);
-        private static readonly Color ColBurbujaOtto   = new Color(0.13f, 0.35f, 0.55f, 1f); // jugador (derecha)
-
         // ─────────────────────────────────────────────────────────────────────
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            CargarRecursos();
             BuildRuntimeUI();
             Hide();
         }
@@ -73,6 +74,87 @@ namespace Fishy.Detective
                 Instance = go.AddComponent<DetectiveUI>();
             }
             return Instance;
+        }
+
+        private void CargarRecursos()
+        {
+            _fontCuerpo  = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaCuerpo);
+            _fontTitulos = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaTitulos);
+
+            if (_fontCuerpo == null)
+            {
+                // Sin fuente de cuerpo no se puede escribir en español: si esto
+                // pasa, la ruta del theme quedó mal o el asset se movió.
+                _fontCuerpo = _fontTitulos ?? TMP_Settings.defaultFontAsset;
+                Debug.LogWarning($"[Detective] No encontré la fuente de cuerpo en " +
+                                 $"'{DetectiveUITheme.Fuentes.RutaCuerpo}'. Usando la de respaldo.", this);
+            }
+            if (_fontTitulos == null)
+            {
+                // El asset de Mango tiene puntos en el nombre, que es justo lo que
+                // suele romper Resources.Load. Si esto salta, lo más simple es
+                // renombrarlo a algo plano ("Mango") y actualizar la ruta.
+                Debug.LogWarning($"[Detective] No encontré la fuente de la marca en " +
+                                 $"'{DetectiveUITheme.Fuentes.RutaTitulos}'. Va con la de cuerpo.", this);
+                _fontTitulos = _fontCuerpo;
+            }
+
+            // Opcional: si no está, el header simplemente va sin icono.
+            _fontIconos = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaIconos);
+
+            _spriteRedondeado = Resources.GetBuiltinResource<Sprite>(Spr.Redondeado);
+
+            // Sin el sprite todo sigue funcionando, solo que con esquinas rectas:
+            // conviene saberlo igual porque es un cambio visible y silencioso.
+            if (_spriteRedondeado == null)
+                Debug.LogWarning($"[Detective] No cargó el sprite '{Spr.Redondeado}'. " +
+                                 "Las esquinas quedarán rectas.", this);
+        }
+
+        /// <summary>
+        /// Se le pregunta a la fuente de la marca si puede escribir el texto y,
+        /// si le falta algún carácter, se cae a la de cuerpo. Preguntar en vez de
+        /// asumir evita el bug clásico: un carácter sin glifo se dibuja como un
+        /// cuadrito roto y nadie se entera hasta que aparece en pantalla.
+        /// </summary>
+        private TMP_FontAsset FuentePara(string texto)
+        {
+            if (_fontTitulos == null || string.IsNullOrEmpty(texto)) return _fontCuerpo;
+            return _fontTitulos.HasCharacters(texto) ? _fontTitulos : _fontCuerpo;
+        }
+
+        /// <summary>
+        /// ¿Esta fuente puede dibujar el símbolo? Se pregunta por code point y no
+        /// con HasCharacters(string), que aquí falla por dos motivos distintos:
+        ///
+        ///   • 🔍 es U+1F50D, fuera del BMP: en C# son dos char (surrogate pair) y
+        ///     HasCharacters los revisa por separado, así que da false siempre,
+        ///     tenga la fuente el glifo o no.
+        ///   • la fuente de iconos se genera en modo Dynamic, o sea que nace con
+        ///     la tabla de caracteres VACÍA y rasteriza cada glifo la primera vez
+        ///     que se pide. Preguntarle a la tabla, entonces, no dice nada sobre
+        ///     lo que el TTF realmente tiene.
+        ///
+        /// TryAddCharacters hace justo lo que falta: rasteriza el glifo si el TTF
+        /// lo trae, y lo devuelve en 'faltantes' si no.
+        /// </summary>
+        private static bool PuedeDibujar(TMP_FontAsset fuente, string simbolo)
+        {
+            if (fuente == null || string.IsNullOrEmpty(simbolo)) return false;
+
+            // Sin ConvertToUtf32 directo: revienta si el texto del theme quedó con
+            // medio surrogate suelto, que es fácil al editarlo a mano.
+            uint punto = simbolo.Length >= 2 && char.IsSurrogatePair(simbolo[0], simbolo[1])
+                ? (uint)char.ConvertToUtf32(simbolo[0], simbolo[1])
+                : simbolo[0];
+
+            // Una fuente Static ya trae todos sus glifos horneados y no acepta
+            // agregados, así que ahí sí corresponde mirar la tabla.
+            if (fuente.atlasPopulationMode == AtlasPopulationMode.Static)
+                return fuente.HasCharacter((int)punto);
+
+            return fuente.TryAddCharacters(new[] { punto }, out uint[] faltantes)
+                   && (faltantes == null || faltantes.Length == 0);
         }
 
         // ── API pública ───────────────────────────────────────────────────────
@@ -88,7 +170,7 @@ namespace Fishy.Detective
         /// Ritual de permiso previo al caso (HDU-10 CA1): Otto le pide permiso al
         /// NPC para revisar su conversación, y el NPC autoriza explícitamente
         /// pidiendo ayuda para identificar señales de riesgo. Al continuar, recién
-        /// ahí se abre el bloque de conversación observada (estilo WhatsApp).
+        /// ahí se abre el bloque de conversación observada.
         /// </summary>
         public void MostrarPermiso(DetectiveCase caso, Action onContinuar)
         {
@@ -98,8 +180,8 @@ namespace Fishy.Detective
             _panelPermiso.SetActive(true);
             _panelPermiso.transform.SetAsLastSibling();
 
-            CrearBurbujaPermiso(caso.permisoPlayerText, "Otto", esIzquierda: false, ColBurbujaOtto);
-            CrearBurbujaPermiso(caso.permisoNpcResponse, caso.permisoNpcNombre, esIzquierda: true, ColBurbuja1);
+            CrearBurbujaPermiso(caso.permisoPlayerText, "Otto", esIzquierda: false, Col.BurbujaOtto);
+            CrearBurbujaPermiso(caso.permisoNpcResponse, caso.permisoNpcNombre, esIzquierda: true, Col.BurbujaIzquierda);
 
             _btnContinuarPermiso.onClick.RemoveAllListeners();
             _btnContinuarPermiso.onClick.AddListener(() =>
@@ -132,7 +214,7 @@ namespace Fishy.Detective
             foreach (var msg in mensajes)
             {
                 CrearBurbuja(msg);
-                yield return new WaitForSeconds(0.5f);
+                yield return new WaitForSeconds(DetectiveUITheme.Ritmo.RetardoEntreMensajes);
             }
             _btnConfirmar.interactable = true;
         }
@@ -140,7 +222,7 @@ namespace Fishy.Detective
         private void CrearBurbuja(DetectiveMessage msg)
         {
             bool esIzquierda = msg.autor == _manager.GetMensajes()[0].autor;
-            Color colorBase  = esIzquierda ? ColBurbuja1 : ColBurbuja2;
+            Color colorBase  = esIzquierda ? Col.BurbujaIzquierda : Col.BurbujaDerecha;
 
             // ── Fila ─────────────────────────────────────────────────────────
             var row = new GameObject("Row_" + msg.id,
@@ -150,7 +232,7 @@ namespace Fishy.Detective
             hlg.childAlignment        = esIzquierda ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
             hlg.childControlWidth     = true; hlg.childControlHeight     = true;
             hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
-            hlg.padding = new RectOffset(8, 8, 3, 3);
+            hlg.padding = Med.PaddingFila;
 
             // Spacer lado contrario para empujar la burbuja
             if (!esIzquierda) AgendarSpacer(row.transform);
@@ -163,17 +245,17 @@ namespace Fishy.Detective
             bubble.transform.SetParent(row.transform, false);
 
             var bubbleImg = bubble.GetComponent<Image>();
-            bubbleImg.color = colorBase;
+            AplicarFondoRedondeado(bubbleImg, colorBase);
 
             // Borde (Outline component) — invisible por defecto, rojo al marcar
             var outline = bubble.AddComponent<Outline>();
             outline.effectColor    = Color.clear;
-            outline.effectDistance = new Vector2(3f, -3f);
+            outline.effectDistance = new Vector2(Med.GrosorBordeMarcado, -Med.GrosorBordeMarcado);
             outline.useGraphicAlpha = false;
 
             var vlg = bubble.GetComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(14, 14, 10, 10);
-            vlg.spacing = 5f;
+            vlg.padding = Med.PaddingBurbuja;
+            vlg.spacing = Med.EspaciadoBurbuja;
             vlg.childControlWidth     = true; vlg.childControlHeight     = true;
             vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
 
@@ -181,8 +263,8 @@ namespace Fishy.Detective
             fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             var le = bubble.GetComponent<LayoutElement>();
-            le.preferredWidth = 480f;
-            le.flexibleWidth  = 200f;
+            le.preferredWidth = Med.AnchoBurbuja;
+            le.flexibleWidth  = Med.FlexBurbuja;
 
             // Quitar visual de hover/pressed del Button (solo queremos el click)
             var btn = bubble.GetComponent<Button>();
@@ -200,34 +282,19 @@ namespace Fishy.Detective
             // Nombre del autor (solo burbuja izquierda)
             if (esIzquierda)
             {
-                var autorGO = new GameObject("Autor", typeof(RectTransform), typeof(Text));
-                autorGO.transform.SetParent(bubble.transform, false);
-                var at = autorGO.GetComponent<Text>();
-                at.font      = _font; at.fontSize = 18; at.fontStyle = FontStyle.Bold;
-                at.color     = new Color(0.45f, 0.85f, 0.68f, 1f);
-                at.text      = msg.autor;
-                at.horizontalOverflow = HorizontalWrapMode.Wrap;
-                at.verticalOverflow   = VerticalWrapMode.Overflow;
+                var at = CrearTexto(bubble.transform, "Autor", msg.autor, Fnt.AutorBurbuja,
+                    Col.TextoSuave, TextAlignmentOptions.TopLeft);
+                at.fontStyle = FontStyles.Bold;
             }
 
             // Texto del mensaje
-            var txtGO = new GameObject("Texto", typeof(RectTransform), typeof(Text));
-            txtGO.transform.SetParent(bubble.transform, false);
-            var txt = txtGO.GetComponent<Text>();
-            txt.font      = _font; txt.fontSize = 22; txt.color = Color.white;
-            txt.alignment = TextAnchor.UpperLeft;
-            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
-            txt.verticalOverflow   = VerticalWrapMode.Overflow;
-            txt.text = msg.texto;
+            CrearTexto(bubble.transform, "Texto", msg.texto, Fnt.TextoBurbuja,
+                Col.Texto, TextAlignmentOptions.TopLeft);
 
             // Timestamp
-            var timeGO = new GameObject("Time", typeof(RectTransform), typeof(Text));
-            timeGO.transform.SetParent(bubble.transform, false);
-            var timeTxt = timeGO.GetComponent<Text>();
-            timeTxt.font      = _font; timeTxt.fontSize = 16;
-            timeTxt.color     = new Color(1f, 1f, 1f, 0.4f);
-            timeTxt.alignment = TextAnchor.MiddleRight;
-            timeTxt.text      = DateTime.Now.ToString("HH:mm");
+            CrearTexto(bubble.transform, "Time", DateTime.Now.ToString("HH:mm"), Fnt.Hora,
+                new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, Col.AlfaTextoSecundario),
+                TextAlignmentOptions.Right);
 
             // ── Click para marcar/desmarcar ───────────────────────────────────
             btn.onClick.AddListener(() =>
@@ -236,11 +303,11 @@ namespace Fishy.Detective
                 bool marcado = _manager.EstaMarcado(msg.id);
 
                 // Borde rojo visible / invisible
-                outline.effectColor = marcado ? ColBorde : Color.clear;
+                outline.effectColor = marcado ? Col.BordeMarcado : Color.clear;
 
                 // Leve tinte rojo en la burbuja al marcar
                 bubbleImg.color = marcado
-                    ? Color.Lerp(colorBase, new Color(0.6f, 0.1f, 0.1f, 1f), 0.2f)
+                    ? Color.Lerp(colorBase, Col.BordeMarcado, Col.FuerzaTinteMarcado)
                     : colorBase;
             });
 
@@ -262,30 +329,23 @@ namespace Fishy.Detective
                 typeof(RectTransform), typeof(Image),
                 typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
             bubble.transform.SetParent(row.transform, false);
-            bubble.GetComponent<Image>().color = colorBase;
+            AplicarFondoRedondeado(bubble.GetComponent<Image>(), colorBase);
             var vlg = bubble.GetComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(16, 16, 10, 10); vlg.spacing = 4f;
+            vlg.padding = Med.PaddingBurbujaPermiso; vlg.spacing = Med.EspaciadoBurbujaPermiso;
             vlg.childControlWidth     = true; vlg.childControlHeight     = true;
             vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
             var fitter = bubble.GetComponent<ContentSizeFitter>();
             fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            bubble.GetComponent<LayoutElement>().preferredWidth = 380f;
+            bubble.GetComponent<LayoutElement>().preferredWidth = Med.AnchoBurbujaPermiso;
 
-            var autorGO = new GameObject("Autor", typeof(RectTransform), typeof(Text));
-            autorGO.transform.SetParent(bubble.transform, false);
-            var at = autorGO.GetComponent<Text>();
-            at.font = _font; at.fontSize = 16; at.fontStyle = FontStyle.Bold;
-            at.color = new Color(1f, 1f, 1f, 0.7f);
-            at.text  = autor;
+            var at = CrearTexto(bubble.transform, "Autor", autor, Fnt.AutorPermiso,
+                new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, Col.AlfaAutorPermiso),
+                TextAlignmentOptions.TopLeft);
+            at.fontStyle = FontStyles.Bold;
 
-            var txtGO = new GameObject("Texto", typeof(RectTransform), typeof(Text));
-            txtGO.transform.SetParent(bubble.transform, false);
-            var txt = txtGO.GetComponent<Text>();
-            txt.font = _font; txt.fontSize = 20; txt.color = Color.white;
-            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
-            txt.verticalOverflow   = VerticalWrapMode.Overflow;
-            txt.text = texto;
+            CrearTexto(bubble.transform, "Texto", texto, Fnt.TextoPermiso,
+                Col.Texto, TextAlignmentOptions.TopLeft);
 
             if (esIzquierda) AgendarSpacer(row.transform);
         }
@@ -295,7 +355,7 @@ namespace Fishy.Detective
             var sp = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
             sp.transform.SetParent(parent, false);
             var le = sp.GetComponent<LayoutElement>();
-            le.minWidth      = 60f;
+            le.minWidth      = Med.AnchoEspaciador;
             le.flexibleWidth = 1f;
         }
 
@@ -316,8 +376,9 @@ namespace Fishy.Detective
             _txtMarcador.gameObject.SetActive(r.totalRiesgo > 0);
 
             _txtResultado.text = r.totalRiesgo > 0
-                ? "señales de riesgo identificadas"
-                : "¡No había señales de riesgo en esta conversación!";
+                ? Txt.ResultadoConSenales
+                : Txt.ResultadoSinSenales;
+            _txtResultado.font = FuentePara(_txtResultado.text);
 
             // Repetir solo se ofrece si le fue mal (< 50%); la explicación, siempre.
             _btnRepetir.gameObject.SetActive(r.DebeOfrecerRepetir);
@@ -334,21 +395,18 @@ namespace Fishy.Detective
                     typeof(RectTransform), typeof(Image),
                     typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
                 item.transform.SetParent(_contenedorExplicaciones, false);
-                item.GetComponent<Image>().color = new Color(0.15f, 0.1f, 0.25f, 0.95f);
+                AplicarFondoRedondeado(item.GetComponent<Image>(),
+                    new Color(Col.BotonExplicacion.r, Col.BotonExplicacion.g,
+                              Col.BotonExplicacion.b, Col.AlfaExplicacion));
                 var vlg = item.GetComponent<VerticalLayoutGroup>();
-                vlg.padding = new RectOffset(14, 14, 10, 10);
+                vlg.padding = Med.PaddingExplicacion;
                 vlg.childControlWidth = true; vlg.childControlHeight = true;
                 vlg.childForceExpandWidth = true;
                 item.GetComponent<ContentSizeFitter>().verticalFit =
                     ContentSizeFitter.FitMode.PreferredSize;
 
-                var txtGO = new GameObject("Txt", typeof(RectTransform), typeof(Text));
-                txtGO.transform.SetParent(item.transform, false);
-                var t = txtGO.GetComponent<Text>();
-                t.font = _font; t.fontSize = 20; t.color = Color.white;
-                t.horizontalOverflow = HorizontalWrapMode.Wrap;
-                t.verticalOverflow   = VerticalWrapMode.Overflow;
-                t.text = $"<b>\"{msg.texto}\"</b>\n{exp}";
+                CrearTexto(item.transform, "Txt", $"<b>\"{msg.texto}\"</b>\n{exp}",
+                    Fnt.Explicacion, Col.Texto, TextAlignmentOptions.TopLeft);
             }
             _btnVerExplicacion.interactable = false;
         }
@@ -378,7 +436,7 @@ namespace Fishy.Detective
             var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
             backdrop.transform.SetParent(_window.transform, false);
             Stretch(backdrop.GetComponent<RectTransform>());
-            backdrop.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
+            backdrop.GetComponent<Image>().color = Col.Backdrop;
 
             // Panel principal
             var panel = new GameObject("ChatWindow", typeof(RectTransform), typeof(Image));
@@ -387,8 +445,8 @@ namespace Fishy.Detective
             panelRT.anchorMin = new Vector2(0.5f, 0.5f);
             panelRT.anchorMax = new Vector2(0.5f, 0.5f);
             panelRT.pivot     = new Vector2(0.5f, 0.5f);
-            panelRT.sizeDelta = new Vector2(900f, 600f);
-            panel.GetComponent<Image>().color = ColFondo;
+            panelRT.sizeDelta = Med.Ventana;
+            AplicarFondoRedondeado(panel.GetComponent<Image>(), Col.Ventana);
 
             BuildHeader(panel.transform);
             BuildScroll(panel.transform);
@@ -402,38 +460,24 @@ namespace Fishy.Detective
             _panelPermiso = new GameObject("PanelPermiso", typeof(RectTransform), typeof(Image));
             _panelPermiso.transform.SetParent(parent, false);
             Stretch(_panelPermiso.GetComponent<RectTransform>());
-            _panelPermiso.GetComponent<Image>().color = ColPanelRes;
+            _panelPermiso.GetComponent<Image>().color = Col.PanelResultado;
 
-            var card = new GameObject("Card",
-                typeof(RectTransform), typeof(Image),
-                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            card.transform.SetParent(_panelPermiso.transform, false);
-            var cardRT = card.GetComponent<RectTransform>();
-            cardRT.anchorMin = new Vector2(0.5f, 0.5f); cardRT.anchorMax = new Vector2(0.5f, 0.5f);
-            cardRT.pivot     = new Vector2(0.5f, 0.5f);
-            cardRT.sizeDelta = new Vector2(560f, 0f);
-            card.GetComponent<Image>().color = ColCard;
-            var cvlg = card.GetComponent<VerticalLayoutGroup>();
-            cvlg.padding = new RectOffset(24, 24, 24, 24); cvlg.spacing = 16f;
-            cvlg.childControlWidth     = true; cvlg.childControlHeight     = true;
-            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
-            card.GetComponent<ContentSizeFitter>().verticalFit =
-                ContentSizeFitter.FitMode.PreferredSize;
+            var card = CrearCard(_panelPermiso.transform, Med.AnchoCardPermiso, Med.PaddingCardPermiso);
 
-            AgregarTexto(card.transform, "🔍 Pidiendo permiso…", 26, FontStyle.Bold, TextAnchor.MiddleCenter);
+            AgregarTitulo(card, Txt.TituloPermiso);
 
             var burbujasGO = new GameObject("Burbujas",
                 typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            burbujasGO.transform.SetParent(card.transform, false);
+            burbujasGO.transform.SetParent(card, false);
             _permisoBurbujas = burbujasGO.GetComponent<RectTransform>();
             var bvlg = burbujasGO.GetComponent<VerticalLayoutGroup>();
-            bvlg.spacing = 10f;
+            bvlg.spacing = Med.EspaciadoEntreBurbujasPermiso;
             bvlg.childControlWidth     = true; bvlg.childControlHeight     = true;
             bvlg.childForceExpandWidth = true; bvlg.childForceExpandHeight = false;
             burbujasGO.GetComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;
 
-            _btnContinuarPermiso = CrearBotonCard(card.transform, "Continuar →", ColBtnConfirmar, null);
+            _btnContinuarPermiso = CrearBotonCard(card, Txt.BotonContinuarPermiso, Col.BotonConfirmar, null);
 
             _panelPermiso.SetActive(false);
         }
@@ -445,48 +489,80 @@ namespace Fishy.Detective
             var rt = header.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot     = new Vector2(0.5f, 1f);
-            rt.sizeDelta = new Vector2(0f, 60f);
-            header.GetComponent<Image>().color = ColHeader;
+            rt.sizeDelta = new Vector2(0f, Med.AlturaHeader);
+            header.GetComponent<Image>().color = Col.Header;
 
-            // Avatar
-            var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(Image));
-            avatar.transform.SetParent(header.transform, false);
-            var avRT = avatar.GetComponent<RectTransform>();
-            avRT.anchorMin = new Vector2(0f, 0.5f); avRT.anchorMax = new Vector2(0f, 0.5f);
-            avRT.pivot     = new Vector2(0f, 0.5f);
-            avRT.anchoredPosition = new Vector2(14f, 0f);
-            avRT.sizeDelta        = new Vector2(40f, 40f);
-            avatar.GetComponent<Image>().color = new Color(0.2f, 0.55f, 0.4f, 1f);
-
-            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Text));
-            iconGO.transform.SetParent(avatar.transform, false);
-            Stretch(iconGO.GetComponent<RectTransform>());
-            var icon = iconGO.GetComponent<Text>();
-            icon.font = _font; icon.fontSize = 22; icon.color = Color.white;
-            icon.alignment = TextAnchor.MiddleCenter; icon.text = "🔍";
+            bool hayIcono = CrearIconoLupa(header.transform);
+            float sangria = hayIcono ? Med.SangriaTextoHeader : Med.SangriaTextoHeaderSinIcono;
 
             // Título
-            var lblGO = new GameObject("Titulo", typeof(RectTransform), typeof(Text));
-            lblGO.transform.SetParent(header.transform, false);
-            var lblRT = lblGO.GetComponent<RectTransform>();
+            var lbl = CrearTexto(header.transform, "Titulo", Txt.TituloHeader, Fnt.TituloHeader,
+                Col.Texto, TextAlignmentOptions.BottomLeft);
+            lbl.fontStyle = FontStyles.Bold;
+            var lblRT = lbl.rectTransform;
             lblRT.anchorMin = new Vector2(0f, 0.5f); lblRT.anchorMax = new Vector2(1f, 1f);
-            lblRT.offsetMin = new Vector2(64f, 0f);  lblRT.offsetMax = new Vector2(-12f, 0f);
-            var lbl = lblGO.GetComponent<Text>();
-            lbl.font = _font; lbl.fontSize = 22; lbl.fontStyle = FontStyle.Bold;
-            lbl.color = Color.white; lbl.alignment = TextAnchor.LowerLeft;
-            lbl.text = "Modo Detective";
+            lblRT.offsetMin = new Vector2(sangria, 0f);
+            lblRT.offsetMax = new Vector2(Med.MargenDerechoHeader, 0f);
 
             // Subtítulo
-            var subGO = new GameObject("Sub", typeof(RectTransform), typeof(Text));
-            subGO.transform.SetParent(header.transform, false);
-            var subRT = subGO.GetComponent<RectTransform>();
+            var sub = CrearTexto(header.transform, "Sub", Txt.SubtituloHeader, Fnt.SubtituloHeader,
+                Col.TextoSuave, TextAlignmentOptions.TopLeft);
+            var subRT = sub.rectTransform;
             subRT.anchorMin = new Vector2(0f, 0f); subRT.anchorMax = new Vector2(1f, 0.5f);
-            subRT.offsetMin = new Vector2(64f, 0f); subRT.offsetMax = new Vector2(-12f, 0f);
-            var sub = subGO.GetComponent<Text>();
-            sub.font = _font; sub.fontSize = 17;
-            sub.color = new Color(0.55f, 0.88f, 0.72f, 1f);
-            sub.alignment = TextAnchor.UpperLeft;
-            sub.text = "toca un mensaje para marcarlo como sospechoso";
+            subRT.offsetMin = new Vector2(sangria, 0f);
+            subRT.offsetMax = new Vector2(Med.MargenDerechoHeader, 0f);
+        }
+
+        /// <summary>
+        /// Lupa del header, por orden de preferencia:
+        ///   1. un sprite propio en Resources, si Valentina hizo uno;
+        ///   2. el glifo 🔍 de la fuente de iconos, que es monocromática y por eso
+        ///      se puede teñir con el color de la paleta;
+        ///   3. nada, y el título se corre a la izquierda.
+        /// Nunca se dibuja el glifo con Mango: no lo tiene y saldría un cuadro roto.
+        /// </summary>
+        /// <returns>True si se creó el icono.</returns>
+        private bool CrearIconoLupa(Transform parent)
+        {
+            var propio = Resources.Load<Sprite>(Spr.IconoLupa);
+            if (propio != null)
+            {
+                var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(Image));
+                avatar.transform.SetParent(parent, false);
+                ColocarEnRanuraDelIcono(avatar.GetComponent<RectTransform>());
+
+                var img = avatar.GetComponent<Image>();
+                img.sprite        = propio;
+                img.color         = Color.white;   // sin teñir: el sprite manda
+                img.raycastTarget = false;
+                return true;
+            }
+
+            if (!PuedeDibujar(_fontIconos, Txt.IconoHeader))
+            {
+                Debug.LogWarning($"[Detective] El header va sin lupa: la fuente de iconos " +
+                                 $"('{DetectiveUITheme.Fuentes.RutaIconos}') no está o no trae " +
+                                 $"'{Txt.IconoHeader}'. Corre Fishy → Generar fuente de iconos, " +
+                                 $"o deja un sprite en Resources/{Spr.IconoLupa}.", this);
+                return false;
+            }
+
+            var icono = CrearTexto(parent, "Icono", Txt.IconoHeader, Fnt.IconoHeader,
+                Col.TextoSuave, TextAlignmentOptions.Center);
+            icono.font = _fontIconos;          // se impone a la elección automática
+            icono.raycastTarget = false;
+            ColocarEnRanuraDelIcono(icono.rectTransform);
+            return true;
+        }
+
+        /// <summary>Deja el icono pegado al borde izquierdo del header y centrado
+        /// en vertical, con el tamaño reservado para él.</summary>
+        private static void ColocarEnRanuraDelIcono(RectTransform rt)
+        {
+            rt.anchorMin = new Vector2(0f, 0.5f); rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot     = new Vector2(0f, 0.5f);
+            rt.anchoredPosition = new Vector2(Med.MargenAvatar, 0f);
+            rt.sizeDelta        = Med.TamanoAvatar;
         }
 
         private void BuildScroll(Transform parent)
@@ -496,9 +572,9 @@ namespace Fishy.Detective
             scrollGO.transform.SetParent(parent, false);
             var scrollRT = scrollGO.GetComponent<RectTransform>();
             scrollRT.anchorMin = new Vector2(0f, 0f); scrollRT.anchorMax = new Vector2(1f, 1f);
-            scrollRT.offsetMin = new Vector2(0f, 58f);
-            scrollRT.offsetMax = new Vector2(0f, -60f);
-            scrollGO.GetComponent<Image>().color = ColScroll;
+            scrollRT.offsetMin = new Vector2(0f, Med.MargenScrollAbajo);
+            scrollRT.offsetMax = new Vector2(0f, -Med.MargenScrollArriba);
+            scrollGO.GetComponent<Image>().color = Col.Historial;
             _scrollRect = scrollGO.GetComponent<ScrollRect>();
             _scrollRect.horizontal        = false;
             _scrollRect.vertical          = true;
@@ -512,7 +588,7 @@ namespace Fishy.Detective
             _content.pivot     = new Vector2(0.5f, 1f);
             _content.offsetMin = Vector2.zero; _content.offsetMax = Vector2.zero;
             var cvlg = contentGO.GetComponent<VerticalLayoutGroup>();
-            cvlg.spacing  = 6f; cvlg.padding = new RectOffset(0, 0, 8, 8);
+            cvlg.spacing  = Med.EspaciadoHistorial; cvlg.padding = Med.PaddingHistorial;
             cvlg.childControlWidth     = true; cvlg.childControlHeight     = true;
             cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
             contentGO.GetComponent<ContentSizeFitter>().verticalFit =
@@ -527,26 +603,23 @@ namespace Fishy.Detective
             var barraRT = barra.GetComponent<RectTransform>();
             barraRT.anchorMin = new Vector2(0f, 0f); barraRT.anchorMax = new Vector2(1f, 0f);
             barraRT.pivot     = new Vector2(0.5f, 0f);
-            barraRT.sizeDelta = new Vector2(0f, 58f);
-            barra.GetComponent<Image>().color = ColBarraInferior;
+            barraRT.sizeDelta = new Vector2(0f, Med.AlturaBarraInferior);
+            barra.GetComponent<Image>().color = Col.BarraInferior;
 
             var btnGO = new GameObject("BtnConfirmar",
                 typeof(RectTransform), typeof(Image), typeof(Button));
             btnGO.transform.SetParent(barra.transform, false);
             var btnRT = btnGO.GetComponent<RectTransform>();
             btnRT.anchorMin = new Vector2(0f, 0f); btnRT.anchorMax = new Vector2(1f, 1f);
-            btnRT.offsetMin = new Vector2(14f, 9f); btnRT.offsetMax = new Vector2(-14f, -9f);
-            btnGO.GetComponent<Image>().color = ColBtnConfirmar;
+            btnRT.offsetMin = Med.MargenBotonBarra;
+            btnRT.offsetMax = new Vector2(-Med.MargenBotonBarra.x, -Med.MargenBotonBarra.y);
+            AplicarFondoRedondeado(btnGO.GetComponent<Image>(), Col.BotonConfirmar);
             _btnConfirmar = btnGO.GetComponent<Button>();
             _btnConfirmar.onClick.AddListener(OnConfirmar);
 
-            var tGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
-            tGO.transform.SetParent(btnGO.transform, false);
-            Stretch(tGO.GetComponent<RectTransform>());
-            var t = tGO.GetComponent<Text>();
-            t.font = _font; t.fontSize = 22; t.color = Color.white;
-            t.alignment = TextAnchor.MiddleCenter;
-            t.text = "✔ Confirmar marcas";
+            var t = CrearTexto(btnGO.transform, "Text", Txt.BotonConfirmar, Fnt.Boton,
+                Col.TextoSobre(Col.BotonConfirmar), TextAlignmentOptions.Center);
+            Stretch(t.rectTransform);
         }
 
         private void BuildPanelResultado(Transform parent)
@@ -555,61 +628,39 @@ namespace Fishy.Detective
                 typeof(RectTransform), typeof(Image));
             _panelResultado.transform.SetParent(parent, false);
             Stretch(_panelResultado.GetComponent<RectTransform>());
-            _panelResultado.GetComponent<Image>().color = ColPanelRes;
+            _panelResultado.GetComponent<Image>().color = Col.PanelResultado;
 
-            var card = new GameObject("Card",
-                typeof(RectTransform), typeof(Image),
-                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            card.transform.SetParent(_panelResultado.transform, false);
-            var cardRT = card.GetComponent<RectTransform>();
-            cardRT.anchorMin = new Vector2(0.5f, 0.5f); cardRT.anchorMax = new Vector2(0.5f, 0.5f);
-            cardRT.pivot     = new Vector2(0.5f, 0.5f);
-            cardRT.sizeDelta = new Vector2(480f, 0f);
-            card.GetComponent<Image>().color = ColCard;
-            var cvlg = card.GetComponent<VerticalLayoutGroup>();
-            cvlg.padding = new RectOffset(28, 28, 28, 28); cvlg.spacing = 16f;
-            cvlg.childControlWidth     = true; cvlg.childControlHeight     = true;
-            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
-            card.GetComponent<ContentSizeFitter>().verticalFit =
-                ContentSizeFitter.FitMode.PreferredSize;
+            var card = CrearCard(_panelResultado.transform, Med.AnchoCardResultado, Med.PaddingCardResultado);
 
-            AgregarTexto(card.transform, "🔍 Resultado", 26, FontStyle.Bold, TextAnchor.MiddleCenter);
+            AgregarTitulo(card, Txt.TituloResultado);
 
-            var marGO = new GameObject("Marcador", typeof(RectTransform), typeof(Text));
-            marGO.transform.SetParent(card.transform, false);
-            _txtMarcador = marGO.GetComponent<Text>();
-            _txtMarcador.font      = _font; _txtMarcador.fontSize = 52;
-            _txtMarcador.fontStyle = FontStyle.Bold;
-            _txtMarcador.color     = Color.white;
-            _txtMarcador.alignment = TextAnchor.MiddleCenter;
-            _txtMarcador.horizontalOverflow = HorizontalWrapMode.Overflow;
-            _txtMarcador.verticalOverflow   = VerticalWrapMode.Overflow;
+            _txtMarcador = CrearTexto(card, "Marcador", "", Fnt.Marcador,
+                Col.Texto, TextAlignmentOptions.Center);
+            _txtMarcador.fontStyle        = FontStyles.Bold;
+            _txtMarcador.textWrappingMode = TextWrappingModes.NoWrap;
+            // Nace vacío, así que hay que decirle con qué se va a llenar ("3 / 4")
+            // para que elija fuente: si no, CrearTexto asume la de cuerpo.
+            _txtMarcador.font = FuentePara("0123456789 /");
 
-            var resGO = new GameObject("Resultado", typeof(RectTransform), typeof(Text));
-            resGO.transform.SetParent(card.transform, false);
-            _txtResultado = resGO.GetComponent<Text>();
-            _txtResultado.font      = _font; _txtResultado.fontSize = 22;
-            _txtResultado.color     = Color.white;
-            _txtResultado.alignment = TextAnchor.MiddleCenter;
-            _txtResultado.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _txtResultado.verticalOverflow   = VerticalWrapMode.Overflow;
+            _txtResultado = CrearTexto(card, "Resultado", "", Fnt.Resultado,
+                Col.Texto, TextAlignmentOptions.Center);
 
             var expGO = new GameObject("Explicaciones",
                 typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            expGO.transform.SetParent(card.transform, false);
+            expGO.transform.SetParent(card, false);
             _contenedorExplicaciones = expGO.GetComponent<RectTransform>();
             var explVlg = expGO.GetComponent<VerticalLayoutGroup>();
-            explVlg.spacing = 10f;
+            explVlg.spacing = Med.EspaciadoExplicaciones;
             explVlg.childControlWidth = true; explVlg.childControlHeight = true;
             explVlg.childForceExpandWidth = true; explVlg.childForceExpandHeight = false;
             expGO.GetComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;
 
-            _btnRepetir = CrearBotonCard(card.transform, "↺ Repetir caso", ColBtnRepetir,
+            _btnRepetir = CrearBotonCard(card, Txt.BotonRepetir, Col.BotonRepetir,
                 () => { Hide(); _onRepetir?.Invoke(); });
-            _btnVerExplicacion = CrearBotonCard(card.transform, "💡 Ver explicación", ColBtnExplica,
+            _btnVerExplicacion = CrearBotonCard(card, Txt.BotonExplicacion, Col.BotonExplicacion,
                 () => MostrarExplicaciones());
-            CrearBotonCard(card.transform, "Continuar", ColBtnConfirmar,
+            CrearBotonCard(card, Txt.BotonCerrar, Col.BotonConfirmar,
                 () => { Hide(); _onCerrar?.Invoke(); });
 
             _panelResultado.SetActive(false);
@@ -617,39 +668,83 @@ namespace Fishy.Detective
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
+        /// <summary>Tarjeta centrada de ancho fijo y alto automático según su contenido.</summary>
+        private Transform CrearCard(Transform parent, float ancho, RectOffset padding)
+        {
+            var card = new GameObject("Card",
+                typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            card.transform.SetParent(parent, false);
+            var cardRT = card.GetComponent<RectTransform>();
+            cardRT.anchorMin = new Vector2(0.5f, 0.5f); cardRT.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRT.pivot     = new Vector2(0.5f, 0.5f);
+            cardRT.sizeDelta = new Vector2(ancho, 0f);
+            AplicarFondoRedondeado(card.GetComponent<Image>(), Col.Card);
+            var cvlg = card.GetComponent<VerticalLayoutGroup>();
+            cvlg.padding = padding; cvlg.spacing = Med.EspaciadoCard;
+            cvlg.childControlWidth     = true; cvlg.childControlHeight     = true;
+            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
+            card.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+            return card.transform;
+        }
+
+        private void AgregarTitulo(Transform parent, string texto)
+        {
+            var t = CrearTexto(parent, "Titulo", texto, Fnt.TituloCard,
+                Col.Texto, TextAlignmentOptions.Center);
+            t.fontStyle = FontStyles.Bold;
+        }
+
         private Button CrearBotonCard(Transform parent, string texto, Color color, Action onClick)
         {
             var btnGO = new GameObject("Btn_" + texto,
                 typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
             btnGO.transform.SetParent(parent, false);
-            btnGO.GetComponent<Image>().color = color;
-            btnGO.GetComponent<LayoutElement>().minHeight = 52f;
+            AplicarFondoRedondeado(btnGO.GetComponent<Image>(), color);
+            btnGO.GetComponent<LayoutElement>().minHeight = Med.AlturaBoton;
             var btn = btnGO.GetComponent<Button>();
             if (onClick != null) btn.onClick.AddListener(() => onClick());
 
-            var tGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
-            tGO.transform.SetParent(btnGO.transform, false);
-            Stretch(tGO.GetComponent<RectTransform>());
-            var t = tGO.GetComponent<Text>();
-            t.font = _font; t.fontSize = 22; t.color = Color.white;
-            t.alignment = TextAnchor.MiddleCenter;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.text = texto;
+            var t = CrearTexto(btnGO.transform, "Text", texto, Fnt.Boton,
+                Col.TextoSobre(color), TextAlignmentOptions.Center);
+            Stretch(t.rectTransform);
 
             return btn;
         }
 
-        private void AgregarTexto(Transform parent, string texto, int size,
-            FontStyle style = FontStyle.Normal, TextAnchor align = TextAnchor.UpperLeft)
+        /// <summary>
+        /// Crea un texto TMP ya configurado. La fuente se decide sola según los
+        /// caracteres que trae el texto (ver <see cref="FuentePara"/>).
+        /// </summary>
+        private TextMeshProUGUI CrearTexto(Transform parent, string nombre, string texto,
+            float tamano, Color color, TextAlignmentOptions alineacion)
         {
-            var go = new GameObject("Txt", typeof(RectTransform), typeof(Text));
+            var go = new GameObject(nombre, typeof(RectTransform), typeof(TextMeshProUGUI));
             go.transform.SetParent(parent, false);
-            var t = go.GetComponent<Text>();
-            t.font = _font; t.fontSize = size; t.fontStyle = style;
-            t.color = Color.white; t.alignment = align;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.verticalOverflow   = VerticalWrapMode.Overflow;
-            t.text = texto;
+            var t = go.GetComponent<TextMeshProUGUI>();
+            t.font             = FuentePara(texto);
+            t.fontSize         = tamano;
+            t.color            = color;
+            t.alignment        = alineacion;
+            t.textWrappingMode = TextWrappingModes.Normal;
+            t.overflowMode     = TextOverflowModes.Overflow;
+            t.text             = texto;
+            return t;
+        }
+
+        /// <summary>
+        /// Deja el fondo con esquinas redondeadas. El sprite es 9-slice, así que
+        /// el radio se mantiene igual sin importar cuánto se estire la burbuja.
+        /// </summary>
+        private void AplicarFondoRedondeado(Image img, Color color)
+        {
+            if (_spriteRedondeado != null)
+            {
+                img.sprite = _spriteRedondeado;
+                img.type   = Image.Type.Sliced;
+            }
+            img.color = color;
         }
 
         private void LimpiarHistorial()
