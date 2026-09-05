@@ -110,3 +110,5 @@ InitTestScene*.unity*
 .env
 **.env
 !**.env.example
+# Escenas de recuperación tras crash del Editor (basura local, no va al repo)
+/[Aa]ssets/_Recovery/
