@@ -309,14 +309,25 @@ namespace Fishy.Detective
         // ─────────────────────────────────────────────────────────────────────
         public static class Sprites
         {
-            /// <summary>9-slice con esquinas redondeadas para burbujas y tarjetas.
-            /// Es el que trae Unity; si Valentina dibuja uno propio, se cambia por
-            /// una ruta de Resources y listo.</summary>
-            public static string Redondeado = "UI/Skin/UISprite.psd";
+            /// <summary>
+            /// Lado, en píxeles, del 9-slice de esquinas redondeadas que se dibuja
+            /// en memoria al abrir el modo. No se usa un sprite del proyecto porque
+            /// no hace falta: la forma es un rectángulo redondeado y sale más barato
+            /// generarla que mantener un asset.
+            /// </summary>
+            public static int LadoRedondeado = 64;
+
+            /// <summary>
+            /// Radio de las esquinas, en píxeles, y también el borde del 9-slice: por
+            /// eso el redondeo se ve igual sin importar cuánto se estire la burbuja.
+            /// Subirlo redondea más. Tiene que ser como mucho la mitad de
+            /// <see cref="LadoRedondeado"/>, o las esquinas se pisan entre ellas.
+            /// </summary>
+            public static int RadioRedondeado = 22;
 
             /// <summary>Lupa propia para el header, si existe. Va en una carpeta
-            /// Resources (ej. Assets/Resources/Iconos/lupa.png). Si no está, la
-            /// lupa se dibuja con dos formas simples.</summary>
+            /// Resources (ej. Assets/Resources/Iconos/lupa.png). Si no está, se usa
+            /// el glifo de la fuente de iconos.</summary>
             public static string IconoLupa = "Iconos/lupa";
         }
 

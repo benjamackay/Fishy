@@ -102,13 +102,71 @@ namespace Fishy.Detective
             // Opcional: si no está, el header simplemente va sin icono.
             _fontIconos = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaIconos);
 
-            _spriteRedondeado = Resources.GetBuiltinResource<Sprite>(Spr.Redondeado);
+            _spriteRedondeado = CrearSpriteRedondeado(Spr.LadoRedondeado, Spr.RadioRedondeado);
+        }
 
-            // Sin el sprite todo sigue funcionando, solo que con esquinas rectas:
-            // conviene saberlo igual porque es un cambio visible y silencioso.
-            if (_spriteRedondeado == null)
-                Debug.LogWarning($"[Detective] No cargó el sprite '{Spr.Redondeado}'. " +
-                                 "Las esquinas quedarán rectas.", this);
+        /// <summary>
+        /// Dibuja en memoria el 9-slice de esquinas redondeadas.
+        ///
+        /// Antes esto pedía el sprite de Unity con
+        /// Resources.GetBuiltinResource&lt;Sprite&gt;("UI/Skin/UISprite.psd") y fallaba
+        /// siempre: ese método solo llega a "unity default resources" (mallas,
+        /// materiales), mientras que los sprites de UI viven en "unity_builtin_extra",
+        /// al que únicamente se entra por AssetDatabase y solo desde el editor. O sea
+        /// que ni con suerte habría funcionado en un build.
+        ///
+        /// Generarlo sale más barato que arrastrar un asset: son cuatro arcos y el
+        /// borde del 9-slice hace que el radio no se deforme al estirar la burbuja.
+        /// </summary>
+        private static Sprite CrearSpriteRedondeado(int lado, int radio)
+        {
+            lado  = Mathf.Max(2, lado);
+            radio = Mathf.Clamp(radio, 0, lado / 2);   // pasado de la mitad las esquinas se pisan
+
+            var tex = new Texture2D(lado, lado, TextureFormat.RGBA32, false)
+            {
+                name       = "DetectiveRedondeado",
+                filterMode = FilterMode.Bilinear,
+                wrapMode   = TextureWrapMode.Clamp,
+                // Que no quede colgando en la escena ni se guarde al salir del play.
+                hideFlags  = HideFlags.HideAndDontSave,
+            };
+
+            var px = new Color32[lado * lado];
+            for (int y = 0; y < lado; y++)
+            {
+                for (int x = 0; x < lado; x++)
+                {
+                    // Cuánto se mete el píxel en la zona de esquina. Fuera de las
+                    // esquinas ambas dan 0 y el píxel queda opaco.
+                    float dx = Mathf.Max(radio - (x + 0.5f), (x + 0.5f) - (lado - radio), 0f);
+                    float dy = Mathf.Max(radio - (y + 0.5f), (y + 0.5f) - (lado - radio), 0f);
+
+                    // Medio píxel de suavizado a cada lado del arco: sin esto la
+                    // curva sale dentada.
+                    float alfa = Mathf.Clamp01(radio - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
+                    px[y * lado + x] = new Color32(255, 255, 255, (byte)(alfa * 255f));
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+
+            // El borde de 9-slice es justo el radio: las esquinas se copian tal cual
+            // y solo se estiran los tramos rectos del medio.
+            return Sprite.Create(tex, new Rect(0f, 0f, lado, lado), new Vector2(0.5f, 0.5f),
+                pixelsPerUnit: 100f, extrude: 0, meshType: SpriteMeshType.FullRect,
+                border: new Vector4(radio, radio, radio, radio));
+        }
+
+        /// <summary>La textura del sprite se crea a mano, así que hay que soltarla a
+        /// mano: Unity no recoge lo que se marcó DontSave.</summary>
+        private void OnDestroy()
+        {
+            if (_spriteRedondeado == null) return;
+
+            Texture2D tex = _spriteRedondeado.texture;
+            Destroy(_spriteRedondeado);
+            if (tex != null) Destroy(tex);
         }
 
         /// <summary>
@@ -538,12 +596,23 @@ namespace Fishy.Detective
                 return true;
             }
 
+            // Los dos motivos van separados a propósito: juntos no se sabe cuál
+            // arreglar, que es exactamente lo que costó encontrar este bug.
+            if (_fontIconos == null)
+            {
+                Debug.LogWarning($"[Detective] El header va sin lupa: no cargó la fuente de " +
+                                 $"iconos desde Resources/'{DetectiveUITheme.Fuentes.RutaIconos}'. " +
+                                 "Corre Fishy → Generar fuente de iconos.", this);
+                return false;
+            }
+
             if (!PuedeDibujar(_fontIconos, Txt.IconoHeader))
             {
-                Debug.LogWarning($"[Detective] El header va sin lupa: la fuente de iconos " +
-                                 $"('{DetectiveUITheme.Fuentes.RutaIconos}') no está o no trae " +
-                                 $"'{Txt.IconoHeader}'. Corre Fishy → Generar fuente de iconos, " +
-                                 $"o deja un sprite en Resources/{Spr.IconoLupa}.", this);
+                Debug.LogWarning($"[Detective] El header va sin lupa: la fuente '{_fontIconos.name}' " +
+                                 $"cargó bien pero no tiene el glifo '{Txt.IconoHeader}' " +
+                                 $"(U+{char.ConvertToUtf32(Txt.IconoHeader, 0):X4}). Si cambiaste " +
+                                 "IconoHeader en el theme, vuelve a correr Fishy → Generar fuente " +
+                                 "de iconos para hornearlo.", this);
                 return false;
             }
 
