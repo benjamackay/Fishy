@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 // Paleta de Sprout Lands defautlt palette.png  (16x7, 97 colores)
 /*
 Hex(0xF3F4E7),   // #F3F4E7
@@ -307,6 +308,48 @@ namespace Fishy.Detective
         // ─────────────────────────────────────────────────────────────────────
         //  SPRITES
         // ─────────────────────────────────────────────────────────────────────
+        /// <summary>
+        /// Fondo ilustrado del historial de mensajes, lo que pidió Daniela.
+        ///
+        /// Mientras se decide cuál usar, el modo toma una imagen al azar de la
+        /// carpeta y deja rotar con una tecla dentro del juego. Una vez elegida,
+        /// se pone Rotar en false y el nombre en FijoPorNombre.
+        /// </summary>
+        public static class Fondo
+        {
+            /// <summary>Carpeta dentro de Assets/Resources con las candidatas. Las
+            /// imágenes tienen que estar importadas como Sprite o no se ven.</summary>
+            public static string Carpeta = "Fondos/Detective";
+
+            /// <summary>Mientras esté en true se elige una al azar al abrir el modo
+            /// y la tecla de abajo salta a otra. En false manda FijoPorNombre.</summary>
+            public static bool Rotar = true;
+
+            /// <summary>Con Rotar en false, el fondo que queda fijo. Vacío = ninguno,
+            /// y el historial se ve con su color liso de siempre.</summary>
+            public static string FijoPorNombre = "";
+
+            /// <summary>Tecla para saltar al siguiente fondo al azar.</summary>
+            public static Key TeclaSiguiente = Key.F;
+
+            /// <summary>
+            /// Tinte de la ilustración. El alfa es lo importante: a 1 el dibujo tapa
+            /// el color del historial y compite con los mensajes; bajarlo lo deja de
+            /// telón de fondo, que es como se ve un fondo de chat.
+            /// </summary>
+            public static Color Tinte = new Color(1f, 1f, 1f, 0.30f);
+
+            /// <summary>Repetir la imagen en mosaico en vez de estirarla. Para
+            /// patrones sirve; para una ilustración entera, no.</summary>
+            public static bool Repetir = false;
+
+            /// <summary>Muestra el nombre del fondo en pantalla mientras se prueba,
+            /// para poder anotar cuál gustó.</summary>
+            public static bool MostrarNombre = true;
+
+            public static float TamanoNombre = 22f;
+        }
+
         public static class Sprites
         {
             /// <summary>
@@ -326,9 +369,32 @@ namespace Fishy.Detective
             public static int RadioRedondeado = 22;
 
             /// <summary>Lupa propia para el header, si existe. Va en una carpeta
-            /// Resources (ej. Assets/Resources/Iconos/lupa.png). Si no está, se usa
-            /// el glifo de la fuente de iconos.</summary>
+            /// Resources (ej. Assets/Resources/Iconos/lupa.png). Si no está, se
+            /// dibuja una en memoria con las medidas de más abajo.</summary>
             public static string IconoLupa = "Iconos/lupa";
+
+            // ── Lupa dibujada en memoria ──────────────────────────────────────
+            //
+            // Es la que se usa mientras no haya un sprite propio. Se dibuja en vez
+            // de sacarla de una fuente de símbolos porque esa vía resultó frágil:
+            // 🔍 es U+1F50D, fuera del BMP, y el motor de fuentes de Unity no llegó
+            // a él ni con un TTF que sí trae el glifo. Dibujada no depende de
+            // ninguna fuente, ni del atlas, ni de lo que el build haga con ellos.
+            //
+            // Las tres medidas de abajo son proporciones, no píxeles: la forma se
+            // reescala sola para llenar el sprite, así que cambiar LadoLupa solo
+            // cambia la resolución, nunca el diseño.
+
+            /// <summary>Resolución del sprite, en píxeles. Subirlo solo lo hace más
+            /// nítido; no cambia el tamaño en pantalla (eso es TamanoAvatar).</summary>
+            public static int LadoLupa = 128;
+
+            /// <summary>Grosor del trazo, como fracción del radio del lente. Más
+            /// alto = lupa más gorda y más legible en chico.</summary>
+            public static float GrosorLupa = 0.28f;
+
+            /// <summary>Largo del mango, como fracción del radio del lente.</summary>
+            public static float MangoLupa = 0.85f;
         }
 
         // ─────────────────────────────────────────────────────────────────────

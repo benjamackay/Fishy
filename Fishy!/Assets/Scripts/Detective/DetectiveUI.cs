@@ -44,6 +44,7 @@ namespace Fishy.Detective
         private TMP_FontAsset _fontCuerpo;    // respaldo por si a Mango le falta un glifo
         private TMP_FontAsset _fontIconos;    // símbolos que no están en las otras dos
         private Sprite        _spriteRedondeado;
+        private Sprite        _spriteLupa;
 
         // ── Ritual de permiso (HDU-10 CA1) ───────────────────────────────────
         private GameObject    _panelPermiso;
@@ -145,6 +146,11 @@ namespace Fishy.Detective
                     // Medio píxel de suavizado a cada lado del arco: sin esto la
                     // curva sale dentada.
                     float alfa = Mathf.Clamp01(radio - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
+
+                    // Aquí no se invierte la fila, aunque SetPixels32 vaya de abajo
+                    // hacia arriba: las cuatro esquinas son iguales, así que la
+                    // forma es idéntica del derecho y del revés. En la lupa, que no
+                    // es simétrica, sí hay que invertirla (ver CrearSpriteLupa).
                     px[y * lado + x] = new Color32(255, 255, 255, (byte)(alfa * 255f));
                 }
             }
@@ -162,10 +168,17 @@ namespace Fishy.Detective
         /// mano: Unity no recoge lo que se marcó DontSave.</summary>
         private void OnDestroy()
         {
-            if (_spriteRedondeado == null) return;
+            SoltarSprite(_spriteRedondeado);
+            SoltarSprite(_spriteLupa);
+        }
 
-            Texture2D tex = _spriteRedondeado.texture;
-            Destroy(_spriteRedondeado);
+        /// <summary>Suelta un sprite dibujado en memoria junto con su textura.</summary>
+        private void SoltarSprite(Sprite sprite)
+        {
+            if (sprite == null) return;
+
+            Texture2D tex = sprite.texture;
+            Destroy(sprite);
             if (tex != null) Destroy(tex);
         }
 
@@ -600,20 +613,12 @@ namespace Fishy.Detective
             // arreglar, que es exactamente lo que costó encontrar este bug.
             if (_fontIconos == null)
             {
-                Debug.LogWarning($"[Detective] El header va sin lupa: no cargó la fuente de " +
-                                 $"iconos desde Resources/'{DetectiveUITheme.Fuentes.RutaIconos}'. " +
-                                 "Corre Fishy → Generar fuente de iconos.", this);
-                return false;
+                return CrearIconoLupaDibujada(parent);
             }
 
             if (!PuedeDibujar(_fontIconos, Txt.IconoHeader))
             {
-                Debug.LogWarning($"[Detective] El header va sin lupa: la fuente '{_fontIconos.name}' " +
-                                 $"cargó bien pero no tiene el glifo '{Txt.IconoHeader}' " +
-                                 $"(U+{char.ConvertToUtf32(Txt.IconoHeader, 0):X4}). Si cambiaste " +
-                                 "IconoHeader en el theme, vuelve a correr Fishy → Generar fuente " +
-                                 "de iconos para hornearlo.", this);
-                return false;
+                return CrearIconoLupaDibujada(parent);
             }
 
             var icono = CrearTexto(parent, "Icono", Txt.IconoHeader, Fnt.IconoHeader,
@@ -622,6 +627,93 @@ namespace Fishy.Detective
             icono.raycastTarget = false;
             ColocarEnRanuraDelIcono(icono.rectTransform);
             return true;
+        }
+
+        /// <summary>
+        /// Lupa dibujada en memoria: un anillo y un mango en diagonal. Es el
+        /// camino que siempre funciona, y por eso es el último de la lista.
+        ///
+        /// Se llegó acá después de que la vía del glifo fallara: 🔍 es U+1F50D,
+        /// fuera del BMP, y aunque NotoSansSymbols2 lo trae (glifo #1031, en sus
+        /// dos subtablas cmap de formato 12), el motor de fuentes de Unity no lo
+        /// encontró. Dibujarla no depende de ninguna fuente ni de ningún atlas.
+        /// </summary>
+        private bool CrearIconoLupaDibujada(Transform parent)
+        {
+            _spriteLupa = CrearSpriteLupa(Spr.LadoLupa, Spr.GrosorLupa, Spr.MangoLupa);
+
+            var go = new GameObject("Lupa", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            ColocarEnRanuraDelIcono(go.GetComponent<RectTransform>());
+
+            var img = go.GetComponent<Image>();
+            img.sprite        = _spriteLupa;
+            img.color         = Col.TextoSuave;   // la forma es blanca: se tiñe acá
+            img.raycastTarget = false;
+            return true;
+        }
+
+        /// <summary>
+        /// Dibuja la lupa. Las medidas entran como proporciones del radio del
+        /// lente y la forma se reescala sola para llenar la textura, así que
+        /// cambiar la resolución no descuadra el diseño.
+        /// </summary>
+        private static Sprite CrearSpriteLupa(int lado, float grosorRel, float mangoRel)
+        {
+            lado = Mathf.Max(16, lado);
+            const float margen = 3f;
+            float diag = Mathf.Sqrt(0.5f);        // coseno de 45°, la inclinación del mango
+
+            // Caja que ocupa la forma en unidades de radio, para calzarla al sprite.
+            float bajo = -(1f + grosorRel / 2f);
+            float alto = (1f + mangoRel) * diag + grosorRel / 2f;
+            float k = (lado - 2f * margen) / (alto - bajo);
+
+            float radio = k, grosor = grosorRel * k, mango = mangoRel * k;
+            float cx = margen - bajo * k, cy = cx;                 // centro del lente
+            float ax = cx + radio * diag,  ay = cy + radio * diag; // arranque del mango
+            float bx = ax + mango * diag,  by = ay + mango * diag; // punta
+
+            var px = new Color32[lado * lado];
+            for (int y = 0; y < lado; y++)
+            {
+                for (int x = 0; x < lado; x++)
+                {
+                    float fx = x + 0.5f, fy = y + 0.5f;
+
+                    // Distancia al anillo del lente y a la cápsula del mango; la
+                    // forma es la unión de ambas, o sea la menor de las dos.
+                    float anillo = Mathf.Abs(Mathf.Sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy)) - radio)
+                                   - grosor / 2f;
+
+                    float dx = bx - ax, dy = by - ay;
+                    float t = Mathf.Clamp01(((fx - ax) * dx + (fy - ay) * dy) / (dx * dx + dy * dy));
+                    float mx = fx - (ax + t * dx), my = fy - (ay + t * dy);
+                    float capsula = Mathf.Sqrt(mx * mx + my * my) - grosor / 2f;
+
+                    // Medio píxel a cada lado del borde: sin esto la curva sale dentada.
+                    float alfa = Mathf.Clamp01(0.5f - Mathf.Min(anillo, capsula));
+
+                    // La fila se invierte porque SetPixels32 recibe los píxeles de
+                    // ABAJO hacia arriba: el índice 0 es la esquina inferior
+                    // izquierda. Escribiendo y directo, la lupa salía espejada —
+                    // el lente abajo y el mango apuntando arriba-derecha.
+                    px[(lado - 1 - y) * lado + x] = new Color32(255, 255, 255, (byte)(alfa * 255f));
+                }
+            }
+
+            var tex = new Texture2D(lado, lado, TextureFormat.RGBA32, false)
+            {
+                name       = "DetectiveLupa",
+                filterMode = FilterMode.Bilinear,
+                wrapMode   = TextureWrapMode.Clamp,
+                hideFlags  = HideFlags.HideAndDontSave,
+            };
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+
+            return Sprite.Create(tex, new Rect(0f, 0f, lado, lado), new Vector2(0.5f, 0.5f),
+                pixelsPerUnit: 100f, extrude: 0, meshType: SpriteMeshType.FullRect);
         }
 
         /// <summary>Deja el icono pegado al borde izquierdo del header y centrado
@@ -649,6 +741,12 @@ namespace Fishy.Detective
             _scrollRect.vertical          = true;
             _scrollRect.scrollSensitivity = 30f;
 
+            // El fondo va como hijo del Scroll y no como su Image, para que el
+            // color liso siga debajo: así el alfa del tinte mezcla ilustración y
+            // paleta en vez de reemplazarla. Y va antes que Content, o taparía
+            // los mensajes.
+            CrearFondoIlustrado(scrollGO.transform);
+
             var contentGO = new GameObject("Content",
                 typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             contentGO.transform.SetParent(scrollGO.transform, false);
@@ -663,6 +761,30 @@ namespace Fishy.Detective
             contentGO.GetComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;
             _scrollRect.content = _content;
+        }
+
+        /// <summary>
+        /// Telón de fondo del historial. Mientras se elige cuál usar, lo maneja
+        /// <see cref="DetectiveFondoAleatorio"/>, que va rotando imágenes de una
+        /// carpeta con una tecla. Sin imágenes no pasa nada: el historial se ve
+        /// con su color liso.
+        /// </summary>
+        private void CrearFondoIlustrado(Transform parent)
+        {
+            var go = new GameObject("Fondo", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+
+            var img = go.GetComponent<Image>();
+            img.raycastTarget = false;   // los clics son de las burbujas
+            img.enabled       = false;   // hasta que haya una imagen que poner
+
+            var rotador = go.AddComponent<DetectiveFondoAleatorio>();
+            rotador.destino       = img;
+            rotador.etiquetaPadre = _window != null ? _window.transform : null;
         }
 
         private void BuildBarraInferior(Transform parent)

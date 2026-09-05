@@ -93,9 +93,17 @@ namespace Fishy.EditorTools
                 // Sin el glifo la fuente no sirve para nada, así que no se escribe:
                 // un asset a medias solo hace perder el tiempo después.
                 Object.DestroyImmediate(fuente);
-                Avisar($"'{Path.GetFileName(RutaTtf)}' no tiene {Describir(ausentes)}.\n\n" +
-                       "No generé nada. Cambia el símbolo en DetectiveUITheme.Textos " +
-                       "o usa un TTF que sí lo traiga.");
+                // OJO con el diagnóstico: TMP devuelve TODO como faltante también
+                // cuando no logra abrir el TTF, así que este aviso no puede afirmar
+                // que al archivo le falte el glifo. Decirlo mal ya costó una tarde:
+                // el TTF sí traía 🔍 (glifo #1031) y el mensaje culpaba a la fuente.
+                Avisar($"TMP no pudo hornear {Describir(ausentes)} desde " +
+                       $"'{Path.GetFileName(RutaTtf)}'.\n\n" +
+                       "Puede ser que el TTF no traiga el glifo, o que el motor de " +
+                       "fuentes no haya podido abrirlo. Los símbolos fuera del BMP " +
+                       "(los emoji, como U+1F50D) suelen fallar aunque el archivo sí " +
+                       "los tenga.\n\nNo generé nada. El Modo Detective no depende de " +
+                       "esto: si falta la fuente, dibuja la lupa por su cuenta.");
                 return;
             }
 
