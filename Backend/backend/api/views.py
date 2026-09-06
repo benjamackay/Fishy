@@ -864,6 +864,16 @@ def zonas_partida(request, partida_id):
 
 # ── Inventario (la mochila de Otto — por partida) ─────────────────────────────
 
+# Los limites de las columnas, para poder responder 400 en vez de dejar que
+# reviente Postgres con un 500. Hace falta decirlo aca porque `save()` NO llama a
+# `full_clean()`: Django manda el valor tal cual y el error aparece recien en la
+# base. Y no se nota en los tests, porque la suite corre sobre SQLite y SQLite no
+# valida ni el largo de un varchar ni el rango de un smallint — ambos casos
+# devolvian 200 ahi y 500 contra Supabase.
+LARGO_MAX_ITEM_ID = ItemInventario._meta.get_field("item_id").max_length
+CANTIDAD_MAX = 32767   # tope de PositiveSmallIntegerField (smallint de Postgres)
+
+
 @api_view(["GET", "PUT"])
 def inventario_partida(request, partida_id):
     """
@@ -918,6 +928,13 @@ def inventario_partida(request, partida_id):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            if len(item_id) > LARGO_MAX_ITEM_ID:
+                return Response(
+                    {"items": f"El `item_id` del elemento {i} pasa los "
+                              f"{LARGO_MAX_ITEM_ID} caracteres."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             try:
                 cantidad = int(crudo.get("cantidad", 1))
             except (TypeError, ValueError):
@@ -929,10 +946,26 @@ def inventario_partida(request, partida_id):
             if cantidad <= 0:
                 continue
 
+            if cantidad > CANTIDAD_MAX:
+                return Response(
+                    {"items": f"La cantidad de '{item_id}' pasa el maximo "
+                              f"de {CANTIDAD_MAX}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Repetido en el mismo PUT: se suman en vez de que gane el ultimo. Que
             # Unity mande dos filas del mismo objeto seria un bug suyo, pero
             # perder unidades en silencio es peor que quedarse con las dos.
             limpios[item_id] = limpios.get(item_id, 0) + cantidad
+
+        # Cada sumando cabia, pero la suma puede no caber.
+        for item_id, cantidad in limpios.items():
+            if cantidad > CANTIDAD_MAX:
+                return Response(
+                    {"items": f"La cantidad total de '{item_id}' pasa el maximo "
+                              f"de {CANTIDAD_MAX}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         with transaction.atomic():
             partida.inventario.exclude(item_id__in=limpios.keys()).delete()
@@ -943,9 +976,5 @@ def inventario_partida(request, partida_id):
                     defaults={"cantidad": cantidad},
                 )
 
-        codigo = status.HTTP_200_OK
-    else:
-        codigo = status.HTTP_200_OK
-
     inventario = partida.inventario.all()
-    return Response(ItemInventarioSerializer(inventario, many=True).data, status=codigo)
+    return Response(ItemInventarioSerializer(inventario, many=True).data)

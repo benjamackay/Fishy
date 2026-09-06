@@ -176,6 +176,40 @@ class InventarioTests(BaseAPI):
     def test_un_item_sin_id_es_400(self):
         self.put(self.ruta, {"items": [{"cantidad": 2}]}, self.token, espera=400)
 
+    def test_un_item_id_demasiado_largo_es_400(self):
+        """Postgres corta en varchar(60) y responderia 500. **SQLite no valida el
+        largo**, asi que este test pasaba en verde con la validacion ausente: se
+        encontro probando contra Supabase, no aca. Por eso el limite se comprueba
+        en la vista y no se deja caer en la base."""
+        self.put(
+            self.ruta,
+            {"items": [{"item_id": "ITEM_" + "X" * 100, "cantidad": 1}]},
+            self.token,
+            espera=400,
+        )
+
+    def test_una_cantidad_fuera_del_smallint_es_400(self):
+        """Mismo caso: `PositiveSmallIntegerField` tope en 32767 y SQLite lo deja
+        pasar igual."""
+        self.put(
+            self.ruta,
+            {"items": [{"item_id": "ITEM_ROCA", "cantidad": 99999}]},
+            self.token,
+            espera=400,
+        )
+
+    def test_la_suma_de_repetidos_tampoco_puede_pasarse(self):
+        """Cada sumando cabe, la suma no."""
+        self.put(
+            self.ruta,
+            {"items": [
+                {"item_id": "ITEM_ROCA", "cantidad": 20000},
+                {"item_id": "ITEM_ROCA", "cantidad": 20000},
+            ]},
+            self.token,
+            espera=400,
+        )
+
     def test_una_cantidad_que_no_es_numero_es_400(self):
         self.put(
             self.ruta,
