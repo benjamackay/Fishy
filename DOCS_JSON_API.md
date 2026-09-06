@@ -609,7 +609,7 @@ una migración.
     "id": 12,
     "item_id": "ITEM_BRUJULA",
     "cantidad": 1,
-    "fecha_primera_vez": "2026-09-06T16:52:03.114Z",
+    "fecha_agregado": "2026-09-06T16:52:03.114Z",
     "fecha_actualizacion": "2026-09-06T16:52:03.114Z"
   }
 ]

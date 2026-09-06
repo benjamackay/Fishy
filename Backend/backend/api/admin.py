@@ -449,7 +449,7 @@ class ItemInventarioAdmin(admin.ModelAdmin):
     list_display  = ("item_id", "cantidad", "jugador", "partida", "fecha_actualizacion")
     list_filter   = ("item_id",)
     search_fields = ("item_id", "partida__usuario_jugador__nombre")
-    readonly_fields = ("fecha_primera_vez", "fecha_actualizacion")
+    readonly_fields = ("fecha_agregado", "fecha_actualizacion")
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("partida__usuario_jugador")

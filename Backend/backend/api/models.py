@@ -756,8 +756,15 @@ class ItemInventario(models.Model):
         default=1,
         help_text="Unidades que lleva encima. Una fila en 0 no se guarda: se borra."
     )
-    fecha_primera_vez     = models.DateTimeField(auto_now_add=True)
-    fecha_actualizacion   = models.DateTimeField(auto_now=True)
+    # No es "la primera vez que lo recogio": si el objeto se consume, la fila
+    # se borra, y volver a recogerlo crea una nueva con fecha de hoy. Es cuando
+    # entro a la mochila en el tramo actual.
+    fecha_agregado      = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Cuando entro a la mochila. Se reinicia si el objeto se consume "
+                  "y se vuelve a recoger."
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.item_id} x{self.cantidad} — {self.partida}"

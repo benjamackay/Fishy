@@ -228,5 +228,5 @@ class ItemInventarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItemInventario
-        fields = ["id", "item_id", "cantidad", "fecha_primera_vez", "fecha_actualizacion"]
+        fields = ["id", "item_id", "cantidad", "fecha_agregado", "fecha_actualizacion"]
         read_only_fields = fields
