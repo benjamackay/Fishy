@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474c95c758920a545a6213e0df89fcaf, type: 3}
   m_Name: roca
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemId: ITEM_ROCA
   itemName: 
   itemIcon: {fileID: 0}
   itemDescription: 

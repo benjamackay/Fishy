@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474c95c758920a545a6213e0df89fcaf, type: 3}
   m_Name: brujula
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemId: ITEM_BRUJULA
   itemName: Brujula
   itemIcon: {fileID: -5502465461007319794, guid: 9b8132a2f0f189b4d8f29d442f127e98, type: 3}
   itemDescription: Cuando estes perdido, puedes siempre recurrir a ella

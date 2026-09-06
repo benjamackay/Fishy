@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474c95c758920a545a6213e0df89fcaf, type: 3}
   m_Name: flor3
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemId: ITEM_FLOR_03
   itemName: Flor de invierno acuoso
   itemIcon: {fileID: 4064082943496985392, guid: d77166e1c564bfd428f2acaa9195eab4, type: 3}
   itemDescription: 
