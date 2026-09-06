@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using Fishy.Mision;
 using Fishy.Net;
 
 namespace Fishy.UI
@@ -349,7 +348,10 @@ namespace Fishy.UI
             ApiManager.Instance.ContinuarOCrearPartida(jugador.id,
                 onSuccess: (partida, esNueva) =>
                 {
-                    MissionManager.GetOrCreate().ConfigurarPersistenciaParaPartida(partida.id);
+                    // Ata misiones e inventario a esta partida antes de entrar. El bucle
+                    // de MisionBackendSync haría lo mismo en el siguiente tic, pero la
+                    // escena arranca antes que eso.
+                    MisionBackendSync.AtarProgresoALaPartida(partida.id);
 
                     if (!esNueva)
                         Debug.Log($"[AuthScreen] Retomando partida {partida.id} de " +

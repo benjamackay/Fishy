@@ -17,6 +17,9 @@ public class InventoryManager : MonoBehaviour
     public static InventoryManager instance;
     public List<Item> inventory = new List<Item>();
 
+    /// <summary>Partida dueña de lo que hay en la mochila. Ver <see cref="ConfigurarParaPartida"/>.</summary>
+    private static int partidaActual;
+
     /// <summary>Se dispara cada vez que el contenido cambia.</summary>
     public event Action OnInventoryChanged;
 
@@ -50,6 +53,44 @@ public class InventoryManager : MonoBehaviour
         {
             Destroy(gameObject);
         }
+    }
+
+    /// <summary>
+    /// Ata la mochila a una partida concreta y la vacía si se cambió de partida.
+    ///
+    /// Sin esto, pasar del Perfil 1 al Perfil 2 dentro de la misma ejecución le
+    /// dejaba al segundo niño/a lo que había recogido el primero: el singleton es
+    /// DontDestroyOnLoad y nadie lo limpiaba. <see cref="Fishy.Mision.MissionManager"/>
+    /// ya se protegía así en ConfigurarPersistenciaParaPartida; esto es lo mismo
+    /// para el inventario.
+    ///
+    /// Es estático a propósito: se llama al elegir el perfil, que ocurre en la
+    /// escena de ingreso, donde el InventoryManager todavía puede no existir. Si
+    /// aún no hay instancia no hay nada que vaciar —la que se cree después nacerá
+    /// vacía— pero la partida queda anotada igual.
+    /// </summary>
+    public static void ConfigurarParaPartida(int partidaId)
+    {
+        if (partidaId <= 0)
+        {
+            Debug.LogWarning("[Inventario] No se puede configurar una PartidaId inválida.");
+            return;
+        }
+
+        if (partidaId == partidaActual) return;
+
+        partidaActual = partidaId;
+        if (instance != null) instance.Vaciar();
+
+        Debug.Log($"[Inventario] Mochila asociada a la partida {partidaId}.");
+    }
+
+    /// <summary>Deja la mochila vacía y avisa a la UI.</summary>
+    public void Vaciar()
+    {
+        if (inventory.Count == 0) return;
+        inventory.Clear();
+        OnInventoryChanged?.Invoke();
     }
 
     public void AddItem(ItemData itemData, int quantity)

@@ -249,6 +249,11 @@ public class iniciar : MonoBehaviour
         ApiManager.Instance.ContinuarOCrearPartida(elegido.id,
             onSuccess: (partida, esNueva) =>
             {
+                // Sin esto, entrar por aquí dejaba el progreso sin atar a la partida:
+                // los desafios completados no se guardaban ni en PlayerPrefs y la mochila
+                // del perfil anterior seguia puesta. Es la pantalla que usa la feria.
+                MisionBackendSync.AtarProgresoALaPartida(partida.id);
+
                 Debug.Log($"[Ingresar] Perfil '{elegido.nombre}' (id {elegido.id}), " +
                           $"partida {partida.id} {(esNueva ? "creada" : "retomada")}.");
                 SetEstado("Listo. Entrando...", colorOk);

@@ -42,7 +42,16 @@ namespace Fishy.Net
         private readonly Dictionary<string, bool> misionesEnServidor = new Dictionary<string, bool>();
         private readonly HashSet<string> zonasEnServidor = new HashSet<string>();
 
-        private int? partidaSincronizada;
+        /// <summary>Partida cuyo contexto ya se ató a los sistemas de progreso.</summary>
+        private int? partidaAtada;
+
+        /// <summary>
+        /// Partida cuyo progreso ya se bajó del servidor. Va aparte de
+        /// <see cref="partidaAtada"/> porque atar se hace siempre y bajar sólo cuando hay
+        /// servidor: con un único campo, atar el contexto en modo local marcaba la partida
+        /// como lista y el progreso real no se bajaba nunca, ni aunque el servidor volviera.
+        /// </summary>
+        private int? partidaDescargada;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
@@ -86,9 +95,17 @@ namespace Fishy.Net
         // ── 1. Bajar lo que ya estaba hecho ──────────────────────────────────
 
         /// <summary>
-        /// Espera a que haya sesión y partida (el login y la elección de perfil ocurren
-        /// en otra escena) y entonces baja el progreso. Si se cambia de partida dentro
-        /// de la misma ejecución, vuelve a sincronizar con la nueva.
+        /// Espera a que haya partida (el login y la elección de perfil ocurren en otra
+        /// escena) y entonces ata el progreso a ella. Si se cambia de partida dentro de
+        /// la misma ejecución, vuelve a hacerlo con la nueva.
+        ///
+        /// <b>Son dos pasos con condiciones distintas, y confundirlos era un bug:</b>
+        /// atar el progreso a la partida hay que hacerlo siempre, haya servidor o no
+        /// —es lo que separa lo de un niño/a de lo de otro—, mientras que bajar el
+        /// progreso obviamente necesita servidor. Antes ambos colgaban de la misma
+        /// condición y de un único llamador (AuthScreen), así que entrar por
+        /// <c>iniciar.cs</c> —la pantalla que usa la feria— dejaba el guardado local
+        /// apagado y la mochila del perfil anterior puesta.
         /// </summary>
         private IEnumerator EsperarPartidaYBajarProgreso()
         {
@@ -97,18 +114,54 @@ namespace Fishy.Net
             while (true)
             {
                 var api = ApiManager.Instance;
-                bool listo = api != null && !api.IsLocalMode && api.IsLoggedIn && api.PartidaId != null;
 
-                if (listo && partidaSincronizada != api.PartidaId)
+                if (api != null && api.PartidaId != null)
                 {
-                    partidaSincronizada = api.PartidaId;
-                    misionesEnServidor.Clear();
-                    zonasEnServidor.Clear();
-                    BajarProgreso();
+                    int partidaId = api.PartidaId.Value;
+
+                    // Paso 1: atar el contexto. Siempre, con o sin servidor.
+                    if (partidaAtada != partidaId)
+                    {
+                        partidaAtada = partidaId;
+                        AtarProgresoALaPartida(partidaId);
+                    }
+
+                    // Paso 2: bajar lo ya hecho. Sólo con servidor, y se reintenta en
+                    // cada tic hasta lograrlo: si el juego arrancó en modo local y la
+                    // conexión vuelve (ReintentarConexion), aquí es donde se recupera.
+                    bool hayServidor = !api.IsLocalMode && api.IsLoggedIn;
+                    if (hayServidor && partidaDescargada != partidaId)
+                    {
+                        partidaDescargada = partidaId;
+                        misionesEnServidor.Clear();
+                        zonasEnServidor.Clear();
+                        BajarProgreso();
+                    }
                 }
 
                 yield return espera;
             }
+        }
+
+        /// <summary>
+        /// Deja los sistemas que guardan progreso apuntando a esta partida. Cada uno se
+        /// encarga de descartar lo que traía de la anterior: si no lo hicieran, el avance
+        /// y la mochila del perfil anterior se le aparecerían al siguiente.
+        ///
+        /// Es pública para que las pantallas que eligen perfil la llamen apenas saben cuál
+        /// es la partida, sin esperar al siguiente tic del bucle: entre elegir el perfil y
+        /// que arranque la escena hay menos de medio segundo, y en esa ventana la escena
+        /// ya puede estar registrando desafíos. El bucle queda como red: si mañana aparece
+        /// otra pantalla que abra partida y se olvida de llamar, el contexto igual se ata
+        /// —tarde, pero se ata—, que es exactamente lo que aquí faltaba.
+        ///
+        /// Llamarla dos veces con la misma partida no hace nada: ambos sistemas cortan si
+        /// el contexto no cambió.
+        /// </summary>
+        public static void AtarProgresoALaPartida(int partidaId)
+        {
+            MissionManager.GetOrCreate().ConfigurarPersistenciaParaPartida(partidaId);
+            InventoryManager.ConfigurarParaPartida(partidaId);
         }
 
         /// <summary>Pide misiones y zonas de la partida activa y las aplica al juego.</summary>
