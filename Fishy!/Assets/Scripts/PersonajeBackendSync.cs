@@ -59,6 +59,32 @@ namespace Fishy.Net
         /// </summary>
         private string escenaAtendida;
 
+        /// <summary>
+        /// La posición que trajo el servidor, pedida ya en el menú. Tenerla ANTES de
+        /// que cargue la escena es lo que evita el salto: si hubiera que esperar la
+        /// respuesta con Otto ya en pantalla, se le ve aparecer en el spawnPoint y
+        /// teletransportarse. Pidiéndola antes, se coloca en su primer frame.
+        /// </summary>
+        private PersonajeDto enCache;
+        private int? partidaPrecargada;
+
+        /// <summary>
+        /// La pone <see cref="AlCargarEscena"/> y la consume <c>LateUpdate</c> del mismo
+        /// frame. No se puede colocar a Otto en el propio evento de carga porque
+        /// <c>OttoController.Start()</c> corre DESPUÉS y lo pisaría con el spawnPoint.
+        /// LateUpdate va después de Start y antes de que se dibuje el frame, así que
+        /// ese primer dibujo ya lo muestra en su sitio.
+        /// </summary>
+        private bool colocarEnLateUpdate;
+        private int framesEsperandoCache;
+
+        /// <summary>
+        /// Cuántos frames se acepta esperar la respuesta con Otto ya en pantalla antes
+        /// de rendirse. A 60 fps son unos 0,5 s: más que eso y conviene dejar que lo
+        /// haga el bucle, porque el niño/a ya empezó a jugar.
+        /// </summary>
+        private const int MaxFramesEsperandoCache = 30;
+
         private Vector2 ultimaGuardada;
         private bool hayUltimaGuardada;
         private Coroutine guardadoPeriodico;
@@ -83,7 +109,64 @@ namespace Fishy.Net
             DontDestroyOnLoad(gameObject);
         }
 
-        private void OnEnable()  { StartCoroutine(EsperarPartidaYOtto()); }
+        private void OnEnable()
+        {
+            SceneManager.sceneLoaded += AlCargarEscena;
+            StartCoroutine(EsperarPartidaYOtto());
+        }
+
+        private void OnDisable()
+        {
+            SceneManager.sceneLoaded -= AlCargarEscena;
+        }
+
+        private void AlCargarEscena(Scene escena, LoadSceneMode modo)
+        {
+            // Solo se marca. Colocar aquí no serviría: Start() de Otto corre después.
+            colocarEnLateUpdate = true;
+        }
+
+        private void LateUpdate()
+        {
+            if (!colocarEnLateUpdate) return;
+
+            var otto = BuscarOtto();
+            if (otto == null) { colocarEnLateUpdate = false; return; }   // escena de menú
+
+            var api = ApiManager.Instance;
+            if (api == null || api.PartidaId == null) { colocarEnLateUpdate = false; return; }
+
+            // La respuesta todavía no llega. NO se consume la bandera: se reintenta en
+            // cada frame durante un rato corto, porque cada frame que se espera es un
+            // frame con Otto dibujado en el spawnPoint. Si se agota, el bucle de medio
+            // segundo lo resuelve igual, con salto visible.
+            if (enCache == null)
+            {
+                framesEsperandoCache++;
+                if (framesEsperandoCache > MaxFramesEsperandoCache)
+                {
+                    colocarEnLateUpdate = false;
+                    Debug.LogWarning("[PersonajeBackendSync] La posición no llegó a tiempo para el " +
+                                     "primer frame: si se restaura ahora se va a ver el salto.");
+                }
+                return;
+            }
+
+            colocarEnLateUpdate = false;
+            framesEsperandoCache = 0;
+
+            string escena = SceneManager.GetActiveScene().name;
+            if (partidaAtendida == api.PartidaId && escenaAtendida == escena) return;
+
+            partidaAtendida = api.PartidaId;
+            escenaAtendida = escena;
+            hayUltimaGuardada = false;
+
+            // `dondeAparecio` es la posición actual: acaba de correr Start(), así que
+            // Otto está en el spawnPoint y todavía nadie lo movió. La comprobación de
+            // "ya se movió" pasa trivialmente, que es lo correcto en este camino.
+            Aplicar(enCache, otto.transform.position);
+        }
 
         private void OnApplicationQuit()
         {
@@ -142,10 +225,21 @@ namespace Fishy.Net
                     sinPartidaDesde = Time.realtimeSinceStartup;
                     avisoDeSinPartidaDado = false;
 
+                    // Se pide apenas hay partida, sin esperar a Otto: normalmente eso
+                    // ocurre en la pantalla de ingreso, varios segundos antes de que
+                    // cargue el juego, así que la respuesta llega a tiempo para
+                    // colocarlo en su primer frame y no se ve ningún salto.
+                    if (partidaPrecargada != api.PartidaId)
+                    {
+                        partidaPrecargada = api.PartidaId;
+                        enCache = null;
+                        Precargar();
+                    }
+
                     string escena = SceneManager.GetActiveScene().name;
                     bool yaHecho = partidaAtendida == api.PartidaId && escenaAtendida == escena;
 
-                    if (!yaHecho && BuscarOtto() != null)
+                    if (!yaHecho && enCache != null && BuscarOtto() != null)
                     {
                         partidaAtendida = api.PartidaId;
                         escenaAtendida = escena;
@@ -158,21 +252,34 @@ namespace Fishy.Net
             }
         }
 
-        private void Restaurar()
+        /// <summary>Pide la posición y la deja en <see cref="enCache"/>, sin aplicarla.</summary>
+        private void Precargar()
         {
             var api = ApiManager.Instance;
             if (api == null) return;
 
-            var otto = BuscarOtto();
-            Vector2 dondeAparecio = otto != null ? (Vector2)otto.transform.position : Vector2.zero;
-
             api.ObtenerPersonaje(
-                onSuccess: dto => Aplicar(dto, dondeAparecio),
+                onSuccess: dto => enCache = dto ?? new PersonajeDto { tiene_posicion = false },
                 onError: e =>
                 {
                     Debug.LogWarning($"[PersonajeBackendSync] No se pudo saber dónde quedó Otto: {e}");
+                    // Se deja un DTO vacío en vez de null para no reintentar en bucle:
+                    // sin posición, Otto se queda en el spawnPoint, que es correcto.
+                    enCache = new PersonajeDto { tiene_posicion = false };
                     ArrancarGuardadoPeriodico();
                 });
+        }
+
+        /// <summary>
+        /// Camino tardío: la escena ya cargó y la respuesta todavía no había llegado.
+        /// Aquí sí se puede ver el salto, pero es lo mejor disponible — la alternativa
+        /// sería no restaurar. El caso normal lo resuelve <c>LateUpdate</c>.
+        /// </summary>
+        private void Restaurar()
+        {
+            var otto = BuscarOtto();
+            if (otto == null || enCache == null) return;
+            Aplicar(enCache, otto.transform.position);
         }
 
         private void Aplicar(PersonajeDto dto, Vector2 dondeAparecio)
