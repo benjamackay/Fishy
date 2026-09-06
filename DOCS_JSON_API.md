@@ -646,6 +646,50 @@ es donde se dibujan.
 
 ---
 
+### Personaje
+
+**GET / PATCH `/partidas/{partida_id}/personaje/`** — Dónde quedó Otto (HDU-15)
+
+```json
+// PATCH Request — todos los campos son opcionales
+{ "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25 }
+
+// Response (igual en GET y en PATCH)
+{
+  "escena": "SampleScene",
+  "pos_x": 12.5,
+  "pos_y": -3.25,
+  "tiene_posicion": true,
+  "fecha_actualizacion": "2026-09-06T18:04:11.220Z"
+}
+```
+
+Es **PATCH y no PUT**, al revés que el inventario, y por una razón concreta: aquí no
+hay nada que borrar. Son tres columnas de una fila que siempre existe, así que mandar
+la posición sin la escena es una actualización legítima y no una orden de dejar el
+resto en blanco.
+
+**La fila se crea sola.** `PersonajeJugador` es uno a uno con la partida, pero ninguna
+vista lo creaba: las partidas que ya existen no tienen fila. El `GET` la crea en vez
+de responder 404 — sale más barato que una migración de datos que recorra todas las
+partidas para dejarles una fila vacía.
+
+**`tiene_posicion` no es una columna**, la deriva el modelo. Va explícito para que el
+cliente no tenga que decidir qué significa un `null`: **el `(0,0)` es un lugar del
+mapa**, no la ausencia de posición. Si se confundieran, a un niño/a que guardó ahí lo
+mandaría de vuelta al `spawnPoint`.
+
+`escena` se guarda para no restaurar coordenadas de otra escena el día que haya más de
+una — dejarían a Otto dentro de un cerro. Unity compara contra la escena activa y, si
+no calzan, ignora la posición y avisa por consola.
+
+> No hay `zona_actual`, y es a propósito. Sería útil para el reporte al tutor, pero hoy
+> Unity no tiene el concepto de "zona en la que está Otto" —las `BlockedZone` saben
+> abrirse, no saben contener—, así que el campo nacería vacío y alguien lo leería
+> creyendo que significa algo.
+
+---
+
 ### NPCs
 
 **POST `/partidas/{partida_id}/npcs/`** — Registrar NPC

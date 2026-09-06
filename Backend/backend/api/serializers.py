@@ -4,6 +4,7 @@ from .models import (
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     DialogoNPC, MisionProgreso, ZonaProgreso, ItemInventario,
+    PersonajeJugador,
 )
 
 
@@ -230,3 +231,17 @@ class ItemInventarioSerializer(serializers.ModelSerializer):
         model = ItemInventario
         fields = ["id", "item_id", "cantidad", "fecha_agregado", "fecha_actualizacion"]
         read_only_fields = fields
+
+
+class PersonajeJugadorSerializer(serializers.ModelSerializer):
+    """Donde quedo Otto en esta partida.
+
+    `tiene_posicion` no es columna: lo deriva el modelo. Va explicito para que el
+    cliente no tenga que decidir si un null significa "nunca jugo" o "esta en el
+    origen del mapa", que son cosas distintas."""
+    tiene_posicion = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = PersonajeJugador
+        fields = ["escena", "pos_x", "pos_y", "tiene_posicion", "fecha_actualizacion"]
+        read_only_fields = ["tiene_posicion", "fecha_actualizacion"]

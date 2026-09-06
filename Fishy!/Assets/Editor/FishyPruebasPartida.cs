@@ -9,7 +9,7 @@ using UnityEngine;
 namespace Fishy.EditorTools
 {
     /// <summary>
-    /// Pruebas headless del guardado de inventario (HDU-15).
+    /// Pruebas headless del guardado de partida (HDU-15): inventario y posicion de Otto.
     ///
     /// Cubren la parte que vive solo en Unity y que ningún test del backend puede
     /// alcanzar: que el catálogo encuentre los assets por su <c>itemId</c>, y que la
@@ -17,16 +17,16 @@ namespace Fishy.EditorTools
     /// endpoint. Esa segunda es la que más importa: si las dos ramas divergen, el
     /// bug aparece recién al reconectar, que es el peor momento para descubrirlo.
     ///
-    /// Se corren desde el menú  Fishy ▸ Probar guardado de inventario,
+    /// Se corren desde el menú  Fishy ▸ Probar guardado de partida,
     /// o sin abrir el editor:
     ///
     ///   Unity.exe -batchmode -nographics -quit -projectPath "&lt;ruta&gt;" `
-    ///             -executeMethod Fishy.EditorTools.FishyPruebasInventario.Ejecutar `
+    ///             -executeMethod Fishy.EditorTools.FishyPruebasPartida.Ejecutar `
     ///             -logFile -
     ///
     /// Termina con código 0 si todo pasa y 1 si algo falla.
     /// </summary>
-    public static class FishyPruebasInventario
+    public static class FishyPruebasPartida
     {
         private static int _ok;
         private static readonly List<string> _fallas = new List<string>();
@@ -34,7 +34,7 @@ namespace Fishy.EditorTools
         /// <summary>Partida ficticia. Se limpia su PlayerPrefs al terminar.</summary>
         private const int PartidaDePrueba = 999999;
 
-        [MenuItem("Fishy/Probar guardado de inventario")]
+        [MenuItem("Fishy/Probar guardado de partida")]
         public static void Ejecutar()
         {
             _ok = 0;
@@ -43,7 +43,7 @@ namespace Fishy.EditorTools
             var log = new StringBuilder();
             log.AppendLine();
             log.AppendLine(new string('=', 70));
-            log.AppendLine("PRUEBAS DE GUARDADO DE INVENTARIO (headless)");
+            log.AppendLine("PRUEBAS DE GUARDADO DE PARTIDA (headless)");
             log.AppendLine(new string('=', 70));
 
             ProbarCatalogoSeCarga(log);
@@ -59,6 +59,11 @@ namespace Fishy.EditorTools
             ProbarModoLocalSumaRepetidos(log, api);
             ProbarModoLocalDescartaCantidadCero(log, api);
             ProbarModoLocalSeparaPorPartida(log, api);
+
+            ProbarPersonajeSinPosicion(log, api);
+            ProbarPersonajeGuardaYRestaura(log, api);
+            ProbarPersonajeEnElOrigen(log, api);
+            ProbarPersonajeSeparaPorPartida(log, api);
 
             LimpiarPrefs();
 
@@ -201,6 +206,70 @@ namespace Fishy.EditorTools
             PlayerPrefs.DeleteKey($"fishy.inventario.{PartidaDePrueba + 1}");
         }
 
+        // ── El personaje (dónde quedó Otto) ────────────────────────────────────
+
+        private static void ProbarPersonajeSinPosicion(StringBuilder log, ApiManager api)
+        {
+            LimpiarPrefs();
+
+            PersonajeDto dto = null;
+            api.ObtenerPersonaje(PartidaDePrueba, onSuccess: d => dto = d);
+
+            Comprobar(log, "personaje: sin guardar, tiene_posicion es false",
+                dto != null && !dto.tiene_posicion,
+                dto == null ? "null" : $"tiene_posicion={dto.tiene_posicion}");
+        }
+
+        private static void ProbarPersonajeGuardaYRestaura(StringBuilder log, ApiManager api)
+        {
+            LimpiarPrefs();
+
+            // Sin callback a proposito: guardar tiene que ocurrir igual.
+            api.GuardarPersonaje("SampleScene", 12.5f, -3.25f, PartidaDePrueba);
+
+            PersonajeDto dto = null;
+            api.ObtenerPersonaje(PartidaDePrueba, onSuccess: d => dto = d);
+
+            Comprobar(log, "personaje: guarda y devuelve la misma posicion",
+                dto != null && dto.tiene_posicion
+                    && Mathf.Approximately(dto.pos_x ?? 0f, 12.5f)
+                    && Mathf.Approximately(dto.pos_y ?? 0f, -3.25f)
+                    && dto.escena == "SampleScene",
+                dto == null ? "null" : $"{dto.escena} ({dto.pos_x}, {dto.pos_y})");
+        }
+
+        private static void ProbarPersonajeEnElOrigen(StringBuilder log, ApiManager api)
+        {
+            LimpiarPrefs();
+
+            api.GuardarPersonaje("SampleScene", 0f, 0f, PartidaDePrueba);
+
+            PersonajeDto dto = null;
+            api.ObtenerPersonaje(PartidaDePrueba, onSuccess: d => dto = d);
+
+            // El (0,0) es un lugar del mapa. Si se confundiera con "no hay posicion",
+            // a un nino que guarda ahi lo mandaria de vuelta al spawnPoint.
+            Comprobar(log, "personaje: el (0,0) NO es 'sin posicion'",
+                dto != null && dto.tiene_posicion,
+                dto == null ? "null" : $"tiene_posicion={dto.tiene_posicion}");
+        }
+
+        private static void ProbarPersonajeSeparaPorPartida(StringBuilder log, ApiManager api)
+        {
+            LimpiarPrefs();
+
+            api.GuardarPersonaje("SampleScene", 5f, 5f, PartidaDePrueba);
+
+            PersonajeDto otra = null;
+            api.ObtenerPersonaje(PartidaDePrueba + 1, onSuccess: d => otra = d);
+
+            Comprobar(log, "personaje: otra partida no ve esta posicion",
+                otra != null && !otra.tiene_posicion,
+                otra == null ? "null" : $"tiene_posicion={otra.tiene_posicion}");
+
+            PlayerPrefs.DeleteKey($"fishy.personaje.{PartidaDePrueba + 1}");
+        }
+
         // ── Auxiliares ─────────────────────────────────────────────────────────
 
         /// <summary>
@@ -250,6 +319,7 @@ namespace Fishy.EditorTools
         private static void LimpiarPrefs()
         {
             PlayerPrefs.DeleteKey($"fishy.inventario.{PartidaDePrueba}");
+            PlayerPrefs.DeleteKey($"fishy.personaje.{PartidaDePrueba}");
             PlayerPrefs.Save();
         }
 

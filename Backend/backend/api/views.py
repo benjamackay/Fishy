@@ -16,6 +16,7 @@ from .models import (
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, CasoDetectiveProgreso,
     DialogoNPC, Mision, MisionProgreso, ZonaProgreso, ItemInventario,
+    PersonajeJugador,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -24,7 +25,7 @@ from .serializers import (
     PreguntaBancoSerializer,
     CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
     DialogoNPCSerializer, MisionProgresoSerializer, ZonaProgresoSerializer,
-    ItemInventarioSerializer,
+    ItemInventarioSerializer, PersonajeJugadorSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -978,3 +979,40 @@ def inventario_partida(request, partida_id):
 
     inventario = partida.inventario.all()
     return Response(ItemInventarioSerializer(inventario, many=True).data)
+
+
+# ── Personaje (donde quedo Otto — por partida) ────────────────────────────────
+
+@api_view(["GET", "PATCH"])
+def personaje_partida(request, partida_id):
+    """
+    GET   — donde quedo Otto en esta partida.
+    PATCH — lo actualiza. Body (todos opcionales):
+            { "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25 }
+
+    Es PATCH y no PUT porque aqui, a diferencia del inventario, **no hay nada que
+    borrar**: son tres columnas de una fila que siempre existe. Mandar la posicion
+    sin la escena, o al reves, es una actualizacion legitima y no una orden de
+    dejar el resto en blanco.
+
+    La fila se crea si no existia: `PersonajeJugador` es uno-a-uno con la partida
+    pero ninguna vista lo creaba, asi que las partidas de hoy no tienen. Un
+    get_or_create sale mas barato que una migracion de datos que recorra todas las
+    partidas para dejarles una fila vacia.
+
+    Sin posicion guardada, `tiene_posicion` viene en false y Unity deja a Otto en
+    el spawnPoint de la escena. Es distinto de (0,0), que es un lugar del mapa.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+    personaje, _ = PersonajeJugador.objects.get_or_create(partida=partida)
+
+    if request.method == "PATCH":
+        serializer = PersonajeJugadorSerializer(personaje, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
+
+    return Response(PersonajeJugadorSerializer(personaje).data)

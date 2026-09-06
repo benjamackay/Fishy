@@ -836,6 +836,56 @@ namespace Fishy.Net
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  PERSONAJE — donde quedo Otto (HDU-15)                                  ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Donde quedo Otto en esta partida. Si nunca se guardo, el DTO viene con
+        /// <c>tiene_posicion = false</c> y hay que dejarlo en el spawnPoint.
+        /// </summary>
+        public void ObtenerPersonaje(int? partidaId = null,
+            Action<PersonajeDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                var local = LocalLeerPersonaje(pId.Value);
+                onSuccess?.Invoke(local);
+                return;
+            }
+
+            StartCoroutine(Send<PersonajeDto>("GET", $"/partidas/{pId}/personaje/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Guarda donde esta Otto. Es un PATCH: manda solo lo que cambia y lo demas
+        /// se queda como estaba.
+        /// </summary>
+        public void GuardarPersonaje(string escena, float x, float y, int? partidaId = null,
+            Action<PersonajeDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // El trabajo NO va adentro de `onSuccess?.Invoke(...)`: el `?.` corta
+                // la expresion entera cuando el callback es null y no se guardaria
+                // nada, en silencio. Ya paso con el inventario.
+                var guardado = LocalGuardarPersonaje(pId.Value, escena, x, y);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            var body = new { escena, pos_x = x, pos_y = y };
+            StartCoroutine(Send<PersonajeDto>("PATCH", $"/partidas/{pId}/personaje/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -941,6 +991,41 @@ namespace Fishy.Net
         // Por partida, igual que la clave de MissionManager: sin el id adentro, el
         // inventario del Perfil 1 se le aparecería al Perfil 2 en el mismo equipo.
         private static string InventarioKey(int partidaId) => $"fishy.inventario.{partidaId}";
+
+        private static string PersonajeKey(int partidaId) => $"fishy.personaje.{partidaId}";
+
+        /// <summary>Donde quedo Otto segun este equipo. Nunca devuelve null.</summary>
+        private static PersonajeDto LocalLeerPersonaje(int partidaId)
+        {
+            string raw = PlayerPrefs.GetString(PersonajeKey(partidaId), "");
+            if (string.IsNullOrEmpty(raw)) return new PersonajeDto { tiene_posicion = false };
+
+            try
+            {
+                var dto = JsonConvert.DeserializeObject<PersonajeDto>(raw);
+                if (dto == null) return new PersonajeDto { tiene_posicion = false };
+                // Se recalcula en vez de confiar en lo guardado: si el JSON quedo a
+                // medias, `tiene_posicion` podria decir true sin coordenadas.
+                dto.tiene_posicion = dto.pos_x.HasValue && dto.pos_y.HasValue;
+                return dto;
+            }
+            catch { return new PersonajeDto { tiene_posicion = false }; }
+        }
+
+        private static PersonajeDto LocalGuardarPersonaje(int partidaId, string escena, float x, float y)
+        {
+            var dto = new PersonajeDto
+            {
+                escena = escena ?? "",
+                pos_x = x,
+                pos_y = y,
+                tiene_posicion = true,
+                fecha_actualizacion = LocalNow(),
+            };
+            PlayerPrefs.SetString(PersonajeKey(partidaId), JsonConvert.SerializeObject(dto));
+            PlayerPrefs.Save();
+            return dto;
+        }
 
         /// <summary>Inventario guardado en este equipo para esa partida.</summary>
         private static List<ItemInventarioDto> LocalLeerInventario(int partidaId)
@@ -1601,6 +1686,18 @@ namespace Fishy.Net
         public string item_id;   // "ITEM_BRUJULA" — el itemId del ItemData
         public int cantidad;
         public string fecha_agregado;
+        public string fecha_actualizacion;
+    }
+
+    /// <summary>Donde quedo Otto en esta partida (HDU-15).</summary>
+    [Serializable]
+    public class PersonajeDto
+    {
+        public string escena;
+        public float? pos_x;
+        public float? pos_y;
+        /// <summary>False = nunca se guardo. Distinto de estar en el (0,0).</summary>
+        public bool tiene_posicion;
         public string fecha_actualizacion;
     }
 

@@ -138,15 +138,42 @@ class Partida(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class PersonajeJugador(models.Model):
+    """Donde quedo Otto. Uno a uno con la partida.
+
+    El modelo existia vacio desde el principio con un comentario que decia "agrega
+    aqui los atributos": esto es eso. Guarda lo minimo para volver a dejar a Otto
+    donde estaba, que sin esto reaparecia en el `spawnPoint` de la escena.
+
+    **No hay `zona_actual` a proposito.** Seria util para el reporte al tutor, pero
+    hoy Unity no tiene el concepto de "zona en la que esta Otto" -las `BlockedZone`
+    saben abrirse, no saben contener- asi que el campo nacria vacio y alguien lo
+    leeria creyendo que significa algo. Cuando exista quien lo llene, se agrega.
+
+    Las tres columnas admiten null: una partida recien creada no tiene posicion
+    guardada, y eso es distinto de tenerla en (0,0), que es un lugar del mapa.
+    """
     partida = models.OneToOneField(
         Partida,
         on_delete=models.CASCADE,
         related_name="personaje"
     )
-    # Agrega aquí los atributos del personaje (nombre, stats, apariencia, etc.)
+    escena = models.CharField(
+        max_length=80, blank=True,
+        help_text="Escena de Unity donde estaba, ej. `SampleScene`. Se guarda para no "
+                  "restaurar una posicion de otra escena si algun dia hay mas de una."
+    )
+    pos_x  = models.FloatField(null=True, blank=True)
+    pos_y  = models.FloatField(null=True, blank=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    @property
+    def tiene_posicion(self):
+        return self.pos_x is not None and self.pos_y is not None
 
     def __str__(self):
-        return f"Personaje de {self.partida}"
+        if not self.tiene_posicion:
+            return f"Personaje de {self.partida} (sin posicion)"
+        return f"Personaje de {self.partida} en ({self.pos_x:.1f}, {self.pos_y:.1f})"
 
     class Meta:
         verbose_name = "Personaje Jugador"
