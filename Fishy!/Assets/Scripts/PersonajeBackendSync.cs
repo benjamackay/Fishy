@@ -47,10 +47,22 @@ namespace Fishy.Net
         /// </summary>
         private const float RadioParaConsiderarQueNoSeHaMovido = 1.5f;
 
+        /// <summary>Segundos sin PartidaId antes de avisar que no se va a guardar nada.</summary>
+        private const float SegundosAntesDeAvisarQueNoHayPartida = 8f;
+
         private int? partidaAtendida;
+
+        /// <summary>
+        /// Escena en la que se restauró. Va junto a la partida porque restaurar no
+        /// depende solo de que haya partida: depende de que exista Otto, y Otto solo
+        /// existe en la escena de juego. Ver <see cref="EsperarPartidaYOtto"/>.
+        /// </summary>
+        private string escenaAtendida;
+
         private Vector2 ultimaGuardada;
         private bool hayUltimaGuardada;
         private Coroutine guardadoPeriodico;
+        private bool avisoDeSinPartidaDado;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
@@ -71,7 +83,7 @@ namespace Fishy.Net
             DontDestroyOnLoad(gameObject);
         }
 
-        private void OnEnable()  { StartCoroutine(EsperarPartida()); }
+        private void OnEnable()  { StartCoroutine(EsperarPartidaYOtto()); }
 
         private void OnApplicationQuit()
         {
@@ -90,19 +102,56 @@ namespace Fishy.Net
 
         // ── 1. Restaurar ─────────────────────────────────────────────────────
 
-        private IEnumerator EsperarPartida()
+        /// <summary>
+        /// Espera a que haya partida <b>y además Otto en la escena</b>, y recién ahí
+        /// restaura.
+        ///
+        /// Esperar solo la partida no alcanza, y es el error que costó una tarde: la
+        /// <c>PartidaId</c> se fija en la escena <c>Ingresar</c>, donde Otto todavía
+        /// no existe —vive en la escena de juego, que carga después—. Si se marcara
+        /// la partida como atendida ahí, se restauraría contra un Otto inexistente y
+        /// nunca se volvería a intentar, porque la partida ya no cambia. Por eso la
+        /// condición incluye la escena: mientras no haya a quién mover, se sigue
+        /// esperando, y volver a entrar al juego vuelve a restaurar.
+        /// </summary>
+        private IEnumerator EsperarPartidaYOtto()
         {
             var espera = new WaitForSeconds(EsperaEntreIntentos);
+            float sinPartidaDesde = Time.realtimeSinceStartup;
 
             while (true)
             {
                 var api = ApiManager.Instance;
 
-                if (api != null && api.PartidaId != null && partidaAtendida != api.PartidaId)
+                if (api == null || api.PartidaId == null)
                 {
-                    partidaAtendida = api.PartidaId;
-                    hayUltimaGuardada = false;
-                    Restaurar();
+                    // El silencio es lo que más ha costado en este proyecto: sin partida
+                    // no se guarda nada y antes no se decía. Se avisa una vez.
+                    if (!avisoDeSinPartidaDado &&
+                        Time.realtimeSinceStartup - sinPartidaDesde > SegundosAntesDeAvisarQueNoHayPartida)
+                    {
+                        avisoDeSinPartidaDado = true;
+                        Debug.LogWarning(
+                            "[PersonajeBackendSync] Llevo varios segundos sin PartidaId: la posición de " +
+                            "Otto NO se va a guardar. Si estás probando, entra por MenuUno para pasar " +
+                            "por el login; darle Play directo a la escena de juego no crea partida.");
+                    }
+                }
+                else
+                {
+                    sinPartidaDesde = Time.realtimeSinceStartup;
+                    avisoDeSinPartidaDado = false;
+
+                    string escena = SceneManager.GetActiveScene().name;
+                    bool yaHecho = partidaAtendida == api.PartidaId && escenaAtendida == escena;
+
+                    if (!yaHecho && BuscarOtto() != null)
+                    {
+                        partidaAtendida = api.PartidaId;
+                        escenaAtendida = escena;
+                        hayUltimaGuardada = false;
+                        Restaurar();
+                    }
                 }
 
                 yield return espera;
@@ -132,9 +181,13 @@ namespace Fishy.Net
 
             if (otto == null)
             {
-                // Pasa en las escenas de menú, que no tienen a Otto. No es un error:
-                // el bucle vuelve a intentar cuando cambie la partida, y el guardado
-                // periódico se salta solo mientras no haya a quién mirar.
+                // El bucle solo llama aquí cuando Otto existe, así que llegar sin él
+                // significa que lo destruyeron entre la petición y la respuesta (un
+                // cambio de escena a mitad de camino). Se deshace lo marcado para que
+                // el bucle vuelva a intentarlo cuando Otto reaparezca.
+                Debug.LogWarning("[PersonajeBackendSync] Otto desapareció mientras se " +
+                                 "pedía su posición. Se reintentará.");
+                escenaAtendida = null;
                 ArrancarGuardadoPeriodico();
                 return;
             }

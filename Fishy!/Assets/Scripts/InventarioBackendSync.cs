@@ -55,6 +55,7 @@ namespace Fishy.Net
         private int? partidaAtendida;
         private Coroutine subidaPendiente;
         private bool suscrito;
+        private bool avisoDeSinPartidaDado;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
@@ -91,15 +92,37 @@ namespace Fishy.Net
         {
             var espera = new WaitForSeconds(EsperaEntreIntentos);
 
+            float sinPartidaDesde = Time.realtimeSinceStartup;
+
             while (true)
             {
                 var api = ApiManager.Instance;
 
-                if (api != null && api.PartidaId != null && partidaAtendida != api.PartidaId)
+                if (api == null || api.PartidaId == null)
                 {
-                    partidaAtendida = api.PartidaId;
-                    ultimoSubido = null;
-                    BajarInventario();
+                    // Sin partida no se guarda nada, y antes eso no se decia: el juego
+                    // parecia andar bien y la mochila se perdia igual.
+                    if (!avisoDeSinPartidaDado &&
+                        Time.realtimeSinceStartup - sinPartidaDesde > 8f)
+                    {
+                        avisoDeSinPartidaDado = true;
+                        Debug.LogWarning(
+                            "[InventarioBackendSync] Llevo varios segundos sin PartidaId: la mochila " +
+                            "NO se va a guardar. Si estas probando, entra por MenuUno para pasar por " +
+                            "el login; darle Play directo a la escena de juego no crea partida.");
+                    }
+                }
+                else
+                {
+                    sinPartidaDesde = Time.realtimeSinceStartup;
+                    avisoDeSinPartidaDado = false;
+
+                    if (partidaAtendida != api.PartidaId)
+                    {
+                        partidaAtendida = api.PartidaId;
+                        ultimoSubido = null;
+                        BajarInventario();
+                    }
                 }
 
                 yield return espera;

@@ -53,6 +53,8 @@ namespace Fishy.Net
         /// </summary>
         private int? partidaDescargada;
 
+        private bool avisoDeSinPartidaDado;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
         {
@@ -110,13 +112,31 @@ namespace Fishy.Net
         private IEnumerator EsperarPartidaYBajarProgreso()
         {
             var espera = new WaitForSeconds(EsperaEntreIntentos);
+            float sinPartidaDesde = Time.realtimeSinceStartup;
 
             while (true)
             {
                 var api = ApiManager.Instance;
 
-                if (api != null && api.PartidaId != null)
+                if (api == null || api.PartidaId == null)
                 {
+                    // Sin partida, el progreso no se ata a nadie y no se guarda. Antes
+                    // este bucle esperaba callado para siempre.
+                    if (!avisoDeSinPartidaDado &&
+                        Time.realtimeSinceStartup - sinPartidaDesde > 8f)
+                    {
+                        avisoDeSinPartidaDado = true;
+                        Debug.LogWarning(
+                            "[MisionBackendSync] Llevo varios segundos sin PartidaId: el progreso de " +
+                            "misiones y zonas NO se va a guardar. Si estas probando, entra por MenuUno " +
+                            "para pasar por el login; darle Play directo a la escena no crea partida.");
+                    }
+                }
+                else
+                {
+                    sinPartidaDesde = Time.realtimeSinceStartup;
+                    avisoDeSinPartidaDado = false;
+
                     int partidaId = api.PartidaId.Value;
 
                     // Paso 1: atar el contexto. Siempre, con o sin servidor.
