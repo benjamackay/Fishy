@@ -4,7 +4,7 @@ from .models import (
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     DialogoNPC, MisionProgreso, ZonaProgreso, ItemInventario,
-    PersonajeJugador, ObjetoRecogido,
+    PersonajeJugador, ObjetoRecogido, NpcProgreso,
 )
 
 
@@ -258,3 +258,12 @@ class ObjetoRecogidoSerializer(serializers.ModelSerializer):
         model = ObjetoRecogido
         fields = ["id", "objeto_id", "fecha"]
         read_only_fields = fields
+
+
+class NpcProgresoSerializer(serializers.ModelSerializer):
+    """Un NPC de una tematica cuya interaccion esta partida ya termino."""
+
+    class Meta:
+        model = NpcProgreso
+        fields = ["id", "npc_id", "exito", "fecha"]
+        read_only_fields = ["id", "fecha"]

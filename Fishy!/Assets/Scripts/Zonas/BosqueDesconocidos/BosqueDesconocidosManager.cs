@@ -74,6 +74,18 @@ namespace Fishy.Zonas.BosqueDesconocidos
                 CompleteTheme();
         }
 
+        /// <summary>
+        /// Vuelve a preguntar si la tematica esta completa, sin que ningun NPC acabe
+        /// de terminar. La llama la restauracion despues de repartir el progreso
+        /// guardado: si el nino/a habia hecho los tres en sesiones distintas, es aqui
+        /// donde la zona siguiente se abre.
+        /// </summary>
+        public void RevisarSiYaEstaCompleta()
+        {
+            if (Completed) return;
+            if (AllFinished()) CompleteTheme();
+        }
+
         private bool AllFinished()
         {
             if (npcs == null || npcs.Count == 0) return false;

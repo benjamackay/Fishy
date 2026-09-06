@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Fishy.Zonas.BosqueDesconocidos;
 
 namespace Fishy.EditorTools
 {
@@ -27,20 +28,22 @@ namespace Fishy.EditorTools
     /// </summary>
     public static class FishyIdsDeObjetos
     {
-        private const string MenuAsignar = "Fishy/Asignar ids a los objetos del mapa";
-        private const string MenuRevisar = "Fishy/Revisar ids de los objetos del mapa";
+        private const string MenuAsignar = "Fishy/Asignar ids de escena (objetos y NPCs)";
+        private const string MenuRevisar = "Fishy/Revisar ids de escena (objetos y NPCs)";
 
         [MenuItem(MenuAsignar)]
         public static void Asignar()
         {
             var items = ItemsDeLaEscena();
-            if (items.Count == 0) { NadaQueHacer(); return; }
+            if (items.Count == 0 && NpcsDeLaEscena().Count == 0) { NadaQueHacer(); return; }
 
             // Los ids que ya existen se reservan primero, para que un id nuevo no
             // choque con uno viejo al numerar.
             var usados = new HashSet<string>(
                 items.Where(i => !string.IsNullOrWhiteSpace(i.objetoId))
                      .Select(i => i.objetoId.Trim()));
+            foreach (var npc in NpcsDeLaEscena())
+                if (!string.IsNullOrWhiteSpace(npc.npcId)) usados.Add(npc.npcId.Trim());
 
             string escena = Prefijo(SceneManager.GetActiveScene().name);
             var log = new StringBuilder();
@@ -64,12 +67,34 @@ namespace Fishy.EditorTools
                 log.AppendLine($"    {item.name}  →  {id}");
             }
 
+            // Los NPCs de temática necesitan lo mismo y por la misma razón: sin id, su
+            // avance no se recuerda y la temática empieza de cero cada sesión.
+            int npcsAsignados = 0;
+            foreach (var npc in NpcsDeLaEscena())
+            {
+                if (!string.IsNullOrWhiteSpace(npc.npcId)) continue;
+
+                string baseId = $"{escena}_NPC_{Prefijo(npc.name)}";
+                string id = baseId;
+                int n = 1;
+                while (usados.Contains(id)) id = $"{baseId}_{++n:00}";
+
+                Undo.RecordObject(npc, "Asignar npcId");
+                npc.npcId = id;
+                EditorUtility.SetDirty(npc);
+                usados.Add(id);
+                npcsAsignados++;
+                log.AppendLine($"    {npc.name}  →  {id}");
+            }
+            asignados += npcsAsignados;
+
             if (asignados > 0)
                 EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
 
-            int yaTenian = items.Count - asignados;
+            int total = items.Count + NpcsDeLaEscena().Count;
+            int yaTenian = total - asignados;
             var resumen = new StringBuilder();
-            resumen.AppendLine($"[Objetos del mapa] {items.Count} WorldItem en '{SceneManager.GetActiveScene().name}'.");
+            resumen.AppendLine($"[Ids de escena] {items.Count} objeto(s) y {NpcsDeLaEscena().Count} NPC(s) en '{SceneManager.GetActiveScene().name}'.");
             resumen.AppendLine($"  {asignados} id(s) nuevos, {yaTenian} que ya tenían (no se tocan).");
             if (asignados > 0) resumen.Append(log);
 
@@ -77,7 +102,7 @@ namespace Fishy.EditorTools
 
             EditorUtility.DisplayDialog("Fishy — Ids de objetos del mapa",
                 asignados == 0
-                    ? $"Los {items.Count} objetos ya tenían id. No se cambió nada."
+                    ? $"Los {total} objetos y NPCs ya tenían id. No se cambió nada."
                     : $"Se asignaron {asignados} id(s) nuevos a los objetos sin id.\n" +
                       $"{yaTenian} ya tenían y no se tocaron.\n\n" +
                       "ACUÉRDATE DE GUARDAR LA ESCENA (Ctrl+S): los ids viven en la escena.",
@@ -90,23 +115,34 @@ namespace Fishy.EditorTools
             var items = ItemsDeLaEscena();
             if (items.Count == 0) { NadaQueHacer(); return; }
 
-            var sinId = items.Where(i => string.IsNullOrWhiteSpace(i.objetoId)).ToList();
+            var npcs = NpcsDeLaEscena();
+
+            var sinId = items.Where(i => string.IsNullOrWhiteSpace(i.objetoId))
+                             .Select(i => i.name)
+                             .Concat(npcs.Where(n => string.IsNullOrWhiteSpace(n.npcId))
+                                         .Select(n => $"{n.name} (NPC)"))
+                             .ToList();
             var repetidos = items
                 .Where(i => !string.IsNullOrWhiteSpace(i.objetoId))
-                .GroupBy(i => i.objetoId.Trim())
+                .Select(i => (id: i.objetoId.Trim(), nombre: i.name))
+                .Concat(npcs.Where(n => !string.IsNullOrWhiteSpace(n.npcId))
+                            .Select(n => (id: n.npcId.Trim(), nombre: $"{n.name} (NPC)")))
+                .GroupBy(x => x.id)
                 .Where(g => g.Count() > 1)
                 .ToList();
 
             var log = new StringBuilder();
-            log.AppendLine($"[Objetos del mapa] {items.Count} WorldItem revisados.");
+            log.AppendLine($"[Ids de escena] {items.Count} objeto(s) y {npcs.Count} NPC(s) revisados.");
             foreach (var i in items.OrderBy(i => i.objetoId))
                 log.AppendLine($"    {(string.IsNullOrWhiteSpace(i.objetoId) ? "(SIN ID)" : i.objetoId),-34} {i.name}");
+            foreach (var n in npcs.OrderBy(n => n.npcId))
+                log.AppendLine($"    {(string.IsNullOrWhiteSpace(n.npcId) ? "(SIN ID)" : n.npcId),-34} {n.name} (NPC)");
 
             if (sinId.Count > 0)
             {
                 log.AppendLine();
                 log.AppendLine($"  SIN ID ({sinId.Count}) — van a reaparecer en el mapa cada vez:");
-                foreach (var i in sinId) log.AppendLine($"    {i.name}");
+                foreach (var nombre in sinId) log.AppendLine($"    {nombre}");
             }
 
             if (repetidos.Count > 0)
@@ -114,7 +150,7 @@ namespace Fishy.EditorTools
                 log.AppendLine();
                 log.AppendLine($"  REPETIDOS ({repetidos.Count}) — recoger uno haría desaparecer al otro:");
                 foreach (var g in repetidos)
-                    log.AppendLine($"    '{g.Key}': {string.Join(", ", g.Select(i => i.name))}");
+                    log.AppendLine($"    '{g.Key}': {string.Join(", ", g.Select(x => x.nombre))}");
             }
 
             bool hayProblemas = sinId.Count > 0 || repetidos.Count > 0;
@@ -125,7 +161,7 @@ namespace Fishy.EditorTools
                 hayProblemas
                     ? $"Hay problemas:\n\n• {sinId.Count} objeto(s) sin id\n" +
                       $"• {repetidos.Count} id(s) repetido(s)\n\nEl detalle está en la consola."
-                    : $"Los {items.Count} objetos del mapa tienen un id único.",
+                    : $"Los {items.Count} objetos y {npcs.Count} NPC(s) tienen un id único.",
                 "OK");
         }
 
@@ -139,6 +175,14 @@ namespace Fishy.EditorTools
         {
             return Object.FindObjectsByType<WorldItem>(FindObjectsInactive.Include)
                 .OrderBy(i => i.name)
+                .ToList();
+        }
+
+        /// <summary>Los NPCs de temática de la escena, incluidos los desactivados.</summary>
+        private static List<BosqueDesconocidosNPC> NpcsDeLaEscena()
+        {
+            return Object.FindObjectsByType<BosqueDesconocidosNPC>(FindObjectsInactive.Include)
+                .OrderBy(n => n.name)
                 .ToList();
         }
 

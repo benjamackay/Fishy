@@ -16,7 +16,7 @@ from .models import (
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, CasoDetectiveProgreso,
     DialogoNPC, Mision, MisionProgreso, ZonaProgreso, ItemInventario,
-    PersonajeJugador, ObjetoRecogido,
+    PersonajeJugador, ObjetoRecogido, NpcProgreso,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -26,7 +26,7 @@ from .serializers import (
     CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
     DialogoNPCSerializer, MisionProgresoSerializer, ZonaProgresoSerializer,
     ItemInventarioSerializer, PersonajeJugadorSerializer,
-    ObjetoRecogidoSerializer,
+    ObjetoRecogidoSerializer, NpcProgresoSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -1071,3 +1071,59 @@ def objetos_recogidos_partida(request, partida_id):
 
     objetos = partida.objetos_recogidos.all()
     return Response(ObjetoRecogidoSerializer(objetos, many=True).data)
+
+
+# ── Progreso por NPC de una tematica (HDU-3 CA5 / HDU-4 CA5) ──────────────────
+
+@api_view(["GET", "POST"])
+def progreso_npcs_partida(request, partida_id):
+    """
+    GET  — NPCs de tematica cuya interaccion esta partida ya termino.
+    POST — marca uno. Body: { "npc_id": "BOSQUE_DESCONOCIDO_01", "exito": true }
+
+    Es lo que permite que una tematica se complete en varias sesiones. Antes el
+    "ya termine con este NPC" vivia solo en memoria del objeto de la escena, asi
+    que el nino tenia que hacer los tres NPCs de una sentada o la zona siguiente
+    no se abria.
+
+    `exito` importa tanto como el hecho de haber terminado: decide si el NPC se
+    retira del mapa y si cuenta como "a salvo" o como "captura" en el resumen. Por
+    eso no basta con deducir de los chats que la conversacion ocurrio.
+
+    Idempotente en la identidad (no duplica la fila), pero **`exito` si se
+    actualiza**: un NPC con `allowReplay` puede repetirse, y el resultado que vale
+    es el ultimo. Se diferencia de los objetos recogidos, donde no hay nada que
+    actualizar.
+
+    `npc_id` es el id del NPC en la escena, NO la PK del modelo NPC: aquel es una
+    fila por partida con la confianza, este nombra al personaje del mapa.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        npc_id = (request.data.get("npc_id") or "").strip()
+        if not npc_id:
+            return Response({"npc_id": "Este campo es obligatorio."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        largo_max = NpcProgreso._meta.get_field("npc_id").max_length
+        if len(npc_id) > largo_max:
+            return Response({"npc_id": f"Pasa los {largo_max} caracteres."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        exito = request.data.get("exito", False)
+        if not isinstance(exito, bool):
+            return Response({"exito": "Debe ser true o false."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        progreso, creado = NpcProgreso.objects.update_or_create(
+            partida=partida, npc_id=npc_id, defaults={"exito": exito}
+        )
+        return Response(
+            NpcProgresoSerializer(progreso).data,
+            status=status.HTTP_201_CREATED if creado else status.HTTP_200_OK,
+        )
+
+    return Response(NpcProgresoSerializer(partida.progreso_npcs.all(), many=True).data)

@@ -941,6 +941,58 @@ namespace Fishy.Net
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  PROGRESO POR NPC DE TEMATICA (HDU-3 CA5 / HDU-4 CA5)                   ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>NPCs de tematica cuya interaccion esta partida ya termino.</summary>
+        public void ObtenerProgresoNpcs(int? partidaId = null,
+            Action<List<NpcProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                var local = LoadLocalList<NpcProgresoDto>(NpcsKey(pId.Value));
+                onSuccess?.Invoke(local);
+                return;
+            }
+
+            StartCoroutine(Send<List<NpcProgresoDto>>("GET", $"/partidas/{pId}/progreso-npcs/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca que la interaccion con ese NPC termino. A diferencia de los objetos
+        /// recogidos, repetir SI actualiza: un NPC con `allowReplay` puede rehacerse y
+        /// vale el ultimo resultado.
+        /// </summary>
+        public void MarcarNpcTerminado(string npcId, bool exito, int? partidaId = null,
+            Action<NpcProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (string.IsNullOrWhiteSpace(npcId))
+            {
+                onError?.Invoke("Falta el npcId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // En su propia linea, no dentro de `onSuccess?.Invoke(...)`.
+                var guardado = LocalMarcarNpc(pId.Value, npcId.Trim(), exito);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            var body = new { npc_id = npcId.Trim(), exito };
+            StartCoroutine(Send<NpcProgresoDto>("POST", $"/partidas/{pId}/progreso-npcs/",
+                body, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -1112,6 +1164,32 @@ namespace Fishy.Net
 
         private static string PersonajeKey(int partidaId) => $"fishy.personaje.{partidaId}";
         private static string ObjetosKey(int partidaId) => $"fishy.objetos.{partidaId}";
+        private static string NpcsKey(int partidaId) => $"fishy.npcs.{partidaId}";
+
+        /// <summary>Espeja el update_or_create del backend: no duplica, pero actualiza `exito`.</summary>
+        private static NpcProgresoDto LocalMarcarNpc(int partidaId, string npcId, bool exito)
+        {
+            var lista = LoadLocalList<NpcProgresoDto>(NpcsKey(partidaId));
+
+            var existente = lista.Find(n => n != null && n.npc_id == npcId);
+            if (existente != null)
+            {
+                existente.exito = exito;
+                SaveLocalList(NpcsKey(partidaId), lista);
+                return existente;
+            }
+
+            var nuevo = new NpcProgresoDto
+            {
+                id = lista.Count + 1,
+                npc_id = npcId,
+                exito = exito,
+                fecha = LocalNow(),
+            };
+            lista.Add(nuevo);
+            SaveLocalList(NpcsKey(partidaId), lista);
+            return nuevo;
+        }
 
         /// <summary>
         /// Espeja el POST idempotente del backend: si el objeto ya estaba, devuelve la
@@ -1836,6 +1914,16 @@ namespace Fishy.Net
     {
         public int id;
         public string objeto_id;   // "SAMPLESCENE_CONCHA_01" — el objetoId del WorldItem
+        public string fecha;
+    }
+
+    /// <summary>Un NPC de tematica cuya interaccion esta partida ya termino.</summary>
+    [Serializable]
+    public class NpcProgresoDto
+    {
+        public int id;
+        public string npc_id;   // "BOSQUE_DESCONOCIDO_01" — el npcId de la escena
+        public bool exito;      // supero el umbral: decide si el NPC se retira del mapa
         public string fecha;
     }
 

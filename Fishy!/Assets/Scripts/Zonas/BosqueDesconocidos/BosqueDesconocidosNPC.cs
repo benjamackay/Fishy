@@ -19,6 +19,12 @@ namespace Fishy.Zonas.BosqueDesconocidos
     [RequireComponent(typeof(ChatModuleLauncher))]
     public class BosqueDesconocidosNPC : MonoBehaviour
     {
+        [Header("Identidad")]
+        [Tooltip("Identificador único de ESTE NPC en la escena. Se usa para recordar " +
+                 "que su interacción ya terminó, así la temática puede completarse en " +
+                 "varias sesiones. Asígnalo con Fishy → Asignar ids de escena.")]
+        public string npcId;
+
         [Header("Resultado")]
         [Tooltip("% mínimo de respuestas seguras en la sesión para contar como éxito.")]
         public float umbralExito = 70f;
@@ -44,6 +50,25 @@ namespace Fishy.Zonas.BosqueDesconocidos
 
         public string NpcName => name;
 
+        /// <summary>
+        /// Deja el NPC como si su interaccion ya hubiera terminado, sin repetir el
+        /// popup de exito ni volver a avisarle al manager.
+        ///
+        /// Restaurar no es volver a jugar: el mensaje "no compartiste tus datos" al
+        /// entrar seria felicitar por algo de ayer, y el manager va a recontar solo.
+        /// La animacion de salida tampoco corre —se salta directo al estado final—
+        /// porque ver al NPC alejarse al cargar la escena no tiene sentido.
+        /// </summary>
+        public void RestaurarComoTerminado(bool exito)
+        {
+            if (Finished) return;
+
+            Finished = true;
+            WasSuccessful = exito;
+
+            if (exito && disableAfterLeaving) gameObject.SetActive(false);
+        }
+
         private ChatModuleLauncher launcher;
 
         private void Awake()
@@ -66,6 +91,10 @@ namespace Fishy.Zonas.BosqueDesconocidos
             bool firstTime = !Finished;
             Finished = true;
             WasSuccessful = exito;
+
+            // Se guarda apenas termina, no al completar la tematica: el punto es
+            // justamente que la tematica pueda quedar a medias entre sesiones.
+            NpcTematicaSync.Marcar(npcId, exito, NpcName);
 
             if (exito)
             {

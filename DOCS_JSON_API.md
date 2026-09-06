@@ -726,6 +726,40 @@ de cada niño/a y cambiarlo haría reaparecer objetos que ya habían recogido.
 
 ---
 
+### Progreso por NPC de una temática
+
+**GET / POST `/partidas/{partida_id}/progreso-npcs/`** — HDU-3 CA5 / HDU-4 CA5
+
+```json
+// POST Request
+{ "npc_id": "SAMPLESCENE_NPC_DESCONOCIDO_01", "exito": true }
+
+// Response — 201 la primera vez, 200 al repetir
+{ "id": 4, "npc_id": "SAMPLESCENE_NPC_DESCONOCIDO_01", "exito": true,
+  "fecha": "2026-09-06T19:02:44.301Z" }
+```
+
+Es lo que permite que **una temática se complete en varias sesiones**.
+`BosqueDesconocidosManager` decide si está lista preguntándole a cada NPC si
+`Finished`, y eso vivía solo en memoria del objeto de la escena: con 2 de 3 NPCs
+hechos, cerrar el juego los devolvía a los tres a cero. Había que hacer la temática
+entera de una sentada o la zona siguiente no se abría nunca — para un niño/a que
+juega en ratos cortos, eso podía **bloquear el avance**, no solo molestar.
+
+**`exito` importa tanto como haber terminado**: decide si el NPC se retira del mapa
+y si cuenta como "a salvo" o "captura" en el resumen. Por eso no basta con deducir
+de los chats que la conversación ocurrió — el chat no guarda el `safePercent`.
+
+**Repetir el POST sí actualiza `exito`**, a diferencia de los objetos recogidos: un
+NPC con `allowReplay` puede rehacerse y vale el último resultado. La fila no se
+duplica.
+
+> `npc_id` es el id del NPC **en la escena**, no la PK del modelo `NPC`. Son cosas
+> distintas: aquel es una fila por partida con la confianza; este nombra al
+> personaje del mapa. Se asigna con **Fishy → Asignar ids de escena**.
+
+---
+
 ### NPCs
 
 **POST `/partidas/{partida_id}/npcs/`** — Registrar NPC

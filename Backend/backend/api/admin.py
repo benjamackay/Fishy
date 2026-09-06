@@ -8,7 +8,7 @@ from .models import (
     PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
-    MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido,
+    MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido, NpcProgreso,
 )
 
 
@@ -472,3 +472,24 @@ class ObjetoRecogidoAdmin(admin.ModelAdmin):
     @admin.display(description="menor")
     def jugador(self, obj):
         return obj.partida.usuario_jugador.nombre
+
+
+@admin.register(NpcProgreso)
+class NpcProgresoAdmin(admin.ModelAdmin):
+    list_display  = ("npc_id", "resultado", "jugador", "partida", "fecha")
+    list_filter   = ("exito", "npc_id")
+    search_fields = ("npc_id", "partida__usuario_jugador__nombre")
+    readonly_fields = ("fecha",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("partida__usuario_jugador")
+
+    @admin.display(description="menor")
+    def jugador(self, obj):
+        return obj.partida.usuario_jugador.nombre
+
+    @admin.display(description="resultado")
+    def resultado(self, obj):
+        # En palabras y no un booleano: "a salvo / captura" es como lo nombra el
+        # juego, y el adulto que mira esta tabla no conoce el campo `exito`.
+        return "a salvo" if obj.exito else "captura"

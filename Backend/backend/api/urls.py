@@ -33,6 +33,7 @@ urlpatterns = [
     path("partidas/<int:partida_id>/inventario/", views.inventario_partida, name="inventario_partida"),
     path("partidas/<int:partida_id>/personaje/", views.personaje_partida, name="personaje_partida"),
     path("partidas/<int:partida_id>/objetos-recogidos/", views.objetos_recogidos_partida, name="objetos_recogidos_partida"),
+    path("partidas/<int:partida_id>/progreso-npcs/", views.progreso_npcs_partida, name="progreso_npcs_partida"),
 
     # NPC (HDU-2)
     path("npcs/<int:npc_id>/", views.npc_actualizar, name="npc_actualizar"),

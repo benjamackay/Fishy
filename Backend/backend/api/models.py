@@ -851,3 +851,56 @@ class ObjetoRecogido(models.Model):
                 fields=["partida", "objeto_id"], name="objeto_unico_por_partida"
             )
         ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO POR NPC DE UNA TEMATICA  (por partida)
+#
+# HDU-3 CA5 / HDU-4 CA5: "cuando cierra la ultima interaccion, el sistema marca la
+# tematica como completada y habilita el acceso a la siguiente".
+#
+# `BosqueDesconocidosManager` decide eso preguntandole a cada NPC si `Finished`, y
+# ese Finished es una propiedad EN MEMORIA del objeto de la escena. Con 2 de 3 NPCs
+# hechos, cerrar el juego los devolvia a los tres a cero: habia que hacer la
+# tematica entera de una sentada o la zona siguiente no se abria nunca. Para un
+# nino que juega en ratos cortos, eso podia bloquear el avance.
+#
+# **Por que no se deriva de los chats**, que es la alternativa que se evaluo: la
+# conversacion con cada NPC YA se guarda (`Chat` + `Mensaje`), asi que "hablo con
+# este NPC" es deducible. Pero el enganche seria por NOMBRE del NPC —el mismo
+# acoplamiento por id implicito que ya costo caro con caso_01 vs DC_CASO_01— y
+# sobre todo el chat no guarda el `safePercent`, asi que `exito` se perderia. Y sin
+# `exito` no se puede reconstruir el mapa: el NPC exitoso se retira y el otro no.
+#
+# `npc_id` es el id del NPC EN LA ESCENA, no la PK del modelo `NPC` de mas arriba.
+# Son cosas distintas: aquel es una fila por partida con la confianza, este nombra
+# al personaje del mapa. Texto y sin FK, por lo de siempre.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NpcProgreso(models.Model):
+    partida = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="progreso_npcs"
+    )
+    npc_id  = models.CharField(
+        max_length=80, db_index=True,
+        help_text="`npcId` del NPC en la escena, ej. BOSQUE_DESCONOCIDO_01"
+    )
+    exito   = models.BooleanField(
+        default=False,
+        help_text="El nino/a supero el umbral de respuestas seguras de ese NPC. "
+                  "Decide si el NPC se retira del mapa y si cuenta como 'a salvo'."
+    )
+    fecha   = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.npc_id} ({'a salvo' if self.exito else 'captura'}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de NPC"
+        verbose_name_plural = "Progreso de NPCs"
+        ordering = ["partida", "npc_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "npc_id"], name="npc_unico_por_partida"
+            )
+        ]
