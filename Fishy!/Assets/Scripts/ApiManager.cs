@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -764,6 +765,77 @@ namespace Fishy.Net
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  INVENTARIO (HDU-15)                                                    ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Lo que Otto lleva encima en esta partida.
+        ///
+        /// A diferencia de misiones y zonas, <b>esto sí funciona en modo local</b>: se
+        /// guarda en PlayerPrefs por partida. Sin eso, el inventario seguiría
+        /// perdiéndose justo en el escenario de la feria, que es cuando el backend
+        /// puede no estar. El progreso local no reemplaza al del servidor —vive en
+        /// este computador— pero es infinitamente mejor que nada.
+        /// </summary>
+        public void ObtenerInventario(int? partidaId = null,
+            Action<List<ItemInventarioDto>> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // El trabajo va en su propia linea y NO adentro de `onSuccess?.Invoke(...)`:
+                // el `?.` corta la expresion entera cuando el callback es null, argumento
+                // incluido, asi que el guardado no llegaba a ocurrir si a quien llama no
+                // le interesaba la respuesta. Aqui leer no tiene efecto, pero se escribe
+                // igual que en GuardarInventario para que el patron no invite al error.
+                var guardado = LocalLeerInventario(pId.Value);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            StartCoroutine(Send<List<ItemInventarioDto>>("GET", $"/partidas/{pId}/inventario/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Guarda la mochila. <b>Manda la lista COMPLETA: lo que no va, se borra.</b>
+        ///
+        /// El endpoint es un PUT de reemplazo y no un POST por objeto, porque el
+        /// inventario encoge —un objeto consumido sale de la mochila— y con un POST
+        /// por fila no habría forma de decir "ya no tengo esto". Así que hay que
+        /// pasarle todo el inventario, no el objeto que cambió.
+        /// </summary>
+        public void GuardarInventario(IList<ItemInventarioEnvio> items, int? partidaId = null,
+            Action<List<ItemInventarioDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (items == null)
+            {
+                onError?.Invoke("La lista de items no puede ser null (usa una lista vacía para vaciar).");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // OJO: guardar va en su propia linea. Si fuera el argumento de
+                // `onSuccess?.Invoke(...)`, el `?.` cortaria la expresion completa
+                // cuando el callback es null y la mochila NO se guardaria, en silencio
+                // y sin error. Paso de verdad, y solo se vio en la prueba headless.
+                var guardado = LocalGuardarInventario(pId.Value, items);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            var body = new { items };
+            StartCoroutine(Send<List<ItemInventarioDto>>("PUT", $"/partidas/{pId}/inventario/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -865,6 +937,64 @@ namespace Fishy.Net
 
         private static string JugadoresKey(int adultoId) => $"fishy.jugadores.{adultoId}";
         private static string PartidasKey(int jugadorId) => $"fishy.partidas.{jugadorId}";
+
+        // Por partida, igual que la clave de MissionManager: sin el id adentro, el
+        // inventario del Perfil 1 se le aparecería al Perfil 2 en el mismo equipo.
+        private static string InventarioKey(int partidaId) => $"fishy.inventario.{partidaId}";
+
+        /// <summary>Inventario guardado en este equipo para esa partida.</summary>
+        private static List<ItemInventarioDto> LocalLeerInventario(int partidaId)
+        {
+            return LoadLocalList<ItemInventarioDto>(InventarioKey(partidaId));
+        }
+
+        /// <summary>
+        /// Espeja el PUT del backend: reemplaza, no acumula. Se replican aquí las
+        /// mismas reglas —cantidades no positivas se descartan y los repetidos se
+        /// suman— para que jugar con o sin servidor dé el mismo resultado. Si las
+        /// dos ramas divergen, el bug aparece recién al reconectar, que es el peor
+        /// momento para descubrirlo.
+        /// </summary>
+        private static List<ItemInventarioDto> LocalGuardarInventario(
+            int partidaId, IList<ItemInventarioEnvio> items)
+        {
+            var sumados = new Dictionary<string, int>();
+            foreach (var item in items)
+            {
+                if (item == null || string.IsNullOrWhiteSpace(item.item_id)) continue;
+                if (item.cantidad <= 0) continue;
+
+                string id = item.item_id.Trim();
+                sumados[id] = (sumados.TryGetValue(id, out int previo) ? previo : 0) + item.cantidad;
+            }
+
+            // Se conserva `fecha_agregado` de lo que ya estaba: el objeto no volvió a
+            // entrar a la mochila, sigue ahí. Es la misma semántica que da el
+            // update_or_create del backend, que no toca auto_now_add al actualizar.
+            var antes = LocalLeerInventario(partidaId)
+                .Where(d => d != null && !string.IsNullOrEmpty(d.item_id))
+                .ToDictionary(d => d.item_id, d => d);
+
+            string ahora = LocalNow();
+            var lista = new List<ItemInventarioDto>();
+            int seq = 1;
+
+            foreach (var par in sumados)
+            {
+                antes.TryGetValue(par.Key, out var previo);
+                lista.Add(new ItemInventarioDto
+                {
+                    id = seq++,
+                    item_id = par.Key,
+                    cantidad = par.Value,
+                    fecha_agregado = previo != null ? previo.fecha_agregado : ahora,
+                    fecha_actualizacion = ahora,
+                });
+            }
+
+            SaveLocalList(InventarioKey(partidaId), lista);
+            return lista;
+        }
 
         private static List<T> LoadLocalList<T>(string key)
         {
@@ -1461,5 +1591,39 @@ namespace Fishy.Net
         public bool completada;
         public string fecha_desbloqueo;
         public string fecha_completada;
+    }
+
+    /// <summary>Un objeto de la mochila de Otto dentro de una partida (HDU-15).</summary>
+    [Serializable]
+    public class ItemInventarioDto
+    {
+        public int id;
+        public string item_id;   // "ITEM_BRUJULA" — el itemId del ItemData
+        public int cantidad;
+        public string fecha_agregado;
+        public string fecha_actualizacion;
+    }
+
+    /// <summary>
+    /// Lo que se manda al guardar: solo id y cantidad.
+    ///
+    /// Va aparte de <see cref="ItemInventarioDto"/> a propósito. Si se reenviara el
+    /// DTO completo iría también el `id` de la fila y las fechas del servidor, que
+    /// el cliente no tiene por qué decidir; y peor, un `id` inventado en modo local
+    /// viajaría al backend real el día que se recupere la conexión.
+    /// </summary>
+    [Serializable]
+    public class ItemInventarioEnvio
+    {
+        public string item_id;
+        public int cantidad;
+
+        public ItemInventarioEnvio() { }
+
+        public ItemInventarioEnvio(string itemId, int cantidad)
+        {
+            this.item_id = itemId;
+            this.cantidad = cantidad;
+        }
     }
 }
