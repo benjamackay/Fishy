@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -942,6 +943,69 @@ namespace Fishy.Net
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Campos cuyo VALOR nunca debe salir por consola. La contrasena del adulto es
+        /// la obvia; el token no lo es tanto y es igual de grave: es una credencial
+        /// portadora que no expira -DRF TokenAuthentication no le pone vencimiento- asi
+        /// que quien lo lea entra como ese tutor a los perfiles de todos sus menores.
+        /// </summary>
+        private static readonly HashSet<string> CamposSecretos = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            "password", "password1", "password2", "contrasena", "contraseña",
+            "token", "auth_token", "access_token", "refresh_token", "key",
+        };
+
+        private const string Tapado = "***";
+
+        /// <summary>
+        /// Devuelve el JSON con los valores secretos reemplazados por <c>***</c>, para
+        /// poder seguir viendo peticiones y respuestas mientras se depura sin que la
+        /// contrasena ni el token queden escritos.
+        ///
+        /// <b>Importa mas de lo que parece:</b> en un build, Debug.Log va a `Player.log`,
+        /// un archivo de texto que se queda en el disco del computador. La contrasena
+        /// del tutor no puede terminar ahi.
+        ///
+        /// Si el texto no es JSON valido, NO se devuelve el original: se devuelve un
+        /// aviso. Es a proposito —fallar cerrado—: no se puede garantizar que algo que
+        /// no se pudo leer no traiga un secreto adentro.
+        /// </summary>
+        private static string Redactar(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return json;
+
+            try
+            {
+                var token = JToken.Parse(json);
+                TaparSecretos(token);
+                return token.ToString(Formatting.None);
+            }
+            catch
+            {
+                return $"(cuerpo no-JSON de {json.Length} caracteres, omitido por si trae secretos)";
+            }
+        }
+
+        private static void TaparSecretos(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                foreach (var prop in obj.Properties())
+                {
+                    if (CamposSecretos.Contains(prop.Name) && prop.Value.Type != JTokenType.Object
+                                                           && prop.Value.Type != JTokenType.Array)
+                        prop.Value = Tapado;
+                    else
+                        TaparSecretos(prop.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var hijo in arr) TaparSecretos(hijo);
+            }
+        }
 
         private IEnumerator Send<TResponse>(string method, string path, object body, bool auth,
             Action<TResponse> onSuccess, Action<string> onError)

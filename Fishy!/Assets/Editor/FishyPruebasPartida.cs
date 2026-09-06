@@ -65,6 +65,8 @@ namespace Fishy.EditorTools
             ProbarPersonajeEnElOrigen(log, api);
             ProbarPersonajeSeparaPorPartida(log, api);
 
+            ProbarRedaccionDeSecretos(log);
+
             LimpiarPrefs();
 
             log.AppendLine();
@@ -268,6 +270,55 @@ namespace Fishy.EditorTools
                 otra == null ? "null" : $"tiene_posicion={otra.tiene_posicion}");
 
             PlayerPrefs.DeleteKey($"fishy.personaje.{PartidaDePrueba + 1}");
+        }
+
+        // ── Que no se filtren credenciales por consola ─────────────────────────
+
+        private static void ProbarRedaccionDeSecretos(StringBuilder log)
+        {
+            // `Redactar` es privado: es detalle interno del ApiManager, no API publica.
+            // Se llega por reflexion en vez de abrirlo solo para esta prueba.
+            var metodo = typeof(ApiManager).GetMethod("Redactar",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+            if (metodo == null)
+            {
+                Comprobar(log, "existe ApiManager.Redactar", false, "no se encontro el metodo");
+                return;
+            }
+
+            string Redactar(string j) => (string)metodo.Invoke(null, new object[] { j });
+
+            // El caso que reporto Oscar: el login mandaba la contrasena en claro.
+            string login = Redactar("{\"nombre\":\"Oscar\",\"password\":\"clave-secreta-123\"}");
+            Comprobar(log, "la contrasena no sale por consola",
+                !login.Contains("clave-secreta-123") && login.Contains("Oscar"), login);
+
+            // La respuesta del login trae el token, que es igual de grave: es una
+            // credencial portadora y no expira.
+            string respuesta = Redactar("{\"token\":\"9f8a7b6c5d4e3f2a1b\",\"adulto_id\":3}");
+            Comprobar(log, "el token tampoco sale",
+                !respuesta.Contains("9f8a7b6c5d4e3f2a1b") && respuesta.Contains("3"), respuesta);
+
+            // Anidado: un secreto adentro de otro objeto tambien se tapa.
+            string anidado = Redactar("{\"datos\":{\"password\":\"otra-clave\"},\"ok\":true}");
+            Comprobar(log, "tambien tapa los secretos anidados",
+                !anidado.Contains("otra-clave"), anidado);
+
+            // En una lista, que es como vienen inventario y objetos recogidos.
+            string lista = Redactar("[{\"item_id\":\"ITEM_BRUJULA\"},{\"token\":\"abc123\"}]");
+            Comprobar(log, "tapa dentro de listas",
+                !lista.Contains("abc123") && lista.Contains("ITEM_BRUJULA"), lista);
+
+            // Lo que NO es secreto tiene que seguir viendose, o el log deja de servir.
+            string normal = Redactar("{\"item_id\":\"ITEM_FLOR_01\",\"cantidad\":3}");
+            Comprobar(log, "lo que no es secreto se sigue viendo",
+                normal.Contains("ITEM_FLOR_01") && normal.Contains("3"), normal);
+
+            // Falla cerrado: si no se puede leer, no se imprime por si trae algo.
+            string basura = Redactar("esto no es json y trae password=hola");
+            Comprobar(log, "un cuerpo no-JSON se omite entero",
+                !basura.Contains("hola"), basura);
         }
 
         // ── Auxiliares ─────────────────────────────────────────────────────────
