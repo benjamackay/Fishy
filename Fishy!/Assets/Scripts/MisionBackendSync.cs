@@ -204,10 +204,12 @@ namespace Fishy.Net
             if (progreso == null) return;
 
             var completadas = new List<string>();
+            var conocidas = new List<string>();
             foreach (var m in progreso)
             {
                 if (m == null || string.IsNullOrEmpty(m.mision_id)) continue;
                 misionesEnServidor[m.mision_id] = m.Completada;
+                conocidas.Add(m.mision_id);
                 if (m.Completada) completadas.Add(m.mision_id);
 
                 if (!m.en_catalogo)
@@ -216,7 +218,12 @@ namespace Fishy.Net
                                      "el del banco no están alineados.");
             }
 
-            MissionManager.GetOrCreate().PrecargarCompletados(completadas);
+            var misiones = MissionManager.GetOrCreate();
+
+            // Primero las completadas y despues todas: asi una mision ya terminada se
+            // registra como completada en vez de aparecer disponible de nuevo.
+            misiones.PrecargarCompletados(completadas);
+            misiones.PrecargarConocidos(conocidas);
         }
 
         private void AplicarZonas(List<ZonaProgresoDto> progreso)

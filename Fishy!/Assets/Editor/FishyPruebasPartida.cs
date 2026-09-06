@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Fishy.Mision;
 using Fishy.Net;
 using UnityEditor;
 using UnityEngine;
@@ -65,6 +66,7 @@ namespace Fishy.EditorTools
             ProbarPersonajeEnElOrigen(log, api);
             ProbarPersonajeSeparaPorPartida(log, api);
 
+            ProbarCatalogoDesafios(log);
             ProbarRedaccionDeSecretos(log);
 
             LimpiarPrefs();
@@ -270,6 +272,51 @@ namespace Fishy.EditorTools
                 otra == null ? "null" : $"tiene_posicion={otra.tiene_posicion}");
 
             PlayerPrefs.DeleteKey($"fishy.personaje.{PartidaDePrueba + 1}");
+        }
+
+        // ── El catálogo de desafíos (panel de misión activa) ───────────────────
+
+        private static void ProbarCatalogoDesafios(StringBuilder log)
+        {
+            CatalogoDesafios.Recargar();
+            Comprobar(log, "el catálogo de desafíos se carga desde Resources/Misiones",
+                CatalogoDesafios.Todos.Count > 0,
+                $"encontró {CatalogoDesafios.Todos.Count}");
+
+            var primero = CatalogoDesafios.Todos.Values.FirstOrDefault();
+            if (primero != null)
+            {
+                Comprobar(log, $"Buscar('{primero.desafioId}') devuelve su ficha",
+                    CatalogoDesafios.Buscar(primero.desafioId) == primero, primero.titulo);
+            }
+
+            Comprobar(log, "un desafioId que no existe devuelve null",
+                CatalogoDesafios.Buscar("MISION_QUE_NO_EXISTE") == null, "");
+
+            // Esta comprobación mira los ASSETS, no el catálogo: el catálogo ya descartó
+            // los repetidos, así que preguntarle a él no delataría el problema.
+            var fichas = AssetDatabase.FindAssets("t:DesafioData")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(AssetDatabase.LoadAssetAtPath<DesafioData>)
+                .Where(d => d != null)
+                .ToList();
+
+            var repetidos = fichas
+                .Where(d => !string.IsNullOrWhiteSpace(d.desafioId))
+                .GroupBy(d => d.desafioId.Trim())
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            // Si esto falla NO es culpa del código: son dos fichas de contenido con el
+            // mismo id. Rompe el juego hoy, no solo el guardado — MissionManager usa el
+            // id como llave, así que la segunda misión devuelve la primera y completar
+            // una marca la otra. Se arregla dándole un id propio a una de las dos.
+            Comprobar(log, "ningún desafioId está repetido",
+                repetidos.Count == 0,
+                repetidos.Count == 0
+                    ? $"{fichas.Count} fichas revisadas"
+                    : string.Join(" | ", repetidos.Select(g =>
+                        $"'{g.Key}' en {string.Join(" y ", g.Select(d => d.name))}")));
         }
 
         // ── Que no se filtren credenciales por consola ─────────────────────────

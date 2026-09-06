@@ -130,8 +130,15 @@ namespace Fishy.Mision
         /// Llamar al finalizar la interacción con el objeto/NPC que lo desbloquea.
         /// Si ya estaba registrado (p.ej. se vuelve a interactuar), no hace nada nuevo.
         /// Si ya estaba completado en una sesión anterior (PlayerPrefs), conserva ese estado.
+        ///
+        /// <paramref name="anunciar"/> en false registra sin disparar
+        /// <see cref="onDesafioDisponible"/>. Lo usa la restauración al retomar la
+        /// partida: ese evento abre el panel de misiones, y abrirlo solo al cargar
+        /// —por misiones que el niño/a ya conocía— sería tratar lo viejo como novedad.
+        /// El panel igual se refresca, porque <see cref="onPanelActualizado"/> sí se
+        /// dispara siempre.
         /// </summary>
-        public DesafioRuntime RegistrarDesafioDisponible(DesafioData data)
+        public DesafioRuntime RegistrarDesafioDisponible(DesafioData data, bool anunciar = true)
         {
             if (data == null || string.IsNullOrEmpty(data.desafioId))
             {
@@ -155,7 +162,7 @@ namespace Fishy.Mision
             };
             desafios[data.desafioId] = runtime;
 
-            if (!yaCompletado)
+            if (!yaCompletado && anunciar)
                 onDesafioDisponible?.Invoke(runtime);
             onDesafioRegistrado?.Invoke(runtime);
             onPanelActualizado?.Invoke();
@@ -174,6 +181,50 @@ namespace Fishy.Mision
         /// nazca completado. Es lo que PlayerPrefs no puede dar: si el niño empezó en
         /// el PC de la feria y sigue en otro, PlayerPrefs viene vacío.
         /// </summary>
+        /// <summary>
+        /// Repuebla el panel con las misiones que esta partida ya conocía, sacando cada
+        /// ficha del <see cref="CatalogoDesafios"/>.
+        ///
+        /// Sin esto, el panel nacía vacío al retomar: el backend guardaba las misiones
+        /// disponibles desde el primer día y hasta las mandaba, pero nadie las ponía de
+        /// vuelta. Había que volver a interactuar con el objeto o NPC que las desbloquea
+        /// para que reaparecieran.
+        ///
+        /// Se llama DESPUÉS de <see cref="PrecargarCompletados"/>, para que una misión ya
+        /// terminada se registre como completada y no como disponible.
+        /// </summary>
+        public void PrecargarConocidos(IEnumerable<string> ids)
+        {
+            if (ids == null) return;
+
+            int puestos = 0, sinFicha = 0;
+            foreach (var id in ids)
+            {
+                if (string.IsNullOrWhiteSpace(id)) continue;
+                if (desafios.ContainsKey(id)) continue;   // ya está en el panel
+
+                var data = CatalogoDesafios.Buscar(id);
+                if (data == null)
+                {
+                    // El id está en la base pero no hay DesafioData con ese id. Igual que
+                    // con los ítems: se avisa, porque significa que Unity y el backend
+                    // dejaron de hablar el mismo idioma y al niño/a le falta una misión
+                    // del panel sin explicación.
+                    Debug.LogWarning(
+                        $"[MissionManager] '{id}' está guardado pero ninguna ficha tiene ese " +
+                        "desafioId, así que no se puede mostrar en el panel.");
+                    sinFicha++;
+                    continue;
+                }
+
+                RegistrarDesafioDisponible(data, anunciar: false);
+                puestos++;
+            }
+
+            Debug.Log($"[MissionManager] {puestos} misión(es) restauradas en el panel" +
+                      (sinFicha > 0 ? $", {sinFicha} sin ficha." : "."));
+        }
+
         public void PrecargarCompletados(IEnumerable<string> idsCompletados)
         {
             if (idsCompletados == null) return;

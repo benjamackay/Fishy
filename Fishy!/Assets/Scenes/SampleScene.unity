@@ -1820,6 +1820,7 @@ MonoBehaviour:
   - {fileID: 1195106601}
   - {fileID: 950614639}
   - {fileID: 1687012892}
+  pagesRoot: {fileID: 0}
 --- !u!1 &170974271
 GameObject:
   m_ObjectHideFlags: 0
@@ -2133,6 +2134,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_SURF
   itemData: {fileID: 11400000, guid: 60db56fa65ebca3419c690d2613f3edb, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -3817,6 +3819,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.BlockedZone
   zoneId: zona_3
+  zonaBanco: 
   isLocked: 1
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
@@ -4319,6 +4322,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_PET_ROCK
   itemData: {fileID: 11400000, guid: f34f310c4227f1745b6c93c48e7e2913, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -4674,7 +4678,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}, insertIndex: -1, addedObject: {fileID: 1855939100}}]
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1855939100}
   m_SourcePrefab: {fileID: 100100000, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
 --- !u!1 &1124251868
 GameObject:
@@ -4781,6 +4788,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_FLOR1
   itemData: {fileID: 11400000, guid: ad5aa466148101243a925626b23e5550, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -4902,7 +4910,8 @@ PrefabInstance:
       propertyPath: modoTelefono
       value: 1
       objectReference: {fileID: 0}
-    m_RemovedComponents: [{fileID: 894725528437385346, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}]
+    m_RemovedComponents:
+    - {fileID: 894725528437385346, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -5383,6 +5392,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_MOCHILA
   itemData: {fileID: 11400000, guid: 9d7b73218da00fb4f9fc2c95ea775232, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -7721,6 +7731,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_SILBATO
   itemData: {fileID: 11400000, guid: c6f7f46a1ce018b4a85d8fd2d06d47fc, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -9567,6 +9578,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Zonas.BosqueDesconocidos.BosqueDesconocidosManager
   npcs: []
+  zonaBanco: desconocidos
   siguienteZonaId: zona_2
   progresoAlCompletar: 25
   mostrarCinematicaDesbloqueo: 1
@@ -10015,7 +10027,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}, insertIndex: -1, addedObject: {fileID: 1449131416}}]
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1449131416}
   m_SourcePrefab: {fileID: 100100000, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
 --- !u!1001 &1743882143
 PrefabInstance:
@@ -10838,6 +10853,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.BlockedZone
   zoneId: zona_2
+  zonaBanco: 
   isLocked: 1
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
@@ -11030,7 +11046,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: [{targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}, insertIndex: -1, addedObject: {fileID: 43148942}}]
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 43148942}
   m_SourcePrefab: {fileID: 100100000, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
 --- !u!1 &1895705142
 GameObject:
@@ -12278,6 +12297,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_FLOR3
   itemData: {fileID: 11400000, guid: a6c1ab269ee0d3047b9ac5c6f8a8c870, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -12603,6 +12623,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_BRUJULA
   itemData: {fileID: 11400000, guid: 05206f88ee81df0438e012f7af1d594d, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -13254,6 +13275,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: SAMPLESCENE_FLOR2
   itemData: {fileID: 11400000, guid: 5a783e4b9008896459a58098987abbe3, type: 2}
   quantity: 1
   destroyOnPickup: 1
