@@ -29,6 +29,9 @@ urlpatterns = [
     path("partidas/<int:partida_id>/misiones/", views.misiones_partida, name="misiones_partida"),
     path("partidas/<int:partida_id>/zonas/", views.zonas_partida, name="zonas_partida"),
 
+    # Inventario por partida (HDU-15)
+    path("partidas/<int:partida_id>/inventario/", views.inventario_partida, name="inventario_partida"),
+
     # NPC (HDU-2)
     path("npcs/<int:npc_id>/", views.npc_actualizar, name="npc_actualizar"),
 

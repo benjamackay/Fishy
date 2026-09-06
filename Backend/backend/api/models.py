@@ -722,3 +722,52 @@ class ZonaProgreso(models.Model):
                 fields=["partida", "zona"], name="zona_unica_por_partida"
             )
         ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INVENTARIO  (la mochila de Otto — por partida)
+#
+# Espeja el `InventoryManager` de Unity, que hasta ahora vivia solo en memoria:
+# ni siquiera PlayerPrefs. Una fila por (partida, objeto) con cuanto lleva.
+#
+# `item_id` es texto y no FK, y aqui la razon es todavia mas fuerte que en
+# `MisionProgreso`: **no existe un catalogo de items en el backend, ni deberia**.
+# Los objetos se crean en Unity como ScriptableObjects (`Assets/Items/*.asset`) y
+# no vienen del banco de preguntas, asi que no hay nada que sincronizar. Una tabla
+# `Item` en Postgres seria una segunda copia del catalogo, mantenida a mano y
+# lista para desalinearse — exactamente el problema que ya costo caro con
+# `caso_01` contra `DC_CASO_01`. El nombre visible, el icono y la descripcion se
+# quedan en Unity, que es donde se dibujan.
+#
+# Vale igual la tercera razon de `MisionProgreso`: el progreso es del nino y el
+# catalogo es contenido. Si manana borran `flor2.asset` porque esa flor no va, la
+# fila que dice que un nino la recogio no tiene por que desaparecer.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ItemInventario(models.Model):
+    partida  = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="inventario"
+    )
+    item_id  = models.CharField(
+        max_length=60, db_index=True,
+        help_text="`itemId` del ItemData de Unity, ej. ITEM_BRUJULA"
+    )
+    cantidad = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Unidades que lleva encima. Una fila en 0 no se guarda: se borra."
+    )
+    fecha_primera_vez     = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion   = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.item_id} x{self.cantidad} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Item del inventario"
+        verbose_name_plural = "Inventario"
+        ordering = ["partida", "item_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "item_id"], name="item_unico_por_partida"
+            )
+        ]

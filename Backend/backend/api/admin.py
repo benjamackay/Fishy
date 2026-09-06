@@ -8,7 +8,7 @@ from .models import (
     PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
-    MisionProgreso, ZonaProgreso,
+    MisionProgreso, ZonaProgreso, ItemInventario,
 )
 
 
@@ -439,3 +439,21 @@ class ZonaProgresoAdmin(admin.ModelAdmin):
     @admin.display(description="completada", boolean=True)
     def completada(self, obj):
         return obj.completada
+
+
+@admin.register(ItemInventario)
+class ItemInventarioAdmin(admin.ModelAdmin):
+    # No hay catálogo de items en el backend (los objetos se crean en Unity), así
+    # que aquí se ve el `item_id` crudo. Es a propósito: ver el id es justo lo que
+    # sirve para detectar que Unity y la base dejaron de hablar el mismo idioma.
+    list_display  = ("item_id", "cantidad", "jugador", "partida", "fecha_actualizacion")
+    list_filter   = ("item_id",)
+    search_fields = ("item_id", "partida__usuario_jugador__nombre")
+    readonly_fields = ("fecha_primera_vez", "fecha_actualizacion")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("partida__usuario_jugador")
+
+    @admin.display(description="menor")
+    def jugador(self, obj):
+        return obj.partida.usuario_jugador.nombre

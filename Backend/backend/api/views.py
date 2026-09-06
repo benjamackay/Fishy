@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 
@@ -14,7 +15,7 @@ from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, CasoDetectiveProgreso,
-    DialogoNPC, Mision, MisionProgreso, ZonaProgreso,
+    DialogoNPC, Mision, MisionProgreso, ZonaProgreso, ItemInventario,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -23,6 +24,7 @@ from .serializers import (
     PreguntaBancoSerializer,
     CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
     DialogoNPCSerializer, MisionProgresoSerializer, ZonaProgresoSerializer,
+    ItemInventarioSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -858,3 +860,92 @@ def zonas_partida(request, partida_id):
         ZonaProgresoSerializer(progreso).data,
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
     )
+
+
+# ── Inventario (la mochila de Otto — por partida) ─────────────────────────────
+
+@api_view(["GET", "PUT"])
+def inventario_partida(request, partida_id):
+    """
+    GET — lo que Otto lleva encima en esta partida.
+    PUT — **reemplaza** la mochila completa. Body:
+          { "items": [ {"item_id": "ITEM_BRUJULA", "cantidad": 2}, ... ] }
+
+    **Por que PUT de reemplazo y no POST incremental como en misiones:** una
+    mision solo crece —se desbloquea y se completa, nunca se "descompleta"—, asi
+    que ahi el POST por fila es natural y ademas protege el registro del adulto.
+    El inventario encoge: `ItemType.Consumable` significa que un objeto usado sale
+    de la mochila. Con POST por fila no hay forma de decir "ya no tengo esto" sin
+    inventar un DELETE por objeto, y bastaria con que una de esas llamadas se
+    perdiera para que el nino viera un objeto fantasma al retomar. Mandando la
+    lista completa, el estado del servidor no puede quedar a medio camino: lo que
+    no viene, no esta.
+
+    Idempotente por construccion: mandar dos veces la misma lista deja lo mismo.
+    Va en una transaccion para que no exista un instante con la mochila a medias.
+
+    Una `cantidad` de 0 o menos se trata como "no lo tengo": no se guarda la fila.
+    Es lo mismo que omitir el objeto, pero se acepta para que Unity pueda mandar su
+    lista tal cual sin filtrarla antes.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "PUT":
+        items = request.data.get("items")
+        if items is None or not isinstance(items, list):
+            return Response(
+                {"items": "Se espera una lista, aunque sea vacia."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Se normaliza antes de tocar la base: si un item viene mal, no se escribe
+        # nada. Un PUT a medias dejaria la mochila en un estado que el nino nunca
+        # tuvo, que es peor que rechazar la llamada entera.
+        limpios = {}
+        for i, crudo in enumerate(items):
+            if not isinstance(crudo, dict):
+                return Response(
+                    {"items": f"El elemento {i} no es un objeto."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            item_id = (crudo.get("item_id") or "").strip()
+            if not item_id:
+                return Response(
+                    {"items": f"El elemento {i} no trae `item_id`."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                cantidad = int(crudo.get("cantidad", 1))
+            except (TypeError, ValueError):
+                return Response(
+                    {"items": f"La cantidad de '{item_id}' no es un numero."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if cantidad <= 0:
+                continue
+
+            # Repetido en el mismo PUT: se suman en vez de que gane el ultimo. Que
+            # Unity mande dos filas del mismo objeto seria un bug suyo, pero
+            # perder unidades en silencio es peor que quedarse con las dos.
+            limpios[item_id] = limpios.get(item_id, 0) + cantidad
+
+        with transaction.atomic():
+            partida.inventario.exclude(item_id__in=limpios.keys()).delete()
+
+            for item_id, cantidad in limpios.items():
+                ItemInventario.objects.update_or_create(
+                    partida=partida, item_id=item_id,
+                    defaults={"cantidad": cantidad},
+                )
+
+        codigo = status.HTTP_200_OK
+    else:
+        codigo = status.HTTP_200_OK
+
+    inventario = partida.inventario.all()
+    return Response(ItemInventarioSerializer(inventario, many=True).data, status=codigo)

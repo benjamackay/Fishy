@@ -590,6 +590,62 @@ una migración.
 
 ---
 
+### Inventario
+
+**GET / PUT `/partidas/{partida_id}/inventario/`** — La mochila de Otto (HDU-15)
+
+```json
+// PUT Request — la mochila COMPLETA, no un objeto suelto
+{
+  "items": [
+    { "item_id": "ITEM_BRUJULA", "cantidad": 1 },
+    { "item_id": "ITEM_FLOR_01", "cantidad": 3 }
+  ]
+}
+
+// Response (igual en GET y en PUT): el inventario tal como quedó
+[
+  {
+    "id": 12,
+    "item_id": "ITEM_BRUJULA",
+    "cantidad": 1,
+    "fecha_primera_vez": "2026-09-06T16:52:03.114Z",
+    "fecha_actualizacion": "2026-09-06T16:52:03.114Z"
+  }
+]
+```
+
+**El PUT reemplaza la mochila entera: lo que no viene, no está.** Es la diferencia
+con misiones y zonas, y es deliberada. Una misión solo crece —se desbloquea y se
+completa, nunca se "descompleta"—, así que ahí el POST por fila es natural. El
+inventario encoge: `ItemType.Consumable` significa que un objeto usado sale de la
+mochila, y con POST por fila no hay forma de decir *"ya no tengo esto"* sin inventar
+un DELETE por objeto. Bastaría con que una de esas llamadas se perdiera para que el
+niño/a viera un objeto fantasma al retomar.
+
+Mandar la lista completa hace el endpoint **idempotente por construcción** y corre
+dentro de una transacción, así que no existe un instante con la mochila a medias.
+Una lista vacía vacía el inventario. Una `cantidad` de 0 o menos se trata como "no
+lo tengo" y no se guarda.
+
+Un PUT con cualquier elemento inválido se rechaza **entero** con `400` y no escribe
+nada: una mochila a medio escribir sería un estado que el niño/a nunca tuvo.
+
+`item_id` es el `itemId` del `ItemData` de Unity (`Assets/Items/*.asset`), en
+MAYÚSCULAS: `ITEM_BRUJULA`, `ITEM_FLOR_01`. **No se valida contra ningún catálogo
+porque no hay catálogo de items en el backend, y no debería haberlo**: los objetos
+se crean en Unity como ScriptableObjects y no vienen del banco de preguntas, así que
+una tabla `Item` en Postgres sería una segunda copia mantenida a mano y lista para
+desalinearse. El nombre visible, el ícono y la descripción se quedan en Unity, que
+es donde se dibujan.
+
+> Igual que misiones y zonas, cuelga de la **partida**. Y por la misma tercera razón
+> de `MisionProgreso`: el progreso es del niño/a y el catálogo es contenido. Si
+> mañana borran `flor2.asset`, la fila que dice que la recogió no tiene por qué
+> desaparecer.
+
+---
+
 ### NPCs
 
 **POST `/partidas/{partida_id}/npcs/`** — Registrar NPC

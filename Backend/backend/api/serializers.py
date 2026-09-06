@@ -3,7 +3,7 @@ from .models import (
     AdultoResponsable, UsuarioJugador, NivelRiesgo, Partida, NPC, Chat,
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
-    DialogoNPC, MisionProgreso, ZonaProgreso,
+    DialogoNPC, MisionProgreso, ZonaProgreso, ItemInventario,
 )
 
 
@@ -216,3 +216,17 @@ class ZonaProgresoSerializer(serializers.ModelSerializer):
         # Siempre True: la fila solo existe si la zona se desbloqueo. Va explicito
         # igual porque Unity pinta el mapa leyendo este campo, no la ausencia de fila.
         return True
+
+
+class ItemInventarioSerializer(serializers.ModelSerializer):
+    """Un objeto de la mochila de Otto dentro de una partida.
+
+    Solo viaja el `item_id` y cuanto lleva: el nombre visible, el icono y la
+    descripcion viven en el ScriptableObject de Unity y no se duplican aca (ver
+    el comentario del modelo). No hay `en_catalogo` como en MisionProgreso
+    porque no hay catalogo de items contra el cual comparar."""
+
+    class Meta:
+        model = ItemInventario
+        fields = ["id", "item_id", "cantidad", "fecha_primera_vez", "fecha_actualizacion"]
+        read_only_fields = fields
