@@ -4,7 +4,7 @@ from .models import (
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     DialogoNPC, MisionProgreso, ZonaProgreso, ItemInventario,
-    PersonajeJugador,
+    PersonajeJugador, ObjetoRecogido,
 )
 
 
@@ -245,3 +245,16 @@ class PersonajeJugadorSerializer(serializers.ModelSerializer):
         model = PersonajeJugador
         fields = ["escena", "pos_x", "pos_y", "tiene_posicion", "fecha_actualizacion"]
         read_only_fields = ["tiene_posicion", "fecha_actualizacion"]
+
+
+class ObjetoRecogidoSerializer(serializers.ModelSerializer):
+    """Un objeto del mapa que esta partida ya recogio.
+
+    Solo viaja el id del objeto de la escena: que exista la fila significa que ya
+    no esta en el suelo. No hay un campo `recogido` porque no habria estado en que
+    valiera false -recoger es un camino de ida y la fila no se borra."""
+
+    class Meta:
+        model = ObjetoRecogido
+        fields = ["id", "objeto_id", "fecha"]
+        read_only_fields = fields

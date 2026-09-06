@@ -16,7 +16,7 @@ from .models import (
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
     CasoDetective, CasoDetectiveProgreso,
     DialogoNPC, Mision, MisionProgreso, ZonaProgreso, ItemInventario,
-    PersonajeJugador,
+    PersonajeJugador, ObjetoRecogido,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -26,6 +26,7 @@ from .serializers import (
     CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
     DialogoNPCSerializer, MisionProgresoSerializer, ZonaProgresoSerializer,
     ItemInventarioSerializer, PersonajeJugadorSerializer,
+    ObjetoRecogidoSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -1016,3 +1017,57 @@ def personaje_partida(request, partida_id):
         return Response(serializer.data)
 
     return Response(PersonajeJugadorSerializer(personaje).data)
+
+
+# ── Objetos del mapa ya recogidos (HDU-1 CA2, por partida) ────────────────────
+
+@api_view(["GET", "POST"])
+def objetos_recogidos_partida(request, partida_id):
+    """
+    GET  — objetos del mapa que esta partida ya recogio.
+    POST — marca uno. Body: { "objeto_id": "SAMPLESCENE_CONCHA_01" }
+
+    **Es POST por objeto y no PUT de reemplazo como el inventario**, y la diferencia
+    no es un descuido: el inventario encoge -un objeto consumido sale de la mochila-
+    pero esto solo crece. Recoger es un camino de ida. Con solo-crece, el POST por
+    fila es mas robusto: si una llamada se pierde, se recupera la proxima vez que el
+    nino recoja algo, en vez de arrastrar un estado completo que puede llegar viejo.
+
+    Idempotente: repetir el POST del mismo objeto no duplica la fila ni mueve la
+    fecha. Devuelve 201 la primera vez y 200 despues, igual que misiones.
+
+    `objeto_id` es el id del WorldItem de la escena, NO el `itemId` del ItemData.
+    Son cosas distintas a proposito: dos objetos del mapa pueden entregar el mismo
+    item, y un item consumible sale de la mochila sin que el objeto deba reaparecer.
+    No se valida contra ningun catalogo porque el catalogo de objetos de la escena
+    vive en Unity.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        objeto_id = (request.data.get("objeto_id") or "").strip()
+        if not objeto_id:
+            return Response(
+                {"objeto_id": "Este campo es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        largo_max = ObjetoRecogido._meta.get_field("objeto_id").max_length
+        if len(objeto_id) > largo_max:
+            return Response(
+                {"objeto_id": f"Pasa los {largo_max} caracteres."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        objeto, creado = ObjetoRecogido.objects.get_or_create(
+            partida=partida, objeto_id=objeto_id
+        )
+        return Response(
+            ObjetoRecogidoSerializer(objeto).data,
+            status=status.HTTP_201_CREATED if creado else status.HTTP_200_OK,
+        )
+
+    objetos = partida.objetos_recogidos.all()
+    return Response(ObjetoRecogidoSerializer(objetos, many=True).data)

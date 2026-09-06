@@ -690,6 +690,42 @@ no calzan, ignora la posición y avisa por consola.
 
 ---
 
+### Objetos del mapa ya recogidos
+
+**GET / POST `/partidas/{partida_id}/objetos-recogidos/`** — HDU-1 CA2
+
+```json
+// POST Request
+{ "objeto_id": "SAMPLESCENE_CONCHA_01" }
+
+// Response — 201 la primera vez, 200 al repetir
+{ "id": 7, "objeto_id": "SAMPLESCENE_CONCHA_01", "fecha": "2026-09-06T18:41:02.118Z" }
+```
+
+Es el *"el objeto ya no se muestra disponible para interactuar nuevamente"* del CA.
+`WorldItem.recogido` lo cumplía **dentro** de una sesión, pero es un bool privado del
+GameObject: al recargar la escena los objetos volvían al suelo.
+
+**Es POST por objeto y no PUT de reemplazo como el inventario**, y la diferencia no
+es un descuido: el inventario **encoge** —un objeto consumido sale de la mochila—
+pero esto **solo crece**. Recoger es un camino de ida. Con solo-crece, el POST por
+fila es más robusto: si una llamada se pierde se recupera la próxima vez, en vez de
+arrastrar un estado completo que puede llegar viejo. No hay DELETE a propósito.
+
+**`objeto_id` es el id del objeto de la escena, NO el `itemId` del ítem.** Son cosas
+distintas y confundirlas rompe el CA de dos maneras: dos objetos del mapa pueden
+entregar el mismo ítem, y un ítem consumible sale de la mochila sin que el del suelo
+deba reaparecer. Por eso no se puede derivar del inventario.
+
+Los ids se asignan con **Fishy → Asignar ids a los objetos del mapa**, que solo
+rellena los vacíos: un id ya puesto no se toca nunca, porque está escrito en la base
+de cada niño/a y cambiarlo haría reaparecer objetos que ya habían recogido.
+
+> La unicidad es `(partida, objeto_id)`, no `objeto_id` solo: que un niño/a haya
+> recogido la concha no puede quitársela a otro.
+
+---
+
 ### NPCs
 
 **POST `/partidas/{partida_id}/npcs/`** — Registrar NPC

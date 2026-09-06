@@ -886,6 +886,60 @@ namespace Fishy.Net
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  OBJETOS DEL MAPA YA RECOGIDOS (HDU-1 CA2)                              ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>Objetos del mapa que esta partida ya recogio.</summary>
+        public void ObtenerObjetosRecogidos(int? partidaId = null,
+            Action<List<ObjetoRecogidoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                var local = LoadLocalList<ObjetoRecogidoDto>(ObjetosKey(pId.Value));
+                onSuccess?.Invoke(local);
+                return;
+            }
+
+            StartCoroutine(Send<List<ObjetoRecogidoDto>>("GET", $"/partidas/{pId}/objetos-recogidos/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca un objeto del mapa como recogido. Es POST por objeto y no la lista
+        /// entera como el inventario, porque esto solo crece: recoger es un camino de
+        /// ida. Idempotente.
+        /// </summary>
+        public void MarcarObjetoRecogido(string objetoId, int? partidaId = null,
+            Action<ObjetoRecogidoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (string.IsNullOrWhiteSpace(objetoId))
+            {
+                onError?.Invoke("Falta el objetoId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // El trabajo va en su propia linea, NO como argumento de
+                // `onSuccess?.Invoke(...)`: el `?.` cortaria la expresion completa
+                // cuando el callback es null y no se guardaria nada, en silencio.
+                var guardado = LocalMarcarObjeto(pId.Value, objetoId.Trim());
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            var body = new { objeto_id = objetoId.Trim() };
+            StartCoroutine(Send<ObjetoRecogidoDto>("POST", $"/partidas/{pId}/objetos-recogidos/",
+                body, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
@@ -993,6 +1047,29 @@ namespace Fishy.Net
         private static string InventarioKey(int partidaId) => $"fishy.inventario.{partidaId}";
 
         private static string PersonajeKey(int partidaId) => $"fishy.personaje.{partidaId}";
+        private static string ObjetosKey(int partidaId) => $"fishy.objetos.{partidaId}";
+
+        /// <summary>
+        /// Espeja el POST idempotente del backend: si el objeto ya estaba, devuelve la
+        /// fila existente sin duplicarla ni mover la fecha.
+        /// </summary>
+        private static ObjetoRecogidoDto LocalMarcarObjeto(int partidaId, string objetoId)
+        {
+            var lista = LoadLocalList<ObjetoRecogidoDto>(ObjetosKey(partidaId));
+
+            var existente = lista.Find(o => o != null && o.objeto_id == objetoId);
+            if (existente != null) return existente;
+
+            var nuevo = new ObjetoRecogidoDto
+            {
+                id = lista.Count + 1,
+                objeto_id = objetoId,
+                fecha = LocalNow(),
+            };
+            lista.Add(nuevo);
+            SaveLocalList(ObjetosKey(partidaId), lista);
+            return nuevo;
+        }
 
         /// <summary>Donde quedo Otto segun este equipo. Nunca devuelve null.</summary>
         private static PersonajeDto LocalLeerPersonaje(int partidaId)
@@ -1687,6 +1764,15 @@ namespace Fishy.Net
         public int cantidad;
         public string fecha_agregado;
         public string fecha_actualizacion;
+    }
+
+    /// <summary>Un objeto del mapa que esta partida ya recogio (HDU-1 CA2).</summary>
+    [Serializable]
+    public class ObjetoRecogidoDto
+    {
+        public int id;
+        public string objeto_id;   // "SAMPLESCENE_CONCHA_01" — el objetoId del WorldItem
+        public string fecha;
     }
 
     /// <summary>Donde quedo Otto en esta partida (HDU-15).</summary>

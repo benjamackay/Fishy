@@ -8,7 +8,7 @@ from .models import (
     PreguntaBanco, OpcionBanco,
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
-    MisionProgreso, ZonaProgreso, ItemInventario,
+    MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido,
 )
 
 
@@ -450,6 +450,21 @@ class ItemInventarioAdmin(admin.ModelAdmin):
     list_filter   = ("item_id",)
     search_fields = ("item_id", "partida__usuario_jugador__nombre")
     readonly_fields = ("fecha_agregado", "fecha_actualizacion")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("partida__usuario_jugador")
+
+    @admin.display(description="menor")
+    def jugador(self, obj):
+        return obj.partida.usuario_jugador.nombre
+
+
+@admin.register(ObjetoRecogido)
+class ObjetoRecogidoAdmin(admin.ModelAdmin):
+    list_display  = ("objeto_id", "jugador", "partida", "fecha")
+    list_filter   = ("objeto_id",)
+    search_fields = ("objeto_id", "partida__usuario_jugador__nombre")
+    readonly_fields = ("fecha",)
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("partida__usuario_jugador")

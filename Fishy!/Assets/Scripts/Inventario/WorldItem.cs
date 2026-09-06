@@ -15,6 +15,11 @@ using UnityEngine.Events;
 /// </summary>
 public class WorldItem : MonoBehaviour, IInteractable
 {
+    [Header("Identidad")]
+    [Tooltip("Identificador único de ESTE objeto del mapa. Se usa para recordar que " +
+             "ya fue recogido. Asignalo con Fishy → Asignar ids a los objetos del mapa.")]
+    public string objetoId;
+
     [Header("Qué se recoge")]
     [Tooltip("Plantilla del objeto (Assets > Create > Inventory > New Item).")]
     public ItemData itemData;
@@ -45,6 +50,37 @@ public class WorldItem : MonoBehaviour, IInteractable
             Debug.LogWarning($"[{name}] WorldItem sin Collider2D: Otto no lo va a detectar.", this);
     }
 
+    /// <summary>
+    /// Si este objeto ya fue recogido en esta partida, se quita del mapa antes del
+    /// primer frame.
+    ///
+    /// Va en <c>Start</c> y no en <c>Awake</c> a proposito: el registro de lo ya
+    /// recogido se pide apenas hay partida —en la pantalla de ingreso, mucho antes
+    /// de que cargue el mapa— y para cuando corre Start ya esta en memoria. Asi el
+    /// objeto nunca llega a dibujarse. Es el mismo cuidado que con la posicion de
+    /// Otto: si se resolviera al llegar la respuesta, se veria desaparecer.
+    ///
+    /// Si el registro todavia no llego, <see cref="ObjetosRecogidosSync"/> lo apaga
+    /// en cuanto llegue; ahi si se alcanza a ver un parpadeo, pero es el caso raro.
+    /// </summary>
+    private void Start()
+    {
+        if (ObjetosRecogidosSync.YaFueRecogido(objetoId))
+            QuitarDelMapa();
+    }
+
+    /// <summary>
+    /// Lo saca del mapa sin pasar por <see cref="Interact"/>: no entra al inventario
+    /// —ya esta guardado ahi— ni dispara <see cref="onPickup"/>, que podria tener
+    /// sonido o animacion. Restaurar no es volver a recoger.
+    /// </summary>
+    public void QuitarDelMapa()
+    {
+        recogido = true;
+        if (destroyOnPickup) Destroy(gameObject);
+        else gameObject.SetActive(false);
+    }
+
     // Con esto en false el detector ni siquiera muestra el cartel, así no se
     // ofrece una interacción que no va a hacer nada.
     public bool CanInteract() => !recogido && itemData != null;
@@ -57,6 +93,10 @@ public class WorldItem : MonoBehaviour, IInteractable
         // después, el item ya quedó guardado.
         recogido = true;
         InventoryManager.Instance.AddItem(itemData, quantity);
+
+        // Que este objeto ya no esta en el suelo se guarda aparte del inventario:
+        // un item consumible sale de la mochila y el objeto NO debe reaparecer.
+        ObjetosRecogidosSync.Marcar(objetoId, name);
 
         if (logOnPickup)
             Debug.Log($"[Inventario] Recogido: {itemData.itemName} x{quantity}", this);

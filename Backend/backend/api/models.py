@@ -805,3 +805,49 @@ class ItemInventario(models.Model):
                 fields=["partida", "item_id"], name="item_unico_por_partida"
             )
         ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OBJETOS DEL MAPA YA RECOGIDOS  (por partida)
+#
+# HDU-1 CA2: "el objeto ya no se muestra disponible para interactuar nuevamente".
+# `WorldItem.recogido` lo cumplia DENTRO de una sesion, pero es un bool privado del
+# GameObject: al recargar la escena los objetos volvian al suelo.
+#
+# **Por que no se puede derivar del inventario** (que es lo primero que uno
+# piensa): `ItemData.ItemType.Consumable` significa que un objeto usado sale de la
+# mochila. Si "lo recogi" se dedujera de "lo tengo", el ítem consumido reapareceria
+# en el mapa. Ademas dos WorldItem distintos pueden entregar el mismo ItemData, asi
+# que hay que identificar el OBJETO DE LA ESCENA, no el item.
+#
+# Por eso `objeto_id` no es el `itemId` sino el id que lleva cada WorldItem del
+# mapa (ver `Fishy -> Asignar ids a los objetos del mapa`). Es texto y sin FK por
+# la razon de siempre: el catalogo de objetos de la escena vive en Unity y no
+# existe -ni deberia existir- en el backend.
+#
+# A diferencia del inventario, esto SOLO CRECE: recoger es un camino de ida. Por
+# eso el endpoint es POST por objeto (como misiones) y no PUT de reemplazo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ObjetoRecogido(models.Model):
+    partida   = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="objetos_recogidos"
+    )
+    objeto_id = models.CharField(
+        max_length=80, db_index=True,
+        help_text="`objetoId` del WorldItem de la escena, ej. SAMPLESCENE_CONCHA_01"
+    )
+    fecha     = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.objeto_id} recogido — {self.partida}"
+
+    class Meta:
+        verbose_name = "Objeto recogido"
+        verbose_name_plural = "Objetos recogidos"
+        ordering = ["partida", "objeto_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "objeto_id"], name="objeto_unico_por_partida"
+            )
+        ]
