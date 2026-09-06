@@ -29,14 +29,14 @@ public class InventoryManagerUI : MonoBehaviour
     [Header("Casilla por defecto")]
     public Vector2 slotSize = new Vector2(96f, 96f);
     public Vector2 slotSpacing = new Vector2(8f, 8f);
-    public Color slotBackgroundColor = new Color(0f, 0f, 0f, 0.25f);
+    public Color slotBackgroundColor = MenuTabsTheme.Colores.FondoRanura;
 
     [Header("Textos")]
     [Tooltip("Mostrar 'x2', 'x3'... cuando hay más de una unidad.")]
     public bool showQuantity = true;
 
     [Tooltip("Qué decir cuando la mochila está vacía. Vacío = no mostrar nada.")]
-    public string emptyMessage = "Mochila vacía";
+    public string emptyMessage = MenuTabsTheme.Textos.MochilaVacia;
 
     [Header("Diagnóstico")]
     [Tooltip("Escribir en consola cada refresco. Sirve para saber si esta UI está viva: " +

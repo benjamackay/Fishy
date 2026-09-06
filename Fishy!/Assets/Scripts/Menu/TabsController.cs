@@ -32,6 +32,7 @@ public class TabsController : MonoBehaviour
         else DescubrirPorJerarquia();
 
         CablearClicks();
+        PintarPaginas();
         AsegurarControladoresDePaginas();
     }
 
@@ -167,6 +168,73 @@ public class TabsController : MonoBehaviour
     }
 
     /// <summary>
+    /// Deja todas las páginas con el fondo del tema.
+    ///
+    /// Hace falta porque venían en blanco desde la escena, y los textos de las
+    /// páginas están escritos en colores claros: sobre blanco su contraste caía por
+    /// debajo de 3:1 —el umbral de ilegibilidad— y la página de misiones se veía
+    /// prácticamente vacía. Se pintan aquí y no en cada página para que las cinco
+    /// pestañas se vean iguales sin repetir el color en cinco sitios.
+    /// </summary>
+    private void PintarPaginas()
+    {
+        // El panel del menú es el padre del contenedor de páginas. Es la capa de
+        // más afuera y venía en gris, que era lo que hacía que todo el menú
+        // pareciera de otro juego.
+        Transform raiz = ResolverRaizDePaginas();
+        if (raiz != null && raiz.parent != null)
+        {
+            var panel = raiz.parent.GetComponent<Image>();
+            if (panel != null) panel.color = MenuTabsTheme.Colores.FondoMenu;
+        }
+
+        if (pages == null) return;
+
+        foreach (GameObject page in pages)
+        {
+            if (page == null) continue;
+
+            var fondo = page.GetComponent<Image>();
+            if (fondo != null) fondo.color = MenuTabsTheme.Colores.FondoPagina;
+
+            PintarScrolls(page);
+        }
+    }
+
+    /// <summary>
+    /// Pinta las áreas con scroll de una página: el recuadro, su viewport y las
+    /// barras. Van aparte porque son objetos montados a mano en la escena con los
+    /// colores que trae Unity por defecto —gris y blanco—, y aunque se pintara la
+    /// página quedaban encima tapándola.
+    /// </summary>
+    private void PintarScrolls(GameObject page)
+    {
+        foreach (ScrollRect scroll in page.GetComponentsInChildren<ScrollRect>(true))
+        {
+            var propio = scroll.GetComponent<Image>();
+            if (propio != null) propio.color = MenuTabsTheme.Colores.FondoScroll;
+
+            if (scroll.viewport != null)
+            {
+                var vista = scroll.viewport.GetComponent<Image>();
+                if (vista != null) vista.color = MenuTabsTheme.Colores.FondoScroll;
+            }
+
+            foreach (Scrollbar barra in scroll.GetComponentsInChildren<Scrollbar>(true))
+            {
+                var carril = barra.GetComponent<Image>();
+                if (carril != null) carril.color = MenuTabsTheme.Colores.ScrollbarCarril;
+
+                if (barra.handleRect != null)
+                {
+                    var tirador = barra.handleRect.GetComponent<Image>();
+                    if (tirador != null) tirador.color = MenuTabsTheme.Colores.ScrollbarTirador;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Las páginas del Tab ya están asignadas en la escena. Conecta sus
     /// controladores automáticamente para que no dependan de que el componente
     /// se haya agregado a mano y guardado en el archivo de escena.
@@ -199,7 +267,9 @@ public class TabsController : MonoBehaviour
             if (pages[i] != null) pages[i].SetActive(i == tabNo);
 
             if (i < tabImages.Length && tabImages[i] != null)
-                tabImages[i].color = (i == tabNo) ? Color.white : Color.grey;
+                tabImages[i].color = (i == tabNo)
+                    ? MenuTabsTheme.Colores.PestanaActiva
+                    : MenuTabsTheme.Colores.PestanaInactiva;
         }
     }
 }
