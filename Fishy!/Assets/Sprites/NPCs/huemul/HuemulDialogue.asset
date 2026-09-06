@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: HuemulDialogue
   m_EditorClassIdentifier: Assembly-CSharp::NPCDialogue
   npcName: Huemul
-  npcPortrait: {fileID: 0}
+  npcPortrait: {fileID: -167164456610951095, guid: bd29d4dbcec8bb94faafc5ea8c894378, type: 3}
   dialogueLines:
   - "\xA1Hola! Yo soy Huemul, guardian del Bosque de los Desconocidos."
   - "La br\xFAjula de tu abuelo cay\xF3 por aqu\xED. El bosque la escondi\xF3 junto

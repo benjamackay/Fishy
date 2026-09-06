@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Fishy.UI;
 // Paleta de Sprout Lands defautlt palette.png  (16x7, 97 colores)
 /*
 Hex(0xF3F4E7),   // #F3F4E7
@@ -134,34 +135,34 @@ namespace Fishy.Detective
             /// alfa oscurece más el juego; bajarlo lo deja más visible.</summary>
             public static Color Backdrop = new Color(0f, 0f, 0f, 0.35f);
 
-            public static Color Ventana = Hex(0x3E281F);   // café oscuro dominante
-            public static Color Header = Hex(0x4A3226);
-            public static Color Historial = Hex(0x33211A); // fondo del scroll
-            public static Color BarraInferior = Hex(0x33211A);
+            public static Color Ventana = Paleta.Marron;   // café oscuro dominante
+            public static Color Header = Paleta.MarronMedio;
+            public static Color Historial = Paleta.MarronOscuro; // fondo del scroll
+            public static Color BarraInferior = Paleta.MarronOscuro;
 
-            public static Color BurbujaIzquierda = Hex(0x5A4234);
-            public static Color BurbujaDerecha = Hex(0x7A5A42);
-            public static Color BurbujaOtto = Hex(0x8A5E3F); // Otto en el permiso
+            public static Color BurbujaIzquierda = Paleta.MarronClaro;
+            public static Color BurbujaDerecha = Paleta.MarronSuave;
+            public static Color BurbujaOtto = Paleta.Madera; // Otto en el permiso
 
             /// <summary>Borde y tinte del mensaje marcado como sospechoso.
             /// Se mantiene rojo a propósito: es semántica de alerta.</summary>
-            public static Color BordeMarcado = Hex(0xC0392B);
+            public static Color BordeMarcado = Paleta.Rojo;
 
             /// <summary>Cuánto se tiñe la burbuja al marcarla (0 = nada, 1 = rojo pleno).</summary>
             public static float FuerzaTinteMarcado = 0.25f;
 
-            public static Color BotonConfirmar = Hex(0xBD926F);  // acento tan del menú
+            public static Color BotonConfirmar = Paleta.Arena;  // acento tan del menú
             /// <summary>Estos dos se salen de la paleta café a propósito: puestos en
             /// tonos cálidos se confundían entre sí y con el fondo de la tarjeta.</summary>
             public static Color BotonRepetir = Hex(0x2E3845);      // gris azulado
             public static Color BotonExplicacion = Hex(0x472961);  // morado
 
             public static Color PanelResultado = new Color(0.15f, 0.09f, 0.07f, 0.97f);
-            public static Color Card = Hex(0x4A3226);
+            public static Color Card = Paleta.MarronMedio;
 
-            public static Color Texto = Hex(0xF4CBA5);       // crema del sprite
-            public static Color TextoSuave = Hex(0xBD926F);  // autores y subtítulos
-            public static Color TextoOscuro = Hex(0x3E281F); // sobre fondos claros
+            public static Color Texto = Paleta.Crema;       // crema del sprite
+            public static Color TextoSuave = Paleta.Arena;  // autores y subtítulos
+            public static Color TextoOscuro = Paleta.Marron; // sobre fondos claros
 
             /// <summary>Opacidad del nombre del autor y de la hora dentro de la burbuja.</summary>
             public static float AlfaTextoSecundario = 0.45f;
@@ -296,8 +297,8 @@ namespace Fishy.Detective
         /// </summary>
         public static class Fuentes
         {
-            public static string RutaTitulos = "Fonts & Materials/Mango-Regular.bc40fb1accca30c3fca322d704";
-            public static string RutaCuerpo = "Fonts & Materials/LiberationSans SDF";
+            public static string RutaTitulos = FishyUIKit.RutaTitulos;
+            public static string RutaCuerpo = FishyUIKit.RutaCuerpo;
 
             /// <summary>Fuente de símbolos (lupa, check…). Mango no los tiene, así
             /// que sin esto el 🔍 saldría como cuadrito roto. Se genera con

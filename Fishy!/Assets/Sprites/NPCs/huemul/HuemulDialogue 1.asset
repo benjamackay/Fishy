@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: HuemulDialogue 1
   m_EditorClassIdentifier: Assembly-CSharp::NPCDialogue
   npcName: Huemul
-  npcPortrait: {fileID: 0}
+  npcPortrait: {fileID: -167164456610951095, guid: bd29d4dbcec8bb94faafc5ea8c894378, type: 3}
   dialogueLines:
   - Hola de nuevo
   - Ten mucho cuidado por esta zona

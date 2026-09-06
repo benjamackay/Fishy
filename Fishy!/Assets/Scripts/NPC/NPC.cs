@@ -127,8 +127,12 @@ public class NPC : MonoBehaviour, IInteractable
                 : dialogueData.npcName);
         }
 
-        if (portraitImage != null)
-            portraitImage.sprite = dialogueData.npcPortrait;
+        MostrarRetrato();
+
+        // Mismo aspecto que el chat de NPCs y el Modo Detective. Solo pinta: no
+        // toca el avance por tecla ni añade opciones, porque este diálogo es de una
+        // sola vía y no está preparado para elegir respuestas.
+        Fishy.UI.DialogoNeutroSkin.Aplicar(dialoguePanel, nameText, dialogueText, portraitImage);
 
         dialoguePanel.SetActive(true);
         StartCoroutine(Typeline());
@@ -167,6 +171,41 @@ public class NPC : MonoBehaviour, IInteractable
         {
             yield return new WaitForSeconds(dialogueData.autoProgressDelay);
             NextLine();
+        }
+    }
+
+    /// <summary>Nombre del hijo del panel que hace de retrato, si no se asignó a mano.</summary>
+    private const string NombreRetrato = "DialoguePortrait";
+
+    /// <summary>
+    /// Pone la cara del NPC en el panel.
+    ///
+    /// Busca el retrato si no está asignado: en la escena los NPCs cablean el panel,
+    /// el texto y el nombre, pero nadie asignó 'Portrait Image', así que la línea de
+    /// abajo no se ejecutaba nunca y quedaba a la vista el círculo de relleno que
+    /// venía del mockup de diseño. Deducirlo del panel evita repetir ese olvido en
+    /// cada NPC nuevo.
+    ///
+    /// Y si el diálogo no trae retrato, el Image se apaga: un círculo vacío parece
+    /// un error de carga, y es justo lo que despistó la primera vez.
+    /// </summary>
+    private void MostrarRetrato()
+    {
+        if (portraitImage == null && dialoguePanel != null)
+        {
+            Transform t = dialoguePanel.transform.Find(NombreRetrato);
+            if (t != null) portraitImage = t.GetComponent<Image>();
+        }
+
+        if (portraitImage == null) return;
+
+        portraitImage.sprite  = dialogueData.npcPortrait;
+        portraitImage.enabled = dialogueData.npcPortrait != null;
+
+        if (dialogueData.npcPortrait == null)
+        {
+            Debug.LogWarning($"[{name}] '{dialogueData.name}' no tiene 'Npc Portrait' " +
+                             "asignado, así que el diálogo va sin cara.", this);
         }
     }
 

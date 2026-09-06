@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using Fishy.UI;
 using Col = Fishy.Detective.DetectiveUITheme.Colores;
 using Med = Fishy.Detective.DetectiveUITheme.Medidas;
 using Fnt = Fishy.Detective.DetectiveUITheme.Fuente;
@@ -40,10 +41,7 @@ namespace Fishy.Detective
         private RectTransform    _contenedorExplicaciones;
 
         // ── Fuentes ───────────────────────────────────────────────────────────
-        private TMP_FontAsset _fontTitulos;   // Mango, la fuente de la marca
-        private TMP_FontAsset _fontCuerpo;    // respaldo por si a Mango le falta un glifo
         private TMP_FontAsset _fontIconos;    // símbolos que no están en las otras dos
-        private Sprite        _spriteRedondeado;
         private Sprite        _spriteLupa;
 
         // ── Ritual de permiso (HDU-10 CA1) ───────────────────────────────────
@@ -77,98 +75,24 @@ namespace Fishy.Detective
             return Instance;
         }
 
+        /// <summary>
+        /// Solo carga lo que es propio del Modo Detective. Las fuentes de la marca
+        /// y del cuerpo, y el sprite de esquinas redondeadas, los aporta FishyUIKit:
+        /// son los mismos que usan el chat de NPCs y el diálogo neutro, y tenerlos
+        /// una sola vez evita que se vayan separando con el tiempo.
+        /// </summary>
         private void CargarRecursos()
         {
-            _fontCuerpo  = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaCuerpo);
-            _fontTitulos = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaTitulos);
-
-            if (_fontCuerpo == null)
-            {
-                // Sin fuente de cuerpo no se puede escribir en español: si esto
-                // pasa, la ruta del theme quedó mal o el asset se movió.
-                _fontCuerpo = _fontTitulos ?? TMP_Settings.defaultFontAsset;
-                Debug.LogWarning($"[Detective] No encontré la fuente de cuerpo en " +
-                                 $"'{DetectiveUITheme.Fuentes.RutaCuerpo}'. Usando la de respaldo.", this);
-            }
-            if (_fontTitulos == null)
-            {
-                // El asset de Mango tiene puntos en el nombre, que es justo lo que
-                // suele romper Resources.Load. Si esto salta, lo más simple es
-                // renombrarlo a algo plano ("Mango") y actualizar la ruta.
-                Debug.LogWarning($"[Detective] No encontré la fuente de la marca en " +
-                                 $"'{DetectiveUITheme.Fuentes.RutaTitulos}'. Va con la de cuerpo.", this);
-                _fontTitulos = _fontCuerpo;
-            }
-
-            // Opcional: si no está, el header simplemente va sin icono.
+            // Opcional: si no está, el header dibuja la lupa por su cuenta.
             _fontIconos = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaIconos);
-
-            _spriteRedondeado = CrearSpriteRedondeado(Spr.LadoRedondeado, Spr.RadioRedondeado);
-        }
-
-        /// <summary>
-        /// Dibuja en memoria el 9-slice de esquinas redondeadas.
-        ///
-        /// Antes esto pedía el sprite de Unity con
-        /// Resources.GetBuiltinResource&lt;Sprite&gt;("UI/Skin/UISprite.psd") y fallaba
-        /// siempre: ese método solo llega a "unity default resources" (mallas,
-        /// materiales), mientras que los sprites de UI viven en "unity_builtin_extra",
-        /// al que únicamente se entra por AssetDatabase y solo desde el editor. O sea
-        /// que ni con suerte habría funcionado en un build.
-        ///
-        /// Generarlo sale más barato que arrastrar un asset: son cuatro arcos y el
-        /// borde del 9-slice hace que el radio no se deforme al estirar la burbuja.
-        /// </summary>
-        private static Sprite CrearSpriteRedondeado(int lado, int radio)
-        {
-            lado  = Mathf.Max(2, lado);
-            radio = Mathf.Clamp(radio, 0, lado / 2);   // pasado de la mitad las esquinas se pisan
-
-            var tex = new Texture2D(lado, lado, TextureFormat.RGBA32, false)
-            {
-                name       = "DetectiveRedondeado",
-                filterMode = FilterMode.Bilinear,
-                wrapMode   = TextureWrapMode.Clamp,
-                // Que no quede colgando en la escena ni se guarde al salir del play.
-                hideFlags  = HideFlags.HideAndDontSave,
-            };
-
-            var px = new Color32[lado * lado];
-            for (int y = 0; y < lado; y++)
-            {
-                for (int x = 0; x < lado; x++)
-                {
-                    // Cuánto se mete el píxel en la zona de esquina. Fuera de las
-                    // esquinas ambas dan 0 y el píxel queda opaco.
-                    float dx = Mathf.Max(radio - (x + 0.5f), (x + 0.5f) - (lado - radio), 0f);
-                    float dy = Mathf.Max(radio - (y + 0.5f), (y + 0.5f) - (lado - radio), 0f);
-
-                    // Medio píxel de suavizado a cada lado del arco: sin esto la
-                    // curva sale dentada.
-                    float alfa = Mathf.Clamp01(radio - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f);
-
-                    // Aquí no se invierte la fila, aunque SetPixels32 vaya de abajo
-                    // hacia arriba: las cuatro esquinas son iguales, así que la
-                    // forma es idéntica del derecho y del revés. En la lupa, que no
-                    // es simétrica, sí hay que invertirla (ver CrearSpriteLupa).
-                    px[y * lado + x] = new Color32(255, 255, 255, (byte)(alfa * 255f));
-                }
-            }
-            tex.SetPixels32(px);
-            tex.Apply(false, false);
-
-            // El borde de 9-slice es justo el radio: las esquinas se copian tal cual
-            // y solo se estiran los tramos rectos del medio.
-            return Sprite.Create(tex, new Rect(0f, 0f, lado, lado), new Vector2(0.5f, 0.5f),
-                pixelsPerUnit: 100f, extrude: 0, meshType: SpriteMeshType.FullRect,
-                border: new Vector4(radio, radio, radio, radio));
         }
 
         /// <summary>La textura del sprite se crea a mano, así que hay que soltarla a
         /// mano: Unity no recoge lo que se marcó DontSave.</summary>
         private void OnDestroy()
         {
-            SoltarSprite(_spriteRedondeado);
+            // Solo la lupa: el sprite redondeado lo cachea FishyUIKit y lo comparten
+            // las demás pantallas, así que soltarlo aquí las dejaría sin fondo.
             SoltarSprite(_spriteLupa);
         }
 
@@ -188,11 +112,7 @@ namespace Fishy.Detective
         /// asumir evita el bug clásico: un carácter sin glifo se dibuja como un
         /// cuadrito roto y nadie se entera hasta que aparece en pantalla.
         /// </summary>
-        private TMP_FontAsset FuentePara(string texto)
-        {
-            if (_fontTitulos == null || string.IsNullOrEmpty(texto)) return _fontCuerpo;
-            return _fontTitulos.HasCharacters(texto) ? _fontTitulos : _fontCuerpo;
-        }
+        private TMP_FontAsset FuentePara(string texto) => FishyUIKit.FuentePara(texto);
 
         /// <summary>
         /// ¿Esta fuente puede dibujar el símbolo? Se pregunta por code point y no
@@ -910,33 +830,10 @@ namespace Fishy.Detective
         /// </summary>
         private TextMeshProUGUI CrearTexto(Transform parent, string nombre, string texto,
             float tamano, Color color, TextAlignmentOptions alineacion)
-        {
-            var go = new GameObject(nombre, typeof(RectTransform), typeof(TextMeshProUGUI));
-            go.transform.SetParent(parent, false);
-            var t = go.GetComponent<TextMeshProUGUI>();
-            t.font             = FuentePara(texto);
-            t.fontSize         = tamano;
-            t.color            = color;
-            t.alignment        = alineacion;
-            t.textWrappingMode = TextWrappingModes.Normal;
-            t.overflowMode     = TextOverflowModes.Overflow;
-            t.text             = texto;
-            return t;
-        }
+            => FishyUIKit.Texto(parent, nombre, texto, tamano, color, alineacion);
 
-        /// <summary>
-        /// Deja el fondo con esquinas redondeadas. El sprite es 9-slice, así que
-        /// el radio se mantiene igual sin importar cuánto se estire la burbuja.
-        /// </summary>
         private void AplicarFondoRedondeado(Image img, Color color)
-        {
-            if (_spriteRedondeado != null)
-            {
-                img.sprite = _spriteRedondeado;
-                img.type   = Image.Type.Sliced;
-            }
-            img.color = color;
-        }
+            => FishyUIKit.FondoRedondeado(img, color, Spr.LadoRedondeado, Spr.RadioRedondeado);
 
         private void LimpiarHistorial()
         {
