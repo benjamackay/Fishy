@@ -1854,6 +1854,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b82438ca40c024e4f9e327e4887fe664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Desconocidos.DesconocidosNPC
+  npcId: SAMPLESCENE_NPC_NPC_ALEX_FISICO
   umbralExito: 70
   allowReplay: 0
   leaveDistance: 6
