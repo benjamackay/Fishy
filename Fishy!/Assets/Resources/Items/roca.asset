@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: roca
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_ROCA
-  itemName: 
+  itemName: Piedra
   itemIcon: {fileID: 0}
   itemDescription: 
   itemType: 0

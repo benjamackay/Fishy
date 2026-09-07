@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: flor2
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_FLOR_02
-  itemName: Flor de naranjios?
+  itemName: Flor de naranjos
   itemIcon: {fileID: 1620206035894376374, guid: 7804b9e3cb093384991baf1abc12280a, type: 3}
   itemDescription: Flor que puede ayudarte con?
   itemType: 0

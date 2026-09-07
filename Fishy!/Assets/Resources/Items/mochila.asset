@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: mochila
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_MOCHILA
-  itemName: 
+  itemName: Mochila
   itemIcon: {fileID: 0}
   itemDescription: 
   itemType: 0

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: megafono
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_MEGAFONO
-  itemName: 
+  itemName: Megáfono
   itemIcon: {fileID: 0}
   itemDescription: 
   itemType: 0
