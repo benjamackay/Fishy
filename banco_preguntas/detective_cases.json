@@ -1,8 +1,8 @@
 {
-  "version": "1.0",
+  "version": "2.5",
   "autor": "Luis González — MLOps",
   "fecha_creacion": "2026-08-23",
-  "fecha_actualizacion": "2026-08-23",
+  "fecha_actualizacion": "2026-09-07",
   "hdu": "HDU-10",
   "descripcion": "Conversaciones pregrabadas para el Modo Detective. El jugador observa sin participar como interlocutor y marca los mensajes que considera señales de riesgo.",
   "nota_ambiguo": "Mensajes marcados como es_ambiguo:true no se contabilizan ni como acierto ni como error (CA5).",
@@ -111,7 +111,14 @@
       ],
       "ambiguos_ids": [
         "DC01_MSG06"
-      ]
+      ],
+      "recompensa": {
+        "item_id": "PIN_VIGIA_SILENCIOSO",
+        "nombre": "Pin del Vigía Silencioso",
+        "accesorio_hdu06": "Gorro de detective con visera",
+        "umbral_aciertos": 0.5,
+        "no_duplica_al_repetir": true
+      }
     },
     {
       "id": "DC_CASO_02",
@@ -208,7 +215,133 @@
       ],
       "ambiguos_ids": [
         "DC02_MSG07"
-      ]
+      ],
+      "recompensa": {
+        "item_id": "PIN_TESTIGO_SOLIDARIO",
+        "nombre": "Pin del Testigo Solidario",
+        "accesorio_hdu06": "Brazalete de apoyo",
+        "umbral_aciertos": 0.5,
+        "no_duplica_al_repetir": true
+      }
+    },
+    {
+      "id": "DC_CASO_03",
+      "titulo": "El Reto que Grabaron",
+      "zona": "reto_viral",
+      "etiquetas_ml": [
+        "retos_virales",
+        "presion_social"
+      ],
+      "permiso": {
+        "player_text": "¿Puedo revisar los mensajes del reto de la cueva?",
+        "npc_nombre": "Pingüino de Humboldt",
+        "npc_response": "Sí. No sé si hice bien en grabarme. ¿Revisas el chat?"
+      },
+      "conversacion": [
+        {
+          "id": "DC03_MSG01",
+          "npc_sender": "Lobo Marino",
+          "texto": "hoy grabamos el reto de la cueva, va a quedar buenísimo",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC03_MSG02",
+          "npc_sender": "Pingüino de Humboldt",
+          "texto": "no sé, la corriente se ve fuerte hoy",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC03_MSG03",
+          "npc_sender": "Lobo Marino 2",
+          "texto": "ya todos lo hicieron menos tú, no seas el único cobarde",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Presionar con la exclusión — decir que todos lo hicieron menos tú — es lo que empuja a alguien a una conducta riesgosa que no quería hacer.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC03_MSG04",
+          "npc_sender": "Lobo Marino",
+          "texto": "si no te grabas saltando, subo un video diciendo que te dio miedo",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Amenazar con exponer a alguien públicamente es una señal grave: convierte el reto en un chantaje.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC03_MSG05",
+          "npc_sender": "Pingüino de Humboldt",
+          "texto": "no quiero que se rían de mí",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC03_MSG06",
+          "npc_sender": "Lobo Marino 2",
+          "texto": "tranquilo, si te da miedo puedes verlo nomás desde la orilla",
+          "es_senal_riesgo": false,
+          "es_ambiguo": true,
+          "explicacion": null,
+          "nota_ambiguo": "Puede ser apoyo genuino o una forma sutil de dejarlo fuera del grupo. El contexto no lo aclara, así que no penaliza si el jugador no lo marca."
+        },
+        {
+          "id": "DC03_MSG07",
+          "npc_sender": "Lobo Marino",
+          "texto": "mejor no le cuentes a la Foca que estamos grabando esto",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Pedir que se le oculte algo a una figura protectora es una alerta importante: si hubiera que esconderlo, es porque algo anda mal.",
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC03_MSG08",
+          "npc_sender": "Pingüino de Humboldt",
+          "texto": "ya poh, creo que lo voy a hacer para que no digan nada",
+          "es_senal_riesgo": false,
+          "es_ambiguo": false,
+          "explicacion": null,
+          "nota_ambiguo": null
+        },
+        {
+          "id": "DC03_MSG09",
+          "npc_sender": "Lobo Marino",
+          "texto": "sube el video altiro antes de que te arrepientas",
+          "es_senal_riesgo": true,
+          "es_ambiguo": false,
+          "explicacion": "Apurar la publicación para que no haya tiempo de reconsiderar es presión y manipulación.",
+          "nota_ambiguo": null
+        }
+      ],
+      "senales_riesgo_ids": [
+        "DC03_MSG03",
+        "DC03_MSG04",
+        "DC03_MSG07",
+        "DC03_MSG09"
+      ],
+      "ambiguos_ids": [
+        "DC03_MSG06"
+      ],
+      "recompensa": {
+        "item_id": "PIN_ANALISTA_CORRIENTES",
+        "nombre": "Pin del Analista de Corrientes",
+        "accesorio_hdu06": "Guantes de buzo",
+        "umbral_aciertos": 0.5,
+        "no_duplica_al_repetir": true
+      }
     }
-  ]
+  ],
+  "nota_recompensas": "HDU-11 CA1/CA2: cada caso entrega un ítem único al superar el umbral de aciertos. OJO: hoy cargar_detective NO lee el bloque `recompensa` y CasoDetective no tiene campo para guardarlo, así que este contenido todavía no llega a la base de datos. Falta un campo en el modelo, su migración y una línea en el cargador.",
+  "mensajes_sistema": {
+    "repetir_caso_ya_superado": "Ya tienes esta pista en tu álbum, ¡pero bien hecho repasando el caso!",
+    "sin_alcanzar_umbral": "Casi lo tienes. ¿Quieres revisar el caso otra vez o ver las pistas explicadas?",
+    "album_vacio": "Tu álbum está vacío por ahora. Resuelve tu primer caso del Modo Detective para empezar a llenarlo."
+  }
 }

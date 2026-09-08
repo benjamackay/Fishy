@@ -149,7 +149,10 @@ class VerLasDecisionesDelNinoTests(TestCase):
         cls.chat = Chat.objects.create(
             partida=cls.partida, npc=npc, categoria_riesgo="ciberacoso"
         )
-        cls.opcion = OpcionBanco.objects.get(opcion_id="HDU3_NPC03_Q01_R3")
+        # En el banco 2.5 la insegura de este nodo es R4: R3 pasó a ser la
+        # nueva opción `dudosa` (0 pts). La prueba necesita una insegura
+        # porque comprueba que el admin resuelva tipo e impacto contra el banco.
+        cls.opcion = OpcionBanco.objects.get(opcion_id="HDU3_NPC03_Q01_R4")
         cls.decision = Mensaje.objects.create(
             chat=cls.chat, tipo="chain", respuesta=cls.opcion.texto,
             calidad_respuesta="mala",
@@ -163,7 +166,7 @@ class VerLasDecisionesDelNinoTests(TestCase):
     def test_el_listado_muestra_el_texto_que_eligio_y_su_id_del_banco(self):
         r = self.client.get("/admin/api/mensaje/")
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "HDU3_NPC03_Q01_R3")
+        self.assertContains(r, "HDU3_NPC03_Q01_R4")
         self.assertContains(r, "Perfil 1")
         self.assertContains(r, "Flamenco")
 
@@ -175,23 +178,23 @@ class VerLasDecisionesDelNinoTests(TestCase):
         self.assertContains(r, "-1")
 
     def test_se_puede_buscar_por_lo_que_respondio_el_nino(self):
-        r = self.client.get("/admin/api/mensaje/", {"q": "HDU3_NPC03_Q01_R3"})
+        r = self.client.get("/admin/api/mensaje/", {"q": "HDU3_NPC03_Q01_R4"})
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "HDU3_NPC03_Q01_R3")
+        self.assertContains(r, "HDU3_NPC03_Q01_R4")
 
     def test_se_puede_buscar_por_el_nombre_del_menor(self):
         r = self.client.get("/admin/api/mensaje/", {"q": "Perfil 1"})
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "HDU3_NPC03_Q01_R3")
+        self.assertContains(r, "HDU3_NPC03_Q01_R4")
 
     def test_el_filtro_de_decisiones_separa_las_del_nino(self):
         Mensaje.objects.create(chat=self.chat, tipo="start", respuesta="hola")
 
         solo_decisiones = self.client.get("/admin/api/mensaje/", {"es_decision": "si"})
-        self.assertContains(solo_decisiones, "HDU3_NPC03_Q01_R3")
+        self.assertContains(solo_decisiones, "HDU3_NPC03_Q01_R4")
 
         sin_decisiones = self.client.get("/admin/api/mensaje/", {"es_decision": "no"})
-        self.assertNotContains(sin_decisiones, "HDU3_NPC03_Q01_R3")
+        self.assertNotContains(sin_decisiones, "HDU3_NPC03_Q01_R4")
 
     def test_el_filtro_por_zona_lista_cada_zona_una_sola_vez(self):
         """`PreguntaBanco.Meta.ordering` rompe el DISTINCT si no se limpia antes:
@@ -205,15 +208,15 @@ class VerLasDecisionesDelNinoTests(TestCase):
     def test_el_filtro_por_zona_del_banco_funciona(self):
         """`pregunta_banco_id` no es FK, así que el filtro resuelve ids a mano."""
         de_la_zona = self.client.get("/admin/api/mensaje/", {"zona_banco": "ciberacoso"})
-        self.assertContains(de_la_zona, "HDU3_NPC03_Q01_R3")
+        self.assertContains(de_la_zona, "HDU3_NPC03_Q01_R4")
 
         de_otra_zona = self.client.get("/admin/api/mensaje/", {"zona_banco": "reto_viral"})
-        self.assertNotContains(de_otra_zona, "HDU3_NPC03_Q01_R3")
+        self.assertNotContains(de_otra_zona, "HDU3_NPC03_Q01_R4")
 
     def test_la_ficha_del_chat_muestra_la_conversacion_completa(self):
         r = self.client.get(f"/admin/api/chat/{self.chat.pk}/change/")
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "HDU3_NPC03_Q01_R3")
+        self.assertContains(r, "HDU3_NPC03_Q01_R4")
 
     def test_el_listado_de_chats_avisa_cual_quedo_sin_cerrar(self):
         r = self.client.get("/admin/api/chat/")

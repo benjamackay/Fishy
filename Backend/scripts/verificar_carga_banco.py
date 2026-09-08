@@ -228,6 +228,7 @@ def verificar_album(data):
 
     print("\n-- Recompensas de álbum --")
     esperadas = {}
+    esperadas_por_opcion = esperadas_por_mision = 0
     for p in data.get("preguntas", []):
         for o in (p.get("opciones_respuesta") or []):
             premio = extraer_recompensa(
@@ -235,12 +236,14 @@ def verificar_album(data):
             )
             if premio:
                 esperadas[f"ALB_{o['id']}"] = premio[0]
+                esperadas_por_opcion += 1
     for d in data.get("dialogos_npc_neutros", []):
         premio = extraer_recompensa(
             d.get("pista_mision") or "", RE_ALBUM_DIALOGO, f"diálogo {d['id']}"
         )
         if premio:
             esperadas[f"ALB_{d['mision_desbloquea']}"] = premio[0]
+            esperadas_por_mision += 1
 
     en_bd = {r.recompensa_id: r for r in RecompensaAlbum.objects.all()}
     comparar("cantidad de recompensas", len(esperadas), len(en_bd))
@@ -263,8 +266,11 @@ def verificar_album(data):
     # que el cargador esté llenando el origen correcto y no dejando todo en uno.
     por_mision = sum(1 for r in en_bd.values() if r.mision_id is not None)
     por_opcion = sum(1 for r in en_bd.values() if r.opcion_banco_id)
-    comparar("recompensas con origen en una misión", 6, por_mision)
-    comparar("recompensas con origen en una opción", 6, por_opcion)
+    # Los esperados salen del JSON y no de un número escrito acá: el banco 2.5
+    # pasó de 6 a 8 recompensas por opción y esta comprobación se puso roja sin
+    # que nada estuviera mal.
+    comparar("recompensas con origen en una misión", esperadas_por_mision, por_mision)
+    comparar("recompensas con origen en una opción", esperadas_por_opcion, por_opcion)
 
     # El texto libre del que salen es frágil: si el banco cambia la redacción, lo
     # correcto es que el cargador falle, no que guarde un nombre vacío o raro.

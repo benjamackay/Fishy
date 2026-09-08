@@ -72,7 +72,7 @@ class CargaCompletaTests(TestCase):
         self.assertEqual(set(Mision.objects.values_list("mision_id", flat=True)), del_banco)
 
     def test_extrae_todas_las_recompensas_de_album(self):
-        self.assertEqual(RecompensaAlbum.objects.count(), 12)
+        self.assertEqual(RecompensaAlbum.objects.count(), 14)
         self.assertFalse(
             RecompensaAlbum.objects.filter(nombre="").exists(),
             "una recompensa quedó sin nombre: el parseo del texto libre se rompió",
@@ -82,7 +82,7 @@ class CargaCompletaTests(TestCase):
         por_mision = RecompensaAlbum.objects.filter(mision__isnull=False).count()
         por_opcion = RecompensaAlbum.objects.exclude(opcion_banco_id="").count()
         self.assertEqual(por_mision, 6)
-        self.assertEqual(por_opcion, 6)
+        self.assertEqual(por_opcion, 8)
         self.assertEqual(por_mision + por_opcion, RecompensaAlbum.objects.count())
 
 
@@ -140,7 +140,12 @@ class FallaRuidosaTests(TestCase):
 
     def _banco_con(self, pista):
         banco = json.loads(RUTA_BANCO.read_text(encoding="utf-8"))
-        banco["dialogos_npc_neutros"][1]["pista_mision"] = pista
+        # Por id y no por posicion: el orden de la lista cambia cuando se agregan
+        # dialogos nuevos, y una prueba atada al indice falla por la razon
+        # equivocada.
+        objetivo = next(d for d in banco["dialogos_npc_neutros"]
+                        if d["id"] == "HDU1_SEC_HUEMUL_MOCHILA")
+        objetivo["pista_mision"] = pista
         ruta = Path(settings.BASE_DIR) / "banco_roto_de_prueba.json"
         ruta.write_text(json.dumps(banco, ensure_ascii=False), encoding="utf-8")
         self.addCleanup(ruta.unlink, missing_ok=True)
@@ -164,7 +169,7 @@ class FallaRuidosaTests(TestCase):
         """Los diálogos sin recompensa (el guía Huemul) son normales."""
         ruta = self._banco_con("Sigue las huellas hasta el río.")
         cargar(archivo=ruta)
-        self.assertEqual(RecompensaAlbum.objects.count(), 11)
+        self.assertEqual(RecompensaAlbum.objects.count(), 13)
 
     def test_avisa_de_bloques_del_json_que_no_sabe_cargar(self):
         """El modo de falla original: ignorar contenido en silencio."""
