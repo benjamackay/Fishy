@@ -1,28 +1,72 @@
-:root {
-  --fondo: #f6f8fa;
-  --superficie: #ffffff;
-  --borde: #d8dee6;
-  --texto: #1b2430;
-  --texto-suave: #5b6875;
-  --acento: #1f6feb;
-  --ok: #1a7f4b;
-  --error: #b3261e;
+/**
+ * Tokens de color y estilos base.
+ *
+ * Los valores de superficie, tinta y datos salen de la paleta de referencia de
+ * la guia de visualizacion (validada para contraste y daltonismo). Reglas que
+ * se respetan aca y en los componentes:
+ *
+ * - El color de ESTADO (bien/medio/mal) nunca viaja solo: siempre lleva texto
+ *   al lado. Por eso no hay puntos de color sin etiqueta en ninguna vista.
+ * - Las barras de magnitud usan un solo tono (azul), con la pista en un paso
+ *   mas claro de la misma rampa.
+ * - El riesgo es divergente (azul = seguro / rojo = riesgo) con gris neutro al
+ *   medio, porque tiene polaridad y un cero con significado.
+ */
 
-  color-scheme: light dark;
+:root {
+  color-scheme: light;
+
+  /* Superficies e tinta */
+  --plano: #f9f9f7;
+  --superficie: #fcfcfb;
+  --tinta: #0b0b0b;
+  --tinta-2: #52514e;
+  --tinta-suave: #898781;
+  --borde: rgba(11, 11, 11, 0.1);
+  --linea: #e1e0d9;
+
+  /* Magnitud: rampa azul */
+  --dato: #2a78d6;
+  --dato-pista: #cde2fb;
+  --dato-suave: #86b6ef;
+
+  /* Divergente para riesgo */
+  --polo-seguro: #2a78d6;
+  --polo-riesgo: #d03b3b;
+  --neutro: #f0efec;
+
+  /* Estado (fijo, nunca tematizado; siempre con etiqueta de texto) */
+  --bien: #0ca30c;
+  --medio: #fab219;
+  --mal: #d03b3b;
+
+  --enlace: #2a78d6;
+
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fondo: #12161c;
-    --superficie: #1a2028;
-    --borde: #2c343f;
-    --texto: #e8edf3;
-    --texto-suave: #9aa7b4;
-    --acento: #58a6ff;
-    --ok: #56d364;
-    --error: #ff7b72;
+    color-scheme: dark;
+
+    --plano: #0d0d0d;
+    --superficie: #1a1a19;
+    --tinta: #ffffff;
+    --tinta-2: #c3c2b7;
+    --tinta-suave: #898781;
+    --borde: rgba(255, 255, 255, 0.1);
+    --linea: #2c2c2a;
+
+    --dato: #3987e5;
+    --dato-pista: #0d366b;
+    --dato-suave: #184f95;
+
+    --polo-seguro: #3987e5;
+    --polo-riesgo: #e66767;
+    --neutro: #383835;
+
+    --enlace: #3987e5;
   }
 }
 
@@ -33,70 +77,401 @@
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--fondo);
-  color: var(--texto);
+  background: var(--plano);
+  color: var(--tinta);
 }
 
 a {
-  color: var(--acento);
+  color: var(--enlace);
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
 code {
   padding: 0.1em 0.35em;
   border: 1px solid var(--borde);
   border-radius: 4px;
-  background: var(--fondo);
-  font-size: 0.9em;
+  background: var(--plano);
+  font-size: 0.88em;
 }
 
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+
 .layout__header {
-  padding: 1rem 1.5rem;
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 0.85rem 1.5rem;
   border-bottom: 1px solid var(--borde);
   background: var(--superficie);
 }
 
 .layout__brand {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  color: var(--texto);
+  color: var(--tinta);
   text-decoration: none;
 }
 
-.layout__main {
-  max-width: 60rem;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
+.layout__nav {
+  display: flex;
+  gap: 0.35rem;
+  flex: 1;
+  flex-wrap: wrap;
 }
 
+.layout__nav a {
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  color: var(--tinta-2);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.layout__nav a:hover {
+  background: var(--plano);
+}
+
+.layout__nav a.activo {
+  background: var(--dato-pista);
+  color: var(--dato);
+  font-weight: 600;
+}
+
+.layout__cuenta {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  color: var(--tinta-2);
+  font-size: 0.85rem;
+}
+
+.layout__main {
+  max-width: 70rem;
+  margin: 0 auto;
+  padding: 1.75rem 1.5rem 4rem;
+}
+
+/* ── Piezas ──────────────────────────────────────────────────────────────── */
+
 .card {
-  padding: 1.5rem;
+  padding: 1.25rem 1.4rem;
   border: 1px solid var(--borde);
   border-radius: 10px;
   background: var(--superficie);
 }
 
+.card + .card {
+  margin-top: 1rem;
+}
+
 .card h1 {
   margin-top: 0;
-  font-size: 1.5rem;
+  font-size: 1.45rem;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
 }
 
 .muted {
-  color: var(--texto-suave);
+  color: var(--tinta-2);
 }
 
+.mini {
+  font-size: 0.85rem;
+}
+
+.encabezado {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.encabezado h1 {
+  margin: 0 0 0.2rem;
+  font-size: 1.6rem;
+}
+
+.migas {
+  margin-bottom: 0.75rem;
+  color: var(--tinta-2);
+  font-size: 0.85rem;
+}
+
+.boton {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--borde);
+  border-radius: 7px;
+  background: var(--superficie);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.boton:hover:not(:disabled) {
+  border-color: var(--dato);
+  color: var(--dato);
+}
+
+.boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.boton--primario {
+  border-color: var(--dato);
+  background: var(--dato);
+  color: #fff;
+}
+
+.boton--primario:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.boton--peligro:hover:not(:disabled) {
+  border-color: var(--mal);
+  color: var(--mal);
+}
+
+.campo {
+  display: block;
+  margin-bottom: 0.9rem;
+}
+
+.campo span {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--tinta-2);
+  font-size: 0.85rem;
+}
+
+.campo input,
+.campo select,
+.campo textarea {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--borde);
+  border-radius: 7px;
+  background: var(--plano);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.campo input:focus,
+.campo select:focus,
+.campo textarea:focus {
+  outline: 2px solid var(--dato);
+  outline-offset: -1px;
+}
+
+/* ── Estado (color + SIEMPRE texto) ──────────────────────────────────────── */
+
 .estado {
-  margin-bottom: 0;
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.estado::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tinta-suave);
+  flex: none;
+}
+
+.estado--bien::before {
+  background: var(--bien);
+}
+
+.estado--medio::before {
+  background: var(--medio);
+}
+
+.estado--mal::before {
+  background: var(--mal);
+}
+
+.aviso {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--borde);
+  border-left: 3px solid var(--medio);
+  border-radius: 7px;
+  background: var(--superficie);
+  color: var(--tinta-2);
+  font-size: 0.87rem;
+}
+
+.aviso--error {
+  border-left-color: var(--mal);
+}
+
+/* ── Medidor de magnitud (un solo tono, pista mas clara) ─────────────────── */
+
+.medidor {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--dato-pista);
+  overflow: hidden;
+}
+
+.medidor__relleno {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--dato);
+}
+
+/* ── Barra divergente de riesgo (azul seguro / rojo riesgo) ──────────────── */
+
+.diverge {
+  position: relative;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--neutro);
+}
+
+.diverge__cero {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--tinta-suave);
+}
+
+.diverge__barra {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 4px;
+}
+
+/* ── Fichas y rejillas ───────────────────────────────────────────────────── */
+
+.rejilla {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+}
+
+.kpis {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.kpi {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--borde);
+  border-radius: 9px;
+  background: var(--superficie);
+}
+
+.kpi__etiqueta {
+  color: var(--tinta-2);
+  font-size: 0.8rem;
+}
+
+.kpi__valor {
+  margin-top: 0.15rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.kpi__pie {
+  margin-top: 0.15rem;
+  color: var(--tinta-suave);
+  font-size: 0.78rem;
+}
+
+.ficha {
+  display: block;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--borde);
+  border-radius: 9px;
+  background: var(--superficie);
+  color: inherit;
+  text-decoration: none;
+}
+
+a.ficha:hover {
+  border-color: var(--dato);
+}
+
+.ficha__titulo {
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+/* ── Tablas ──────────────────────────────────────────────────────────────── */
+
+.tabla-scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 0.9rem;
 }
 
-.estado--comprobando {
-  color: var(--texto-suave);
+th,
+td {
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--linea);
+  text-align: left;
+  vertical-align: middle;
 }
 
-.estado--conectado {
-  color: var(--ok);
+th {
+  color: var(--tinta-2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
-.estado--sin-conexion {
-  color: var(--error);
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.vacio {
+  padding: 2rem 1rem;
+  color: var(--tinta-2);
+  text-align: center;
+}
+
+.pila {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.lista-limpia {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
