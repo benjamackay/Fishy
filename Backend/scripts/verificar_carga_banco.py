@@ -101,6 +101,11 @@ def verificar_preguntas(data):
 
         # Campos que el juego y el cálculo de riesgo usan de verdad. No se
         # comparan todos: los que sí, son los que rompen algo si se desfasan.
+        #
+        # `etiquetas_ml` quedaba fuera: no rompe nada dentro del juego, pero
+        # sale por la API y es la entrada del trabajo de ML. Al regenerar el banco
+        # para la 2.5 se le reescribió el vocabulario entero y ninguna comprobación
+        # se puso roja. Ahora sí entra.
         difs = []
         for campo, esperado in (
             ("zona", p.get("zona", "")),
@@ -111,6 +116,7 @@ def verificar_preguntas(data):
             ("es_mensaje_riesgo", p.get("es_mensaje_riesgo", False)),
             ("mensaje_npc", p.get("mensaje_npc", "")),
             ("escenario_id", p.get("escenario_id") or ""),
+            ("etiquetas_ml", p.get("etiquetas_ml") or []),
         ):
             actual = getattr(obj, campo)
             if actual != esperado:

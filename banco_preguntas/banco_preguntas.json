@@ -296,8 +296,8 @@
       "historial_previo": [],
       "mensaje_npc": "¡Hola! Un amigo mío encontró algo raro cerca del sendero viejo... me pareció que podía ser tuyo. ¿Buscas algo de tu abuelo?",
       "etiquetas_ml": [
+        "informacion_exclusiva",
         "contacto_amistoso",
-        "objeto_perdido",
         "apertura_ambigua"
       ],
       "opciones_respuesta": [
@@ -356,7 +356,8 @@
       "mensaje_npc": "Uy, mejor no metamos a Huemul todavía... esto que te voy a decir que quede solo entre nosotros dos, ¿ya?",
       "etiquetas_ml": [
         "solicitud_secreto",
-        "aislamiento_adulto"
+        "aislamiento",
+        "manipulacion_emocional"
       ],
       "opciones_respuesta": [
         {
@@ -398,7 +399,9 @@
       "mensaje_npc": "Te cuento, pero con la condición de que no le digas a Huemul ni a tu familia todavía. Los detectives de verdad resuelven las cosas solos... ¿o vas a necesitar que te acompañen para todo?",
       "etiquetas_ml": [
         "solicitud_secreto",
-        "reto_autonomia"
+        "aislamiento",
+        "manipulacion_confianza",
+        "presion_orgullo"
       ],
       "opciones_respuesta": [
         {
@@ -439,8 +442,9 @@
       "historial_previo": [],
       "mensaje_npc": "Casi lo vi. Mejor te lo muestro directo: ven al claro del bosque, solo tú, así no se pierde la sorpresa para los demás.",
       "etiquetas_ml": [
-        "invitacion_encuentro",
-        "aislamiento"
+        "propuesta_encuentro",
+        "a_solas",
+        "escalada_riesgo"
       ],
       "opciones_respuesta": [
         {
@@ -481,8 +485,9 @@
       "historial_previo": [],
       "mensaje_npc": "Ven al claro oscuro del bosque a buscarlo, pero solo. Si traes a alguien más, no te lo doy.",
       "etiquetas_ml": [
-        "invitacion_encuentro",
-        "condicion_soledad"
+        "propuesta_encuentro",
+        "a_solas",
+        "escalada_riesgo"
       ],
       "opciones_respuesta": [
         {
@@ -522,7 +527,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Puma se desconecta. Otto marca la interacción como resuelta en su libreta.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -544,7 +552,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Puma se despide satisfecho. Otto queda preocupado y anota qué señales pasó por alto.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -567,6 +578,7 @@
       "historial_previo": [],
       "mensaje_npc": "¡No lo vas a creer, encontré una pieza de tu brújula! Pásame la ubicación de tu casa así te la dejo hoy mismo, ¿bueno?",
       "etiquetas_ml": [
+        "incentivo_falso",
         "solicitud_ubicacion",
         "intercambio_condicionado"
       ],
@@ -625,7 +637,8 @@
       "historial_previo": [],
       "mensaje_npc": "Si no confirmas quién eres, se la doy a otro. Última oportunidad.",
       "etiquetas_ml": [
-        "presion_urgencia"
+        "presion_condicional",
+        "urgencia_falsa"
       ],
       "opciones_respuesta": [
         {
@@ -666,7 +679,8 @@
       "historial_previo": [],
       "mensaje_npc": "Con eso ya me sirve. Dime también el número y listo.",
       "etiquetas_ml": [
-        "escalada_datos"
+        "solicitud_datos_personales",
+        "escalada_riesgo"
       ],
       "opciones_respuesta": [
         {
@@ -707,8 +721,10 @@
       "historial_previo": [],
       "mensaje_npc": "Qué buena foto. Ahora pásame el teléfono de tus papás o la subo para todo el bosque.",
       "etiquetas_ml": [
-        "amenaza_difusion",
-        "chantaje"
+        "extorsion",
+        "amenaza",
+        "solicitud_datos_personales",
+        "solicitud_foto"
       ],
       "opciones_respuesta": [
         {
@@ -748,7 +764,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] La cuenta de Puma queda bloqueada y reportada. Otto recupera la pieza legítima de la brújula.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -770,7 +789,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Huemul acompaña a Otto a reportar lo ocurrido. Nadie queda solo con esto.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -793,7 +815,7 @@
       "historial_previo": [],
       "mensaje_npc": "Qué raro, justo pasaba por aquí. ¿Participaste en el sorteo de la comunidad? Si quieres, mándame tu ubicación así te anoto antes que se llene.",
       "etiquetas_ml": [
-        "premio_falso",
+        "incentivo_falso",
         "solicitud_ubicacion",
         "patron_repetido"
       ],
@@ -851,7 +873,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Pudú cierra el chat. El patrón se reconoce por la conducta, no por el nombre de la cuenta.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -873,7 +898,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Otto alcanza a frenar el envío. Conviene revisar juntos por qué el mensaje parecía inofensivo.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -895,7 +923,10 @@
       "es_fin_de_zona": true,
       "historial_previo": [],
       "mensaje_npc": "[ZONA] Huemul: 'Antes de seguir al pantano, mira tu libreta: ahí quedaron anotadas tus dudas, tus preguntas a tiempo y también los momentos en que te arriesgaste de más. Ese resumen sigue contigo, y tu tutor podrá verlo, bien simple, en su reporte.'",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_zona",
+        "desbloqueo_siguiente"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -918,9 +949,9 @@
       "historial_previo": [],
       "mensaje_npc": "¿Le crees al Coipo o reenviamos lo que dice la mayoría? Si lo defiendes, van a decir que tú también eres raro.",
       "etiquetas_ml": [
-        "rumor",
-        "presion_grupal",
-        "desinformacion"
+        "difusion_rumores",
+        "presion_social",
+        "verificacion_hechos"
       ],
       "opciones_respuesta": [
         {
@@ -977,8 +1008,9 @@
       "historial_previo": [],
       "mensaje_npc": "¡Hasta Otto dice que fue el Coipo! Llenemos el pantano de mensajes.",
       "etiquetas_ml": [
-        "viralizacion",
-        "rectificacion"
+        "oportunidad_rectificacion",
+        "difusion_rumores",
+        "ciberacoso"
       ],
       "opciones_respuesta": [
         {
@@ -1018,7 +1050,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] El rumor se detiene. Otto anota que contrastar versiones vale más que repetir a la mayoría.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1040,7 +1075,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] El rumor se esparció. Otto anota a quién le costó caro y qué pudo hacer distinto.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1063,8 +1101,9 @@
       "historial_previo": [],
       "mensaje_npc": "Te sacamos del grupo del chat. Votamos y ganó la mayoría, jaja.",
       "etiquetas_ml": [
-        "exclusion_grupal",
-        "burla_dirigida"
+        "exclusion_grupo",
+        "burla_publica",
+        "ciberacoso"
       ],
       "opciones_respuesta": [
         {
@@ -1121,8 +1160,10 @@
       "historial_previo": [],
       "mensaje_npc": "Mira cómo se pica, por algo nadie te defendió.",
       "etiquetas_ml": [
+        "burla_publica",
+        "escalada",
         "insistencia",
-        "burla_dirigida"
+        "ciberacoso"
       ],
       "opciones_respuesta": [
         {
@@ -1162,7 +1203,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Flamenco queda fuera de la conversación. Otto anota que reportar corta el problema de raíz.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1184,7 +1228,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] La exclusión siguió. Otto anota que callar deja al otro solo.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1207,9 +1254,10 @@
       "historial_previo": [],
       "mensaje_npc": "Psst, Otto. Hagamos stickers del Coipo y su piedra. Manda una foto suya y te sumas.",
       "etiquetas_ml": [
-        "acoso_tercero",
-        "invitacion_grupal",
-        "stickers_ofensivos"
+        "acoso_grupal",
+        "burla_publica",
+        "ciberacoso",
+        "acoso_tercero"
       ],
       "opciones_respuesta": [
         {
@@ -1266,7 +1314,9 @@
       "historial_previo": [],
       "mensaje_npc": "Como nadie dice nada, subo más stickers.",
       "etiquetas_ml": [
-        "intensificacion_turno2",
+        "acoso_grupal",
+        "escalada",
+        "ciberacoso",
         "silencio_permisivo"
       ],
       "opciones_respuesta": [
@@ -1308,7 +1358,9 @@
       "historial_previo": [],
       "mensaje_npc": "Bueno, subo más igual.",
       "etiquetas_ml": [
-        "intensificacion_turno2",
+        "acoso_grupal",
+        "escalada",
+        "ciberacoso",
         "ignorar_sin_reportar"
       ],
       "opciones_respuesta": [
@@ -1350,8 +1402,9 @@
       "historial_previo": [],
       "mensaje_npc": "¡Genial! Ahora un apodo feo a la piedra también.",
       "etiquetas_ml": [
-        "intensificacion_turno2",
-        "apodo_ofensivo"
+        "acoso_grupal",
+        "escalada",
+        "ciberacoso"
       ],
       "opciones_respuesta": [
         {
@@ -1392,7 +1445,9 @@
       "historial_previo": [],
       "mensaje_npc": "Buenísimo, invitemos a más gente.",
       "etiquetas_ml": [
-        "intensificacion_turno3",
+        "acoso_grupal",
+        "escalada",
+        "ciberacoso",
         "masificacion"
       ],
       "opciones_respuesta": [
@@ -1433,7 +1488,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] La página se cierra y Coipo recibe apoyo. Otto anota que avisar a tiempo cambia el final.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1455,7 +1513,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] El acoso siguió creciendo. Otto anota en qué turno pudo haberlo frenado.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1477,7 +1538,10 @@
       "es_fin_de_zona": true,
       "historial_previo": [],
       "mensaje_npc": "[ZONA] Coipo: 'Antes de que sigas al arrecife, gracias por ayudarme con el rumor. Tu libreta ya guarda cómo respondiste cada vez que alguien quiso burlarse o hacerte elegir un bando.'",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_zona",
+        "desbloqueo_siguiente"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1501,8 +1565,8 @@
       "mensaje_npc": "Miren cómo tiembla el pingüino. Si no saltas ya, subo un video diciendo que te dio miedo.",
       "etiquetas_ml": [
         "presion_social",
-        "amenaza_exposicion",
-        "reto_fisico"
+        "amenaza_reputacional",
+        "apelacion_valentia"
       ],
       "opciones_respuesta": [
         {
@@ -1560,7 +1624,7 @@
       "mensaje_npc": "Nadie quiere ser el primero. Salta tú.",
       "etiquetas_ml": [
         "presion_social",
-        "duda"
+        "apelacion_valentia"
       ],
       "opciones_respuesta": [
         {
@@ -1600,7 +1664,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Nadie entra a la cueva. Pingüino de Humboldt entrega a Otto una llave marina.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1622,7 +1689,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Foca de Weddell ayuda a salir del agua. Otto anota qué frase lo empujó a ceder.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1646,8 +1716,9 @@
       "mensaje_npc": "Nos enteramos que no te tiraste a la cueva. Este es más fácil: nadar más allá de las boyas. Y esta vez lo grabamos entre los dos.",
       "etiquetas_ml": [
         "presion_social",
-        "presion_multiple",
-        "grabacion"
+        "reto_peligroso",
+        "apelacion_valentia",
+        "presion_multiple"
       ],
       "opciones_respuesta": [
         {
@@ -1705,7 +1776,7 @@
       "mensaje_npc": "Eso no cuenta como reto. Hazlo completo o no cuenta.",
       "etiquetas_ml": [
         "presion_social",
-        "negociacion_parcial"
+        "reto_peligroso"
       ],
       "opciones_respuesta": [
         {
@@ -1745,7 +1816,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Nadie cruza las boyas. Otto suma firmeza para el desafío final.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1767,7 +1841,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Foca de Weddell acompaña a Otto de vuelta a la orilla.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1791,8 +1868,9 @@
       "mensaje_npc": "¡Salta a ciegas y transmítelo en vivo, así abres el cofre! Y si no saltas, se lo contamos a todo el arrecife. Ya van dos veces que dices que no.",
       "etiquetas_ml": [
         "presion_social",
-        "transmision_vivo",
-        "presion_maxima"
+        "reto_peligroso",
+        "incentivo_falso",
+        "transmision_vivo"
       ],
       "opciones_respuesta": [
         {
@@ -1850,7 +1928,7 @@
       "mensaje_npc": "No, tiene que ser el salto o nada.",
       "etiquetas_ml": [
         "presion_social",
-        "negociacion_parcial"
+        "reto_peligroso"
       ],
       "opciones_respuesta": [
         {
@@ -1890,7 +1968,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] El cofre se abre. La evaluación del recorrido completo dispara el Sistema de Finales.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1912,7 +1993,10 @@
       "es_fin_de_zona": false,
       "historial_previo": [],
       "mensaje_npc": "[SISTEMA] Otto vuelve a la orilla con ayuda. El cofre sigue ahí, y la aventura también.",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     },
@@ -1934,7 +2018,10 @@
       "es_fin_de_zona": true,
       "historial_previo": [],
       "mensaje_npc": "[ZONA] Por ser la última zona, el resumen de decisiones no se muestra aparte: se integra en el Sistema de Finales (Final A Detective Ejemplar, Final B Detective en Camino o Final C Detective en Formación).",
-      "etiquetas_ml": [],
+      "etiquetas_ml": [
+        "fin_zona",
+        "desbloqueo_siguiente"
+      ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null
     }
