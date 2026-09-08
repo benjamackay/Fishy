@@ -52,7 +52,7 @@ namespace Fishy.EditorTools
             // Si ya hay otro NPC en la escena con eso cableado (p. ej. "Huemul"), se
             // copian a la instancia nueva para no tener que arrastrarlas a mano.
             var npcInstancia = go.GetComponent<NPC>();
-            var npcExistente = Object.FindObjectsByType<NPC>(FindObjectsSortMode.None)
+            var npcExistente = Object.FindObjectsByType<NPC>()
                 .FirstOrDefault(n => n != npcInstancia && n.dialoguePanel != null);
             bool uiCopiada = npcExistente != null;
             if (uiCopiada)
