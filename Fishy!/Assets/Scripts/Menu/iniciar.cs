@@ -48,6 +48,12 @@ public class iniciar : MonoBehaviour
              "'perfil.txt' junto al .exe con el numero adentro.")]
     [Min(1)] public int perfilActivo = 1;
 
+    [Header("Continuar partida")]
+    [Tooltip("Cuantas sesiones se ofrecen para continuar. El backend las manda de la mas " +
+             "reciente a la mas antigua, asi que se muestran las N ultimas. Con cero " +
+             "partidas guardadas no se muestra nada: se empieza una y se entra directo.")]
+    [Min(1)] public int maxPartidasEnLista = 3;
+
     [Header("Destino")]
     [Tooltip("Escena que se carga despues de autenticarse. Debe estar en Build Settings.")]
     public string escenaDestino = "MenuDos";
@@ -77,6 +83,13 @@ public class iniciar : MonoBehaviour
     private readonly Dictionary<RectTransform, Vector2> posOriginal = new Dictionary<RectTransform, Vector2>();
     private bool ocupado;
     private bool backendListo;
+
+    /// <summary>Perfil de menor con el que se va a jugar, ya resuelto por AbrirPartida.</summary>
+    private UsuarioJugadorDto perfilElegido;
+    /// <summary>Guarda contra el doble toque en la lista de partidas: sin el, dos toques
+    /// seguidos en "Empezar una partida nueva" crean dos partidas.</summary>
+    private bool seleccionando;
+    private readonly List<Button> botonesPartida = new List<Button>();
 
     // -- Ciclo de vida ---------------------------------------------------------
     private void Awake()
@@ -236,7 +249,8 @@ public class iniciar : MonoBehaviour
             onError: e => EntrarSinPartida($"no se pudo crear el perfil '{nombre}' ({e})"));
     }
 
-    /// <summary>Retoma la partida del perfil activo, o le crea una si nunca jugo.</summary>
+    /// <summary>Busca las partidas del perfil activo. Si tiene alguna, deja elegir cual
+    /// continuar (HDU-15); si no tiene ninguna, le crea una y entra directo.</summary>
     private void AbrirPartida(List<UsuarioJugadorDto> existentes)
     {
         int indice = Mathf.Clamp(LeerPerfilActivo(), 1, perfiles.Length) - 1;
@@ -246,20 +260,177 @@ public class iniciar : MonoBehaviour
                    ?? existentes.FirstOrDefault();
         if (elegido == null) { EntrarSinPartida("la cuenta no tiene ningun perfil"); return; }
 
-        ApiManager.Instance.ContinuarOCrearPartida(elegido.id,
-            onSuccess: (partida, esNueva) =>
-            {
-                // Sin esto, entrar por aquí dejaba el progreso sin atar a la partida:
-                // los desafios completados no se guardaban ni en PlayerPrefs y la mochila
-                // del perfil anterior seguia puesta. Es la pantalla que usa la feria.
-                MisionBackendSync.AtarProgresoALaPartida(partida.id);
+        perfilElegido = elegido;
 
-                Debug.Log($"[Ingresar] Perfil '{elegido.nombre}' (id {elegido.id}), " +
-                          $"partida {partida.id} {(esNueva ? "creada" : "retomada")}.");
-                SetEstado("Listo. Entrando...", colorOk);
-                Continuar();
+        // Fijar el perfil ANTES de pedir sus partidas: ApiManager descarta el estado de
+        // sesion al cambiar de menor, y hacerlo despues borraria la partida adoptada.
+        ApiManager.Instance.SeleccionarJugador(elegido.id);
+        SetEstado("Buscando tus partidas...", colorInfo);
+
+        ApiManager.Instance.ObtenerPartidasJugador(elegido.id,
+            onSuccess: partidas =>
+            {
+                // Sin partidas guardadas NO se ofrece continuar: se crea una y se entra.
+                // Ensenarle una lista vacia seria pedirle que elija entre nada.
+                if (partidas == null || partidas.Count == 0) { CrearPartidaNueva(); return; }
+                MostrarSelectorDePartidas(partidas);
             },
-            onError: e => EntrarSinPartida($"no se pudo abrir la partida ({e})"));
+            onError: e => EntrarSinPartida($"no se pudieron listar las partidas ({e})"));
+    }
+
+    // -- Seleccion de partida (HDU-15) -----------------------------------------
+    //
+    // Esta pantalla no tiene panel propio: reaprovecha el cartel del login. Los
+    // botones se CLONAN del boton "Ingresar" para heredar tipografia, colores y
+    // tamano del diseno que hizo el equipo, igual que hace CrearCampoEmail con los
+    // campos de texto.
+
+    private void MostrarSelectorDePartidas(List<PartidaDto> partidas)
+    {
+        // Sin el boton que clonar no hay lista que montar. Antes de HDU-15 esta puerta
+        // retomaba la mas reciente sin preguntar: se vuelve a eso en vez de dejar al
+        // nino/a en una pantalla vacia.
+        if (ingresarButton == null || cartel == null || usuarioInput == null)
+        {
+            Debug.LogWarning("[Ingresar] No se pudo montar la lista de partidas " +
+                             "(falta el cartel o el boton). Se retoma la mas reciente.");
+            ContinuarPartida(partidas[0]);
+            return;
+        }
+
+        int cuantas = Mathf.Min(partidas.Count, Mathf.Max(1, maxPartidasEnLista));
+        int filas = cuantas + 1;   // + "empezar una partida nueva"
+
+        // El cartel crece hacia abajo igual que en modo registro: tres filas caben en el
+        // hueco que dejaba el formulario, y de la cuarta en adelante hay que agrandarlo.
+        float crecer = Mathf.Max(0, filas - 3) * AltoFila;
+        cartel.sizeDelta = cartelSizeOriginal + new Vector2(0f, crecer);
+        cartel.anchoredPosition = cartelPosOriginal - new Vector2(0f, crecer * 0.5f);
+
+        foreach (Component c in new Component[] { usuarioInput, passwordInput, emailInput,
+                                                  ingresarButton, registerButton, cuentaLabel })
+            if (c != null) c.gameObject.SetActive(false);
+
+        if (tituloLabel != null)
+        {
+            tituloLabel.text = "¿Seguimos tu aventura?";
+            Mover(tituloLabel, crecer * 0.5f);
+        }
+
+        Vector2 filaBase = posOriginal.TryGetValue((RectTransform)usuarioInput.transform, out var p)
+            ? p + new Vector2(0f, crecer * 0.5f)
+            : Vector2.zero;
+
+        for (int i = 0; i < cuantas; i++)
+        {
+            var partida = partidas[i];       // copia local: sin ella todos los botones
+            bool masReciente = i == 0;       // usarian la ultima partida del bucle
+
+            var boton = ClonarBoton($"Partida{partida.id}",
+                TextoDePartida.Etiqueta(partida, masReciente),
+                filaBase - new Vector2(0f, i * AltoFila));
+            boton.onClick.AddListener(() => ContinuarPartida(partida));
+        }
+
+        var nueva = ClonarBoton("PartidaNueva", "Empezar una partida nueva",
+            filaBase - new Vector2(0f, cuantas * AltoFila));
+        nueva.onClick.AddListener(CrearPartidaNueva);
+
+        ReubicarEstado();
+        SetEstado(partidas.Count > cuantas
+            ? $"Partidas de {perfilElegido.nombre} (las {cuantas} mas recientes)."
+            : $"Partidas de {perfilElegido.nombre}.", colorInfo);
+    }
+
+    /// <summary>Clona el boton "Ingresar" para una fila de la lista.</summary>
+    private Button ClonarBoton(string nombre, string texto, Vector2 posicion)
+    {
+        var boton = Instantiate(ingresarButton, ingresarButton.transform.parent);
+        boton.name = nombre;
+        boton.gameObject.SetActive(true);   // el original ya esta oculto: el clon nace igual
+
+        // Y nace tambien DESACTIVADO: se clona en mitad del login, donde SetOcupado(true)
+        // dejo el boton "Ingresar" con interactable = false y OnAuthOk a proposito nunca
+        // lo suelta ("la pantalla se descarga al cambiar de escena"). Sin esta linea la
+        // lista se dibuja entera y no responde a ningun toque.
+        boton.interactable = true;
+
+        // El boton "Ingresar" trae MenuDos() en su onClick PERSISTENTE (guardado en
+        // Ingresar.unity) y RemoveAllListeners no borra esos: el clon reenviaria el
+        // formulario. Reemplazar el evento entero es la unica forma de partir limpio,
+        // el mismo truco que usa CrearCampoEmail con onSubmit.
+        boton.onClick = new Button.ButtonClickedEvent();
+
+        var etiqueta = boton.GetComponentInChildren<TMP_Text>(true);
+        if (etiqueta != null)
+        {
+            etiqueta.text = texto;
+            // Dos lineas donde el diseno esperaba una palabra.
+            etiqueta.fontSize = Mathf.Max(14f, etiqueta.fontSize * 0.7f);
+            etiqueta.alignment = TextAlignmentOptions.Center;
+            etiqueta.textWrappingMode = TextWrappingModes.Normal;
+        }
+
+        ((RectTransform)boton.transform).anchoredPosition = posicion;
+        botonesPartida.Add(boton);
+        return boton;
+    }
+
+    /// <summary>Entra al juego con una partida que ya existia.</summary>
+    private void ContinuarPartida(PartidaDto partida)
+    {
+        if (seleccionando) return;
+        seleccionando = true;
+        SetBotonesPartidaActivos(false);
+        SetEstado("Cargando tu partida...", colorInfo);
+
+        if (!ApiManager.Instance.RetomarPartida(partida))
+        {
+            seleccionando = false;
+            SetBotonesPartidaActivos(true);
+            SetEstado("Esa partida no se pudo abrir. Prueba con otra.", colorError);
+            return;
+        }
+
+        EntrarConPartida(partida, "retomada");
+    }
+
+    /// <summary>Empieza de cero. Lo llama el boton "Empezar una partida nueva" y tambien
+    /// AbrirPartida cuando el perfil todavia no tiene ninguna partida.</summary>
+    private void CrearPartidaNueva()
+    {
+        if (seleccionando) return;
+        if (perfilElegido == null) { EntrarSinPartida("no se resolvio el perfil de menor"); return; }
+
+        seleccionando = true;
+        SetBotonesPartidaActivos(false);
+        SetEstado("Preparando una partida nueva...", colorInfo);
+
+        ApiManager.Instance.CrearPartida(perfilElegido.id, 0f, null,
+            onSuccess: partida => EntrarConPartida(partida, "creada"),
+            // EntrarSinPartida entra igual al juego, asi que no hace falta devolver los
+            // botones: la escena se descarga detras. Dejar al nino/a atrapado aqui seria
+            // peor que entrar sin guardado, que es el criterio del resto de la pantalla.
+            onError: e => EntrarSinPartida($"no se pudo crear la partida ({e})"));
+    }
+
+    private void EntrarConPartida(PartidaDto partida, string verbo)
+    {
+        // Sin esto, entrar por aquí dejaba el progreso sin atar a la partida:
+        // los desafios completados no se guardaban ni en PlayerPrefs y la mochila
+        // del perfil anterior seguia puesta. Es la pantalla que usa la feria.
+        MisionBackendSync.AtarProgresoALaPartida(partida.id);
+
+        Debug.Log($"[Ingresar] Perfil '{perfilElegido.nombre}' (id {perfilElegido.id}), " +
+                  $"partida {partida.id} {verbo}.");
+        SetEstado("Listo. Entrando...", colorOk);
+        Continuar();
+    }
+
+    private void SetBotonesPartidaActivos(bool valor)
+    {
+        foreach (var boton in botonesPartida)
+            if (boton != null) boton.interactable = valor;
     }
 
     /// <summary>Numero de perfil a jugar. Un 'perfil.txt' junto al ejecutable le gana
@@ -447,12 +618,19 @@ public class iniciar : MonoBehaviour
                 pass.anchoredPosition - new Vector2(0f, AltoFila);
         }
 
-        if (estadoLabel != null)
-        {
-            ((RectTransform)estadoLabel.transform).anchoredPosition = new Vector2(
-                cartel.anchoredPosition.x,
-                cartel.anchoredPosition.y - cartel.sizeDelta.y * 0.5f - 26f);
-        }
+        ReubicarEstado();
+    }
+
+    /// <summary>Deja la etiqueta de estado pegada al borde de abajo del cartel. La usan
+    /// los dos sitios que cambian el alto del cartel: el modo registro y la lista de
+    /// partidas.</summary>
+    private void ReubicarEstado()
+    {
+        if (estadoLabel == null || cartel == null) return;
+
+        ((RectTransform)estadoLabel.transform).anchoredPosition = new Vector2(
+            cartel.anchoredPosition.x,
+            cartel.anchoredPosition.y - cartel.sizeDelta.y * 0.5f - 26f);
     }
 
     private void Mover(Component objetivo, float dy)

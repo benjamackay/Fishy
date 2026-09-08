@@ -74,10 +74,25 @@ namespace Fishy.UI
         public Button createProfileButton;
         public Text profileStatusLabel;
 
+        [Header("Continuar partida (se genera en runtime)")]
+        [Tooltip("Cuántas sesiones se ofrecen para continuar. El backend las manda de la " +
+                 "más reciente a la más antigua, así que se muestran las N últimas.")]
+        [Min(1)] public int maxPartidasEnLista = 3;
+        public GameObject savePanel;
+        public Transform saveListContainer;
+        public Button newGameButton;
+        public Button backToProfilesButton;
+        public Text saveStatusLabel;
+
         private Font font;
         private bool busy;
         private bool profileBusy;
+        private bool saveBusy;
         private bool backendReady;
+
+        /// <summary>Perfil elegido en el paso 2. El paso 3 lo necesita para crear una
+        /// partida nueva si el menor no quiere continuar ninguna de las guardadas.</summary>
+        private UsuarioJugadorDto perfilElegido;
 
         // ── Ciclo de vida ──────────────────────────────────────────────────────
         private void Awake()
@@ -95,6 +110,8 @@ namespace Fishy.UI
             if (submitButton        != null) submitButton.onClick.AddListener(Submit);
             if (toggleModeButton    != null) toggleModeButton.onClick.AddListener(ToggleMode);
             if (createProfileButton != null) createProfileButton.onClick.AddListener(CreateProfile);
+            if (newGameButton        != null) newGameButton.onClick.AddListener(EmpezarPartidaNueva);
+            if (backToProfilesButton != null) backToProfilesButton.onClick.AddListener(ShowProfiles);
 
             ApplyMode();
 
@@ -160,11 +177,14 @@ namespace Fishy.UI
             ApiManager.Instance.ListarJugadores(
                 onSuccess: jugadores =>
                 {
+                    // preguntar: false — el auto-login existe para NO ver ninguna pantalla.
+                    // Si se detuviera en el selector de partidas dejaría de saltarse el
+                    // acceso, que es justo lo único que promete.
                     var existente = jugadores?.Find(j => j.nombre == autoLoginPerfil);
-                    if (existente != null) { ChooseProfile(existente); return; }
+                    if (existente != null) { ChooseProfile(existente, preguntar: false); return; }
 
                     ApiManager.Instance.CrearJugador(autoLoginPerfil, null,
-                        onSuccess: nuevo => ChooseProfile(nuevo),
+                        onSuccess: nuevo => ChooseProfile(nuevo, preguntar: false),
                         onError: err =>
                         {
                             SetBusy(false);
@@ -185,12 +205,14 @@ namespace Fishy.UI
         {
             if (panel        != null) panel.SetActive(true);
             if (profilePanel != null) profilePanel.SetActive(false);
+            if (savePanel    != null) savePanel.SetActive(false);
         }
 
         public void Hide()
         {
             if (panel        != null) panel.SetActive(false);
             if (profilePanel != null) profilePanel.SetActive(false);
+            if (savePanel    != null) savePanel.SetActive(false);
         }
 
         // ── Cambio de modo ─────────────────────────────────────────────────────
@@ -297,6 +319,7 @@ namespace Fishy.UI
         {
             if (panel        != null) panel.SetActive(false);
             if (profilePanel != null) profilePanel.SetActive(true);
+            if (savePanel    != null) savePanel.SetActive(false);
 
             SetProfileBusy(true);
             SetProfileStatus("Cargando perfiles…", false);
@@ -337,26 +360,44 @@ namespace Fishy.UI
             }
         }
 
-        private void ChooseProfile(UsuarioJugadorDto jugador)
+        /// <summary>
+        /// Paso 2 → paso 3. Antes esto retomaba a ciegas la última partida del menor;
+        /// ahora pregunta cuál continuar, que es lo que pide HDU-15.
+        ///
+        /// <paramref name="preguntar"/> en false conserva el comportamiento viejo
+        /// (retomar la más reciente sin mostrar nada). Lo usa el auto-login de pruebas.
+        /// </summary>
+        private void ChooseProfile(UsuarioJugadorDto jugador, bool preguntar = true)
         {
             if (profileBusy) return;
+            perfilElegido = jugador;
 
             SetProfileBusy(true);
-            SetProfileStatus($"Preparando la partida de {jugador.nombre}…", false);
+            SetProfileStatus($"Buscando las partidas de {jugador.nombre}…", false);
 
-            // Retoma su última partida; solo crea una si este menor nunca ha jugado.
-            ApiManager.Instance.ContinuarOCrearPartida(jugador.id,
-                onSuccess: (partida, esNueva) =>
+            // Fijar el perfil ANTES de pedir sus partidas: ApiManager descarta el estado
+            // de sesión al cambiar de menor, y hacerlo después borraría la partida que
+            // acabamos de adoptar.
+            ApiManager.Instance.SeleccionarJugador(jugador.id);
+
+            ApiManager.Instance.ObtenerPartidasJugador(jugador.id,
+                onSuccess: partidas =>
                 {
-                    // Ata misiones e inventario a esta partida antes de entrar. El bucle
-                    // de MisionBackendSync haría lo mismo en el siguiente tic, pero la
-                    // escena arranca antes que eso.
-                    MisionBackendSync.AtarProgresoALaPartida(partida.id);
+                    // Ojo: el perfil sigue marcado como ocupado a propósito en las dos
+                    // ramas que entran al juego sin mostrar nada. Liberarlo aquí dejaba
+                    // los botones de perfil vivos durante el alta de la partida, y un
+                    // segundo toque creaba una segunda partida. Se libera solo cuando
+                    // hay una pantalla que el menor pueda tocar, o al fallar.
+                    //
+                    // Sin partidas guardadas NO se ofrece continuar: se empieza una nueva
+                    // y el menor entra directo. Enseñarle una lista vacía con un botón
+                    // "Continuar" muerto sería peor que no mostrar la pantalla.
+                    if (partidas == null || partidas.Count == 0) { EmpezarPartidaNueva(); return; }
 
-                    if (!esNueva)
-                        Debug.Log($"[AuthScreen] Retomando partida {partida.id} de " +
-                                  $"{jugador.nombre} (progreso {partida.progreso}).");
-                    StartGame();
+                    if (!preguntar) { ContinuarPartida(partidas[0]); return; }
+
+                    SetProfileBusy(false);
+                    ShowSaves(partidas);
                 },
                 onError: err =>
                 {
@@ -418,10 +459,128 @@ namespace Fishy.UI
             }
         }
 
+        // ── Paso 3: continuar partida ──────────────────────────────────────────
+        //
+        // Solo se llega aquí si el perfil YA tiene al menos una partida guardada.
+        // Con cero partidas, ChooseProfile crea una y entra directo: ese es el
+        // "ocultar Continuar cuando no hay nada que continuar".
+
+        private void ShowSaves(List<PartidaDto> partidas)
+        {
+            if (panel        != null) panel.SetActive(false);
+            if (profilePanel != null) profilePanel.SetActive(false);
+            if (savePanel    != null) savePanel.SetActive(true);
+
+            SetSaveBusy(false);
+            ClearSaveList();
+
+            string nombre = perfilElegido != null ? perfilElegido.nombre : "tu perfil";
+            int cuantas = Mathf.Min(partidas.Count, Mathf.Max(1, maxPartidasEnLista));
+
+            SetSaveStatus(partidas.Count > cuantas
+                ? $"Partidas de {nombre} (las {cuantas} más recientes)."
+                : $"Partidas de {nombre}.", false);
+
+            for (int i = 0; i < cuantas; i++)
+            {
+                var partida = partidas[i];        // copia local: sin ella todos los
+                bool masReciente = i == 0;        // botones usarían la última del bucle
+
+                var boton = CreateButton(saveListContainer, $"Partida {partida.id}",
+                    masReciente ? new Color(0.16f, 0.5f, 0.34f, 1f)
+                                : new Color(0.16f, 0.4f, 0.55f, 1f),
+                    out var etiqueta, 100f);
+                etiqueta.fontSize        = 26;
+                etiqueta.verticalOverflow = VerticalWrapMode.Overflow;
+                etiqueta.text            = TextoDePartida.Etiqueta(partida, masReciente);
+
+                boton.onClick.AddListener(() => ContinuarPartida(partida));
+            }
+        }
+
+        /// <summary>Entra al juego con una partida ya existente.</summary>
+        private void ContinuarPartida(PartidaDto partida)
+        {
+            if (saveBusy) return;
+
+            SetSaveBusy(true);
+            SetSaveStatus("Cargando tu partida…", false);
+
+            if (!ApiManager.Instance.RetomarPartida(partida))
+            {
+                const string aviso = "Esa partida no se pudo abrir. Prueba con otra.";
+                SetSaveBusy(false);
+                SetSaveStatus(aviso, true);
+                // Se puede llegar aquí sin haber mostrado el panel (auto-login), y ahí
+                // el único cartel a la vista es el del paso 2.
+                SetProfileBusy(false);
+                SetProfileStatus(aviso, true);
+                return;
+            }
+
+            // Ata misiones e inventario a esta partida antes de entrar. El bucle de
+            // MisionBackendSync haría lo mismo en el siguiente tic, pero la escena
+            // arranca antes que eso.
+            MisionBackendSync.AtarProgresoALaPartida(partida.id);
+
+            Debug.Log($"[AuthScreen] Retomando partida {partida.id} " +
+                      $"(progreso {partida.progreso}, guardada {partida.fecha_update}).");
+            StartGame();
+        }
+
+        /// <summary>Empieza de cero. Lo llama el botón "Empezar una partida nueva" y
+        /// también ChooseProfile cuando el perfil todavía no tiene ninguna.</summary>
+        private void EmpezarPartidaNueva()
+        {
+            if (saveBusy) return;
+            if (perfilElegido == null)
+            {
+                SetSaveStatus("Primero elige quién va a jugar.", true);
+                ShowProfiles();
+                return;
+            }
+
+            SetSaveBusy(true);
+            SetSaveStatus("Creando una partida nueva…", false);
+            // El paso 2 sigue a la vista cuando se llega aquí por no haber ninguna
+            // partida guardada; el paso 3, cuando se pulsó "Empezar una partida nueva".
+            // El mismo texto sirve en los dos casos.
+            SetProfileStatus($"Preparando la partida de {perfilElegido.nombre}…", false);
+
+            ApiManager.Instance.CrearPartida(perfilElegido.id, 0f, null,
+                onSuccess: partida =>
+                {
+                    MisionBackendSync.AtarProgresoALaPartida(partida.id);
+                    Debug.Log($"[AuthScreen] Partida {partida.id} creada para {perfilElegido.nombre}.");
+                    StartGame();
+                },
+                onError: err =>
+                {
+                    SetSaveBusy(false);
+                    SetSaveStatus(FriendlyError(err), true);
+                    SetProfileBusy(false);
+                    SetProfileStatus(FriendlyError(err), true);
+                });
+        }
+
+        private void ClearSaveList()
+        {
+            if (saveListContainer == null) return;
+            // Se desemparenta antes de destruir: Destroy es diferido hasta el final del
+            // frame y si no, el layout seguiría contando los botones viejos.
+            for (int i = saveListContainer.childCount - 1; i >= 0; i--)
+            {
+                var child = saveListContainer.GetChild(i);
+                child.SetParent(null, false);
+                Destroy(child.gameObject);
+            }
+        }
+
         private void StartGame()
         {
             SetStatus("¡Listo!", false);
             SetProfileStatus("¡Listo!", false);
+            SetSaveStatus("¡Listo!", false);
             Hide();
             if (loadingScreen != null) loadingScreen.LoadScene(gameSceneName);
             else SceneManager.LoadScene(gameSceneName);
@@ -449,8 +608,19 @@ namespace Fishy.UI
                 boton.interactable = !value;
         }
 
+        private void SetSaveBusy(bool value)
+        {
+            saveBusy = value;
+            if (newGameButton        != null) newGameButton.interactable        = !value;
+            if (backToProfilesButton != null) backToProfilesButton.interactable = !value;
+            if (saveListContainer    == null) return;
+            foreach (var boton in saveListContainer.GetComponentsInChildren<Button>())
+                boton.interactable = !value;
+        }
+
         private void SetStatus(string message, bool isError) => Paint(statusLabel, message, isError);
         private void SetProfileStatus(string message, bool isError) => Paint(profileStatusLabel, message, isError);
+        private void SetSaveStatus(string message, bool isError) => Paint(saveStatusLabel, message, isError);
 
         private static void Paint(Text label, string message, bool isError)
         {
@@ -528,6 +698,7 @@ namespace Fishy.UI
 
             BuildAuthPanel(canvasGO.transform);
             BuildProfilePanel(canvasGO.transform);
+            BuildSavePanel(canvasGO.transform);
         }
 
         private void BuildAuthPanel(Transform parent)
@@ -631,6 +802,54 @@ namespace Fishy.UI
 
             createProfileButton = CreateButton(card, "Agregar perfil",
                 new Color(0.16f, 0.4f, 0.55f, 1f), out _, 78f);
+        }
+
+        private void BuildSavePanel(Transform parent)
+        {
+            savePanel = new GameObject("SavePanel", typeof(RectTransform), typeof(Image));
+            savePanel.transform.SetParent(parent, false);
+            Stretch(savePanel.GetComponent<RectTransform>());
+            savePanel.GetComponent<Image>().color = new Color(0.05f, 0.08f, 0.13f, 1f);
+            savePanel.SetActive(false);
+
+            var card = CreateCard(savePanel.transform, 900f, 920f);
+
+            CreateLabel(card, "¿Seguimos tu aventura?",
+                48, FontStyle.Bold, TextAnchor.MiddleCenter, 80f);
+
+            var subtitulo = CreateLabel(card,
+                "Elige una partida para continuar donde quedaste.",
+                26, FontStyle.Italic, TextAnchor.MiddleCenter, 44f);
+            subtitulo.color = new Color(0.6f, 0.68f, 0.78f);
+
+            // Contenedor de la lista de partidas (se rellena en runtime)
+            var listGO = new GameObject("SaveList",
+                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+            listGO.transform.SetParent(card, false);
+            var listVlg = listGO.GetComponent<VerticalLayoutGroup>();
+            listVlg.spacing                = 14f;
+            listVlg.childAlignment         = TextAnchor.UpperCenter;
+            listVlg.childControlWidth      = true;
+            listVlg.childControlHeight     = true;
+            listVlg.childForceExpandWidth  = true;
+            listVlg.childForceExpandHeight = false;
+            listGO.GetComponent<LayoutElement>().minHeight = 110f;
+            saveListContainer = listGO.transform;
+
+            saveStatusLabel = CreateLabel(card, "",
+                26, FontStyle.Normal, TextAnchor.MiddleCenter, 60f);
+            saveStatusLabel.horizontalOverflow = HorizontalWrapMode.Wrap;
+            saveStatusLabel.verticalOverflow   = VerticalWrapMode.Overflow;
+
+            var separador = CreateLabel(card, "— o empieza de nuevo —",
+                24, FontStyle.Normal, TextAnchor.MiddleCenter, 44f);
+            separador.color = new Color(0.45f, 0.52f, 0.62f);
+
+            newGameButton = CreateButton(card, "Empezar una partida nueva",
+                new Color(0.16f, 0.22f, 0.34f, 1f), out _, 78f);
+
+            backToProfilesButton = CreateButton(card, "Cambiar de perfil",
+                new Color(0.14f, 0.17f, 0.24f, 1f), out _, 66f);
         }
 
         // ── Helpers de construcción ────────────────────────────────────────────
