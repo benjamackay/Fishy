@@ -25,9 +25,11 @@ namespace Fishy.Detective
         [SerializeField] private DesafioData desafioAsociado;
 
         [Header("Repetición")]
-        [Tooltip("Una vez completado el caso, el NPC deja de activarse. Desmarcar solo " +
-                 "para poder probar el caso una y otra vez en el editor.")]
-        [SerializeField] private bool bloquearSiYaCompletado = true;
+        [Tooltip("Permite volver a jugar el caso tantas veces como se quiera, aunque " +
+                 "ya esté completado. El avance se sigue registrando igual: lo único " +
+                 "que cambia es que el NPC no deja de activarse. Hay que alejarse y " +
+                 "volver a acercarse.")]
+        [SerializeField] private bool repetible = false;
 
         [Header("Referencias (se crean solas si están vacías)")]
         [SerializeField] private DetectiveCaseManager caseManager;
@@ -80,7 +82,7 @@ namespace Fishy.Detective
             if (_enCurso) return;
             if (!other.CompareTag("Player")) return;
 
-            if (bloquearSiYaCompletado && YaCompletado())
+            if (!repetible && YaCompletado())
             {
                 Debug.Log($"[Detective] El caso {casoId} ya fue completado; el NPC no se activa.");
                 return;

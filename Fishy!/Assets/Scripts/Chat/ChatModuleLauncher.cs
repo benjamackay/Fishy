@@ -39,8 +39,10 @@ namespace Fishy.Chat
         [Header("Apertura por cercanía (opcional)")]
         public bool openOnTriggerEnter = false;
         public string ottoTag = "Player";
-        [Tooltip("Abrir una sola vez al acercarse.")]
-        public bool openOnce = true;
+        [Tooltip("Permite volver a hablar con este NPC tantas veces como se quiera. " +
+                 "Hay que alejarse y volver a acercarse: la conversación no se " +
+                 "reabre sola al cerrarla, o el niño/a quedaría atrapado en ella.")]
+        public bool repetible = false;
 
         private bool alreadyOpened;
 
@@ -82,7 +84,7 @@ namespace Fishy.Chat
         private void OnTriggerEnter2D(Collider2D other)
         {
             if (!openOnTriggerEnter) return;
-            if (openOnce && alreadyOpened) return;
+            if (!repetible && alreadyOpened) return;
             if (!other.CompareTag(ottoTag)) return;
             OpenChat();
         }

@@ -16,7 +16,7 @@ using UnityEngine.Events;
 /// <c>onDialogueEnded</c> del NPC, o el <c>onChatClosed</c> del PhoneChatLauncher
 /// cuando el objetivo es un chat de celular. Ojo: haber hablado (o haber atendido
 /// el chat) ANTES de recibir la misión no cuenta —no hay historial—, hay que
-/// volver a hacerlo; y si el launcher tiene 'openOnce' activo y ya se disparó, no
+/// volver a hacerlo; y si el launcher no tiene 'repetible' activo y ya se disparó, no
 /// se volverá a abrir solo.
 /// </summary>
 public class MissionTracker : MonoBehaviour

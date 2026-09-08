@@ -160,7 +160,7 @@ MonoBehaviour:
   phone: {fileID: 0}
   ottoMood: {fileID: 0}
   modoTelefono: 0
-  openOnce: 1
+  repetible: 0
   ottoTag: Player
   reportToBackend: 0
   notificationText: "\U0001F4F1 Tienes un mensaje nuevo\u2026"

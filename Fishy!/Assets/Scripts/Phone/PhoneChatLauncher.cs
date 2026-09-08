@@ -67,8 +67,10 @@ namespace Fishy.Phone
                  "notificación + zoom). Si no, el chat se abre directo frente al NPC " +
                  "visible, sin celular ni zoom — útil para NPCs con sprite en el mapa.")]
         public bool modoTelefono = true;
-        [Tooltip("Si está activo solo se dispara una vez.")]
-        public bool openOnce    = true;
+        [Tooltip("Permite volver a hablar con este NPC tantas veces como se quiera. " +
+                 "Hay que alejarse y volver a acercarse: la conversación no se " +
+                 "reabre sola al cerrarla, o el niño/a quedaría atrapado en ella.")]
+        public bool repetible   = false;
         public string ottoTag   = "Player";
         [Tooltip("Registrar la sesión en el backend (requiere ApiManager con sesión activa).")]
         public bool reportToBackend = false;
@@ -114,7 +116,7 @@ namespace Fishy.Phone
         private void OnTriggerEnter2D(Collider2D other)
         {
             if (!other.CompareTag(ottoTag)) return;
-            if (openOnce && _triggered) return;
+            if (!repetible && _triggered) return;
             if (_sequenceRunning) return;
 
             // Resolver Otto desde el collider si no está asignado.
@@ -238,6 +240,8 @@ namespace Fishy.Phone
         public void OpenManual()
         {
             if (_sequenceRunning) return;
+            // Mismo criterio que el trigger: sin "repetible", una sola vez.
+            if (!repetible && _triggered) return;
             if (otto == null) otto = FindAnyObjectByType<OttoController>();
             _triggered = true;
             StartCoroutine(PhoneSequence());
