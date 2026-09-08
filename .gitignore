@@ -20,3 +20,6 @@ __pycache__/
 # Base de datos de la suite de tests (settings_test.py). Django la borra al
 # terminar, pero queda si una corrida se interrumpe.
 *.sqlite3
+
+# Configuracion local de Claude Code (incluye copias de trabajo del repo).
+.claude/
