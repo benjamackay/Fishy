@@ -1,11 +1,48 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ─── Seguridad ────────────────────────────────────────────────────────────────
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "clave-local-insegura-cambiar")
 DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
+
+# La clave sale SOLO del entorno. Antes habia aqui un valor por defecto
+# ("clave-local-insegura-cambiar") y eso es justo lo que no puede ser: este
+# archivo vive en un repositorio publico, asi que esa clave la podia leer
+# cualquiera. Y peor, Django arrancaba con ella sin avisar nada, de modo que
+# un servidor mal configurado se veia perfectamente sano.
+#
+# run.ps1, run.sh y docker-compose cargan el .env antes de levantar Django,
+# asi que por esas tres vias la clave siempre viene del entorno. Lo de abajo
+# es la red para cuando alguien arranca con `manage.py runserver` a secas.
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if not DEBUG:
+        # Fuera de desarrollo, mejor no arrancar que arrancar inseguro y callado.
+        raise ImproperlyConfigured(
+            "Falta la variable de entorno DJANGO_SECRET_KEY y DJANGO_DEBUG es "
+            "False, asi que el servidor no se levanta.\n"
+            "  1. Copia Backend/.env.example a Backend/.env\n"
+            "  2. Genera una clave con:\n"
+            "     python -c \"from django.core.management.utils import "
+            "get_random_secret_key; print(get_random_secret_key())\"\n"
+            "  3. Pegala en DJANGO_SECRET_KEY, dentro de Backend/.env\n"
+            "Y levanta con Backend/run.ps1 (o run.sh), que carga el .env solo."
+        )
+    # En desarrollo se inventa una al vuelo: distinta en cada arranque, pero de
+    # nadie mas. Como cambia, las sesiones de /admin/ no sobreviven un reinicio;
+    # solo le pasa a quien no tenga .env, que tampoco alcanza la base de datos.
+    SECRET_KEY = get_random_secret_key()
+
+# Las paginas de error de Django listan las variables locales de cada frame,
+# y ahi aparecia la contrasena del apoderado en texto plano. Este filtro las
+# tapa por nombre. El decorador @sensitive_variables NO sirve con DRF; el
+# porque esta explicado en juego_backend/filtros_error.py.
+DEFAULT_EXCEPTION_REPORTER_FILTER = "juego_backend.filtros_error.FiltroCredenciales"
+
 ALLOWED_HOSTS = ["*"]  # Restringir en producción
 
 # ─── Aplicaciones ─────────────────────────────────────────────────────────────

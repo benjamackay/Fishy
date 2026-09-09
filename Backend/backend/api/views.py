@@ -42,6 +42,10 @@ def health_check(request):
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
+# La contrasena de estas dos vistas se tapa en las trazas con el filtro global
+# DEFAULT_EXCEPTION_REPORTER_FILTER, no con @sensitive_variables: ese decorador
+# se probo en las dos posiciones posibles y NO funciona a traves de @api_view.
+# Ver juego_backend/filtros_error.py. No lo reintentes aqui.
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def registro(request):

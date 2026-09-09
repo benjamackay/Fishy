@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -43,7 +44,14 @@ namespace Fishy.Net
         [SerializeField] private int timeoutSeconds = 15;
 
         [Tooltip("Mostrar en consola el detalle de cada peticion/respuesta.")]
+        // En un build, Debug.Log no va a una consola: va a Player.log, un archivo
+        // de texto en el disco de quien juega. Por eso el detalle queda encendido
+        // solo en el editor. Aun asi, lo que se imprime pasa por Censurar().
+#if UNITY_EDITOR
         [SerializeField] private bool verboseLogs = true;
+#else
+        [SerializeField] private bool verboseLogs = false;
+#endif
 
         [Header("Modo local (sin servidor)")]
         [Tooltip("Si esta activo, NO se conecta al backend: simula todo localmente " +
@@ -1059,6 +1067,34 @@ namespace Fishy.Net
             }
         }
 
+        // ── Que puede salir en un log ────────────────────────────────────────
+        //
+        // Son dos fugas distintas y por eso hay dos capas:
+        //
+        //   1. El CUERPO de las rutas de `auth/` lleva la contrasena del adulto
+        //      responsable, en texto plano. Ese cuerpo no se imprime nunca.
+        //   2. El TOKEN puede venir en la respuesta de cualquier ruta, y es una
+        //      credencial al portador: con el se entra sin saber la contrasena.
+        //      Se tapa siempre, venga de donde venga.
+        //
+        // Ojo si algun dia se pasa a JWT: el token seguira viajando en el JSON,
+        // asi que esta misma censura lo cubre. Lo que habria que agregar es el
+        // refresh token, si el nombre del campo cambia.
+        private static bool RutaConCredenciales(string path)
+            => !string.IsNullOrEmpty(path) && path.Contains("/auth/");
+
+        private static readonly Regex TokenEnJson = new Regex(
+            "\"(token|access|refresh)\"\\s*:\\s*\"[^\"]*\"",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>Deja un cuerpo en condiciones de ir a un log.</summary>
+        private static string Censurar(string cuerpo, string path)
+        {
+            if (string.IsNullOrEmpty(cuerpo)) return cuerpo;
+            if (RutaConCredenciales(path)) return "{ omitido: la ruta lleva credenciales }";
+            return TokenEnJson.Replace(cuerpo, "\"$1\":\"<oculto>\"");
+        }
+
         private IEnumerator Send<TResponse>(string method, string path, object body, bool auth,
             Action<TResponse> onSuccess, Action<string> onError)
         {
@@ -1074,7 +1110,7 @@ namespace Fishy.Net
                 byte[] raw = Encoding.UTF8.GetBytes(json);
                 req.uploadHandler = new UploadHandlerRaw(raw);
                 req.SetRequestHeader("Content-Type", "application/json");
-                if (verboseLogs) Debug.Log($"[API] {method} {url}\n{json}");
+                if (verboseLogs) Debug.Log($"[API] {method} {url}\n{Censurar(json, path)}");
             }
             else if (verboseLogs)
             {
@@ -1097,13 +1133,15 @@ namespace Fishy.Net
 
             if (req.result != UnityWebRequest.Result.Success)
             {
-                string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{text}";
+                // La respuesta de error tambien se censura: con DEBUG=True el
+                // servidor devuelve una traza HTML que incluye la contrasena.
+                string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{Censurar(text, path)}";
                 if (verboseLogs) Debug.LogError(msg);
                 onError?.Invoke(string.IsNullOrEmpty(text) ? req.error : text);
                 yield break;
             }
 
-            if (verboseLogs) Debug.Log($"[API] OK {(int)req.responseCode} {path}\n{text}");
+            if (verboseLogs) Debug.Log($"[API] OK {(int)req.responseCode} {path}\n{Censurar(text, path)}");
 
             TResponse parsed = default;
             if (!string.IsNullOrEmpty(text) && typeof(TResponse) != typeof(string))
@@ -1334,7 +1372,7 @@ namespace Fishy.Net
             _localAdultoNombre = nombre;
             _localAdultoEmail = email;
             ResetSessionState();
-            if (verboseLogs) Debug.Log($"[API-LOCAL] Registro adulto '{nombre}' (id={seq}).");
+            if (verboseLogs) Debug.Log($"[API-LOCAL] Registro de adulto (id={seq}).");
             onSuccess?.Invoke();
         }
 
@@ -1351,7 +1389,7 @@ namespace Fishy.Net
             _localAdultoNombre = nombre;
             _localAdultoEmail = PlayerPrefs.GetString("fishy.useremail." + nombre, "");
             ResetSessionState();
-            if (verboseLogs) Debug.Log($"[API-LOCAL] Login adulto '{nombre}' (id={AdultoId}).");
+            if (verboseLogs) Debug.Log($"[API-LOCAL] Login de adulto (id={AdultoId}).");
             onSuccess?.Invoke();
         }
 
@@ -1397,7 +1435,7 @@ namespace Fishy.Net
             lista.Add(dto);
             SaveLocalList(JugadoresKey(AdultoId.Value), lista);
 
-            if (verboseLogs) Debug.Log($"[API-LOCAL] Perfil de menor '{nombre}' creado (id={seq}).");
+            if (verboseLogs) Debug.Log($"[API-LOCAL] Perfil de menor creado (id={seq}).");
             onSuccess?.Invoke(dto);
         }
 
