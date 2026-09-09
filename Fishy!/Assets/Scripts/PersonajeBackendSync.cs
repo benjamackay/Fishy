@@ -19,9 +19,16 @@ namespace Fishy.Net
     ///      devolverlo de un salto a donde estaba ayer sería peor que no restaurar.
     ///      Ver <see cref="RadioParaConsiderarQueNoSeHaMovido"/>.
     ///
-    ///   2. <b>La posición cambia todos los frames.</b> Guardar en cada uno sería
-    ///      un PATCH por frame. Se revisa cada pocos segundos y solo se manda si de
-    ///      verdad se movió, más un guardado al salir del juego.
+    ///   2. <b>La posición cambia todos los frames.</b> Guardar en cada uno sería un
+    ///      PATCH por frame, así que no se guarda por su cuenta: lo pide
+    ///      <see cref="SaveManager"/> en los dos momentos que quedan —cambiar de zona
+    ///      y cerrar el juego—, más las señales de cierre de aquí abajo.
+    ///
+    ///      Hubo un bucle propio que subía la posición cada 5 s si Otto se había
+    ///      movido medio metro. Se quitó junto con el resto de guardados por tiempo.
+    ///      <b>Cambia lo que se pierde en un cierre sucio</b> (batería, crash, el
+    ///      sistema matando la app): antes eran metros, ahora es todo lo caminado
+    ///      desde el último cambio de zona. Es una decisión tomada, no un descuido.
     /// </summary>
     public class PersonajeBackendSync : MonoBehaviour
     {
@@ -29,16 +36,6 @@ namespace Fishy.Net
 
         /// <summary>Segundos entre reintentos mientras se espera a que haya partida.</summary>
         private const float EsperaEntreIntentos = 0.5f;
-
-        /// <summary>Cada cuánto se revisa si Otto se movió lo suficiente para guardar.</summary>
-        private const float SegundosEntreGuardados = 5f;
-
-        /// <summary>
-        /// Cuánto tiene que haberse movido para que valga un PATCH. Sin esto, el
-        /// temblor de un Rigidbody2D apoyado contra un collider mandaría peticiones
-        /// para siempre con el niño/a quieto.
-        /// </summary>
-        private const float DistanciaMinimaParaGuardar = 0.5f;
 
         /// <summary>
         /// Si al llegar la respuesta Otto sigue a menos de esto del punto donde
@@ -85,9 +82,6 @@ namespace Fishy.Net
         /// </summary>
         private const int MaxFramesEsperandoCache = 30;
 
-        private Vector2 ultimaGuardada;
-        private bool hayUltimaGuardada;
-        private Coroutine guardadoPeriodico;
         private bool avisoDeSinPartidaDado;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -160,7 +154,6 @@ namespace Fishy.Net
 
             partidaAtendida = api.PartidaId;
             escenaAtendida = escena;
-            hayUltimaGuardada = false;
 
             // `dondeAparecio` es la posición actual: acaba de correr Start(), así que
             // Otto está en el spawnPoint y todavía nadie lo movió. La comprobación de
@@ -168,19 +161,29 @@ namespace Fishy.Net
             Aplicar(enCache, otto.transform.position);
         }
 
+        /// <summary>
+        /// Sube dónde está Otto ahora mismo. Es la única vía: este componente ya no
+        /// guarda por su cuenta, así que si nadie llama aquí, no se guarda.
+        ///
+        /// La usa <see cref="SaveManager"/> en el cambio de zona y en el cierre.
+        /// Manda la posición siempre, se haya movido Otto o no: los momentos que
+        /// quedan son de los que puede no haber otro después.
+        /// </summary>
+        public void GuardarAhora() => GuardarPosicion();
+
         private void OnApplicationQuit()
         {
-            // Último guardado antes de cerrar. Es best-effort: si el proceso muere
-            // antes de que salga la petición se pierde, pero como se guarda cada
-            // pocos segundos lo que se pierde son metros, no la partida.
-            GuardarSiSeMovio(forzar: true);
+            // Último guardado antes de cerrar, best-effort: si el proceso muere antes
+            // de que salga la petición, se pierde. El menú de pausa ("Guardar y salir")
+            // es el camino bueno, porque ahí sí se le da un respiro a la petición.
+            GuardarPosicion();
         }
 
         private void OnApplicationPause(bool pausado)
         {
             // En móvil, `OnApplicationQuit` muchas veces no llega: el sistema mata la
             // app pausada sin avisar. Esta es la única señal fiable de "se va".
-            if (pausado) GuardarSiSeMovio(forzar: true);
+            if (pausado) GuardarPosicion();
         }
 
         // ── 1. Restaurar ─────────────────────────────────────────────────────
@@ -243,7 +246,6 @@ namespace Fishy.Net
                     {
                         partidaAtendida = api.PartidaId;
                         escenaAtendida = escena;
-                        hayUltimaGuardada = false;
                         Restaurar();
                     }
                 }
@@ -266,7 +268,6 @@ namespace Fishy.Net
                     // Se deja un DTO vacío en vez de null para no reintentar en bucle:
                     // sin posición, Otto se queda en el spawnPoint, que es correcto.
                     enCache = new PersonajeDto { tiene_posicion = false };
-                    ArrancarGuardadoPeriodico();
                 });
         }
 
@@ -295,7 +296,6 @@ namespace Fishy.Net
                 Debug.LogWarning("[PersonajeBackendSync] Otto desapareció mientras se " +
                                  "pedía su posición. Se reintentará.");
                 escenaAtendida = null;
-                ArrancarGuardadoPeriodico();
                 return;
             }
 
@@ -325,33 +325,13 @@ namespace Fishy.Net
             {
                 var destino = new Vector3(dto.pos_x.Value, dto.pos_y.Value, otto.transform.position.z);
                 otto.TeleportTo(destino);
-                ultimaGuardada = destino;
-                hayUltimaGuardada = true;
                 Debug.Log($"[PersonajeBackendSync] Otto restaurado en ({destino.x:F1}, {destino.y:F1}).");
             }
-
-            ArrancarGuardadoPeriodico();
         }
 
         // ── 2. Guardar ───────────────────────────────────────────────────────
 
-        private void ArrancarGuardadoPeriodico()
-        {
-            if (guardadoPeriodico != null) StopCoroutine(guardadoPeriodico);
-            guardadoPeriodico = StartCoroutine(GuardarCadaTanto());
-        }
-
-        private IEnumerator GuardarCadaTanto()
-        {
-            var espera = new WaitForSeconds(SegundosEntreGuardados);
-            while (true)
-            {
-                yield return espera;
-                GuardarSiSeMovio(forzar: false);
-            }
-        }
-
-        private void GuardarSiSeMovio(bool forzar)
+        private void GuardarPosicion()
         {
             var api = ApiManager.Instance;
             if (api == null || api.PartidaId == null) return;
@@ -360,19 +340,9 @@ namespace Fishy.Net
             if (otto == null) return;   // escena de menú: no hay nada que guardar
 
             Vector2 ahora = otto.transform.position;
-
-            if (!forzar && hayUltimaGuardada &&
-                Vector2.Distance(ahora, ultimaGuardada) < DistanciaMinimaParaGuardar)
-                return;
-
             string escena = SceneManager.GetActiveScene().name;
 
             api.GuardarPersonaje(escena, ahora.x, ahora.y,
-                onSuccess: _ =>
-                {
-                    ultimaGuardada = ahora;
-                    hayUltimaGuardada = true;
-                },
                 onError: e => Debug.LogWarning($"[PersonajeBackendSync] No se pudo guardar dónde está Otto: {e}"));
         }
 

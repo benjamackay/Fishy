@@ -219,6 +219,24 @@ namespace Fishy.Net
             Subir();
         }
 
+        /// <summary>
+        /// Sube la mochila ahora, cancelando la espera que agrupa los cambios.
+        ///
+        /// Esa espera de medio segundo existe para no mandar tres peticiones cuando
+        /// el niño/a recoge tres cosas seguidas, pero al cerrar la aplicación esa
+        /// misma espera se come el último cambio. <see cref="SaveManager"/> la salta
+        /// en los momentos en que no habrá otra oportunidad.
+        /// </summary>
+        public void GuardarAhora()
+        {
+            if (subidaPendiente != null)
+            {
+                StopCoroutine(subidaPendiente);
+                subidaPendiente = null;
+            }
+            Subir();
+        }
+
         private void Subir()
         {
             var api = ApiManager.Instance;

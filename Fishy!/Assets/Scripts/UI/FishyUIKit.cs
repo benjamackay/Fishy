@@ -158,6 +158,81 @@ namespace Fishy.UI
             return sprite;
         }
 
+        // ── Triángulo (punta de flecha) ───────────────────────────────────────
+
+        private static readonly Dictionary<int, Sprite> _triangulos = new Dictionary<int, Sprite>();
+
+        /// <summary>
+        /// Triángulo apuntando a la derecha (+X), dibujado en memoria y cacheado.
+        /// Es la punta de la flecha que guía hacia la zona de destino (HDU-16).
+        ///
+        /// Se dibuja en vez de usar un carácter porque no hay ninguno que sirva: ▶
+        /// (U+25B6) no está en Mango ni en la fuente de cuerpo —la misma razón por la
+        /// que el aspa de cerrar es de barras y no de texto—, y un sprite de disco
+        /// habría que dibujarlo, importarlo y mantenerlo por 2 KB de textura.
+        ///
+        /// <b>No es 9-slice</b>, al revés que <see cref="SpriteRedondeado"/>: un
+        /// triángulo estirado por los bordes deja de ser un triángulo. Se escala
+        /// entero, que para una flecha es justo lo que se quiere.
+        /// </summary>
+        public static Sprite SpriteTriangulo(int lado = 64)
+        {
+            lado = Mathf.Max(4, lado);
+
+            if (_triangulos.TryGetValue(lado, out Sprite cacheado) && cacheado != null)
+                return cacheado;
+
+            // Vértices en sentido antihorario: así "dentro" es siempre la izquierda de
+            // cada arista y basta con quedarse con la distancia menor de las tres.
+            var a = new Vector2(0f, 0f);
+            var b = new Vector2(lado, lado * 0.5f);
+            var c = new Vector2(0f, lado);
+
+            var px = new Color32[lado * lado];
+            for (int y = 0; y < lado; y++)
+            {
+                for (int x = 0; x < lado; x++)
+                {
+                    var p = new Vector2(x + 0.5f, y + 0.5f);
+
+                    float d = Mathf.Min(DistanciaAArista(a, b, p),
+                              Mathf.Min(DistanciaAArista(b, c, p),
+                                        DistanciaAArista(c, a, p)));
+
+                    // Medio píxel de suavizado, igual que en las esquinas redondeadas.
+                    byte alfa = (byte)(Mathf.Clamp01(d + 0.5f) * 255f);
+                    px[y * lado + x] = new Color32(255, 255, 255, alfa);
+                }
+            }
+
+            var tex = new Texture2D(lado, lado, TextureFormat.RGBA32, false)
+            {
+                name       = $"FishyTriangulo{lado}",
+                filterMode = FilterMode.Bilinear,
+                wrapMode   = TextureWrapMode.Clamp,
+                hideFlags  = HideFlags.HideAndDontSave,
+            };
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+
+            var sprite = Sprite.Create(tex, new Rect(0f, 0f, lado, lado), new Vector2(0.5f, 0.5f),
+                pixelsPerUnit: 100f, extrude: 0, meshType: SpriteMeshType.FullRect);
+            sprite.name      = tex.name;
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+
+            _triangulos[lado] = sprite;
+            return sprite;
+        }
+
+        /// <summary>Distancia con signo del punto a la recta, positiva a su izquierda.</summary>
+        private static float DistanciaAArista(Vector2 desde, Vector2 hasta, Vector2 punto)
+        {
+            Vector2 arista = hasta - desde;
+            float largo = arista.magnitude;
+            if (largo < 0.0001f) return 0f;
+            return (arista.x * (punto.y - desde.y) - arista.y * (punto.x - desde.x)) / largo;
+        }
+
         /// <summary>Deja el fondo con esquinas redondeadas. Al ser 9-slice, el radio
         /// no se deforma por mucho que se estire la burbuja.</summary>
         public static void FondoRedondeado(Image img, Color color, int lado = 64, int radio = 22)

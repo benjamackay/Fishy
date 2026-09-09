@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Fishy.Mision;
+using Fishy.World;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -12,11 +14,12 @@ using UnityEngine.Events;
 /// dejaría de seguir el progreso a media misión.
 ///
 /// Los objetos se detectan escuchando <see cref="InventoryManager.OnInventoryChanged"/>;
+/// las zonas, escuchando <see cref="ZonaActual.OnZonaCambiada"/>;
 /// las conversaciones, suscribiéndose al evento que las cierra: el
 /// <c>onDialogueEnded</c> del NPC, o el <c>onChatClosed</c> del PhoneChatLauncher
 /// cuando el objetivo es un chat de celular. Ojo: haber hablado (o haber atendido
 /// el chat) ANTES de recibir la misión no cuenta —no hay historial—, hay que
-/// volver a hacerlo; y si el launcher tiene 'openOnce' activo y ya se disparó, no
+/// volver a hacerlo; y si el launcher no tiene 'repetible' activo y ya se disparó, no
 /// se volverá a abrir solo.
 /// </summary>
 public class MissionTracker : MonoBehaviour
@@ -36,6 +39,16 @@ public class MissionTracker : MonoBehaviour
     private readonly List<Seguimiento> seguimientos = new List<Seguimiento>();
     private bool suscritoAlInventario;
 
+    /// <summary>
+    /// Algún objetivo pasó a cumplido. La misión puede seguir en curso: esto es
+    /// "2/3 en vez de 1/3", no "terminada".
+    ///
+    /// Existe para el HUD de HDU-16, que muestra el resumen de objetivos de la misión
+    /// activa y sin esto sólo se enteraría al completarse la misión entera — o sea,
+    /// justo cuando el resumen deja de importar.
+    /// </summary>
+    public event Action OnProgresoCambiado;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -45,13 +58,23 @@ public class MissionTracker : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        // El cambio de zona es lo que cumple los objetivos de tipo LlegarAZona. Se
+        // escucha aquí, una sola vez y para todos los seguimientos, por lo mismo que
+        // el inventario: el evento es estático, así que no hace falta que ZonaActual
+        // exista todavía cuando el rastreador arranca.
+        ZonaActual.OnZonaCambiada += AlCambiarDeZona;
     }
 
     private void OnDestroy()
     {
         if (suscritoAlInventario && InventoryManager.instance != null)
             InventoryManager.instance.OnInventoryChanged -= RevisarTodo;
+
+        ZonaActual.OnZonaCambiada -= AlCambiarDeZona;
     }
+
+    private void AlCambiarDeZona(string anterior, string nueva) => RevisarTodo();
 
     /// <summary>Devuelve la instancia activa, creándola si no existe.</summary>
     public static MissionTracker GetOrCreate()
@@ -92,6 +115,7 @@ public class MissionTracker : MonoBehaviour
                 capturado.cumplido = true;
                 if (verboseLogs)
                     Debug.Log($"[Misiones] Objetivo cumplido: {capturado.Describir()}", this);
+                OnProgresoCambiado?.Invoke();
                 RevisarTodo();
             });
         }
@@ -128,6 +152,29 @@ public class MissionTracker : MonoBehaviour
         return $"{hechos}/{seguimiento.objetivos.Count}";
     }
 
+    /// <summary>
+    /// Zona del primer objetivo "llegar a zona" que siga pendiente, o null si no hay
+    /// ninguno.
+    ///
+    /// Es el respaldo del indicador de HDU-16: la zona de destino se declara en la
+    /// ficha (<see cref="DesafioData.zonaObjetivo"/>), pero una misión cuyo objetivo
+    /// literal es ir a un sitio ya lo dice ahí, y obligar a escribirlo dos veces es
+    /// pedir que un día no coincidan.
+    /// </summary>
+    public string ZonaPendiente(string desafioId)
+    {
+        Seguimiento seguimiento = Buscar(desafioId);
+        if (seguimiento == null) return null;
+
+        foreach (ObjetivoMision objetivo in seguimiento.objetivos)
+        {
+            if (objetivo.tipo != TipoObjetivo.LlegarAZona || objetivo.cumplido) continue;
+            if (string.IsNullOrWhiteSpace(objetivo.zonaDestino)) continue;
+            return objetivo.zonaDestino.Trim();
+        }
+        return null;
+    }
+
     private Seguimiento Buscar(string desafioId)
     {
         foreach (Seguimiento seguimiento in seguimientos)
@@ -147,9 +194,18 @@ public class MissionTracker : MonoBehaviour
     {
         if (seguimiento.completado) return;
 
-        bool todos = true;
+        bool todos = true, avanzo = false;
         foreach (ObjetivoMision objetivo in seguimiento.objetivos)
+        {
+            bool estabaCumplido = objetivo.cumplido;
             if (!objetivo.Evaluar()) todos = false;
+            if (!estabaCumplido && objetivo.cumplido) avanzo = true;
+        }
+
+        // Los que se cumplen por evento ya avisaron desde su listener; esto cubre a
+        // los que se resuelven consultando el mundo —recoger objetos, llegar a una
+        // zona—, que si no avanzarían mudos.
+        if (avanzo) OnProgresoCambiado?.Invoke();
 
         // Una misión sin objetivos es sólo informativa: se queda disponible hasta
         // que alguien la complete a mano con MissionManager.CompletarDesafio().

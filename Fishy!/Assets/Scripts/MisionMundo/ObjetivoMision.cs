@@ -1,5 +1,6 @@
 using System;
 using Fishy.Phone;
+using Fishy.World;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -13,11 +14,19 @@ using UnityEngine.Events;
 /// de misión (DesafioData) siguen viviendo allá; esto es sólo el pegamento con
 /// el mundo.
 /// </summary>
+/// <remarks>
+/// <b>Un tipo nuevo va SIEMPRE al final del enum.</b> Unity los serializa por índice,
+/// así que las escenas y prefabs guardan "tipo: 0/1/2". Meter uno en medio no da
+/// ningún error: recablea en silencio todos los objetivos ya configurados, y un
+/// "recoger objeto" pasa a ser un "hablar con NPC" sin que nadie se entere hasta
+/// jugarlo.
+/// </remarks>
 public enum TipoObjetivo
 {
     RecogerObjeto,
     HablarConNpc,
     ChatearPorTelefono,
+    LlegarAZona,
 }
 
 [Serializable]
@@ -41,6 +50,12 @@ public class ObjetivoMision
     [Tooltip("Qué conversación de celular hay que atender. Cuenta igual que hablar " +
              "con un NPC: se da por cumplido cuando el chat se cierra.")]
     public PhoneChatLauncher telefono;
+
+    [Header("Si el tipo es Llegar A Zona")]
+    [Tooltip("Id de la zona a la que hay que llegar: los mismos que usan ZonaMundo y " +
+             "BlockedZone (zona_1, zona_2, zona_3). Se cumple en cuanto Otto entra, " +
+             "y no se deshace si vuelve a salir.")]
+    public string zonaDestino = "";
 
     /// <summary>
     /// Cumplido en esta sesión. No se serializa: el estado de la misión completa
@@ -68,6 +83,10 @@ public class ObjetivoMision
                 string nombreChat = telefono != null ? telefono.name : "(chat sin asignar)";
                 return $"Atender el chat de {nombreChat}";
 
+            case TipoObjetivo.LlegarAZona:
+                if (string.IsNullOrWhiteSpace(zonaDestino)) return "Ir a (zona sin asignar)";
+                return $"Ir a {ZonaMundo.NombreDe(zonaDestino)}";
+
             default:
                 return "(objetivo desconocido)";
         }
@@ -83,12 +102,26 @@ public class ObjetivoMision
         if (tipo == TipoObjetivo.RecogerObjeto && objeto != null)
             cumplido = InventoryManager.Instance.GetQuantity(objeto) >= cantidad;
 
+        // Llegar a una zona sí se puede consultar, y por eso se consulta: preguntarle
+        // a ZonaActual da la respuesta correcta también cuando la misión se entrega
+        // estando Otto YA dentro de la zona, que con un evento de entrada se quedaría
+        // esperando para siempre a que saliera y volviera a entrar.
+        else if (tipo == TipoObjetivo.LlegarAZona && !string.IsNullOrWhiteSpace(zonaDestino))
+        {
+            ZonaActual zonas = ZonaActual.Instance;
+            if (zonas != null) cumplido = zonas.Actual == zonaDestino.Trim();
+        }
+
         return cumplido;
     }
 
     /// <summary>
     /// Evento cuya invocación da por cumplido este objetivo, o null si no se cumple
-    /// por evento sino consultando el mundo (RecogerObjeto).
+    /// por evento sino consultando el mundo (RecogerObjeto, LlegarAZona).
+    ///
+    /// A los que devuelven null hay que darles un motivo para que alguien los vuelva
+    /// a consultar: el inventario y el cambio de zona, a los que MissionTracker se
+    /// suscribe una sola vez para todos.
     ///
     /// Vive aquí y no en MissionTracker para que sumar un tipo de objetivo nuevo sea
     /// tocar un solo archivo.

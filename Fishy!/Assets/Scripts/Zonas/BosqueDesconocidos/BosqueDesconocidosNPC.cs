@@ -28,8 +28,11 @@ namespace Fishy.Zonas.BosqueDesconocidos
         [Header("Resultado")]
         [Tooltip("% mínimo de respuestas seguras en la sesión para contar como éxito.")]
         public float umbralExito = 70f;
-        [Tooltip("Volver a conversar si el niño/a se acerca otra vez (la temática se completa igual al primer cierre).")]
-        public bool allowReplay = false;
+        [Tooltip("Permite volver a conversar con este NPC tantas veces como se quiera. " +
+                 "La temática se completa igual en el primer cierre: repetir no la " +
+                 "vuelve a contar. Mientras esté marcado el NPC tampoco se aleja ni " +
+                 "desaparece, porque si no no quedaría nadie con quien volver a hablar.")]
+        public bool repetible = false;
 
         [Header("Al alejarse (éxito del niño/a)")]
         [Tooltip("Distancia que recorre el NPC al alejarse.")]
@@ -58,6 +61,9 @@ namespace Fishy.Zonas.BosqueDesconocidos
         /// entrar seria felicitar por algo de ayer, y el manager va a recontar solo.
         /// La animacion de salida tampoco corre —se salta directo al estado final—
         /// porque ver al NPC alejarse al cargar la escena no tiene sentido.
+        ///
+        /// Con <see cref="repetible"/> marcado no se desactiva: el NPC vuelve a estar
+        /// disponible en la partida siguiente, que es de lo que va esa casilla.
         /// </summary>
         public void RestaurarComoTerminado(bool exito)
         {
@@ -66,7 +72,7 @@ namespace Fishy.Zonas.BosqueDesconocidos
             Finished = true;
             WasSuccessful = exito;
 
-            if (exito && disableAfterLeaving) gameObject.SetActive(false);
+            if (exito && disableAfterLeaving && !repetible) gameObject.SetActive(false);
         }
 
         private ChatModuleLauncher launcher;
@@ -85,7 +91,7 @@ namespace Fishy.Zonas.BosqueDesconocidos
 
         private void HandleSesionFinalizada(float safePercent)
         {
-            if (Finished && !allowReplay) return;
+            if (Finished && !repetible) return;
 
             bool exito = safePercent >= umbralExito;
             bool firstTime = !Finished;
@@ -100,7 +106,11 @@ namespace Fishy.Zonas.BosqueDesconocidos
             {
                 if (showSuccessFeedback)
                     ZonePopupUI.Show(successMessage);
-                StartCoroutine(LeaveRoutine());
+
+                // Marcado "repetible" el NPC se queda donde está: alejarse y
+                // desactivarse es justo lo que dejaría sin nadie con quien volver a
+                // hablar, y además cada repetición lo alejaría otros leaveDistance.
+                if (!repetible) StartCoroutine(LeaveRoutine());
             }
 
             if (firstTime)

@@ -1855,7 +1855,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Desconocidos.DesconocidosNPC
   umbralExito: 70
-  allowReplay: 0
+  repetible: 0
   leaveDistance: 6
   leaveSpeed: 4
   disableAfterLeaving: 1
@@ -2028,7 +2028,7 @@ MonoBehaviour:
   desafioAsociado: {fileID: 0}
   openOnTriggerEnter: 0
   ottoTag: Player
-  openOnce: 1
+  repetible: 0
 --- !u!1 &175460433
 GameObject:
   m_ObjectHideFlags: 0

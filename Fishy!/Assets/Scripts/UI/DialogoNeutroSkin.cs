@@ -28,7 +28,7 @@ namespace Fishy.UI
     {
         /// <summary>Paneles ya pintados. El panel de diálogo lo comparten varios NPCs,
         /// así que sin esto se repintaría en cada conversación sin necesidad.</summary>
-        private static readonly HashSet<int> _yaPintados = new HashSet<int>();
+        private static readonly HashSet<GameObject> _yaPintados = new HashSet<GameObject>();
 
         /// <summary>
         /// Aplica el aspecto de Fishy. Es idempotente: llamarlo en cada conversación
@@ -38,7 +38,9 @@ namespace Fishy.UI
             Image retrato = null)
         {
             if (panel == null) return;
-            if (!_yaPintados.Add(panel.GetInstanceID())) return;
+            // Se guarda el objeto y no su id: GetInstanceID quedó obsoleto en Unity 6 y
+            // su reemplazo, EntityId, tampoco se puede convertir a int sin otro aviso.
+            if (!_yaPintados.Add(panel)) return;
 
             var fondo = panel.GetComponent<Image>();
             if (fondo != null)

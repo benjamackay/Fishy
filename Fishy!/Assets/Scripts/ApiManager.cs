@@ -349,6 +349,34 @@ namespace Fishy.Net
                 onError: onError);
         }
 
+        /// <summary>
+        /// Retoma una partida CONCRETA de las que devuelve <see cref="ObtenerPartidasJugador"/>.
+        ///
+        /// <see cref="ContinuarOCrearPartida"/> impone siempre la más reciente, que es lo
+        /// correcto para el atajo de "elegir perfil y jugar", pero deja fuera el caso de
+        /// la pantalla "Continuar": ahí el menor ve sus sesiones con fecha y elige. Sin
+        /// este método, elegir una sesión anterior era imposible desde fuera de ApiManager
+        /// porque AdoptarPartida es privado.
+        ///
+        /// Devuelve false si la partida no sirve, en vez de lanzar: quien llama es UI y lo
+        /// único que puede hacer con el fallo es avisar y quedarse donde está.
+        /// </summary>
+        public bool RetomarPartida(PartidaDto partida)
+        {
+            if (partida == null || partida.id <= 0) return false;
+
+            // El avance cuelga del perfil, no de la cuenta. Si se adoptara la partida sin
+            // fijar su dueño, JugadorId y PartidaId quedarían apuntando a menores distintos
+            // y el hermano equivocado escribiría en esta partida. Va ANTES de adoptar:
+            // SeleccionarJugador limpia el estado de sesión al cambiar de perfil, y hacerlo
+            // después borraría el PartidaId recién puesto.
+            if (partida.usuario_jugador > 0) SeleccionarJugador(partida.usuario_jugador);
+
+            AdoptarPartida(partida);
+            if (verboseLogs) Debug.Log($"[API] Partida {PartidaId} retomada a pedido del jugador.");
+            return true;
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  PARTIDA (HDU-2)                                                        ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
@@ -972,7 +1000,7 @@ namespace Fishy.Net
 
         /// <summary>
         /// Marca que la interaccion con ese NPC termino. A diferencia de los objetos
-        /// recogidos, repetir SI actualiza: un NPC con `allowReplay` puede rehacerse y
+        /// recogidos, repetir SI actualiza: un NPC con `repetible` puede rehacerse y
         /// vale el ultimo resultado.
         /// </summary>
         public void MarcarNpcTerminado(string npcId, bool exito, int? partidaId = null,
