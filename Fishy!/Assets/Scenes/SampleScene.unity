@@ -3905,7 +3905,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.ZonaMundo
   zonaId: zona_3
-  nombreVisible: 
+  nombreVisible: "Arrecife de los desaf\xEDos"
   areas: []
 --- !u!1 &804237762
 GameObject:
@@ -10955,7 +10955,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.ZonaMundo
   zonaId: zona_2
-  nombreVisible: 
+  nombreVisible: Pantano de los susurros
   areas: []
 --- !u!1 &1854541311
 GameObject:
