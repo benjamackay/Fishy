@@ -9,9 +9,13 @@ using UnityEngine.UI;
 /// "QuestPage" del panel del Tab.
 ///
 /// Va en el GameObject "QuestPage". Es el equivalente de
-/// <see cref="InventoryManagerUI"/> para misiones, y convive con
-/// <c>MissionPanelUI</c> (HDU-1), que dibuja su propio panel flotante aparte:
-/// los dos leen el mismo MissionManager, así que muestran lo mismo.
+/// <see cref="InventoryManagerUI"/> para misiones: <b>la lista completa</b>, con
+/// las ya terminadas incluidas, para cuando el niño/a quiere repasar.
+///
+/// Convive con <see cref="MissionUIController"/> (HDU-16), el cartel permanente
+/// que enseña una sola misión —la activa— sin abrir nada. Los dos leen el mismo
+/// MissionManager, así que no pueden contradecirse; para que además se note cuál
+/// de las de esta lista es la del cartel, la activa se marca con "ACTIVA".
 ///
 /// Como el resto de páginas, se refresca al abrirse y ante cualquier cambio,
 /// así que una misión entregada con el panel abierto aparece al instante.
@@ -103,6 +107,15 @@ public class QuestPageUI : MonoBehaviour
         string progreso = MissionTracker.Instance != null ? MissionTracker.Instance.Progreso(mision.Id) : null;
         string estado = completada ? "✔ Completada" : "En curso";
         if (!completada && progreso != null) estado += $" {progreso}";
+
+        // La activa se marca aquí también: el cartel de HDU-16 nombra una sola misión
+        // y esta página las lista todas igual, así que sin la marca no hay forma de
+        // saber cuál de estas tres es la que el cartel está contando.
+        bool esActiva = MissionManager.Instance != null &&
+                        MissionManager.Instance.Activa == mision;
+        // Sin símbolo: Mango es una fuente de rótulo y no trae ojivas ni rombos, y un
+        // carácter que le falta sale como un cuadrito hueco. Con letras siempre se lee.
+        if (esActiva) estado = "ACTIVA · " + estado;
 
         ConstruirTexto($"{mision.Titulo} — {estado}", tituloFontSize,
             completada ? colorCompletado : colorDisponible, filaGO.transform,

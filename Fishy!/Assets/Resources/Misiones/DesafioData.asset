@@ -16,3 +16,5 @@ MonoBehaviour:
   titulo: Recolectar todos los objetos
   descripcion: 
   icono: {fileID: 0}
+  zonaObjetivo: 
+  orden: 10

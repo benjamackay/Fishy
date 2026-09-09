@@ -25,5 +25,16 @@ namespace Fishy.Mision
 
         [Tooltip("Ícono opcional para el panel de misión activa.")]
         public Sprite icono;
+
+        [Header("HDU-16 — Guía hacia dónde ir")]
+        [Tooltip("Id de la zona a la que hay que ir para avanzar esta misión: los mismos " +
+                 "ids que usan ZonaMundo y BlockedZone (zona_1, zona_2, zona_3). " +
+                 "Vacío = esta misión no señala ninguna zona y no dibuja indicador.")]
+        public string zonaObjetivo;
+
+        [Tooltip("Lugar en la historia. Menor va antes: la misión activa es la disponible " +
+                 "con el orden más bajo. Deja huecos (10, 20, 30…) para poder intercalar " +
+                 "una misión nueva sin renumerar las demás.")]
+        public int orden = 100;
     }
 }

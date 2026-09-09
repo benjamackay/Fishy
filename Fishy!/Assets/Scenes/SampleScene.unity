@@ -1821,6 +1821,53 @@ MonoBehaviour:
   - {fileID: 950614639}
   - {fileID: 1687012892}
   pagesRoot: {fileID: 0}
+--- !u!1 &128738866
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 128738868}
+  - component: {fileID: 128738867}
+  m_Layer: 0
+  m_Name: ZonaActual
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &128738867
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 128738866}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac1c8f10a2720dcb1aaf997d24be6de0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.ZonaActual
+  zonaPorDefecto: zona_1
+  intervalo: 0.25
+  verboseLogs: 1
+--- !u!4 &128738868
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 128738866}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.34769, y: 34.35566, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &170974271
 GameObject:
   m_ObjectHideFlags: 0
@@ -1854,6 +1901,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b82438ca40c024e4f9e327e4887fe664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Desconocidos.DesconocidosNPC
+  npcId: 
   umbralExito: 70
   repetible: 0
   leaveDistance: 6
@@ -3708,13 +3756,14 @@ GameObject:
   - component: {fileID: 774275078}
   - component: {fileID: 774275077}
   - component: {fileID: 774275076}
+  - component: {fileID: 774275079}
   m_Layer: 0
   m_Name: ZonaBloqueada_zona_3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!60 &774275076
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -3843,6 +3892,21 @@ Transform:
   - {fileID: 625274780}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &774275079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 774275075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cd87e9c2aa0334f7bca16ce286c4555, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.ZonaMundo
+  zonaId: zona_3
+  nombreVisible: 
+  areas: []
 --- !u!1 &804237762
 GameObject:
   m_ObjectHideFlags: 0
@@ -10693,13 +10757,14 @@ GameObject:
   - component: {fileID: 1848732944}
   - component: {fileID: 1848732943}
   - component: {fileID: 1848732942}
+  - component: {fileID: 1848732945}
   m_Layer: 0
   m_Name: ZonaBloqueada_zona_2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!60 &1848732942
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -10877,6 +10942,21 @@ Transform:
   - {fileID: 1364329626}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1848732945
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1848732941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3cd87e9c2aa0334f7bca16ce286c4555, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.ZonaMundo
+  zonaId: zona_2
+  nombreVisible: 
+  areas: []
 --- !u!1 &1854541311
 GameObject:
   m_ObjectHideFlags: 0
@@ -13979,6 +14059,7 @@ SceneRoots:
   - {fileID: 1750575561}
   - {fileID: 774275078}
   - {fileID: 1848732944}
+  - {fileID: 128738868}
   - {fileID: 1350684519}
   - {fileID: 1412570955}
   - {fileID: 1131351109}

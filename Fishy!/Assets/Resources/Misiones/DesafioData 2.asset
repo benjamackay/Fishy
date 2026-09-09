@@ -16,3 +16,5 @@ MonoBehaviour:
   titulo: Descubre objetos para divertirte
   descripcion: 
   icono: {fileID: 0}
+  zonaObjetivo: 
+  orden: 30

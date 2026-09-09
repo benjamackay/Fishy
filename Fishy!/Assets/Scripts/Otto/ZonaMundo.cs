@@ -30,6 +30,10 @@ namespace Fishy.World
                  "se usa el suyo.")]
         public string zonaId = "";
 
+        [Tooltip("Cómo se llama esta zona para el niño/a: 'El Bosque', 'El Arrecife'. " +
+                 "Si se deja vacío se muestra el id, que no está escrito para leerse.")]
+        public string nombreVisible = "";
+
         [Header("Área")]
         [Tooltip("Polígonos que forman la zona. Si se deja vacío se toman los " +
                  "PolygonCollider2D de este mismo objeto.")]
@@ -49,6 +53,84 @@ namespace Fishy.World
                 var bloqueada = GetComponent<BlockedZone>();
                 return bloqueada != null ? bloqueada.zoneId : name;
             }
+        }
+
+        /// <summary>
+        /// Nombre para mostrar. Cae al <see cref="Id"/> si nadie escribió uno, porque
+        /// un hueco en pantalla es peor que un id feo.
+        /// </summary>
+        public string Nombre =>
+            string.IsNullOrWhiteSpace(nombreVisible) ? Id : nombreVisible.Trim();
+
+        /// <summary>
+        /// Punto de referencia de la zona: la media de los vértices de sus polígonos,
+        /// en coordenadas de mundo. Es hacia donde apunta la flecha de HDU-16 cuando la
+        /// zona no tiene ningún <see cref="PuntoDeAparicion"/> que sea mejor destino.
+        ///
+        /// Media y no centro del bounding box: con una zona en forma de L el bounding
+        /// box cae fuera del terreno, y la flecha señalaría agua.
+        ///
+        /// Se calcula una vez y se guarda. Los polígonos del mapa no se mueven en
+        /// juego; si alguna vez se editan en caliente, <see cref="OlvidarCentro"/>.
+        /// </summary>
+        public Vector2 Centro
+        {
+            get
+            {
+                if (_centro.HasValue) return _centro.Value;
+
+                Vector2 suma = Vector2.zero;
+                int puntos = 0;
+
+                if (areas != null)
+                {
+                    foreach (PolygonCollider2D area in areas)
+                    {
+                        if (area == null) continue;
+                        for (int i = 0; i < area.pathCount; i++)
+                        {
+                            foreach (Vector2 punto in area.GetPath(i))
+                            {
+                                suma += (Vector2)area.transform.TransformPoint(punto + area.offset);
+                                puntos++;
+                            }
+                        }
+                    }
+                }
+
+                // Sin polígonos queda la posición del objeto, que al menos está en la
+                // parte del mapa donde alguien colocó la zona.
+                _centro = puntos > 0 ? suma / puntos : (Vector2)transform.position;
+                return _centro.Value;
+            }
+        }
+
+        private Vector2? _centro;
+
+        /// <summary>Hace que <see cref="Centro"/> se vuelva a calcular.</summary>
+        public void OlvidarCentro() => _centro = null;
+
+        /// <summary>La zona con ese id, o null si ninguna viva lo tiene.</summary>
+        public static ZonaMundo De(string zonaId)
+        {
+            if (string.IsNullOrWhiteSpace(zonaId)) return null;
+            zonaId = zonaId.Trim();
+
+            foreach (ZonaMundo zona in _vivas)
+                if (zona != null && zona.Id == zonaId) return zona;
+
+            return null;
+        }
+
+        /// <summary>
+        /// Nombre legible de una zona por su id. Si esa zona no está viva —todavía no
+        /// se cargó, o nadie le puso el componente— devuelve el id: la frase de la
+        /// interfaz sigue teniendo sentido aunque quede fea.
+        /// </summary>
+        public static string NombreDe(string zonaId)
+        {
+            ZonaMundo zona = De(zonaId);
+            return zona != null ? zona.Nombre : (zonaId ?? "").Trim();
         }
 
         private void Awake()

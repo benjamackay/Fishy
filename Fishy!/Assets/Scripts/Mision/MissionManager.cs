@@ -23,6 +23,10 @@ namespace Fishy.Mision
     [Serializable] public class DesafioDisponibleEvent : UnityEvent<DesafioRuntime> { }
     [Serializable] public class DesafioCompletadoEvent : UnityEvent<DesafioRuntime> { }
 
+    /// <summary>Avisa de cuál es la misión activa ahora. Puede llegar <c>null</c>:
+    /// eso es "ya no queda ninguna", y es lo que dispara el mensaje de HDU-16 CA6.</summary>
+    [Serializable] public class MisionActivaEvent : UnityEvent<DesafioRuntime> { }
+
     /// <summary>
     /// HDU-1 — Gestor central del panel de "misión activa".
     ///
@@ -50,6 +54,9 @@ namespace Fishy.Mision
         [Tooltip("Se dispara al registrar un desafío, esté disponible o ya completado. " +
                  "Es el enganche para sincronizar con el backend.")]
         public DesafioDisponibleEvent onDesafioRegistrado = new DesafioDisponibleEvent();
+        [Tooltip("Se dispara cuando cambia la misión activa, incluida la vez que se " +
+                 "queda en ninguna. Es el enganche del HUD y del indicador de zona.")]
+        public MisionActivaEvent onMisionActivaCambiada = new MisionActivaEvent();
 
         [Header("Persistencia local (fallback sin backend)")]
         [Tooltip("Se activa al elegir una partida. El progreso se guarda separado para cada partida.")]
@@ -65,6 +72,41 @@ namespace Fishy.Mision
 
         /// <summary>Todos los desafíos registrados en esta sesión (disponibles + completados).</summary>
         public IReadOnlyCollection<DesafioRuntime> Desafios => desafios.Values;
+
+        /// <summary>
+        /// HDU-16 — La misión que el niño/a está haciendo ahora mismo, o <c>null</c> si
+        /// no queda ninguna disponible.
+        ///
+        /// No se elige a mano: es siempre la disponible con el <see cref="DesafioData.orden"/>
+        /// más bajo, así que al completar una, la siguiente entra sola (CA5) y cuando se
+        /// acaban queda en null (CA6). Se recalcula ante cualquier cambio de estado.
+        /// </summary>
+        public DesafioRuntime Activa { get; private set; }
+
+        /// <summary>Hay algo que hacer ahora mismo. En false toca el mensaje de "sin
+        /// nuevas misiones".</summary>
+        public bool HayMisionActiva => Activa != null;
+
+        /// <summary>
+        /// Zona que hay que señalar ahora mismo, o <c>null</c> si no hay ninguna que
+        /// señalar —porque no hay misión activa, o porque la que hay no apunta a
+        /// ninguna zona—.
+        ///
+        /// Es la decisión completa del indicador de HDU-16 CA2: <c>ZoneMarker</c> se
+        /// enciende cuando esto tiene valor y se apaga cuando vuelve a null, que es lo
+        /// que pasa al completar la misión (CA4). Vive aquí, y no en el marcador, para
+        /// que se pueda probar sin escena ni cámara: el marcador de arriba no decide
+        /// nada, sólo dibuja.
+        /// </summary>
+        public string ZonaObjetivoActiva
+        {
+            get
+            {
+                if (Activa == null || Activa.data == null) return null;
+                string zona = Activa.data.zonaObjetivo;
+                return string.IsNullOrWhiteSpace(zona) ? null : zona.Trim();
+            }
+        }
 
         private void Awake()
         {
@@ -114,6 +156,7 @@ namespace Fishy.Mision
             completadosRemotos.Clear();
             contextoPersistencia = nuevoContexto;
             persistirLocalmente = true;
+            RecalcularActiva();
             onPanelActualizado?.Invoke();
 
             Debug.Log($"[MissionManager] Progreso asociado a la partida {partidaId}.");
@@ -161,6 +204,7 @@ namespace Fishy.Mision
                 estado = yaCompletado ? EstadoDesafio.Completado : EstadoDesafio.Disponible
             };
             desafios[data.desafioId] = runtime;
+            RecalcularActiva();
 
             if (!yaCompletado && anunciar)
                 onDesafioDisponible?.Invoke(runtime);
@@ -244,7 +288,11 @@ namespace Fishy.Mision
                 }
             }
 
-            if (cambio) onPanelActualizado?.Invoke();
+            if (cambio)
+            {
+                RecalcularActiva();
+                onPanelActualizado?.Invoke();
+            }
             Debug.Log($"[MissionManager] {completadosRemotos.Count} misión(es) completadas según el backend.");
         }
 
@@ -275,6 +323,10 @@ namespace Fishy.Mision
                 PlayerPrefs.Save();
             }
 
+            // Antes de anunciar nada: quien escuche "completada" —el HUD, el indicador
+            // de zona— tiene que poder preguntar ya cuál es la siguiente.
+            RecalcularActiva();
+
             onDesafioCompletado?.Invoke(runtime);
             onPanelActualizado?.Invoke();
 
@@ -293,13 +345,50 @@ namespace Fishy.Mision
         public bool EstaDisponible(string desafioId) => GetEstado(desafioId) == EstadoDesafio.Disponible;
         public bool EstaCompletado(string desafioId) => GetEstado(desafioId) == EstadoDesafio.Completado;
 
-        /// <summary>Lista para pintar el panel: disponibles primero, luego completados, alfabético.</summary>
+        /// <summary>
+        /// Lista para pintar el panel: disponibles primero y, dentro de cada grupo, en
+        /// orden de historia (<see cref="DesafioData.orden"/>), con el título como
+        /// desempate.
+        ///
+        /// Antes el desempate era lo único que había, y ordenaba alfabéticamente: la
+        /// lista salía en un orden que no era el de nada. Con esto la primera fila
+        /// disponible es siempre <see cref="Activa"/>, así que la página del Tab y el
+        /// HUD cuentan lo mismo.
+        /// </summary>
         public List<DesafioRuntime> GetListaOrdenada()
         {
             return desafios.Values
                 .OrderBy(d => d.estado == EstadoDesafio.Completado ? 1 : 0)
+                .ThenBy(d => d.data != null ? d.data.orden : int.MaxValue)
                 .ThenBy(d => d.Titulo)
                 .ToList();
+        }
+
+        /// <summary>
+        /// Vuelve a elegir la misión activa y avisa si cambió (HDU-16 CA5 y CA6).
+        ///
+        /// Se llama después de tocar el estado y ANTES de <see cref="onPanelActualizado"/>,
+        /// para que cualquier refresco de UI que dispare ese evento ya vea la misión
+        /// activa nueva en vez de la vieja.
+        /// </summary>
+        private void RecalcularActiva()
+        {
+            DesafioRuntime siguiente = desafios.Values
+                .Where(d => d.estado == EstadoDesafio.Disponible && d.data != null)
+                .OrderBy(d => d.data.orden)
+                .ThenBy(d => d.Titulo)
+                .FirstOrDefault();
+
+            if (ReferenceEquals(siguiente, Activa)) return;
+
+            Activa = siguiente;
+
+            Debug.Log(Activa != null
+                ? $"[MissionManager] Misión activa: '{Activa.Titulo}'" +
+                  (ZonaObjetivoActiva != null ? $" → {ZonaObjetivoActiva}." : " (sin zona).")
+                : "[MissionManager] No queda ninguna misión disponible.");
+
+            onMisionActivaCambiada?.Invoke(Activa);
         }
 
         /// <summary>Sólo para tests/depuración: limpia todo el estado en memoria (no borra PlayerPrefs).</summary>
@@ -307,6 +396,7 @@ namespace Fishy.Mision
         {
             desafios.Clear();
             completadosRemotos.Clear();
+            RecalcularActiva();
         }
     }
 }

@@ -7,23 +7,25 @@ construir) se apoyarán en este módulo.
 
 ## Archivos
 - `DesafioData.cs` — ScriptableObject con la ficha de un desafío (id, título,
-  descripción, ícono). Se crean assets vía **Assets → Create → Fishy → Mision →
-  Nuevo Desafio**.
+  descripción, ícono, y desde HDU-16 también `zonaObjetivo` y `orden`). Se crean
+  assets vía **Assets → Create → Fishy → Mision → Nuevo Desafio**.
 - `MissionManager.cs` — singleton persistente (`DontDestroyOnLoad`) que lleva el
   registro de desafíos disponibles/completados, dispara eventos y persiste el
   progreso en `PlayerPrefs` como fallback local (no hay endpoints de desafíos en
   el backend todavía, igual que pasó con el modo Detective).
-- `MissionPanelUI.cs` — panel "Misiones" que se autoconstruye en runtime (botón
-  arriba a la derecha + lista), sin necesitar montaje manual en la escena.
 - `Tests/MissionManagerTests.cs` — pruebas PlayMode (NUnit) del MissionManager.
+- `Tests/MisionActivaTests.cs` — pruebas PlayMode de la misión activa (HDU-16).
+
+`MissionPanelUI.cs`, el panel desplegable con el botón "Misiones" que era la UI
+de esta HDU, está en `deprecated/Misiones/`: HDU-16 lo reemplazó por
+`MisionMundo/MissionUIController.cs`, un cartel permanente que no hay que abrir.
+La lista completa de misiones vive en la pestaña Misión del Tab (`QuestPageUI`).
 
 ## Montaje en la escena
-No es obligatorio montar nada: la primera vez que algo llama a
-`MissionManager.GetOrCreate()` o `MissionPanelUI.GetOrCreate()` se crean solos.
-Aun así, es más prolijo agregar dos GameObjects vacíos en la escena principal
-(por ejemplo dentro de un `Systems` o junto a `ApiManager`):
-- Uno con el componente `MissionManager`.
-- Otro con el componente `MissionPanelUI`.
+No hay que montar nada: `MissionManager.GetOrCreate()` lo crea la primera vez que
+alguien lo pide, y el cartel de misión activa se crea solo al cargar una escena
+que tenga a Otto. Aun así, es más prolijo tener un GameObject con el componente
+`MissionManager` en la escena principal (por ejemplo junto a `ApiManager`).
 
 ## Uso desde un objeto/NPC interactuable (próximos pasos de HDU-1)
 ```csharp

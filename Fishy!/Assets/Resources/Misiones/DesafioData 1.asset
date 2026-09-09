@@ -16,3 +16,5 @@ MonoBehaviour:
   titulo: "Entiende la situaci\xF3n de Coipo"
   descripcion: 
   icono: {fileID: 0}
+  zonaObjetivo: 
+  orden: 20
