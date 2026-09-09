@@ -10,6 +10,7 @@
     .\run.ps1 --smoke          # smoke test end-to-end
     .\run.ps1 --check          # verifica config y drift de migraciones
     .\run.ps1 --superusuario   # crea la cuenta para entrar a /admin/
+    .\run.ps1 --respaldo       # respalda los datos de la base a ~/respaldos-fishy
 
 .NOTES
     Equivalente en PowerShell de run.sh. Compatible con Windows PowerShell 5.1.
@@ -75,6 +76,14 @@ switch ($modo) {
         & $py .\backend\manage.py check
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         & $py .\backend\manage.py makemigrations --check --dry-run
+        exit $LASTEXITCODE
+    }
+    "--respaldo" {
+        # Los .bundle de ~/respaldos-fishy guardan el CODIGO. Esto guarda los DATOS,
+        # que no estan en ningun archivo del repo y que el plan gratuito de Supabase
+        # no respalda. Va fuera del repositorio a proposito: lleva datos de menores.
+        Escribir-Verde "Respaldo de los datos de la base"
+        & $py .\scripts\respaldar_bd.py @resto
         exit $LASTEXITCODE
     }
     "--superusuario" {
