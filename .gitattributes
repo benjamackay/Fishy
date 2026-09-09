@@ -21,10 +21,27 @@
 # Solo se declara el driver: nada de eol ni de lfs, para no renormalizar
 # archivos ya versionados.
 #
-# Cada quien debe registrar el driver una vez en su clon (ver README):
-#   git config merge.unityyamlmerge.name "Unity SmartMerge"
-#   git config merge.unityyamlmerge.driver '"<Unity>/Editor/Data/Tools/UnityYAMLMerge.exe" merge -p "$BASE" "$REMOTE" "$LOCAL" "$MERGED"'
-#   git config merge.unityyamlmerge.recursive binary
+# ── Cómo se resuelven los conflictos de escena ────────────────────────────────
+#
+# No hace falta registrar ningún driver, y no esperes que git fusione esto solo.
+# UnityYAMLMerge decide cómo fusionar por la EXTENSIÓN del archivo, y git le pasa
+# temporales sin extensión (.merge_file_XXXX): falla con "Don't know how to
+# merge" y se rinde. El resultado es que deja la versión de HEAD en el árbol,
+# marcada como conflicto, sin marcadores y sin avisar de que no fusionó nada.
+#
+# Que el driver se declare igualmente es a propósito: ese fallo es SEGURO —deja
+# HEAD intacto y te obliga a mirar—, mientras que sin la declaración git
+# fusionaría la escena línea a línea, que es lo que de verdad la corrompe.
+#
+# Para resolver, desde la raíz del repo:
+#
+#   ./resolver-escena.sh                     # lista lo que está en conflicto
+#   ./resolver-escena.sh SampleScene         # fusiona esa escena
+#   ./resolver-escena.sh SampleScene --ours  # si hay conflictos, elige un lado
+#
+# El script saca las tres etapas del índice con la extensión correcta y llama a
+# UnityYAMLMerge con los lados en el orden que espera. Después abre la escena en
+# Unity una vez: que el YAML fusione no garantiza que la escena cargue.
 
 *.unity       merge=unityyamlmerge
 *.prefab      merge=unityyamlmerge
