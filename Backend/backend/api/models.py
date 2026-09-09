@@ -144,13 +144,18 @@ class PersonajeJugador(models.Model):
     aqui los atributos": esto es eso. Guarda lo minimo para volver a dejar a Otto
     donde estaba, que sin esto reaparecia en el `spawnPoint` de la escena.
 
-    **No hay `zona_actual` a proposito.** Seria util para el reporte al tutor, pero
-    hoy Unity no tiene el concepto de "zona en la que esta Otto" -las `BlockedZone`
-    saben abrirse, no saben contener- asi que el campo nacria vacio y alguien lo
-    leeria creyendo que significa algo. Cuando exista quien lo llene, se agrega.
+    `zona_actual` es la region del mapa donde quedo Otto, y **no tiene nada que ver
+    con `ZonaProgreso.zona`**: alla "zona" es la tematica del banco (`desconocidos`,
+    `ciberacoso`), aca es geografia (`zona_1`, `zona_2`). De ahi que sea texto libre
+    sin FK ni `choices` -el catalogo de zonas vive en la escena de Unity, mismo
+    criterio que `mision_id` o `item_id`-, y de ahi tambien que no sirva colgarla de
+    `ZonaProgreso`, que solo tiene fila para zonas ya desbloqueadas: Otto esta en
+    `zona_1` desde el primer minuto y esa zona no tiene fila nunca.
 
-    Las tres columnas admiten null: una partida recien creada no tiene posicion
-    guardada, y eso es distinto de tenerla en (0,0), que es un lugar del mapa.
+    Las columnas de posicion admiten null: una partida recien creada no tiene
+    posicion guardada, y eso es distinto de tenerla en (0,0), que es un lugar del
+    mapa. `zona_actual` no las sigue y va con la cadena vacia, igual que `escena`,
+    porque ahi el vacio ya significa "no se guardo" sin ambiguedad.
     """
     partida = models.OneToOneField(
         Partida,
@@ -164,6 +169,11 @@ class PersonajeJugador(models.Model):
     )
     pos_x  = models.FloatField(null=True, blank=True)
     pos_y  = models.FloatField(null=True, blank=True)
+    zona_actual = models.CharField(
+        max_length=50, blank=True,
+        help_text="Zona del mapa donde quedo Otto, ej. `zona_2`. Es el `zoneId` de la "
+                  "BlockedZone de Unity, NO el slug del banco que usa ZonaProgreso.zona."
+    )
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     @property

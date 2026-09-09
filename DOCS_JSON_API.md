@@ -652,21 +652,22 @@ es donde se dibujan.
 
 ```json
 // PATCH Request — todos los campos son opcionales
-{ "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25 }
+{ "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25, "zona_actual": "zona_2" }
 
 // Response (igual en GET y en PATCH)
 {
   "escena": "SampleScene",
   "pos_x": 12.5,
   "pos_y": -3.25,
+  "zona_actual": "zona_2",
   "tiene_posicion": true,
   "fecha_actualizacion": "2026-09-06T18:04:11.220Z"
 }
 ```
 
 Es **PATCH y no PUT**, al revés que el inventario, y por una razón concreta: aquí no
-hay nada que borrar. Son tres columnas de una fila que siempre existe, así que mandar
-la posición sin la escena es una actualización legítima y no una orden de dejar el
+hay nada que borrar. Son cuatro columnas de una fila que siempre existe, así que mandar
+la posición sin la zona es una actualización legítima y no una orden de dejar el
 resto en blanco.
 
 **La fila se crea sola.** `PersonajeJugador` es uno a uno con la partida, pero ninguna
@@ -683,10 +684,21 @@ mandaría de vuelta al `spawnPoint`.
 una — dejarían a Otto dentro de un cerro. Unity compara contra la escena activa y, si
 no calzan, ignora la posición y avisa por consola.
 
-> No hay `zona_actual`, y es a propósito. Sería útil para el reporte al tutor, pero hoy
-> Unity no tiene el concepto de "zona en la que está Otto" —las `BlockedZone` saben
-> abrirse, no saben contener—, así que el campo nacería vacío y alguien lo leería
-> creyendo que significa algo.
+**`zona_actual` es la región del mapa, no la temática del banco.** Son dos vocabularios
+distintos que se llaman igual y no hay tabla que los relacione: aquí los valores son
+los `zoneId` de las `BlockedZone` de Unity (`zona_1`, `zona_2`, `zona_3`), mientras que
+`ZonaProgreso.zona` guarda slugs del banco de preguntas (`desconocidos`, `ciberacoso`).
+No los cruces.
+
+Es texto libre: **nadie lo valida**, no es FK y no tiene `choices`, igual que
+`mision_id` e `item_id`. El catálogo de zonas vive en la escena de Unity, y un
+`choices` obligaría a una migración cada vez que diseño agregue una. Tampoco cuelga de
+`ZonaProgreso`, que solo tiene fila para zonas ya desbloqueadas: Otto está en `zona_1`
+desde el primer minuto y esa zona no tiene fila nunca.
+
+La **cadena vacía** significa "nunca se guardó" — no se usa `null`, al revés que
+`pos_x`/`pos_y`. Lo escribe Unity en cada guardado (que desde hace poco ocurre en dos
+momentos: al cambiar de zona y al cerrar el juego) y lo lee el reporte al tutor.
 
 ---
 

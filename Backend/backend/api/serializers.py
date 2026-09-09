@@ -243,7 +243,8 @@ class PersonajeJugadorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PersonajeJugador
-        fields = ["escena", "pos_x", "pos_y", "tiene_posicion", "fecha_actualizacion"]
+        fields = ["escena", "pos_x", "pos_y", "zona_actual",
+                  "tiene_posicion", "fecha_actualizacion"]
         read_only_fields = ["tiene_posicion", "fecha_actualizacion"]
 
 

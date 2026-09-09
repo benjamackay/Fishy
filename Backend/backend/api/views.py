@@ -993,11 +993,12 @@ def personaje_partida(request, partida_id):
     """
     GET   — donde quedo Otto en esta partida.
     PATCH — lo actualiza. Body (todos opcionales):
-            { "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25 }
+            { "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25,
+              "zona_actual": "zona_2" }
 
     Es PATCH y no PUT porque aqui, a diferencia del inventario, **no hay nada que
-    borrar**: son tres columnas de una fila que siempre existe. Mandar la posicion
-    sin la escena, o al reves, es una actualizacion legitima y no una orden de
+    borrar**: son cuatro columnas de una fila que siempre existe. Mandar la posicion
+    sin la zona, o al reves, es una actualizacion legitima y no una orden de
     dejar el resto en blanco.
 
     La fila se crea si no existia: `PersonajeJugador` es uno-a-uno con la partida

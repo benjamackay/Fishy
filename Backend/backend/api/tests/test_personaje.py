@@ -9,7 +9,10 @@ Lo que se cuida acá:
     existen no tienen una y pedir la posición no puede responder 404;
   - "sin posición" y "en el (0,0)" son cosas distintas — el origen es un lugar del
     mapa, así que el null tiene que sobrevivir el viaje de ida y vuelta;
-  - es PATCH: mandar solo la escena no puede borrar la posición.
+  - es PATCH: mandar solo la escena no puede borrar la posición;
+  - `zona_actual` es la región del mapa (`zona_1`, el `zoneId` de Unity), y no la
+    temática del banco que guarda `ZonaProgreso.zona` (`desconocidos`). Se llaman
+    igual y no son lo mismo.
 """
 from django.test import TestCase
 
@@ -106,6 +109,37 @@ class PersonajeTests(BaseAPI):
         datos = self.get(self.ruta, self.token)
         self.assertAlmostEqual(datos["pos_x"], 99.0)
         self.assertAlmostEqual(datos["pos_y"], -99.0)
+
+    # ── Zona del mapa ────────────────────────────────────────────────────────
+
+    def test_sin_guardar_la_zona_viene_vacia_y_no_null(self):
+        """La cadena vacía es "nunca se guardó". Acá no hace falta el null que sí
+        necesitan pos_x/pos_y, porque no hay una zona que se llame ""."""
+        datos = self.get(self.ruta, self.token)
+        self.assertEqual(datos["zona_actual"], "")
+
+    def test_guardar_y_recuperar_la_zona(self):
+        self.patch(self.ruta, {"zona_actual": "zona_2"}, self.token)
+
+        datos = self.get(self.ruta, self.token)
+        self.assertEqual(datos["zona_actual"], "zona_2")
+
+    def test_mandar_solo_la_zona_no_borra_la_posicion(self):
+        """Unity manda zona y posición juntas, pero el PATCH tiene que aguantar
+        que venga una sola: es una actualización, no una orden de dejar el resto
+        en blanco."""
+        self.patch(self.ruta, {"escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25}, self.token)
+        self.patch(self.ruta, {"zona_actual": "zona_2"}, self.token)
+
+        datos = self.get(self.ruta, self.token)
+        self.assertEqual(datos["zona_actual"], "zona_2")
+        self.assertAlmostEqual(datos["pos_x"], 12.5)
+        self.assertAlmostEqual(datos["pos_y"], -3.25)
+
+    def test_una_zona_mas_larga_que_la_columna_da_400_y_no_500(self):
+        """La suite corre en SQLite, que no valida largos de varchar: sin este
+        corte en el serializer, un id largo pasaría acá y reventaría en Supabase."""
+        self.patch(self.ruta, {"zona_actual": "z" * 51}, self.token, espera=400)
 
     # ── Aislamiento ──────────────────────────────────────────────────────────
 
