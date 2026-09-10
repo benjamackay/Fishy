@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -54,6 +55,25 @@ namespace Fishy.Net
         private int? partidaDescargada;
 
         private bool avisoDeSinPartidaDado;
+
+        /// <summary>
+        /// El progreso de misiones que venía del servidor ya está aplicado al juego.
+        ///
+        /// Hace falta para saber cuándo una misión es <b>nueva de verdad</b>. Quien
+        /// entregue una misión antes de que esto sea true la anunciaría como novedad
+        /// aunque el niño/a ya la hubiera terminado la semana pasada: el estado real
+        /// llega unas décimas después y la corrige, pero para entonces la fanfarria ya
+        /// sonó. Lo usa <c>MisionInicial</c>.
+        ///
+        /// Se queda en false cuando no hay servidor —modo local, sin sesión—, así que
+        /// quien espere por esto tiene que tener también su propio plazo máximo.
+        /// </summary>
+        public static bool ProgresoDeMisionesAplicado { get; private set; }
+
+        /// <summary>Se dispara cuando <see cref="ProgresoDeMisionesAplicado"/> pasa a
+        /// true. Estático por lo mismo que el resto: quien escucha no puede depender
+        /// de que este objeto ya exista.</summary>
+        public static event Action OnProgresoDeMisionesAplicado;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
@@ -153,6 +173,9 @@ namespace Fishy.Net
                     if (hayServidor && partidaDescargada != partidaId)
                     {
                         partidaDescargada = partidaId;
+                        // Otra partida, otro progreso: la senal vuelve a cero o quien
+                        // espere por ella creeria que ya llego el de esta.
+                        ProgresoDeMisionesAplicado = false;
                         misionesEnServidor.Clear();
                         zonasEnServidor.Clear();
                         BajarProgreso();
@@ -224,6 +247,14 @@ namespace Fishy.Net
             // registra como completada en vez de aparecer disponible de nuevo.
             misiones.PrecargarCompletados(completadas);
             misiones.PrecargarConocidos(conocidas);
+
+            // Despues de aplicar, no antes: quien espere esta senal tiene que
+            // encontrarse el estado ya puesto.
+            if (!ProgresoDeMisionesAplicado)
+            {
+                ProgresoDeMisionesAplicado = true;
+                OnProgresoDeMisionesAplicado?.Invoke();
+            }
         }
 
         private void AplicarZonas(List<ZonaProgresoDto> progreso)

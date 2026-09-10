@@ -39,6 +39,10 @@ public class MissionTracker : MonoBehaviour
     private readonly List<Seguimiento> seguimientos = new List<Seguimiento>();
     private bool suscritoAlInventario;
 
+    /// <summary>Objetivos cuyo evento ya está enganchado, para no engancharlo dos veces
+    /// al reintentar. Por identidad de objeto, que es lo que los distingue.</summary>
+    private readonly HashSet<ObjetivoMision> _suscritos = new HashSet<ObjetivoMision>();
+
     /// <summary>
     /// Algún objetivo pasó a cumplido. La misión puede seguir en curso: esto es
     /// "2/3 en vez de 1/3", no "terminada".
@@ -101,24 +105,7 @@ public class MissionTracker : MonoBehaviour
         };
         seguimientos.Add(seguimiento);
 
-        foreach (ObjetivoMision objetivo in seguimiento.objetivos)
-        {
-            // Cada tipo de objetivo dice cuál es el evento que lo cumple; los que se
-            // resuelven consultando el mundo (recoger objetos) devuelven null.
-            UnityEvent evento = objetivo.EventoQueLoCumple();
-            if (evento == null) continue;
-
-            ObjetivoMision capturado = objetivo;   // sin esto la lambda vería el último del bucle
-            evento.AddListener(() =>
-            {
-                if (capturado.cumplido) return;
-                capturado.cumplido = true;
-                if (verboseLogs)
-                    Debug.Log($"[Misiones] Objetivo cumplido: {capturado.Describir()}", this);
-                OnProgresoCambiado?.Invoke();
-                RevisarTodo();
-            });
-        }
+        SuscribirPendientes(seguimiento);
 
         // El inventario puede cambiar por cualquier vía, así que una sola suscripción
         // global y se revisan todos los seguimientos.
@@ -175,6 +162,55 @@ public class MissionTracker : MonoBehaviour
         return null;
     }
 
+    /// <summary>
+    /// Engancha el evento que cumple cada objetivo que todavía no esté enganchado.
+    ///
+    /// <b>Se reintenta, y por eso es un método aparte.</b> Un objetivo que llegó de la
+    /// base apunta a un NPC por su id de diálogo, y ese NPC puede no existir todavía
+    /// cuando la misión se entrega —está en una zona que aún no se abrió, o su objeto
+    /// aparece más tarde—. Suscribirse una sola vez, al entregar la misión, dejaría ese
+    /// objetivo muerto para el resto de la partida. Así que se vuelve a intentar en
+    /// cada revisión, y los que se resuelven se enganchan entonces.
+    ///
+    /// Un objetivo ya enganchado no se vuelve a enganchar: <see cref="_suscritos"/> los
+    /// recuerda, porque suscribirse dos veces al mismo UnityEvent lo dispararía dos
+    /// veces y el progreso contaría mal.
+    /// </summary>
+    private void SuscribirPendientes(Seguimiento seguimiento)
+    {
+        foreach (ObjetivoMision objetivo in seguimiento.objetivos)
+        {
+            if (objetivo == null || objetivo.cumplido) continue;
+            if (_suscritos.Contains(objetivo)) continue;
+
+            // Sin referencias resueltas no hay evento al que engancharse. Se intentará
+            // en la siguiente revisión.
+            if (!objetivo.Resolver()) continue;
+
+            // Cada tipo de objetivo dice cuál es el evento que lo cumple; los que se
+            // resuelven consultando el mundo (recoger objetos, llegar a una zona)
+            // devuelven null y no hay nada que enganchar.
+            UnityEvent evento = objetivo.EventoQueLoCumple();
+            if (evento == null)
+            {
+                _suscritos.Add(objetivo);   // resuelto y sin evento: no hay más que hacer
+                continue;
+            }
+
+            ObjetivoMision capturado = objetivo;   // sin esto la lambda vería el último del bucle
+            evento.AddListener(() =>
+            {
+                if (capturado.cumplido) return;
+                capturado.cumplido = true;
+                if (verboseLogs)
+                    Debug.Log($"[Misiones] Objetivo cumplido: {capturado.Describir()}", this);
+                OnProgresoCambiado?.Invoke();
+                RevisarTodo();
+            });
+            _suscritos.Add(objetivo);
+        }
+    }
+
     private Seguimiento Buscar(string desafioId)
     {
         foreach (Seguimiento seguimiento in seguimientos)
@@ -193,6 +229,9 @@ public class MissionTracker : MonoBehaviour
     private void Revisar(Seguimiento seguimiento)
     {
         if (seguimiento.completado) return;
+
+        // Otra oportunidad para los objetivos cuyo NPC u objeto todavía no existía.
+        SuscribirPendientes(seguimiento);
 
         bool todos = true, avanzo = false;
         foreach (ObjetivoMision objetivo in seguimiento.objetivos)
