@@ -1854,6 +1854,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b82438ca40c024e4f9e327e4887fe664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Desconocidos.DesconocidosNPC
+  npcId: 
   umbralExito: 70
   repetible: 0
   leaveDistance: 6
@@ -2134,6 +2135,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: 60db56fa65ebca3419c690d2613f3edb, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -4320,6 +4322,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: f34f310c4227f1745b6c93c48e7e2913, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -4650,7 +4653,7 @@ PrefabInstance:
       objectReference: {fileID: 1463012407}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogoId
-      value: 
+      value: HDU1_NPC_HUEMUL
       objectReference: {fileID: 0}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueData
@@ -4785,6 +4788,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: ad5aa466148101243a925626b23e5550, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -5387,6 +5391,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: 9d7b73218da00fb4f9fc2c95ea775232, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -7729,6 +7734,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: c6f7f46a1ce018b4a85d8fd2d06d47fc, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -12294,6 +12300,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: a6c1ab269ee0d3047b9ac5c6f8a8c870, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -12378,6 +12385,55 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!1 &1949042596
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1949042598}
+  - component: {fileID: 1949042597}
+  m_Layer: 0
+  m_Name: Dador de mision inicial
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1949042597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949042596}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7b3c594032a13fd5a6e9fa8b653b62b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MisionInicial
+  mision: {fileID: 0}
+  misionId: 
+  objetivos: []
+  esperaMaxima: 15
+  verboseLogs: 1
+--- !u!4 &1949042598
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1949042596}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.02566, y: -3.95875, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1991218066
 GameObject:
   m_ObjectHideFlags: 0
@@ -12619,6 +12675,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: 05206f88ee81df0438e012f7af1d594d, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -13270,6 +13327,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 132e3b50f2a3bfd41b5599e757dd3333, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorldItem
+  objetoId: 
   itemData: {fileID: 11400000, guid: 5a783e4b9008896459a58098987abbe3, type: 2}
   quantity: 1
   destroyOnPickup: 1
@@ -13988,3 +14046,4 @@ SceneRoots:
   - {fileID: 2005330802}
   - {fileID: 1725247473}
   - {fileID: 1887548408}
+  - {fileID: 1949042598}
