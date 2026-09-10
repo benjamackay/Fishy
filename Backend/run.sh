@@ -8,6 +8,7 @@
 #   ./run.sh --global --fase 5  → solo esa fase del test global
 #   ./run.sh --smoke            → corre el smoke test end-to-end
 #   ./run.sh --check            → verifica config y drift de migraciones
+#   ./run.sh --local            → servidor contra SQLite local, sin Supabase
 #
 # Funciona en Git Bash (Windows) y en WSL/Linux: detecta solo qué intérprete usar.
 #
@@ -38,8 +39,13 @@ while IFS='=' read -r clave valor; do
 done < .env
 
 # ── 2. Qué Python usar ────────────────────────────────────────────────────────
+# Se mira tambien backend/.venv: el README manda crearlo en Backend/, pero es
+# facil crearlo un nivel mas abajo (donde esta manage.py) y entonces esto decia
+# "no encontre ningun entorno virtual" con el venv delante de las narices.
 if   [ -x ".venv/Scripts/python.exe" ]; then PY=".venv/Scripts/python.exe"; ENTORNO="venv de Windows"
 elif [ -x ".venv/bin/python" ];         then PY=".venv/bin/python";         ENTORNO="venv del repo"
+elif [ -x "backend/.venv/Scripts/python.exe" ]; then PY="backend/.venv/Scripts/python.exe"; ENTORNO="venv de Windows en backend/"
+elif [ -x "backend/.venv/bin/python" ]; then PY="backend/.venv/bin/python"; ENTORNO="venv en backend/"
 elif [ -x "$HOME/.venvs/fishy/bin/python" ]; then PY="$HOME/.venvs/fishy/bin/python"; ENTORNO="venv de Linux (~/.venvs/fishy)"
 else
   rojo "No encontré ningún entorno virtual."
@@ -62,7 +68,12 @@ if grep -qi microsoft /proc/version 2>/dev/null && [[ "${DB_HOST:-}" == db.*.sup
   echo
 fi
 
-gris "Usando $ENTORNO · BD en ${DB_HOST:-?}:${DB_PORT:-?}"
+# En --local no se usa Supabase, y anunciar su host aqui haria creer que si.
+if [ "${1:-}" = "--local" ]; then
+  gris "Usando $ENTORNO · BD SQLite local (no Supabase)"
+else
+  gris "Usando $ENTORNO · BD en ${DB_HOST:-?}:${DB_PORT:-?}"
+fi
 
 # ── 4. Qué hacer ──────────────────────────────────────────────────────────────
 case "${1:-}" in
@@ -73,6 +84,24 @@ case "${1:-}" in
   --smoke)
     verde "Smoke test end-to-end (necesita el servidor corriendo en otra terminal)"
     exec "$PY" scripts/smoke_test.py "${@:2}"
+    ;;
+  --local)
+    # Servidor contra una SQLite del repo en vez de Supabase: sirve para
+    # desarrollar y para que Unity tenga un backend de verdad contra el que
+    # hablar sin necesitar la DB_PASSWORD del equipo.
+    #
+    # La base persiste en backend/local_db.sqlite3 (la cubre el .gitignore).
+    # La primera vez hay que prepararla; se hace solo si no existe.
+    LOCAL="juego_backend.settings_local_sqlite"
+    if [ ! -f backend/local_db.sqlite3 ]; then
+      verde "Primera vez: creando la base local y cargando el banco."
+      "$PY" backend/manage.py migrate --settings="$LOCAL"
+      "$PY" backend/manage.py cargar_banco --settings="$LOCAL"
+      echo
+    fi
+    gris "SQLite local (backend/local_db.sqlite3) · NO es la base del equipo."
+    gris "Para empezar de cero: borra ese archivo y vuelve a correr esto."
+    exec "$PY" backend/manage.py runserver "${2:-127.0.0.1:8000}" --settings="$LOCAL"
     ;;
   --check)
     "$PY" backend/manage.py check
