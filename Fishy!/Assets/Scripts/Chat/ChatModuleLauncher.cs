@@ -17,18 +17,18 @@ namespace Fishy.Chat
     {
         public enum Source { ZonaDesconocidosPorDefecto, ConversacionesAsignadas, BancoPorNpcId }
 
-        [Header("Contenido")]
+        [Header("Contenido del chat")]
         public Source source = Source.ZonaDesconocidosPorDefecto;
         [Tooltip("Conversaciones a usar si source = ConversacionesAsignadas.")]
         public List<ChatConversation> conversaciones = new List<ChatConversation>();
         [Tooltip("npc_id del banco (banco_preguntas.json, HDU-2) a usar si source = BancoPorNpcId. Ej: \"NPC_01\".")]
         public string npcId = "";
 
-        [Header("Otto")]
+        [Header("Referencias (se buscan si quedan vacías)")]
         [Tooltip("Controlador de estado emocional de Otto. Si está vacío se busca en la escena.")]
         public OttoMoodController ottoMood;
 
-        [Header("Backend")]
+        [Header("Comportamiento")]
         [Tooltip("Registrar la sesión en el backend (requiere login + partida).")]
         public bool reportToBackend = false;
 
@@ -36,7 +36,7 @@ namespace Fishy.Chat
         [Tooltip("Desafío del panel de misión activa que esta conversación desbloquea/completa. Opcional.")]
         public DesafioData desafioAsociado;
 
-        [Header("Apertura por cercanía (opcional)")]
+        [Tooltip("Abrir el chat cuando Otto entra al trigger, sin pulsar nada.")]
         public bool openOnTriggerEnter = false;
         public string ottoTag = "Player";
         [Tooltip("Permite volver a hablar con este NPC tantas veces como se quiera. " +

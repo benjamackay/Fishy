@@ -2024,7 +2024,7 @@ MonoBehaviour:
   conversaciones: []
   npcId: 
   ottoMood: {fileID: 0}
-  reportToBackend: 0
+  reportToBackend: 1
   desafioAsociado: {fileID: 0}
   openOnTriggerEnter: 0
   ottoTag: Player
@@ -2498,8 +2498,7 @@ PrefabInstance:
       propertyPath: modoTelefono
       value: 1
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 894725528437385346, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -4907,8 +4906,7 @@ PrefabInstance:
       propertyPath: modoTelefono
       value: 1
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 894725528437385346, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []

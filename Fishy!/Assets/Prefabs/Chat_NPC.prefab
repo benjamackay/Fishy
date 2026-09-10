@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 8935019312824024043}
   - component: {fileID: 386172524196624259}
   - component: {fileID: 5479489533958605667}
-  - component: {fileID: 894725528437385346}
   m_Layer: 0
   m_Name: Chat_NPC
   m_TagString: Untagged
@@ -152,9 +151,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba0600216a039314ba0c681020bf415e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.Phone.PhoneChatLauncher
-  source: 3
-  conversaciones: []
-  npcId: NPC_01
   escenarioIds: 
   otto: {fileID: 0}
   phone: {fileID: 0}
@@ -162,33 +158,12 @@ MonoBehaviour:
   modoTelefono: 0
   repetible: 0
   ottoTag: Player
-  reportToBackend: 0
+  reportToBackend: 1
   notificationText: "\U0001F4F1 Tienes un mensaje nuevo\u2026"
   previewDuration: 1.5
   onChatOpened:
     m_PersistentCalls:
       m_Calls: []
   onChatClosed:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!114 &894725528437385346
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4819045752595667910}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 23759498eb8ee2b4a800c911435091a1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NPC
-  dialogueData: {fileID: 0}
-  dialoguePanel: {fileID: 0}
-  dialogueText: {fileID: 0}
-  nameText: {fileID: 0}
-  portraitImage: {fileID: 0}
-  dialogoId: 
-  onDialogueEnded:
     m_PersistentCalls:
       m_Calls: []

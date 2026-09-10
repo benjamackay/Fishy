@@ -142,7 +142,6 @@ namespace Fishy.Detective
 
             public static Color BurbujaIzquierda = Paleta.MarronClaro;
             public static Color BurbujaDerecha = Paleta.MarronSuave;
-            public static Color BurbujaOtto = Paleta.Madera; // Otto en el permiso
 
             /// <summary>Borde y tinte del mensaje marcado como sospechoso.
             /// Se mantiene rojo a propósito: es semántica de alerta.</summary>
@@ -166,7 +165,11 @@ namespace Fishy.Detective
 
             /// <summary>Opacidad del nombre del autor y de la hora dentro de la burbuja.</summary>
             public static float AlfaTextoSecundario = 0.45f;
-            public static float AlfaAutorPermiso = 0.75f;
+
+            /// <summary>Velo del ritual de permiso. Mucho más suave que el del caso:
+            /// ahí Otto está mirando una pantalla y el mundo se apaga; aquí está
+            /// hablando con alguien delante, y conviene seguir viéndolo.</summary>
+            public static Color BackdropPermiso = new Color(0f, 0f, 0f, 0.12f);
 
             /// <summary>Opacidad de cada tarjeta de explicación guiada.</summary>
             public static float AlfaExplicacion = 0.95f;
@@ -190,11 +193,28 @@ namespace Fishy.Detective
             public static Vector2 Ventana = new Vector2(800f, 1000f);
 
             public static float AlturaHeader = 90f;
+
+            // Carcasa del celular. La ventana del caso es una pantalla del teléfono
+            // de Otto, igual que el chat, así que lleva el mismo marco.
+            public static float BordeTelefono = 20f;
+
+            /// <summary>Alto de la barra de estado (reloj e iconos). La cabecera y el
+            /// historial se corren hacia abajo esto mismo para dejarle sitio: aquí las
+            /// zonas van por anclajes y no hay una pila que reparta el alto sola.</summary>
+            public static float AlturaBarraEstado = 48f;
+
+            /// <summary>Alto al que flota la barra de inicio. Más bajo que en el chat
+            /// porque aquí abajo está el botón de confirmar y con el valor del chat se
+            /// le montaba encima.</summary>
+            public static float MargenBarraInicio = 4f;
             public static float AlturaBarraInferior = 87f;
 
             /// <summary>Márgenes del scroll dentro de la ventana: deja hueco arriba
             /// para el header y abajo para la barra del botón. Tienen que ir a la par
-            /// de AlturaHeader y AlturaBarraInferior o el historial se les monta encima.</summary>
+            /// de AlturaHeader y AlturaBarraInferior o el historial se les monta encima.
+            ///
+            /// Ojo: al de arriba el código le suma AlturaBarraEstado, porque encima
+            /// del header va la barra del teléfono. No hace falta contarla aquí.</summary>
             public static float MargenScrollAbajo = 87f;
             public static float MargenScrollArriba = 90f;
 
@@ -215,16 +235,16 @@ namespace Fishy.Detective
             /// <summary>Grosor del borde rojo del mensaje marcado.</summary>
             public static float GrosorBordeMarcado = 5f;
 
-            // Burbujas del ritual de permiso
-            public static float AnchoBurbujaPermiso = 600f;
-            public static RectOffset PaddingBurbujaPermiso => new RectOffset(24, 24, 15, 15);
-            public static float EspaciadoBurbujaPermiso = 6f;
-            public static float EspaciadoEntreBurbujasPermiso = 15f;
+            // Panel del ritual de permiso. Ancho y bajo, pegado abajo: es el mismo
+            // aspecto que el diálogo de un NPC neutro, porque es lo que está
+            // pasando —Otto hablando con alguien— y no una pantalla de sistema.
+            public static float AnchoPanelPermiso = 1400f;
 
-            // Tarjetas (permiso y resultado)
-            public static float AnchoCardPermiso = 800f;
+            /// <summary>Separación desde el borde inferior de la pantalla.</summary>
+            public static float MargenInferiorPermiso = 60f;
+
+            // Tarjetas (resultado)
             public static float AnchoCardResultado = 720f;
-            public static RectOffset PaddingCardPermiso => new RectOffset(36, 36, 36, 36);
             public static RectOffset PaddingCardResultado => new RectOffset(42, 42, 42, 42);
             public static float EspaciadoCard = 24f;
             public static float EspaciadoExplicaciones = 15f;
@@ -255,9 +275,12 @@ namespace Fishy.Detective
             public static int AutorBurbuja = 27;
             public static int TextoBurbuja = 33;
             public static int Hora = 24;
+            public static int Reloj = 24;   // el de la barra de estado del teléfono
 
-            public static int AutorPermiso = 24;
-            public static int TextoPermiso = 30;
+            // Panel del ritual de permiso (mismos papeles que el chat cara a cara)
+            public static int NombrePermiso = 34;
+            public static int TextoPermiso = 32;
+            public static int RespuestaPermiso = 26;
 
             public static int TituloHeader = 33;
             public static int SubtituloHeader = 26;
@@ -414,8 +437,16 @@ namespace Fishy.Detective
             public static string TituloHeader = "Modo Detective";
             public static string SubtituloHeader = "toca un mensaje para marcarlo como sospechoso";
             public static string BotonConfirmar = "Confirmar marcas";
-            public static string TituloPermiso = "Pidiendo permiso...";
             public static string BotonContinuarPermiso = "Continuar";
+
+            /// <summary>Quién pide el permiso. Es el nombre del personaje del
+            /// niño/a, así que sale también en el prefijo de abajo.</summary>
+            public static string NombreOtto = "Otto";
+
+            /// <summary>Prefijo de la línea que recuerda lo que pidió Otto mientras
+            /// responde el NPC. Sin ella la petición se pierde en el mismo frame en
+            /// que llega la respuesta, y el ritual deja de leerse como un ida y vuelta.</summary>
+            public static string PrefijoPeticionPermiso => NombreOtto + ": ";
             public static string TituloResultado = "Resultado";
             public static string ResultadoConSenales = "señales de riesgo identificadas";
             public static string ResultadoSinSenales = "¡No había señales de riesgo en esta conversación!";
