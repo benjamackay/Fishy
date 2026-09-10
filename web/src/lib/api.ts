@@ -27,6 +27,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const headers = new Headers()
   const token = getToken()
@@ -36,10 +37,15 @@ async function request<T>(
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
     headers,
+    cache: 'no-store',
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000),
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
   const payload = await parseBody(response)
+  if (response.status === 401 && token && getToken() === token && path !== '/auth/login/') {
+    window.dispatchEvent(new Event('fishy:sesion-vencida'))
+  }
   if (!response.ok) throw new ApiError(response.status, payload)
   return payload as T
 }
@@ -57,7 +63,7 @@ async function parseBody(response: Response): Promise<unknown> {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>('GET', path),
+  get: <T>(path: string, opciones?: { signal?: AbortSignal }) => request<T>('GET', path, undefined, opciones?.signal),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),

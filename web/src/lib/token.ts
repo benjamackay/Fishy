@@ -1,20 +1,13 @@
-/**
- * Token de sesión del adulto responsable (DRF Token Auth).
- *
- * El backend lo devuelve al hacer login o registro y hay que mandarlo en cada
- * request autenticado como `Authorization: Token <token>`.
- */
-
 const STORAGE_KEY = 'fishy.token'
-
+let tokenEnMemoria: string | null = null
 export function getToken(): string | null {
-  return localStorage.getItem(STORAGE_KEY)
+  try { return localStorage.getItem(STORAGE_KEY) } catch { return tokenEnMemoria }
 }
-
 export function setToken(token: string): void {
-  localStorage.setItem(STORAGE_KEY, token)
+  tokenEnMemoria = token
+  try { localStorage.setItem(STORAGE_KEY, token) } catch { /* Sesión de esta pestaña. */ }
 }
-
 export function clearToken(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  tokenEnMemoria = null
+  try { localStorage.removeItem(STORAGE_KEY) } catch { /* Sesión de esta pestaña. */ }
 }

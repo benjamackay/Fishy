@@ -6,7 +6,9 @@ export interface Sesion {
   /** true mientras se resuelve el token guardado al arrancar la app. */
   cargando: boolean
   autenticado: boolean
-  /** Puede administrar grupos. Ver la nota de `is_admin` en @/lib/config. */
+  modoDemo: boolean
+  entrarDemo: (cuenta?: 'principal' | 'alternativa') => void
+  /** Solo true si el perfil declara explícitamente is_admin: true (profesor). */
   esAdmin: boolean
   entrar: (nombre: string, password: string) => Promise<void>
   salir: () => void

@@ -13,9 +13,9 @@ export interface AdultoResponsable {
   fecha_nacimiento: string | null
   fecha_creacion: string
   /**
-   * Ojo: hoy el backend NO expone este campo (no esta en
-   * AdultoResponsableSerializer.fields). Queda opcional para no mentir sobre la
-   * respuesta real; ver `esAdmin` en src/auth/AuthContext.tsx.
+   * true: tutor administrador (profesor); false: tutor padre/madre.
+   * El servicio de perfil debe exponerlo. Si falta, la interfaz no habilita
+   * permisos de administración. El rol no se elige en el formulario de login.
    */
   is_admin?: boolean
 }

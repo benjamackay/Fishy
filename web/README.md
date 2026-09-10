@@ -1,150 +1,148 @@
-# Fishy! — Web
+# Fishy! · Panel de tutores
 
-Frontend web del proyecto **Fishy!**, construido con **Vite + React + TypeScript**.
+Frontend en React + TypeScript + Vite. El alcance de este trabajo es la interfaz,
+los flujos, los estados, la actualización de lecturas y la exportación a PDF.
+No se modificó Django, Unity, la base de datos ni se crearon endpoints.
 
-Consume la misma API del backend Django que usa Unity. El contrato está en
-[`DOCS_JSON_API.md`](../DOCS_JSON_API.md) y el flujo de control parental en
-[`FLUJO_CONTROL_PARENTAL.md`](../FLUJO_CONTROL_PARENTAL.md).
+## Ejecutar y probar
 
-## Los dos paneles
+Se requiere Node compatible con el proyecto (22.19 o superior).
 
-| Panel | Ruta | Quién entra | Estado |
-|---|---|---|---|
-| **Sesiones** (adulto responsable) | `/` y `/partidas/:id` | cualquier cuenta | contra la API real |
-| **Grupos** (administración) | `/admin/grupos` | cuentas con `is_admin` | contra un **mock local** |
-
-### Panel de sesiones
-
-Lista los perfiles de menores de la cuenta y las partidas de cada uno. Al entrar
-a una partida se ve el detalle: avance, decisiones por zona, oportunidades de
-mejora, misiones, zonas y mochila.
-
-Se muestran agrupadas por perfil y no como lista plana porque el progreso cuelga
-del perfil: dos hermanos no comparten avance.
-
-### Panel de grupos
-
-Junta perfiles de menores (típicamente un curso) y muestra el avance de cada uno
-y el agregado del grupo.
-
-> ⚠️ **El backend todavía no tiene grupos.** No existe modelo `Grupo`, ni
-> membresías, ni endpoints. Este panel corre contra
-> [`src/mocks/gruposMock.ts`](src/mocks/gruposMock.ts), que guarda en
-> `localStorage`. La especificación que Django debe implementar está en
-> [`src/types/grupos.ts`](src/types/grupos.ts).
-
-Cuando el backend exista, se pone `VITE_GRUPOS_MOCK=false` en el `.env` y **no
-hay que tocar ninguna pantalla**: la fachada
-[`src/api/grupos.ts`](src/api/grupos.ts) ya trae escrita la implementación HTTP.
-
-Faltan además dos cosas en el backend para que el panel funcione de verdad:
-
-1. **Exponer `is_admin`** en `AdultoResponsableSerializer.fields`. Hoy el campo
-   existe en el modelo pero no viaja en `/auth/perfil/`, así que el frontend no
-   puede saber quién es administrador. Mientras tanto está el flag de desarrollo
-   `VITE_FORZAR_ADMIN=true`.
-2. **Un endpoint de avance agregado** (`GET /grupos/{id}/avance/`). No basta con
-   componerlo desde el frontend: todas las vistas de partidas filtran por
-   `usuario_jugador__adulto=request.user`, así que un admin solo vería a sus
-   propios hijos.
-
-## Puesta en marcha
-
-```
+```sh
 npm install
-cp .env.example .env
 npm run dev
 ```
 
-Queda en http://localhost:5173. El backend tiene que estar corriendo aparte en
-`http://127.0.0.1:8000` (ver [`Backend/README.md`](../Backend/README.md)).
+En Windows, si PowerShell bloquea npm.ps1, usar `npm.cmd` en los comandos.
+Abrir la URL que muestra Vite y seleccionar **Probar como padre** o
+**Probar como profesor**. No requiere
+backend ni contraseña y siempre muestra una etiqueta de datos ficticios.
 
-## Scripts
+- Camila, tutora madre: reportes de Martina (resultados parciales) y Tomás
+  (sin actividad), sin acceso a grupos.
+- Diego, tutor administrador/profesor: únicamente creación, gestión y reportes
+  de grupos. No tiene niños asociados ni acceso a reportes individuales.
+- La demo de profesor abre Mis grupos, con un grupo con resultados y otro sin datos.
+- En cada formulario de agregar usuario, “Correos de la demostración” lista
+  las cuentas ficticias registradas. Un correo desconocido produce un error.
+- En un reporte individual, “Probar la actualización automática” simula un
+  nivel completado. El cambio también afecta al agregado del grupo cuando
+  ese perfil participa en él.
+- Los cambios de la demo se guardan en este navegador, separados por cuenta.
+  Con almacenamiento bloqueado permanecen en memoria durante esa sesión.
+  Las pestañas del mismo origen se notifican sus cambios.
+- Si se usó la demo anterior del profesor, se elimina su vínculo individual
+  antiguo conservando grupos, integrantes y resultados agregados.
 
-| Comando | Qué hace |
+```sh
+npm test
+npm run build
+npm run lint
+```
+
+Las pruebas verifican flujos de interfaz en un entorno DOM simulado, aislamiento
+de cuentas, reglas de datos, actualización automática y generación del PDF.
+No sustituyen una validación visual en navegadores ni pruebas de integración
+con el juego y los endpoints reales.
+
+## Rutas
+
+| Ruta | Vista |
 |---|---|
-| `npm run dev` | Servidor de desarrollo con HMR |
-| `npm run build` | Chequea tipos (`tsc -b`) y compila a `dist/` |
-| `npm run preview` | Sirve el build de producción |
-| `npm run lint` | Linter (oxlint) |
+| /login | Inicio de sesión existente y entrada separada a demo |
+| / | Reportes de los hijos para padres; redirección a grupos para profesores |
+| /reportes/:id | Resumen individual por temática, exclusivo de padres |
+| /admin/grupos | Lista y creación de grupos |
+| /admin/grupos/:id | Información del grupo y gestión de integrantes |
+| /admin/grupos/:id/reporte | Agregado anónimo y descarga PDF |
+| /partidas/:id | Enlace antiguo; valida pertenencia y lleva al reporte individual |
 
-## Estructura
+Existen dos tipos de tutor. Los padres/madres ven únicamente los reportes de sus
+hijos y no pueden acceder a grupos. Los administradores (profesores) pueden
+crear y gestionar sus grupos y descargar sus reportes agregados.
+Los profesores no tienen niños asociados y no pueden abrir ni consultar reportes
+individuales. Su navegación contiene únicamente Mis grupos. Al abrir `/`,
+`/reportes`, `/reportes/:id` o `/partidas/:id`, vuelven a `/admin/grupos` sin
+consultar datos individuales.
 
-```
-web/
-├── .env.example        ← plantilla de variables (el .env NO se commitea)
-├── vite.config.ts      ← proxy /api → Django y alias @ → src
-└── src/
-    ├── main.tsx        ← punto de entrada
-    ├── routes.tsx      ← rutas y guardias
-    ├── index.css       ← tokens de color y estilos base
-    ├── api/            ← una función por endpoint
-    │   └── grupos.ts   ← fachada: elige entre mock y HTTP real
-    ├── auth/           ← sesión del adulto y guardias de ruta
-    ├── components/     ← piezas compartidas (KPI, medidor, barra de riesgo)
-    ├── hooks/          ← useAsync
-    ├── layouts/        ← header y <Outlet />
-    ├── lib/            ← cliente HTTP, token, formato, flags
-    ├── mocks/          ← implementación falsa de grupos (se borra después)
-    ├── pages/          ← una pantalla por ruta
-    └── types/          ← DTOs del backend y contrato de grupos
-```
+La navegación, todo el árbol de rutas `/admin` y las operaciones de `usePanel`
+requieren `perfil.is_admin === true`. Si el campo está ausente o es falso, la
+administración permanece bloqueada. `VITE_FORZAR_ADMIN` no otorga permisos.
+El rol real proviene del perfil autenticado, sin selector de rol en el login.
+El servicio real debe validar también rol y pertenencia en cada operación.
+`RequierePadre` protege las rutas individuales y `aplicarPermisosPanel` rechaza
+las lecturas individuales de profesores antes de invocar la fuente de datos,
+incluso si el servicio antiguo todavía les atribuye perfiles infantiles.
 
-Los imports usan el alias `@`, que apunta a `src/`:
+## Integración pendiente del otro integrante
 
-```ts
-import { api } from '@/lib/api'
-```
+Ver [INTEGRACION_FRONTEND.md](INTEGRACION_FRONTEND.md).
+El contrato es `src/types/panel.ts` (`FuentePanel`); el punto de conexión es
+`src/api/panelReal.ts`. No hay que reescribir las pantallas.
 
-## Cómo se habla con la API
+El login y el listado de perfiles conservan las llamadas que ya existían.
+Las operaciones nuevas de reportes y grupos están pendientes en ese adaptador:
+una cuenta real muestra un estado de función no disponible hasta conectarlas.
+**No se reemplaza una respuesta fallida del servicio real por datos ficticios.**
 
-[`src/lib/api.ts`](src/lib/api.ts) expone un cliente con los verbos HTTP. Adjunta
-el header `Authorization: Token <token>` cuando hay sesión y lanza `ApiError`
-(con `status` y `data`) si el backend responde con error:
+La demo está disponible por defecto solo en desarrollo. `VITE_DEMO=true` la
+ofrece explícitamente en un build de demostración; `VITE_DEMO=false` la oculta.
+`VITE_GRUPOS_MOCK` y `VITE_FORZAR_ADMIN` no activan las nuevas pantallas.
 
-```ts
-import { api, ApiError } from '@/lib/api'
+## Reportes y privacidad
 
-try {
-  const jugadores = await api.get<Jugador[]>('/jugadores/')
-} catch (e) {
-  if (e instanceof ApiError && e.status === 401) {
-    // sesión vencida
-  }
-}
-```
+- Tres temáticas fijas: Desconocidos, Ciberacoso y Retos Virales.
+- Decisiones seguras / decisiones evaluadas × 100, redondeado al entero.
+  Un puntaje de riesgo no se presenta como porcentaje de decisiones seguras.
+- Sin evaluaciones: “Sin datos”, sin porcentajes ni barras. Cero decisiones
+  seguras de cinco evaluadas sí corresponde a 0%.
+- La finalización de una temática se presenta separada de su porcentaje.
+- No se solicitan ni muestran conversaciones, alternativas elegidas ni
+  transcripciones. Los enlaces antiguos tampoco cargan oportunidades textuales.
+- El reporte grupal y el PDF solo reciben métricas agregadas. Los correos
+  aparecen exclusivamente en gestión de integrantes.
+- Umbral provisional: tres participantes con resultados por temática.
+  El contrato debe confirmarlo con el equipo; las temáticas con muestra menor
+  se suprimen. El agregado usa la suma de decisiones, no promedios de porcentajes.
+- El PDF se genera directamente en el navegador, con jsPDF cargado al descargar,
+  y reconsulta el agregado antes de exportar. No captura el DOM.
 
-Las rutas se escriben **sin** el prefijo `/api` (`/jugadores/`, no
-`/api/jugadores/`): ya viene en la URL base.
+## Actualización
 
-En el detalle de una partida, los endpoints secundarios se piden con un envoltorio
-que traga el error: si falla el de inventario, el resto de la página se dibuja
-igual en vez de quedar en blanco.
+`useDatosVivos` consulta al entrar y cada 15 segundos con la pestaña visible;
+también al recuperar foco, volver a estar visible, recuperar conexión, recibir
+cambios de otra pestaña o el evento `fishy:datos-actualizados`.
+Una notificación durante una consulta provoca una nueva lectura al terminar.
+Al cambiar de cuenta o ruta se descartan respuestas anteriores.
 
-### Sobre el proxy y CORS
+Las lecturas HTTP existentes usan `cache: no-store`, cancelación y un límite
+de espera de 20 segundos. Ante fallos temporales se avisa y se conserva el último
+resultado visible; ante revocación de acceso se retira. El servidor sigue siendo
+responsable de guardar el nuevo progreso y entregar un agregado reciente.
 
-En desarrollo `VITE_API_URL` vale `/api`, así que los requests salen al mismo
-origen (`localhost:5173`) y Vite los reenvía a Django. **No hay CORS de por
-medio y no hace falta tocar el backend.**
+## Diseño
 
-En producción hay que definir `VITE_API_URL` con la URL real del backend; ahí sí
-Django necesitará permitir el origen del sitio.
+Café claro `#b78e70`, café pastel `#f0e4d9` y blanco. El café oscuro se utiliza
+en texto y controles para legibilidad. Navegación lateral en escritorio y
+horizontal en móvil, rejillas adaptables, formularios con etiquetas, estados
+accesibles y ventanas de confirmación mediante `dialog` nativo.
+Tipografías DM Sans / Manrope, con fuentes del sistema como respaldo.
 
-## Autenticación
+El logo oficial de texto se conserva sin modificaciones en
+`src/assets/fishy-text-logo.png` y se utiliza en el acceso, la navegación,
+el pie de página, el icono del sitio y el PDF. Mantiene proporciones y
+transparencia originales. El logo está incluido en la aplicación, sin
+descargas externas adicionales al generar el documento.
 
-El login es el del **adulto responsable** (`POST /auth/login/`), y autentica por
-`nombre`, no por email. Los perfiles de los menores no tienen credenciales. El
-token se guarda con `setToken()` de [`src/lib/token.ts`](src/lib/token.ts) y
-`api.ts` lo adjunta solo.
+La exportación adapta `reportedemo.pdf` a un reporte grupal: A4 blanco,
+tipografía serif, logo superior derecho, barras azul/amarilla/ocre,
+recuadros de fortalezas y mejora y pie de privacidad. Los datos del niño
+y tutor de la referencia se sustituyen por información general del grupo.
+El alcance es acumulado; no se inventa un periodo semanal ni un nivel reciente.
+Las fortalezas y áreas para reforzar describen comparaciones de porcentajes,
+incluyendo empates y resultados parciales. Los patrones de progreso se indican
+como no disponibles: las métricas actuales no contienen un análisis de conducta
+o evolución. El PDF nunca copia los ejemplos personales de la referencia.
 
-## Notas de visualización
-
-Los colores de datos salen de una paleta validada para contraste y daltonismo:
-
-- El **color de estado** (bien / mejorable / riesgo) nunca viaja solo: siempre
-  lleva su etiqueta de texto al lado.
-- Las **barras de avance** usan un solo tono, con la pista en otro paso de la
-  misma rampa azul.
-- El **riesgo por zona** es divergente (azul = seguro, rojo = riesgo) con gris
-  neutro al medio, porque tiene polaridad y un cero con significado. Ojo con el
-  signo del backend: **más alto = más seguro**.
+Los criterios y su límite frontend/backend están en
+[CRITERIOS_ACEPTACION.md](CRITERIOS_ACEPTACION.md).

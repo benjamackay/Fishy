@@ -1,15 +1,6 @@
-/**
- * Interruptores de configuracion. Todos se leen del `.env` (ver .env.example).
- */
+/** Un inicio de sesión real nunca activa datos ficticios. */
+export const DEMO_DISPONIBLE = import.meta.env.VITE_DEMO === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_DEMO !== 'false')
 
-/** `false` explicito para pegarle a los endpoints reales de grupos. */
-export const USAR_MOCK_GRUPOS =
-  import.meta.env.VITE_GRUPOS_MOCK !== 'false'
-
-/**
- * El backend todavia no expone `is_admin` en `AdultoResponsableSerializer`, asi
- * que ninguna cuenta se ve como admin desde el frontend. Este flag permite
- * trabajar el panel mientras tanto. Quitar del .env cuando Django exponga el
- * campo.
- */
-export const FORZAR_ADMIN = import.meta.env.VITE_FORZAR_ADMIN === 'true'
+// Los permisos provienen exclusivamente del perfil autenticado.
+// VITE_FORZAR_ADMIN y VITE_GRUPOS_MOCK ya no se utilizan.

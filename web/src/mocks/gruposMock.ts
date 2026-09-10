@@ -1,279 +1,183 @@
-/**
- * Implementacion falsa del contrato de `@/types/grupos`, mientras el backend no
- * tiene grupos. Guarda en localStorage para que crear un grupo y agregarle
- * miembros sobreviva a un F5 y el panel se pueda probar de verdad.
- *
- * El avance es deterministico a partir del `jugador_id` (no aleatorio) para que
- * los numeros no bailen entre renders.
- *
- * Todo este archivo se borra cuando Django implemente los endpoints.
- */
+import { ErrorUsuario } from '@/lib/errores'
+import { hayResultados, porcentajeSeguro, tematicasCompletas } from '@/lib/reportes'
+import { EVENTO_DATOS } from '@/hooks/useDatosVivos'
+import type { FuentePanel } from '@/types/panel'
+import type { Grupo, GrupoDetalle, NuevoGrupo } from '@/types/grupos'
+import type { NinoResumen, ReporteNino, ReporteGrupo, ResultadoTematica, TematicaId } from '@/types/reportes'
+import { TEMATICAS } from '@/types/reportes'
+import { perfilesDemo } from './sesionDemo'
 
-import { listarJugadores } from '@/api/jugadores'
-import type {
-  AvanceGrupo,
-  AvanceMiembro,
-  Grupo,
-  GrupoDetalle,
-  MiembroCandidato,
-  MiembroGrupo,
-  NuevoGrupo,
-} from '@/types/grupos'
-
-const CLAVE = 'fishy.mock.grupos'
-const RETARDO_MS = 200
-
-interface MiembroAlmacenado {
-  jugador_id: number
-  fecha_ingreso: string
-}
-
-interface GrupoAlmacenado {
-  id: number
-  nombre: string
-  descripcion: string
-  fecha_creacion: string
-  miembros: MiembroAlmacenado[]
-}
-
+/** Datos ficticios, separados de auth real y por cuenta. Jamás son un fallback de red. */
+export const MINIMO_PARTICIPANTES_DEMO = 3
+interface RegistroDemo { id: string; email: string; nino_id: number }
+interface GrupoGuardado extends GrupoDetalle { actualizado_en: string }
 interface Almacen {
-  grupos: GrupoAlmacenado[]
-  siguienteId: number
+  version: 2
+  ninos: ReporteNino[]
+  usuarios: RegistroDemo[]
+  grupos: GrupoGuardado[]
 }
-
-/**
- * Perfiles de otras familias. Sin esto el panel de admin no tendria sentido: la
- * gracia es agrupar menores de cuentas distintas.
- */
-const CANDIDATOS_FICTICIOS: MiembroCandidato[] = [
-  { jugador_id: 9001, nombre: 'Martina', edad: 9, adulto: 'Familia Rojas' },
-  { jugador_id: 9002, nombre: 'Benjamin', edad: 11, adulto: 'Familia Rojas' },
-  { jugador_id: 9003, nombre: 'Sofia', edad: 8, adulto: 'Familia Contreras' },
-  { jugador_id: 9004, nombre: 'Tomas', edad: 10, adulto: 'Familia Contreras' },
-  { jugador_id: 9005, nombre: 'Isidora', edad: 12, adulto: 'Familia Nunez' },
-  { jugador_id: 9006, nombre: 'Vicente', edad: 9, adulto: 'Familia Nunez' },
-  { jugador_id: 9007, nombre: 'Antonia', edad: 10, adulto: 'Familia Silva' },
-  { jugador_id: 9008, nombre: 'Matias', edad: 11, adulto: 'Familia Silva' },
-]
-
-function esperar<T>(valor: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(valor), RETARDO_MS))
+const memoria = new Map<number, Almacen>()
+const clave = (adultoId: number) => 'fishy.demo.panel.v2.' + adultoId
+const copia = <T,>(valor: T): T => structuredClone(valor)
+function resultado(tematica: TematicaId, seguras: number | null, evaluadas = 10, completada = true): ResultadoTematica {
+  return { tematica, metricas: seguras === null ? null : { decisiones_seguras: seguras, decisiones_evaluadas: evaluadas, completada } }
 }
-
-function sembrar(): Almacen {
+function sembrar(adultoId: number): Almacen {
   const ahora = new Date().toISOString()
-  const almacen: Almacen = {
-    grupos: [
-      {
-        id: 1,
-        nombre: '5to Basico A',
-        descripcion: 'Curso piloto del taller de seguridad digital',
-        fecha_creacion: ahora,
-        miembros: [9001, 9003, 9005, 9007].map((jugador_id) => ({
-          jugador_id,
-          fecha_ingreso: ahora,
-        })),
-      },
-    ],
-    siguienteId: 2,
+  const principal = adultoId === 1001
+  const ids = principal ? [101, 102, 901, 902, 903] : [103, 904, 905, 906]
+  const nombres = principal ? ['Martina', 'Tomás', 'Florencia', 'Mateo', 'Antonia'] : ['Sofía', 'Lucas', 'Emilia', 'Agustín']
+  const correos = principal
+    ? ['familia.rojas@example.com', 'familia.tomas@example.com', 'familia.flores@example.com', 'familia.perez@example.com', 'familia.diaz@example.com']
+    : ['familia.silva@example.com', 'familia.lucas@example.com', 'familia.emilia@example.com', 'familia.agustin@example.com']
+  const ninos = ids.map((id, i): ReporteNino => {
+    const vacio = principal && i === 1
+    const tematicas = [
+      resultado('desconocidos', vacio ? null : 8, 10),
+      resultado('ciberacoso', vacio ? null : 6, 8, false),
+      resultado('retos_virales', vacio || i === 0 ? null : 4, 5),
+    ]
+    const nino: NinoResumen = { id, adulto_id: principal && i < 2 ? adultoId : -1, nombre: nombres[i], edad: 9 + i % 3, actualizado_en: vacio ? null : ahora, tematicas }
+    return { nino, actualizado_en: nino.actualizado_en, tematicas }
+  })
+  const usuarios = ids.map((nino_id, i) => ({ id: 'usuario-' + nino_id, email: correos[i], nino_id }))
+  const miembros = usuarios.filter((_, i) => !(principal && i === 1)).map(u => ({ id: u.id, email: u.email, fecha_ingreso: ahora }))
+  return { version: 2, ninos, usuarios, grupos: [
+    { id: 'grupo-demo-' + adultoId + '-a', nombre: '5° Básico A', descripcion: 'Taller de ciudadanía y seguridad digital.', total_miembros: miembros.length, fecha_creacion: ahora, actualizado_en: ahora, miembros },
+    { id: 'grupo-demo-' + adultoId + '-b', nombre: 'Taller de bienvenida', descripcion: 'Un nuevo espacio para aprender juntos.', total_miembros: 0, fecha_creacion: ahora, actualizado_en: ahora, miembros: [] },
+  ] }
+}
+function leer(adultoId: number): Almacen {
+  let raw: string | null = null
+  try { raw = localStorage.getItem(clave(adultoId)) } catch { return copia(migrarVinculosProfesor(adultoId, memoria.get(adultoId) ?? iniciar(adultoId))) }
+  if (raw) {
+    let datos: Almacen
+    try { datos = JSON.parse(raw) as Almacen } catch { throw new ErrorUsuario('No pudimos leer los datos guardados de la demostración.') }
+    if (datos.version !== 2 || !Array.isArray(datos.grupos) || !Array.isArray(datos.ninos) || !Array.isArray(datos.usuarios)) throw new ErrorUsuario('Los datos guardados de la demostración no son compatibles.')
+    memoria.set(adultoId, datos)
+    return copia(migrarVinculosProfesor(adultoId, datos))
   }
-  guardar(almacen)
-  return almacen
+  return iniciar(adultoId)
 }
 
-function guardar(almacen: Almacen): void {
-  try {
-    localStorage.setItem(CLAVE, JSON.stringify(almacen))
-  } catch {
-    // Sin persistencia se sigue funcionando en memoria durante la sesion.
+/** Corrige la demo anterior sin perder grupos, integrantes ni progreso guardado. */
+function migrarVinculosProfesor(adultoId: number, datos: Almacen): Almacen {
+  if (adultoId !== perfilesDemo.alternativa.id) return datos
+  const vinculados = datos.ninos.filter(r => r.nino.adulto_id === adultoId)
+  if (vinculados.length) {
+    for (const reporte of vinculados) reporte.nino.adulto_id = -1
+    guardar(adultoId, datos, false)
   }
+  return datos
 }
-
-function leer(): Almacen {
-  try {
-    const crudo = localStorage.getItem(CLAVE)
-    if (crudo) return JSON.parse(crudo) as Almacen
-  } catch {
-    // localStorage inaccesible o JSON corrupto: se parte de cero.
-  }
-  return sembrar()
+function iniciar(adultoId: number): Almacen {
+  const datos = sembrar(adultoId)
+  guardar(adultoId, datos, false)
+  return copia(datos)
 }
-
-/** Hash deterministico: el mismo id siempre da el mismo avance. */
-function semilla(id: number, sal: number): number {
-  const x = Math.sin(id * 97.13 + sal * 31.7) * 10000
-  return x - Math.floor(x)
+function guardar(adultoId: number, datos: Almacen, avisar = true) {
+  memoria.set(adultoId, copia(datos))
+  try { localStorage.setItem(clave(adultoId), JSON.stringify(datos)) } catch { /* La demo continúa en memoria cuando el navegador impide guardar. */ }
+  if (avisar) window.dispatchEvent(new Event(EVENTO_DATOS))
 }
-
-function entre(id: number, sal: number, min: number, max: number): number {
-  return Math.round(min + semilla(id, sal) * (max - min))
-}
-
-/**
- * Se cachea la PROMESA, no el resultado. La pagina del grupo dispara
- * obtenerGrupo / listarCandidatos / obtenerAvanceGrupo en paralelo, y las tres
- * pasan por aca: cacheando el resultado, las tres arrancan antes de que
- * ninguna lo haya llenado y se pide /jugadores/ una vez por llamada.
- */
-let cacheCandidatos: Promise<MiembroCandidato[]> | null = null
-
-/**
- * Perfiles reales del adulto autenticado + los ficticios de otras familias. Si
- * el backend no responde se sigue solo con los ficticios, asi el panel se puede
- * trabajar sin Django levantado.
- */
-function todosLosCandidatos(): Promise<MiembroCandidato[]> {
-  cacheCandidatos ??= listarJugadores()
-    .then((jugadores) =>
-      jugadores.map((j) => ({
-        jugador_id: j.id,
-        nombre: j.nombre,
-        edad: j.edad,
-        adulto: 'Tu cuenta',
-      })),
-    )
-    // Sin backend: solo los ficticios.
-    .catch((): MiembroCandidato[] => [])
-    .then((propios) => [...propios, ...CANDIDATOS_FICTICIOS])
-
-  return cacheCandidatos
-}
-
-function aGrupo(g: GrupoAlmacenado): Grupo {
-  return {
-    id: g.id,
-    nombre: g.nombre,
-    descripcion: g.descripcion,
-    total_miembros: g.miembros.length,
-    fecha_creacion: g.fecha_creacion,
-  }
-}
-
-function buscar(almacen: Almacen, id: number): GrupoAlmacenado {
-  const grupo = almacen.grupos.find((g) => g.id === id)
-  if (!grupo) throw new Error(`No existe el grupo ${id}`)
+function buscarGrupo(datos: Almacen, id: string): GrupoGuardado {
+  const grupo = datos.grupos.find(g => g.id === id)
+  if (!grupo) throw new ErrorUsuario('No encontramos este grupo en tu cuenta.')
   return grupo
 }
-
-export async function listarGrupos(): Promise<Grupo[]> {
-  return esperar(leer().grupos.map(aGrupo))
+function resumen(g: GrupoGuardado): Grupo {
+  return { id: g.id, nombre: g.nombre, descripcion: g.descripcion, total_miembros: g.miembros.length, fecha_creacion: g.fecha_creacion }
 }
-
-export async function crearGrupo(datos: NuevoGrupo): Promise<Grupo> {
-  const almacen = leer()
-  const grupo: GrupoAlmacenado = {
-    id: almacen.siguienteId,
-    nombre: datos.nombre,
-    descripcion: datos.descripcion ?? '',
-    fecha_creacion: new Date().toISOString(),
-    miembros: [],
+function detalle(g: GrupoGuardado): GrupoDetalle { return { ...resumen(g), miembros: copia(g.miembros) } }
+function mutar<T>(adultoId: number, accion: (datos: Almacen) => T): Promise<T> {
+  const ejecutar = () => {
+    const datos = leer(adultoId)
+    const retorno = accion(datos)
+    guardar(adultoId, datos)
+    return retorno
   }
-  almacen.grupos.push(grupo)
-  almacen.siguienteId += 1
-  guardar(almacen)
-  return esperar(aGrupo(grupo))
+  return navigator.locks ? navigator.locks.request(clave(adultoId), ejecutar) : Promise.resolve().then(ejecutar)
 }
-
-export async function eliminarGrupo(id: number): Promise<void> {
-  const almacen = leer()
-  almacen.grupos = almacen.grupos.filter((g) => g.id !== id)
-  guardar(almacen)
-  return esperar(undefined)
+export function normalizarCorreo(email: string): string {
+  return email.trim().toLowerCase()
 }
-
-export async function obtenerGrupo(id: number): Promise<GrupoDetalle> {
-  const grupo = buscar(leer(), id)
-  const candidatos = await todosLosCandidatos()
-
-  const miembros: MiembroGrupo[] = grupo.miembros.map((m) => {
-    const ficha = candidatos.find((c) => c.jugador_id === m.jugador_id)
-    return {
-      jugador_id: m.jugador_id,
-      nombre: ficha?.nombre ?? `Perfil ${m.jugador_id}`,
-      edad: ficha?.edad ?? null,
-      adulto: ficha?.adulto ?? '-',
-      fecha_ingreso: m.fecha_ingreso,
-    }
-  })
-
-  return esperar({ ...aGrupo(grupo), miembros })
+export function validarGrupo(datos: NuevoGrupo): NuevoGrupo {
+  const nombre = datos.nombre.trim()
+  const descripcion = datos.descripcion?.trim() ?? ''
+  if (!nombre || nombre.length > 80) throw new ErrorUsuario('Ingresa un nombre de entre 1 y 80 caracteres.')
+  if (descripcion.length > 280) throw new ErrorUsuario('La descripción puede tener hasta 280 caracteres.')
+  return { nombre, descripcion }
 }
-
-/** Perfiles que todavia no estan en el grupo. */
-export async function listarCandidatos(
-  grupoId: number,
-): Promise<MiembroCandidato[]> {
-  const grupo = buscar(leer(), grupoId)
-  const dentro = new Set(grupo.miembros.map((m) => m.jugador_id))
-  const candidatos = await todosLosCandidatos()
-  return esperar(candidatos.filter((c) => !dentro.has(c.jugador_id)))
-}
-
-export async function agregarMiembro(
-  grupoId: number,
-  jugadorId: number,
-): Promise<GrupoDetalle> {
-  const almacen = leer()
-  const grupo = buscar(almacen, grupoId)
-  if (!grupo.miembros.some((m) => m.jugador_id === jugadorId)) {
-    grupo.miembros.push({
-      jugador_id: jugadorId,
-      fecha_ingreso: new Date().toISOString(),
-    })
-    guardar(almacen)
+export function crearPanelDemo(adultoId: number): FuentePanel {
+  return {
+    listarNinos: async () => copia(leer(adultoId).ninos.filter(r => r.nino.adulto_id === adultoId).map(r => ({ ...r.nino, actualizado_en: r.actualizado_en, tematicas: r.tematicas }))),
+    obtenerReporteNino: async id => {
+      const reporte = leer(adultoId).ninos.find(r => r.nino.id === id && r.nino.adulto_id === adultoId)
+      if (!reporte) throw new ErrorUsuario('No tienes acceso a este reporte.')
+      return copia(reporte)
+    },
+    listarGrupos: async () => leer(adultoId).grupos.map(resumen),
+    crearGrupo: datos => mutar(adultoId, almacen => {
+      const valores = validarGrupo(datos)
+      const ahora = new Date().toISOString()
+      const grupo: GrupoGuardado = { id: crypto.randomUUID(), nombre: valores.nombre, descripcion: valores.descripcion ?? '', total_miembros: 0, miembros: [], fecha_creacion: ahora, actualizado_en: ahora }
+      almacen.grupos.unshift(grupo)
+      return resumen(grupo)
+    }),
+    obtenerGrupo: async id => detalle(buscarGrupo(leer(adultoId), id)),
+    agregarUsuario: (id, correo) => mutar(adultoId, almacen => {
+      const grupo = buscarGrupo(almacen, id)
+      const email = normalizarCorreo(correo)
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new ErrorUsuario('Ingresa un correo electrónico válido.')
+      if (grupo.miembros.some(m => normalizarCorreo(m.email) === email)) throw new ErrorUsuario('El usuario ya forma parte del grupo.')
+      const usuario = almacen.usuarios.find(u => u.email === email)
+      if (!usuario) throw new ErrorUsuario('No encontramos un usuario registrado con ese correo.')
+      grupo.miembros.push({ id: usuario.id, email, fecha_ingreso: new Date().toISOString() })
+      grupo.actualizado_en = new Date().toISOString()
+      return detalle(grupo)
+    }),
+    eliminarUsuario: (id, miembroId) => mutar(adultoId, almacen => {
+      const grupo = buscarGrupo(almacen, id)
+      if (!grupo.miembros.some(m => m.id === miembroId)) throw new ErrorUsuario('Este usuario ya no forma parte del grupo.')
+      grupo.miembros = grupo.miembros.filter(m => m.id !== miembroId)
+      grupo.actualizado_en = new Date().toISOString()
+    }),
+    eliminarGrupo: id => mutar(adultoId, almacen => {
+      buscarGrupo(almacen, id)
+      almacen.grupos = almacen.grupos.filter(g => g.id !== id)
+    }),
+    obtenerReporteGrupo: async id => {
+      const almacen = leer(adultoId)
+      const grupo = buscarGrupo(almacen, id)
+      const ids = new Set(grupo.miembros.map(m => almacen.usuarios.find(u => u.id === m.id)?.nino_id))
+      const reportes = almacen.ninos.filter(r => ids.has(r.nino.id))
+      const tematicas = TEMATICAS.map((t): ResultadoTematica => {
+        const metricas = reportes.map(r => r.tematicas.find(x => x.tematica === t.id)?.metricas).filter(m => porcentajeSeguro(m) !== null)
+        if (metricas.length < MINIMO_PARTICIPANTES_DEMO) return { tematica: t.id, metricas: null, motivo: metricas.length ? 'muestra_insuficiente' : 'sin_resultados' }
+        return { tematica: t.id, metricas: {
+          decisiones_seguras: metricas.reduce((sum, m) => sum + m!.decisiones_seguras, 0),
+          decisiones_evaluadas: metricas.reduce((sum, m) => sum + m!.decisiones_evaluadas, 0),
+          completada: metricas.every(m => m!.completada),
+        } }
+      })
+      const fechas = [grupo.actualizado_en, ...reportes.map(r => r.actualizado_en).filter((f): f is string => !!f)]
+      const reporte: ReporteGrupo = { grupo_id: id, nombre_grupo: grupo.nombre, total_integrantes: grupo.miembros.length,
+        participantes_con_resultados: reportes.filter(r => hayResultados(r.tematicas)).length,
+        minimo_participantes: MINIMO_PARTICIPANTES_DEMO, actualizado_en: fechas.sort().at(-1) ?? null, tematicas }
+      return reporte
+    },
   }
-  return obtenerGrupo(grupoId)
 }
-
-export async function quitarMiembro(
-  grupoId: number,
-  jugadorId: number,
-): Promise<void> {
-  const almacen = leer()
-  const grupo = buscar(almacen, grupoId)
-  grupo.miembros = grupo.miembros.filter((m) => m.jugador_id !== jugadorId)
-  guardar(almacen)
-  return esperar(undefined)
-}
-
-export async function obtenerAvanceGrupo(id: number): Promise<AvanceGrupo> {
-  const detalle = await obtenerGrupo(id)
-
-  const avance_miembros: AvanceMiembro[] = detalle.miembros.map((m) => {
-    const jugo = semilla(m.jugador_id, 9) > 0.15
-    return {
-      jugador_id: m.jugador_id,
-      nombre: m.nombre,
-      progreso: jugo ? entre(m.jugador_id, 2, 5, 100) : 0,
-      partidas: jugo ? entre(m.jugador_id, 1, 1, 3) : 0,
-      misiones_completadas: jugo ? entre(m.jugador_id, 3, 0, 12) : 0,
-      zonas_completadas: jugo ? entre(m.jugador_id, 4, 0, 3) : 0,
-      riesgo_total: jugo ? entre(m.jugador_id, 5, -6, 14) : 0,
-      respuestas: jugo ? entre(m.jugador_id, 6, 2, 20) : 0,
-      oportunidades_mejora: jugo ? entre(m.jugador_id, 7, 0, 5) : 0,
-      ultima_actividad: jugo
-        ? new Date(
-            Date.now() - entre(m.jugador_id, 8, 0, 20) * 86400000,
-          ).toISOString()
-        : null,
-    }
-  })
-
-  const suma = (obtener: (a: AvanceMiembro) => number) =>
-    avance_miembros.reduce((total, a) => total + obtener(a), 0)
-
-  const total = avance_miembros.length
-
-  return esperar({
-    grupo_id: id,
-    progreso_promedio: total ? Math.round(suma((a) => a.progreso) / total) : 0,
-    miembros_con_actividad: avance_miembros.filter((a) => a.progreso > 0).length,
-    total_miembros: total,
-    misiones_completadas: suma((a) => a.misiones_completadas),
-    zonas_completadas: suma((a) => a.zonas_completadas),
-    riesgo_total: suma((a) => a.riesgo_total),
-    respuestas: suma((a) => a.respuestas),
-    oportunidades_mejora: suma((a) => a.oportunidades_mejora),
-    avance_miembros,
+/** Simula un registro del juego. Solo se invoca desde controles rotulados como demostración. */
+export function simularProgreso(adultoId: number, ninoId: number, tematica: TematicaId): Promise<void> {
+  return mutar(adultoId, almacen => {
+    const r = almacen.ninos.find(r => r.nino.id === ninoId && r.nino.adulto_id === adultoId)
+    if (!r) throw new ErrorUsuario('No tienes acceso a este reporte.')
+    r.tematicas = tematicasCompletas(r.tematicas)
+    const tema = r.tematicas.find(t => t.tematica === tematica)!
+    tema.metricas = { decisiones_seguras: (tema.metricas?.decisiones_seguras ?? 0) + 4, decisiones_evaluadas: (tema.metricas?.decisiones_evaluadas ?? 0) + 5, completada: true }
+    r.actualizado_en = new Date().toISOString()
   })
 }
+export function correosDemo(adultoId: number): string[] { return leer(adultoId).usuarios.map(u => u.email) }

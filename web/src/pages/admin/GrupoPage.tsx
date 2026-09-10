@@ -1,266 +1,86 @@
-import { useCallback, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import {
-  agregarMiembro,
-  eliminarGrupo,
-  listarCandidatos,
-  obtenerAvanceGrupo,
-  obtenerGrupo,
-  quitarMiembro,
-} from '@/api/grupos'
-import { ErrorAviso, Vacio } from '@/components/Aviso'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useSesion } from '@/auth/contexto'
+import { usePanel } from '@/hooks/usePanel'
+import { useDatosVivos } from '@/hooks/useDatosVivos'
 import { Cargando } from '@/components/Cargando'
-import { EstadoRiesgo, Kpi, Medidor } from '@/components/datos'
-import { useAsync } from '@/hooks/useAsync'
-import { haceCuanto, porcentaje } from '@/lib/format'
-import type { AvanceGrupo, GrupoDetalle, MiembroCandidato } from '@/types/grupos'
-
-interface Vista {
-  grupo: GrupoDetalle
-  avance: AvanceGrupo
-  candidatos: MiembroCandidato[]
-}
+import { ErrorAviso, Exito } from '@/components/Aviso'
+import { Modal } from '@/components/Modal'
+import { Icono } from '@/components/Icono'
+import { comoError, ErrorUsuario } from '@/lib/errores'
+import { fechaActualizacion } from '@/lib/reportes'
+import { correosDemo, normalizarCorreo } from '@/mocks/gruposMock'
+import type { MiembroGrupo } from '@/types/grupos'
 
 export default function GrupoPage() {
-  const { id } = useParams<{ id: string }>()
-  const grupoId = Number(id)
+  const { id = '' } = useParams()
+  const { perfil, modoDemo } = useSesion()
+  const panel = usePanel()
   const navegar = useNavigate()
-
+  const ubicacion = useLocation()
+  const estado = useDatosVivos(signal => panel.obtenerGrupo(id, { signal }), 'grupo:' + perfil?.id + ':' + modoDemo + ':' + id)
+  const [agregar, setAgregar] = useState(false)
+  const [eliminar, setEliminar] = useState<MiembroGrupo | 'grupo' | null>(null)
+  const [email, setEmail] = useState('')
   const [ocupado, setOcupado] = useState(false)
-  const [seleccion, setSeleccion] = useState('')
-
-  const cargar = useCallback(async (): Promise<Vista> => {
-    const [grupo, avance, candidatos] = await Promise.all([
-      obtenerGrupo(grupoId),
-      obtenerAvanceGrupo(grupoId),
-      listarCandidatos(grupoId),
-    ])
-    return { grupo, avance, candidatos }
-  }, [grupoId])
-
-  const { datos, cargando, error, recargar } = useAsync(cargar, [grupoId])
-
-  async function conRecarga(accion: () => Promise<unknown>) {
-    setOcupado(true)
+  const [error, setError] = useState<Error | null>(null)
+  const [exito, setExito] = useState((ubicacion.state as { creado?: boolean } | null)?.creado ? 'Grupo creado correctamente. Ya puedes gestionar sus integrantes.' : '')
+  const g = estado.datos
+  function abrirAgregar() { setEmail(''); setError(null); setExito(''); setAgregar(true) }
+  function abrirEliminar(miembro: MiembroGrupo | 'grupo') { setError(null); setExito(''); setEliminar(miembro) }
+  async function alAgregar(e: React.FormEvent) {
+    e.preventDefault()
+    if (ocupado) return
+    setOcupado(true); setError(null)
     try {
-      await accion()
-      recargar()
-    } finally {
-      setOcupado(false)
-    }
+      const correo = normalizarCorreo(email)
+      if (g?.miembros.some(m => normalizarCorreo(m.email) === correo)) throw new ErrorUsuario('El usuario ya forma parte del grupo.')
+      await panel.agregarUsuario(id, correo)
+      setAgregar(false); setEmail(''); setExito('Usuario agregado al grupo correctamente.')
+      estado.recargar()
+    } catch (e) { setError(comoError(e)) } finally { setOcupado(false) }
   }
-
-  async function alAgregar(evento: React.FormEvent) {
-    evento.preventDefault()
-    if (!seleccion) return
-    const jugadorId = Number(seleccion)
-    setSeleccion('')
-    await conRecarga(() => agregarMiembro(grupoId, jugadorId))
+  async function confirmarEliminar() {
+    if (!eliminar || ocupado) return
+    setOcupado(true); setError(null)
+    try {
+      if (eliminar === 'grupo') {
+        await panel.eliminarGrupo(id)
+        navegar('/admin/grupos', { replace: true })
+      } else {
+        await panel.eliminarUsuario(id, eliminar.id)
+        setEliminar(null); setExito('Usuario eliminado del grupo correctamente.'); estado.recargar()
+      }
+    } catch (e) { setError(comoError(e)) } finally { setOcupado(false) }
   }
-
-  async function alEliminarGrupo() {
-    if (!datos) return
-    const confirmado = window.confirm(
-      `Se eliminara el grupo "${datos.grupo.nombre}". Los perfiles de los menores no se tocan. ¿Continuar?`,
-    )
-    if (!confirmado) return
-    await eliminarGrupo(grupoId)
-    navegar('/admin/grupos', { replace: true })
-  }
-
-  if (cargando) return <Cargando mensaje="Cargando el grupo..." />
-  if (error) return <ErrorAviso error={error} onReintentar={recargar} />
-  if (!datos) return null
-
-  const { grupo, avance, candidatos } = datos
-
-  return (
-    <>
-      <div className="migas">
-        <Link to="/admin/grupos">Grupos</Link> / {grupo.nombre}
-      </div>
-
-      <div className="encabezado">
-        <div>
-          <h1>{grupo.nombre}</h1>
-          <p className="muted mini" style={{ margin: 0 }}>
-            {grupo.descripcion || 'Sin descripcion'}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="boton boton--peligro"
-          onClick={alEliminarGrupo}
-        >
-          Eliminar grupo
-        </button>
-      </div>
-
-      <div className="kpis" style={{ marginBottom: '1.25rem' }}>
-        <Kpi
-          etiqueta="Progreso del grupo"
-          valor={porcentaje(avance.progreso_promedio)}
-          pie="promedio de los miembros"
-        />
-        <Kpi
-          etiqueta="Miembros activos"
-          valor={`${avance.miembros_con_actividad}/${avance.total_miembros}`}
-          pie="han empezado a jugar"
-        />
-        <Kpi
-          etiqueta="Misiones completadas"
-          valor={avance.misiones_completadas}
-          pie="sumadas del grupo"
-        />
-        <Kpi
-          etiqueta="Oportunidades de mejora"
-          valor={avance.oportunidades_mejora}
-          pie="decisiones inseguras"
-        />
-      </div>
-
+  return <>
+    <nav className="migas" aria-label="Ruta de navegación"><Link to="/admin/grupos">Mis grupos</Link><span>/</span><span>Gestionar grupo</span></nav>
+    {estado.cargando && <Cargando mensaje="Cargando el grupo…" />}
+    {estado.error && <ErrorAviso error={estado.error} onReintentar={estado.recargar} />}
+    {g && <>
+      <div className="encabezado"><div><span className="eyebrow">ADMINISTRACIÓN DEL GRUPO</span><h1>{g.nombre}</h1><p className="muted">{g.descripcion || 'Gestiona los integrantes de este grupo.'}</p></div><Link className="boton boton--primario" to={'/admin/grupos/' + id + '/reporte'}><Icono nombre="reportes" />Ver reporte</Link></div>
+      {exito && <Exito>{exito}</Exito>}
+      <p className="group-id">Identificador único: {g.id}</p>
       <section className="card">
-        <h2>Avance grupal</h2>
-        <div style={{ margin: '0.75rem 0 0.5rem' }}>
-          <Medidor valor={avance.progreso_promedio} />
-        </div>
-        <div className="pila" style={{ gap: '1rem' }}>
-          <EstadoRiesgo
-            total={avance.riesgo_total}
-            respuestas={avance.respuestas}
-          />
-          <span className="mini muted">
-            {avance.respuestas} respuestas del grupo ·{' '}
-            {avance.zonas_completadas} zonas completadas
-          </span>
-        </div>
+        <div className="pila spread"><div><h2>Integrantes</h2><span className="mini muted">{g.miembros.length} {g.miembros.length === 1 ? 'usuario en el grupo' : 'usuarios en el grupo'}</span></div><button type="button" className="boton" onClick={abrirAgregar}><Icono nombre="mas" />Agregar usuario</button></div>
+        {g.miembros.length === 0 ? <div className="empty-state" style={{ marginTop: 22 }}><Icono nombre="correo" /><h3>El grupo está listo para recibir integrantes</h3><p>Agrega un usuario registrado con su correo electrónico.</p></div> :
+          <ul className="members">{g.miembros.map(m => <li className="member" key={m.id}><span className="avatar small"><Icono nombre="correo" /></span><div className="member-content"><strong>{m.email}</strong><p>Agregado el {fechaActualizacion(m.fecha_ingreso)}</p></div><button type="button" className="boton boton--peligro" onClick={() => abrirEliminar(m)} aria-label={'Eliminar usuario ' + m.email}><Icono nombre="borrar" />Eliminar usuario</button></li>)}</ul>}
       </section>
-
-      <section className="card">
-        <div className="pila" style={{ justifyContent: 'space-between' }}>
-          <h2>Miembros</h2>
-          <span className="mini muted">
-            {grupo.miembros.length}{' '}
-            {grupo.miembros.length === 1 ? 'perfil' : 'perfiles'}
-          </span>
-        </div>
-
-        <form
-          onSubmit={alAgregar}
-          className="pila"
-          style={{ margin: '0.9rem 0 1rem', alignItems: 'flex-end' }}
-        >
-          <label className="campo" style={{ margin: 0, flex: '1 1 16rem' }}>
-            <span>Agregar un perfil</span>
-            <select
-              value={seleccion}
-              onChange={(e) => setSeleccion(e.target.value)}
-              disabled={ocupado || candidatos.length === 0}
-            >
-              <option value="">
-                {candidatos.length === 0
-                  ? 'No quedan perfiles por agregar'
-                  : 'Elige un perfil...'}
-              </option>
-              {candidatos.map((c) => (
-                <option key={c.jugador_id} value={c.jugador_id}>
-                  {c.nombre}
-                  {c.edad ? ` (${c.edad})` : ''} — {c.adulto}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            className="boton boton--primario"
-            disabled={ocupado || !seleccion}
-          >
-            Agregar
-          </button>
-        </form>
-
-        {grupo.miembros.length === 0 ? (
-          <Vacio>El grupo no tiene miembros todavia.</Vacio>
-        ) : (
-          <div className="tabla-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Perfil</th>
-                  <th>Responsable</th>
-                  <th style={{ minWidth: '9rem' }}>Progreso</th>
-                  <th className="num">Misiones</th>
-                  <th className="num">Zonas</th>
-                  <th>Decisiones</th>
-                  <th className="num">A mejorar</th>
-                  <th>Actividad</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {grupo.miembros.map((miembro) => {
-                  const a = avance.avance_miembros.find(
-                    (x) => x.jugador_id === miembro.jugador_id,
-                  )
-                  return (
-                    <tr key={miembro.jugador_id}>
-                      <td>
-                        {miembro.nombre}
-                        {miembro.edad && (
-                          <span className="mini muted"> · {miembro.edad}</span>
-                        )}
-                      </td>
-                      <td className="muted">{miembro.adulto}</td>
-                      <td>
-                        <div className="pila" style={{ flexWrap: 'nowrap' }}>
-                          <span
-                            className="mini"
-                            style={{
-                              minWidth: '2.6rem',
-                              fontVariantNumeric: 'tabular-nums',
-                            }}
-                          >
-                            {porcentaje(a?.progreso ?? 0)}
-                          </span>
-                          <span style={{ flex: 1, minWidth: '4rem' }}>
-                            <Medidor valor={a?.progreso ?? 0} />
-                          </span>
-                        </div>
-                      </td>
-                      <td className="num">{a?.misiones_completadas ?? 0}</td>
-                      <td className="num">{a?.zonas_completadas ?? 0}</td>
-                      <td>
-                        <EstadoRiesgo
-                          total={a?.riesgo_total ?? 0}
-                          respuestas={a?.respuestas ?? 0}
-                        />
-                      </td>
-                      <td className="num">{a?.oportunidades_mejora ?? 0}</td>
-                      <td className="muted mini">
-                        {haceCuanto(a?.ultima_actividad ?? null)}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="boton boton--peligro mini"
-                          disabled={ocupado}
-                          onClick={() =>
-                            conRecarga(() =>
-                              quitarMiembro(grupoId, miembro.jugador_id),
-                            )
-                          }
-                        >
-                          Quitar
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </>
-  )
+      <aside className="privacy-note"><Icono nombre="candado" /><p>Los correos se utilizan para gestionar integrantes. El reporte grupal no incluye datos personales ni resultados individuales.</p></aside>
+      <div className="danger-zone"><button type="button" className="boton boton--peligro" onClick={() => abrirEliminar('grupo')}>Eliminar grupo</button></div>
+    </>}
+    {agregar && <Modal titulo="Agregar usuario" cerrar={() => setAgregar(false)} ocupado={ocupado}><p className="mini muted">Ingresa el correo electrónico de un usuario registrado.</p>
+      <form onSubmit={alAgregar}><label className="campo"><span>Correo electrónico</span><input autoFocus type="email" autoComplete="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="usuario@ejemplo.cl" maxLength={254} required disabled={ocupado} /></label>
+        {error && <ErrorAviso error={error} />}
+        <div className="modal-actions"><button type="button" className="boton" disabled={ocupado} onClick={() => setAgregar(false)}>Cancelar</button><button className="boton boton--primario" disabled={ocupado || !email.trim()}>{ocupado ? 'Agregando…' : 'Agregar'}</button></div>
+      </form>
+      {modoDemo && <details className="demo-controls"><summary>Correos de la demostración</summary><p>Usuarios ficticios registrados; algunos ya pueden pertenecer al grupo.</p>{correosDemo(perfil!.id).map(c => <p className="mini" key={c}>{c}</p>)}</details>}
+    </Modal>}
+    {eliminar && <Modal titulo={eliminar === 'grupo' ? 'Eliminar grupo' : 'Eliminar usuario'} cerrar={() => setEliminar(null)} ocupado={ocupado}>
+      <p>{eliminar === 'grupo' ? 'Se eliminará este grupo y su lista de integrantes. Esta acción no elimina las cuentas de los usuarios.' : <>¿Quieres eliminar a <strong>{eliminar.email}</strong> de este grupo?</>}</p>
+      {eliminar !== 'grupo' && <p className="mini muted">Podrás volver a agregarlo con su correo electrónico.</p>}
+      {error && <ErrorAviso error={error} />}
+      <div className="modal-actions"><button autoFocus type="button" className="boton" disabled={ocupado} onClick={() => setEliminar(null)}>Cancelar</button><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={confirmarEliminar}>{ocupado ? 'Eliminando…' : 'Confirmar eliminación'}</button></div>
+    </Modal>}
+  </>
 }

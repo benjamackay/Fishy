@@ -1,89 +1,42 @@
 import { useState } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useSesion } from '@/auth/contexto'
 import { ErrorAviso } from '@/components/Aviso'
+import { Icono } from '@/components/Icono'
+import { Marca } from '@/components/Marca'
+import { DEMO_DISPONIBLE } from '@/lib/config'
 
-interface EstadoRuta {
-  desde?: string
-}
-
-/**
- * Login del adulto responsable. Ojo: el backend autentica por `nombre`, no por
- * email (ver DOCS_JSON_API.md). Los perfiles de los menores no tienen
- * credenciales propias.
- */
 export default function LoginPage() {
-  const { entrar, autenticado } = useSesion()
-  const navegar = useNavigate()
+  const { entrar, entrarDemo, autenticado, esAdmin } = useSesion()
   const ubicacion = useLocation()
-
   const [nombre, setNombre] = useState('')
   const [password, setPassword] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<Error | null>(null)
-
-  const destino = (ubicacion.state as EstadoRuta | null)?.desde ?? '/'
-
+  const desde = (ubicacion.state as { desde?: string } | null)?.desde
+  const destino = desde?.startsWith('/') && !desde.startsWith('//') && desde !== '/login' ? desde : esAdmin ? '/admin/grupos' : '/'
   if (autenticado) return <Navigate to={destino} replace />
-
-  async function alEnviar(evento: React.FormEvent) {
+  async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
+    if (enviando) return
     setEnviando(true)
     setError(null)
-    try {
-      await entrar(nombre, password)
-      navegar(destino, { replace: true })
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e : new Error(String(e)))
-    } finally {
-      setEnviando(false)
-    }
+    try { await entrar(nombre.trim(), password) }
+    catch (e) { setError(e instanceof Error ? e : new Error('No pudimos iniciar sesión.')) }
+    finally { setEnviando(false) }
   }
-
-  return (
-    <section className="card" style={{ maxWidth: '26rem', margin: '2rem auto' }}>
-      <h1>Entrar</h1>
-      <p className="muted mini">
-        Con la cuenta del adulto responsable. Es la misma que se usa en el juego.
-      </p>
-
-      <form onSubmit={alEnviar} style={{ marginTop: '1.25rem' }}>
-        <label className="campo">
-          <span>Nombre</span>
-          <input
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            autoComplete="username"
-            required
-            autoFocus
-          />
-        </label>
-
-        <label className="campo">
-          <span>Contrasena</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-
-        {error && (
-          <div style={{ margin: '0.9rem 0' }}>
-            <ErrorAviso error={error} />
-          </div>
-        )}
-
-        <button
-          type="submit"
-          className="boton boton--primario"
-          disabled={enviando}
-        >
-          {enviando ? 'Entrando...' : 'Entrar'}
-        </button>
-      </form>
-    </section>
-  )
+  return <section className="login-card">
+    <div className="brand"><Marca /></div>
+    <span className="eyebrow">ESPACIO DEL TUTOR</span>
+    <h1>Qué bueno verte.</h1>
+    <p className="muted">Inicia sesión para acompañar su aprendizaje y consultar los reportes.</p>
+    <form onSubmit={enviar}>
+      <label className="campo"><span>Nombre de usuario</span><input value={nombre} onChange={e => setNombre(e.target.value)} autoComplete="username" required maxLength={150} disabled={enviando} /></label>
+      <label className="campo"><span>Contraseña</span><input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" required disabled={enviando} /></label>
+      {error && <ErrorAviso error={error} />}
+      <button className="boton boton--primario full-width" disabled={enviando || !nombre.trim()}>{enviando ? 'Iniciando sesión…' : 'Iniciar sesión'}<Icono nombre="flecha" /></button>
+    </form>
+    {DEMO_DISPONIBLE && <div className="demo-login"><span className="muted mini">Explora cada perfil con datos ficticios</span><button type="button" className="boton full-width" disabled={enviando} onClick={() => entrarDemo()}>Probar como padre</button><button type="button" className="boton full-width" disabled={enviando} onClick={() => entrarDemo('alternativa')}>Probar como profesor</button><p className="mini muted">Padres: reportes de sus hijos. Profesores: creación y gestión de grupos.</p></div>}
+    <p className="login-privacy"><Icono nombre="candado" />Solo tendrás acceso a los reportes permitidos para tu cuenta.</p>
+  </section>
 }

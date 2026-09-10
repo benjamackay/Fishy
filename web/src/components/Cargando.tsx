@@ -1,7 +1,3 @@
-export function Cargando({ mensaje = 'Cargando...' }: { mensaje?: string }) {
-  return (
-    <p className="muted" role="status">
-      {mensaje}
-    </p>
-  )
+export function Cargando({ mensaje = 'Cargando…' }: { mensaje?: string }) {
+  return <div className="loading" role="status"><span className="spinner" aria-hidden="true" />{mensaje}</div>
 }
