@@ -998,6 +998,46 @@ namespace Fishy.Net
                 null, auth: true, onSuccess: onSuccess, onError: onError));
         }
 
+        // ╔═════════════════════════════════════════════════════════════════════╗
+        // ║  PRESION SOCIAL EN RETOS VIRALES (HDU-04 CA4)                            ║
+        // ╠═════════════════════════════════════════════════════════════════════╣
+        // ║  EL NIVEL NO SE CUENTA AQUI, SE PIDE. Un contador en Unity no sirve: una  ║
+        // ║  tematica se puede completar en varias sesiones (HDU-3 CA5 / HDU-4 CA5),  ║
+        // ║  asi que al volver estaria siempre en cero y el criterio no se gatillaria  ║
+        // ║  nunca. El servidor lo deriva del historial que ya guarda.                 ║
+        // ╚═════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Nivel de presion social que le toca al proximo NPC de Retos Virales.
+        ///
+        /// <para><b>Como usarlo:</b> llamarlo al ENTRAR a la zona, antes de armar la
+        /// conversacion, y usar <c>SocialPressureLevel</c> para elegir con que
+        /// apertura arranca el NPC (el <c>startNodeId</c> de BancoPreguntasLoader).</para>
+        ///
+        /// <para><b>PENDIENTE: falta el contenido, no el codigo.</b> Hoy los tres NPCs
+        /// de la zona tienen UNA sola apertura cada uno, las tres en
+        /// <c>nivel_riesgo: 3</c>. Mientras el banco no traiga una version mas dura de
+        /// cada apertura, no hay entre que elegir y este numero no cambia nada. El
+        /// criterio se cierra cuando llegue ese contenido.</para>
+        /// </summary>
+        public void ObtenerPresionSocial(int? partidaId = null,
+            Action<PresionSocialDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // Sin servidor no hay historial que mirar: la zona parte sin presion
+                // extra, que es el mismo estado que tiene un jugador nuevo.
+                onSuccess?.Invoke(new PresionSocialDto());
+                return;
+            }
+
+            StartCoroutine(Send<PresionSocialDto>("GET", $"/partidas/{pId}/presion-social/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
         /// <summary>
         /// Marca que la interaccion con ese NPC termino. A diferencia de los objetos
         /// recogidos, repetir SI actualiza: un NPC con `repetible` puede rehacerse y
@@ -1981,6 +2021,36 @@ namespace Fishy.Net
         public int id;
         public string objeto_id;   // "SAMPLESCENE_CONCHA_01" — el objetoId del WorldItem
         public string fecha;
+    }
+
+    /// <summary>
+    /// Respuesta de <c>/partidas/{id}/presion-social/</c> (HDU-04 CA4).
+    ///
+    /// <c>SocialPressureLevel</c> va en ingles y en CamelCase a proposito, rompiendo
+    /// la convencion del resto de los DTO: es el nombre EXACTO que la ficha de HDU-04
+    /// del plan de proyecto le da al campo en su criterio de prueba
+    /// ("el campo SocialPressureLevel del siguiente NPC aumenta en al menos 1 nivel").
+    /// El nombre tiene que calzar con el JSON del servidor, asi que se eligio ese en
+    /// los dos lados. NO renombrarlo por prolijidad.
+    /// </summary>
+    [Serializable]
+    public class PresionSocialDto
+    {
+        public int partida_id;
+        public int SocialPressureLevel;      // 0, 1 o 2
+        public int rechazos_consecutivos;    // retos rechazados seguidos, sin cortar
+        public int umbral;                   // cuantos hacen falta para subir a 1
+        public int nivel_maximo;
+        public string zona;
+        public List<RetoResultadoDto> retos; // un elemento por NPC, en orden
+    }
+
+    /// <summary>Como termino un reto: "rechazado", "aceptado" o "indeciso".</summary>
+    [Serializable]
+    public class RetoResultadoDto
+    {
+        public string npc_id;
+        public string resultado;
     }
 
     /// <summary>Un NPC de tematica cuya interaccion esta partida ya termino.</summary>

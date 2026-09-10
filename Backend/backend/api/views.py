@@ -1132,3 +1132,132 @@ def progreso_npcs_partida(request, partida_id):
         )
 
     return Response(NpcProgresoSerializer(partida.progreso_npcs.all(), many=True).data)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Presión social en Retos Virales (HDU-04 CA4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Cuántos rechazos seguidos hacen falta para que la presión suba un nivel. El
+# criterio de aceptación dice "al menos dos retos virales negativos consecutivos".
+UMBRAL_RECHAZOS = 2
+
+# Tope del nivel. Hoy la zona tiene tres NPCs, así que la racha máxima es 3 y el
+# nivel máximo alcanzable es 2. Si se agregan NPCs, subir esto además del banco.
+NIVEL_PRESION_MAXIMO = 2
+
+ZONA_RETOS = "reto_viral"
+
+
+@api_view(["GET"])
+def presion_social(request, partida_id):
+    """
+    Nivel de presión social que le corresponde al próximo NPC de Retos Virales.
+
+    Implementa HDU-04 CA4: "Dado que el niño/a ha rechazado al menos dos retos
+    virales negativos consecutivos, cuando interactúa con un nuevo NPC de la zona,
+    entonces el sistema aumenta gradualmente la intensidad de la presión social".
+
+    **No hay campo nuevo ni migración: el nivel se DERIVA del historial que ya se
+    guarda.** Cada decisión es un `Mensaje` con `opcion_banco_id`, y de ahí salen
+    el `tipo` de la opción y el `npc_id` de su pregunta. Es el mismo patrón de
+    `riesgo_por_zona`. Un contador guardado en Unity no serviría: una temática se
+    puede completar en varias sesiones, así que al volver estaría siempre en cero.
+
+    **Se cuenta por NPC, no por mensaje, y esa es la decisión importante.** Un reto
+    es un NPC, no una respuesta: si el niño contesta una `dudosa` y después una
+    segura al mismo NPC, eso es UN reto rechazado, no dos. Por eso las decisiones
+    se agrupan por `npc_id` y de cada NPC manda su ÚLTIMA decisión:
+
+      - terminó en `segura_basica` / `segura_optima`  -> rechazado
+      - terminó en `insegura`                          -> aceptado
+      - terminó en `dudosa`                            -> indeciso
+
+    La racha son los rechazos seguidos **al final** de la secuencia: un reto
+    aceptado o dejado en duda la corta. "Consecutivos" es literal.
+
+    El nivel crece de a uno y arranca en el umbral, para que la escalada sea
+    gradual y no un salto: 0-1 rechazos -> 0, 2 -> 1, 3 -> 2.
+
+    Respuesta:
+    {
+      "partida_id": 1,
+      "zona": "reto_viral",
+      "SocialPressureLevel": 1,
+      "rechazos_consecutivos": 2,
+      "umbral": 2,
+      "nivel_maximo": 2,
+      "retos": [{"npc_id": "NPC_05", "resultado": "rechazado"}, ...]
+    }
+
+    `SocialPressureLevel` va en inglés y en CamelCase a propósito, rompiendo la
+    convención del resto del backend: es el nombre EXACTO que la ficha de HDU-04
+    del plan de proyecto le pone al campo en su criterio de prueba. Se dejó así
+    para que la prueba del plan encuentre lo que busca. El resto de la respuesta
+    sigue la convención en español.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    elegidos = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .order_by("timestamp", "id")
+        .values_list("opcion_banco_id", flat=True)
+    )
+
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in=set(elegidos))
+        .select_related("pregunta")
+    }
+
+    # Última decisión de cada NPC, conservando el orden en que aparecieron.
+    ultima_por_npc = {}
+    for opcion_id in elegidos:
+        opcion = opciones.get(opcion_id)
+        if opcion is None:
+            continue  # id que no existe en el banco (contenido viejo o typo)
+        pregunta = opcion.pregunta
+        if pregunta.zona != ZONA_RETOS or not pregunta.npc_id:
+            continue
+        # Reasignar mueve el NPC al final: lo que importa es cuándo se CERRÓ el
+        # reto, no cuándo empezó.
+        ultima_por_npc.pop(pregunta.npc_id, None)
+        ultima_por_npc[pregunta.npc_id] = opcion.tipo
+
+    def resultado(tipo):
+        if tipo in ("segura_basica", "segura_optima"):
+            return "rechazado"
+        if tipo == "insegura":
+            return "aceptado"
+        return "indeciso"
+
+    retos = [
+        {"npc_id": npc_id, "resultado": resultado(tipo)}
+        for npc_id, tipo in ultima_por_npc.items()
+    ]
+
+    racha = 0
+    for reto in reversed(retos):
+        if reto["resultado"] != "rechazado":
+            break
+        racha += 1
+
+    if racha < UMBRAL_RECHAZOS:
+        nivel = 0
+    else:
+        nivel = min(racha - UMBRAL_RECHAZOS + 1, NIVEL_PRESION_MAXIMO)
+
+    return Response({
+        "partida_id": partida.id,
+        "zona": ZONA_RETOS,
+        "SocialPressureLevel": nivel,
+        "rechazos_consecutivos": racha,
+        "umbral": UMBRAL_RECHAZOS,
+        "nivel_maximo": NIVEL_PRESION_MAXIMO,
+        "retos": retos,
+    })
