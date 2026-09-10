@@ -13,6 +13,37 @@ namespace Fishy.Chat
     {
         public string version;
         public List<PreguntaBanco> preguntas = new List<PreguntaBanco>();
+
+        /// <summary>
+        /// Diálogos de los NPCs neutros (HDU-1) y los de cierre de zona (HDU-9).
+        ///
+        /// Estaban en el JSON desde el principio, pero esta lista no existía, y
+        /// JsonUtility descarta en silencio lo que no encuentra en la clase: los once
+        /// diálogos escritos del banco no llegaban nunca a Unity, y los NPCs neutros
+        /// hablaban con los NPCDialogue de relleno del inspector.
+        /// </summary>
+        public List<DialogoNeutroBanco> dialogos_npc_neutros = new List<DialogoNeutroBanco>();
+    }
+
+    /// <summary>
+    /// Un diálogo de NPC neutro tal cual viene en banco_preguntas.json. Los nombres de
+    /// los campos son los del JSON y no se tocan: JsonUtility empareja por nombre.
+    /// </summary>
+    [System.Serializable]
+    public class DialogoNeutroBanco
+    {
+        public string id;                 // "HDU1_NPC_HUEMUL"
+        public string hdu;                // "HDU-1" | "HDU-9"
+        public string zona;               // "desconocidos" | "ciberacoso" | "reto_viral"
+        public string npc_id;             // "NPC_GUIA" | "NPC_PUDU" …
+        public string npc_nombre;         // "Huemul" | "Pudú" …
+        public string npc_avatar;         // "npc_huemul_01" — hoy no hay ningún sprite así
+        public string tipo;               // "neutro" | "cierre_zona"
+        public string trigger;            // "boton_E" | "salida_de_zona"
+        public string mision_desbloquea;  // "MISION_SEC_COLLAR_PUDU" | ""
+        public string nombre_mision;
+        public List<string> lineas = new List<string>();
+        public string pista_mision;
     }
 
     [System.Serializable]

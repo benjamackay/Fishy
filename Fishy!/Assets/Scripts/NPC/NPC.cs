@@ -8,36 +8,62 @@ using UnityEngine.UI;
 
 public class NPC : MonoBehaviour, IInteractable
 {
-    public NPCDialogue dialogueData;
-    public GameObject dialoguePanel;
-    public TMP_Text dialogueText, nameText;
-    public Image portraitImage;
+    // Las secciones y sus nombres son los mismos que en PhoneChatLauncher (el NPC
+    // sospechoso), a propósito: quien configura un NPC encuentra lo mismo en el mismo
+    // sitio, se llame como se llame el componente.
 
-    [Header("Backend (opcional)")]
-    [Tooltip("dialogo_id en la tabla DialogoNPC (ej: NPC_FLAMENCO_SEC). Si hay backend " +
-             "disponible, reemplaza a 'Dialogue Data' con lo que traiga de la BD; si no, " +
-             "se usa 'Dialogue Data' tal cual quedó en el Inspector.")]
+    [Header("Contenido del diálogo")]
+    [Tooltip("id del diálogo en el banco (ej: HDU1_SEC_PUDU_COLLAR). Es la fuente " +
+             "principal: se lee de Resources/banco_preguntas.json, y si hay sesión se " +
+             "pisa con lo que tenga la tabla DialogoNPC de la base. Déjalo vacío para " +
+             "usar solo el NPCDialogue de abajo.")]
     public string dialogoId;
+
+    [Tooltip("Diálogo local. Se usa si no hay 'Dialogo Id', y de él salen siempre el " +
+             "retrato, la velocidad de tecleo y la voz, que el banco no trae.")]
+    public NPCDialogue dialogueData;
+
+    [Header("Referencias (se buscan si quedan vacías)")]
+    [Tooltip("Panel de diálogo de la escena. Imprescindible: sin él no hay qué abrir.")]
+    public GameObject dialoguePanel;
+    [Tooltip("Dónde se escribe la línea. Imprescindible.")]
+    public TMP_Text dialogueText, nameText;
+    [Tooltip("Retrato del NPC. Si se deja vacío se busca un hijo del panel llamado " +
+             "'DialoguePortrait'.")]
+    public Image portraitImage;
 
     private void Awake()
     {
-        DialogoNpcLoader.LoadAsync(dialogoId, dialogo => dialogueData = dialogo);
-    }
+        // El banco primero, y en el sitio: va empaquetado en Resources, así que el NPC
+        // tiene sus líneas desde el primer frame, sin conexión y sin sesión iniciada.
+        NPCDialogue delBanco = DialogoNpcLoader.DesdeBanco(dialogoId, dialogueData);
+        if (delBanco != null) dialogueData = delBanco;
 
-    [Header("Movimiento")]
-    [Tooltip("Le quita el control a Otto mientras dura la conversación y se lo " +
-             "devuelve al cerrarse, incluso si el diálogo se corta a medias.")]
-    public bool bloquearMovimiento = true;
+        // El backend puede traer una corrección posterior del mismo texto, pero llega
+        // tarde y puede no llegar. Nunca se aplica a media conversación: cambiar las
+        // líneas con dialogueIndex a mitad dejaría el diálogo saltándose frases o
+        // indexando fuera del array.
+        DialogoNpcLoader.LoadAsync(dialogoId, dialogueData, dialogo =>
+        {
+            if (isDialogueActive) return;
+            dialogueData = dialogo;
+        });
+    }
 
     [Tooltip("Otto, para quitarle el control. Se busca solo si se deja vacío.")]
     public OttoController otto;
 
-    [Header("Repetición")]
-    [Tooltip("Cuenta el diálogo completo una sola vez. Al volver a interactuar no se " +
-             "reabre el panel, pero la conversación igual cuenta: se dispara " +
-             "onDialogueEnded para que MissionGiver entregue la misión o recuerde lo " +
-             "que falta. Desactívalo si este NPC debe repetir su discurso siempre.")]
-    public bool soloLaPrimeraVez = true;
+    [Header("Comportamiento")]
+    [Tooltip("Le quita el control a Otto mientras dura la conversación y se lo " +
+             "devuelve al cerrarse, incluso si el diálogo se corta a medias.")]
+    public bool bloquearMovimiento = true;
+
+    [Tooltip("Permite que este NPC repita su discurso completo cada vez que se le " +
+             "habla. Desmarcado cuenta el diálogo una sola vez: al volver no se reabre " +
+             "el panel, pero la conversación igual cuenta —se dispara onDialogueEnded— " +
+             "para que MissionGiver entregue la misión o recuerde lo que falta. " +
+             "Misma casilla y mismo significado que en el NPC sospechoso.")]
+    public bool repetible;
 
     [Header("Eventos")]
     [Tooltip("Se dispara al cerrar el diálogo. MissionGiver lo usa para entregar la misión " +
@@ -69,7 +95,7 @@ public class NPC : MonoBehaviour, IInteractable
         // conversación: MissionGiver escucha onDialogueEnded para entregar la misión
         // al volver y para avisar de lo que falta, así que tragarse el evento dejaría
         // la misión sin poder completarse y la zona sin abrirse.
-        if (soloLaPrimeraVez && yaSeConto)
+        if (!repetible && yaSeConto)
         {
             onDialogueEnded?.Invoke();
             return;
