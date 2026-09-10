@@ -65,6 +65,8 @@ namespace Fishy.EditorTools
             ProbarPersonajeGuardaYRestaura(log, api);
             ProbarPersonajeEnElOrigen(log, api);
             ProbarPersonajeSeparaPorPartida(log, api);
+            ProbarPersonajeGuardaLaZona(log, api);
+            ProbarPersonajeSinZonaNoBorraLaGuardada(log, api);
 
             ProbarCatalogoDesafios(log);
             ProbarRedaccionDeSecretos(log);
@@ -229,7 +231,7 @@ namespace Fishy.EditorTools
             LimpiarPrefs();
 
             // Sin callback a proposito: guardar tiene que ocurrir igual.
-            api.GuardarPersonaje("SampleScene", 12.5f, -3.25f, PartidaDePrueba);
+            api.GuardarPersonaje("SampleScene", 12.5f, -3.25f, partidaId: PartidaDePrueba);
 
             PersonajeDto dto = null;
             api.ObtenerPersonaje(PartidaDePrueba, onSuccess: d => dto = d);
@@ -246,7 +248,7 @@ namespace Fishy.EditorTools
         {
             LimpiarPrefs();
 
-            api.GuardarPersonaje("SampleScene", 0f, 0f, PartidaDePrueba);
+            api.GuardarPersonaje("SampleScene", 0f, 0f, partidaId: PartidaDePrueba);
 
             PersonajeDto dto = null;
             api.ObtenerPersonaje(PartidaDePrueba, onSuccess: d => dto = d);
@@ -258,11 +260,48 @@ namespace Fishy.EditorTools
                 dto == null ? "null" : $"tiene_posicion={dto.tiene_posicion}");
         }
 
+        private static void ProbarPersonajeGuardaLaZona(StringBuilder log, ApiManager api)
+        {
+            LimpiarPrefs();
+
+            api.GuardarPersonaje("SampleScene", 1f, 1f, "zona_2", partidaId: PartidaDePrueba);
+
+            PersonajeDto dto = null;
+            api.ObtenerPersonaje(PartidaDePrueba, onSuccess: d => dto = d);
+
+            Comprobar(log, "personaje: guarda y devuelve la zona del mapa",
+                dto != null && dto.zona_actual == "zona_2",
+                dto == null ? "null" : $"zona_actual={dto.zona_actual}");
+        }
+
+        /// <summary>
+        /// El endpoint es un PATCH: guardar sin zona deja la que ya estaba. El modo
+        /// local reescribe el DTO entero, asi que tiene que conservarla a mano o las
+        /// dos ramas divergen — y esa divergencia solo se ve al reconectar, que es
+        /// cuando cuesta encontrarla. Ya paso una vez.
+        /// </summary>
+        private static void ProbarPersonajeSinZonaNoBorraLaGuardada(StringBuilder log, ApiManager api)
+        {
+            LimpiarPrefs();
+
+            api.GuardarPersonaje("SampleScene", 1f, 1f, "zona_3", partidaId: PartidaDePrueba);
+            // Otto se mueve dentro de la misma zona: se sube la posicion, no la zona.
+            api.GuardarPersonaje("SampleScene", 9f, 9f, null, partidaId: PartidaDePrueba);
+
+            PersonajeDto dto = null;
+            api.ObtenerPersonaje(PartidaDePrueba, onSuccess: d => dto = d);
+
+            Comprobar(log, "personaje: guardar sin zona no borra la que habia",
+                dto != null && dto.zona_actual == "zona_3"
+                    && Mathf.Approximately(dto.pos_x ?? 0f, 9f),
+                dto == null ? "null" : $"zona_actual='{dto.zona_actual}' pos_x={dto.pos_x}");
+        }
+
         private static void ProbarPersonajeSeparaPorPartida(StringBuilder log, ApiManager api)
         {
             LimpiarPrefs();
 
-            api.GuardarPersonaje("SampleScene", 5f, 5f, PartidaDePrueba);
+            api.GuardarPersonaje("SampleScene", 5f, 5f, partidaId: PartidaDePrueba);
 
             PersonajeDto otra = null;
             api.ObtenerPersonaje(PartidaDePrueba + 1, onSuccess: d => otra = d);

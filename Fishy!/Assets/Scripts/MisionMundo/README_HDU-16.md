@@ -97,10 +97,10 @@ sigue de servicio: lo que falta hacer ahí lo cuenta el cartel.
   el `Neutral_NPC (2)` que lo entrega pierde sus objetivos en silencio. Mientras
   siga así, "cuál es la siguiente misión" se calcula sobre una misión menos de
   las que hay. Se dejó a propósito para no mover ids que ya están en la base.
-- **La zona objetivo no se persiste.** El backend no tiene columna `zona_actual`
-  (`models.py:147`) y `SaveManager` deja la zona en `ZonaGuardada` sin subirla.
-  No hace falta para esta HDU —la misión activa se recalcula sola al restaurar el
-  progreso—, pero si algún día se quiere reabrir el juego con la flecha ya
-  puesta antes de que Otto se mueva, hay que agregar la columna.
+- **La zona ya se guarda, pero todavía no se lee al volver.** Existe la columna
+  `zona_actual` en `PersonajeJugador` (migración 0012) y `PersonajeBackendSync`
+  la sube junto a la posición. Lo que falta para reabrir el juego con la flecha
+  ya puesta —antes de que Otto se mueva— es leerla en `Restaurar()`. No hace
+  falta para esta HDU: la misión activa se recalcula sola al bajar el progreso.
 - La página del Tab sigue usando `✔` y `•`, que no están en las fuentes del
   juego (ver la nota de `FishyUIKit.Aspa`). El cartel nuevo no los usa.
