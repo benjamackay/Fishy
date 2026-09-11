@@ -33,7 +33,7 @@ namespace Fishy.UI
 
         [Header("Destino")]
         [Tooltip("Nombre de la escena del juego (debe estar en File → Build Settings).")]
-        public string gameSceneName = "SampleScene";
+        public string gameSceneName = "MainScene";
         [Tooltip("Pantalla de carga. Si está vacía se busca en la escena.")]
         public LoadingScreen loadingScreen;
 
