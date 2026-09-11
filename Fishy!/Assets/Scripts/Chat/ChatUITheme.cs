@@ -1,5 +1,6 @@
 using Fishy.UI;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Fishy.Chat
 {
@@ -130,6 +131,10 @@ namespace Fishy.Chat
             /// <summary>Alto de la barra de estado (reloj e iconos).</summary>
             public static float AlturaBarraEstado = 48f;
 
+            /// <summary>Alto al que flota la barra de inicio sobre el borde inferior
+            /// de la pantalla.</summary>
+            public static float MargenBarraInicio = 10f;
+
             /// <summary>Lado del botón de cerrar. Cuadrado.</summary>
             public static float LadoBotonCerrar = 52f;
 
@@ -142,6 +147,57 @@ namespace Fishy.Chat
 
             /// <summary>Grosor de cada barra del aspa, en píxeles.</summary>
             public static float GrosorAspa = 5f;
+
+            /// <summary>
+            /// Papel tapiz del historial, igual que en el Modo Detective: una
+            /// imagen al azar de una carpeta de Resources, detrás de las burbujas.
+            /// Solo aplica al chat por teléfono; el diálogo cara a cara sigue liso
+            /// porque no es una pantalla, es una conversación en persona.
+            ///
+            /// Lo mueve <see cref="Fishy.UI.FondoAleatorio"/>, el mismo componente
+            /// que usa el detective.
+            /// </summary>
+            public static class Fondo
+            {
+                /// <summary>Carpeta dentro de Assets/Resources con las candidatas.
+                /// Las imágenes tienen que estar importadas como Sprite o no se ven.
+                ///
+                /// Apunta de momento a la carpeta del detective para poder probar
+                /// con las once que ya hay. Cuando existan tapices propios del
+                /// teléfono, esto pasa a "Fondos/Chat" y no hay que tocar nada más.</summary>
+                public static string Carpeta = "Fondos/Detective";
+
+                /// <summary>Mientras esté en true se elige una al azar al abrir el
+                /// chat y la tecla de abajo salta a otra. En false manda FijoPorNombre.</summary>
+                public static bool Rotar = true;
+
+                /// <summary>Con Rotar en false, el tapiz que queda fijo. Vacío =
+                /// ninguno, y el historial se ve con su color liso de siempre.</summary>
+                public static string FijoPorNombre = "";
+
+                /// <summary>Tecla para saltar al siguiente tapiz al azar. Distinta de
+                /// la del detective a propósito: si las dos pantallas siguen vivas en
+                /// memoria, una sola tecla movería las dos a la vez y no se sabría
+                /// cuál se está mirando.</summary>
+                public static Key TeclaSiguiente = Key.G;
+
+                /// <summary>
+                /// Tinte de la ilustración. El alfa es lo importante: a 1 el dibujo
+                /// tapa el color del historial y compite con los mensajes; bajarlo lo
+                /// deja de telón de fondo, que es como se ve un fondo de chat.
+                /// </summary>
+                public static Color Tinte = new Color(1f, 1f, 1f, 0.30f);
+
+                /// <summary>Repetir la imagen en mosaico en vez de estirarla. Para
+                /// patrones sirve; para una ilustración entera, no.</summary>
+                public static bool Repetir = false;
+
+                /// <summary>Muestra el nombre del tapiz en pantalla mientras se
+                /// prueba, para poder anotar cuál gustó.</summary>
+                public static bool MostrarNombre = true;
+
+                public static float TamanoNombre = 22f;
+            }
         }
 
         public static class Fuente

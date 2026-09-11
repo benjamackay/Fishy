@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Fishy.Net;
 using UnityEngine;
 
 namespace Fishy.Chat
@@ -43,6 +44,101 @@ namespace Fishy.Chat
             }
 
             return _cache;
+        }
+
+        /// <summary>
+        /// Reemplaza las preguntas del banco por las que vienen de la base de datos.
+        ///
+        /// El JSON de Resources y la tabla del backend tienen el mismo contenido —el
+        /// comando `cargar_banco` llena la tabla desde ese mismo archivo—, pero la base
+        /// es la que el equipo puede corregir sin recompilar y sin publicar una versión
+        /// nueva. Por eso, cuando hay sesión, manda la base.
+        ///
+        /// Solo se tocan las preguntas: los diálogos de NPC neutro que ya se leyeron de
+        /// Resources se conservan, porque esos tienen su propio camino al backend en
+        /// <c>DialogoNpcLoader</c> y se piden de uno en uno.
+        ///
+        /// Los nombres de los campos NO coinciden entre las dos fuentes, y por eso esta
+        /// traducción existe: el backend dice <c>pregunta_id</c> y <c>opciones</c>
+        /// donde el JSON dice <c>id</c> y <c>opciones_respuesta</c>. Sin esto, las
+        /// preguntas llegarían con el id vacío y ningún nodo enlazaría con el siguiente.
+        /// </summary>
+        public static void AplicarDesdeBackend(List<PreguntaBancoDto> dtos)
+        {
+            if (dtos == null || dtos.Count == 0)
+            {
+                Debug.LogWarning("[BancoPreguntasLoader] El backend no devolvió preguntas; " +
+                                 "se mantiene la copia de Resources.");
+                return;
+            }
+
+            BancoRaiz banco = Load();
+            var convertidas = new List<PreguntaBanco>(dtos.Count);
+
+            foreach (PreguntaBancoDto d in dtos)
+            {
+                if (d == null || string.IsNullOrEmpty(d.pregunta_id)) continue;
+
+                var p = new PreguntaBanco
+                {
+                    id                     = d.pregunta_id,
+                    hdu                    = d.hdu,
+                    zona                   = d.zona,
+                    npc_id                 = d.npc_id,
+                    npc_nombre             = d.npc_nombre,
+                    // En la base son nullable —hay preguntas sueltas sin fase—; el
+                    // JSON las trae como 0 por JsonUtility, así que se iguala a 0.
+                    fase                   = d.fase ?? 0,
+                    orden_en_fase          = d.orden_en_fase ?? 0,
+                    escenario_id           = d.escenario_id,
+                    escenario_nombre       = d.escenario_nombre,
+                    categoria              = d.categoria,
+                    nivel_riesgo           = d.nivel_riesgo,
+                    es_mensaje_riesgo      = d.es_mensaje_riesgo,
+                    es_fin_de_npc          = d.es_fin_de_npc,
+                    es_fin_de_zona         = d.es_fin_de_zona,
+                    mensaje_npc            = d.mensaje_npc,
+                    narrativa_continuacion = d.narrativa_continuacion,
+                };
+
+                if (d.historial_previo != null)
+                    foreach (var h in d.historial_previo)
+                        if (h != null)
+                            p.historial_previo.Add(new HistorialPrevio
+                            {
+                                remitente  = h.remitente,
+                                npc_nombre = h.npc_nombre,
+                                mensaje    = h.mensaje,
+                                categoria  = h.categoria,
+                            });
+
+                if (d.opciones != null)
+                {
+                    // El backend guarda el orden en un campo aparte; el JSON se apoya en
+                    // el orden del array. Se ordena aquí para que las respuestas salgan
+                    // en pantalla como las escribió el equipo.
+                    var ops = new List<OpcionBancoDto>(d.opciones);
+                    ops.Sort((a, b) => a.orden.CompareTo(b.orden));
+
+                    foreach (var o in ops)
+                        if (o != null)
+                            p.opciones_respuesta.Add(new OpcionBanco
+                            {
+                                id                     = o.opcion_id,
+                                texto                  = o.texto,
+                                tipo                   = o.tipo,
+                                consecuencia_narrativa = o.consecuencia_narrativa,
+                                impacto_puntuacion     = o.impacto_puntuacion,
+                                siguiente_pregunta     = o.siguiente_pregunta,
+                            });
+                }
+
+                convertidas.Add(p);
+            }
+
+            banco.preguntas = convertidas;
+            Debug.Log($"[BancoPreguntasLoader] Banco actualizado desde la base: " +
+                      $"{convertidas.Count} pregunta(s).");
         }
 
         // ── HDU-2: Zona Desconocidos ───────────────────────────────────────────

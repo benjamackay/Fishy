@@ -166,15 +166,17 @@ namespace Fishy.World
         }
 
         /// <summary>
-        /// Anota en qué zona está Otto.
+        /// Anota en qué zona está Otto, y la deja lista para que viaje.
         ///
-        /// <b>Todavía no viaja al backend.</b> `PersonajeJugador` no tiene columna
-        /// `zona_actual`: se dejó fuera a propósito porque, cuando se diseñó, Unity no
-        /// sabía en qué zona estaba Otto. Ahora sí lo sabe —<see cref="ZonaActual"/>—,
-        /// así que falta el otro lado: agregar la columna, exponerla en
-        /// `GuardarPersonaje` y mandarla desde aquí. Mientras tanto queda en
-        /// <see cref="ZonaGuardada"/>, que ya permite probar que el momento del
-        /// guardado es el correcto.
+        /// No sube nada por su cuenta —como todo en esta clase—: quien la manda es
+        /// <c>PersonajeBackendSync.GuardarPosicion()</c>, que la lee de
+        /// <see cref="ZonaGuardada"/> y la mete en el mismo PATCH que la posición.
+        /// Por eso esto corre justo antes de pedirle que suba, en <see cref="Guardar"/>.
+        ///
+        /// Va a la columna `zona_actual` de `PersonajeJugador` (migración 0012). Ojo:
+        /// esa columna es la REGIÓN DEL MAPA (`zona_2`), y no tiene nada que ver con
+        /// `ZonaProgreso.zona`, que es la temática del banco (`desconocidos`). Son dos
+        /// vocabularios distintos y no hay tabla que los relacione.
         /// </summary>
         private void GuardarZona()
         {

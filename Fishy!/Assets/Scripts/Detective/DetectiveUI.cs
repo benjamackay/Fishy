@@ -11,6 +11,7 @@ using Med = Fishy.Detective.DetectiveUITheme.Medidas;
 using Fnt = Fishy.Detective.DetectiveUITheme.Fuente;
 using Txt = Fishy.Detective.DetectiveUITheme.Textos;
 using Spr = Fishy.Detective.DetectiveUITheme.Sprites;
+using Fnd = Fishy.Detective.DetectiveUITheme.Fondo;
 
 namespace Fishy.Detective
 {
@@ -46,8 +47,18 @@ namespace Fishy.Detective
 
         // ── Ritual de permiso (HDU-10 CA1) ───────────────────────────────────
         private GameObject    _panelPermiso;
-        private RectTransform _permisoBurbujas;
+        private FishyUIKit.PanelDialogo _permisoDialogo;
         private Button        _btnContinuarPermiso;
+        /// <summary>El ritual son dos tiempos con el mismo botón: primero pide Otto
+        /// y luego contesta el NPC. Sin esto el primer clic ya abriría el teléfono.</summary>
+        private bool          _permisoRespondido;
+
+        /// <summary>La ventana del caso: el teléfono. Se guarda porque durante el
+        /// ritual hay que esconderla —Otto todavía no lo tiene en la mano— y
+        /// enseñarla justo cuando el NPC da permiso.</summary>
+        private GameObject    _panelPrincipal;
+        private Image         _backdrop;
+        private MarcoTelefono _marcoTelefono;
 
         // ── Estado ────────────────────────────────────────────────────────────
         private DetectiveCaseManager _manager;
@@ -160,26 +171,77 @@ namespace Fishy.Detective
         /// <summary>
         /// Ritual de permiso previo al caso (HDU-10 CA1): Otto le pide permiso al
         /// NPC para revisar su conversación, y el NPC autoriza explícitamente
-        /// pidiendo ayuda para identificar señales de riesgo. Al continuar, recién
-        /// ahí se abre el bloque de conversación observada.
+        /// pidiendo ayuda para identificar señales de riesgo.
+        ///
+        /// Son dos tiempos y un clic cada uno, en el panel de diálogo de siempre:
+        /// primero pide Otto, después contesta el NPC. Recién al tercer clic aparece
+        /// el teléfono con la conversación observada. El orden importa: el teléfono
+        /// no está a la vista mientras se pide, porque lo que se enseña aquí es que
+        /// primero se pregunta y después se mira.
         /// </summary>
         public void MostrarPermiso(DetectiveCase caso, Action onContinuar)
         {
-            LimpiarPermiso();
             _panelResultado.SetActive(false);
             _window.SetActive(true);
+
+            // El teléfono no está a la vista todavía: primero hay que pedirlo. Y el
+            // mundo se oscurece apenas, porque Otto sigue de pie frente al NPC.
+            MostrarTelefono(false);
+            if (_backdrop != null) _backdrop.color = Col.BackdropPermiso;
+
             _panelPermiso.SetActive(true);
             _panelPermiso.transform.SetAsLastSibling();
 
-            CrearBurbujaPermiso(caso.permisoPlayerText, "Otto", esIzquierda: false, Col.BurbujaOtto);
-            CrearBurbujaPermiso(caso.permisoNpcResponse, caso.permisoNpcNombre, esIzquierda: true, Col.BurbujaIzquierda);
+            _permisoRespondido = false;
+            EscribirPeticionPermiso(caso);
 
             _btnContinuarPermiso.onClick.RemoveAllListeners();
             _btnContinuarPermiso.onClick.AddListener(() =>
             {
+                // Un clic por tiempo: pedir y que te contesten no son el mismo gesto.
+                if (!_permisoRespondido)
+                {
+                    _permisoRespondido = true;
+                    EscribirRespuestaPermiso(caso);
+                    return;
+                }
+
                 _panelPermiso.SetActive(false);
                 onContinuar?.Invoke();
             });
+        }
+
+        /// <summary>
+        /// Enciende o apaga el teléfono entero. El bisel es hermano de la pantalla y
+        /// no hijo, así que no basta con apagar el panel: se quedaría el marco negro
+        /// flotando sin nada dentro.
+        /// </summary>
+        private void MostrarTelefono(bool visible)
+        {
+            if (_panelPrincipal != null) _panelPrincipal.SetActive(visible);
+            if (_marcoTelefono != null) _marcoTelefono.gameObject.SetActive(visible);
+        }
+
+        /// <summary>Primer tiempo: Otto pide ver la conversación.</summary>
+        private void EscribirPeticionPermiso(DetectiveCase caso)
+        {
+            _permisoDialogo.Nombre.text = Txt.NombreOtto;
+            _permisoDialogo.Texto.text  = caso.permisoPlayerText;
+            _permisoDialogo.Respuesta.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Segundo tiempo: el NPC autoriza. La petición de Otto se queda abajo en la
+        /// línea de respuesta para que el permiso se lea como un ida y vuelta y no
+        /// como una frase suelta: es el CA1, y lo que se le está enseñando al niño/a
+        /// es justamente que hay que pedir antes de mirar.
+        /// </summary>
+        private void EscribirRespuestaPermiso(DetectiveCase caso)
+        {
+            _permisoDialogo.Nombre.text    = caso.permisoNpcNombre;
+            _permisoDialogo.Texto.text     = caso.permisoNpcResponse;
+            _permisoDialogo.Respuesta.text = Txt.PrefijoPeticionPermiso + caso.permisoPlayerText;
+            _permisoDialogo.Respuesta.gameObject.SetActive(true);
         }
 
         public void MostrarConversacion()
@@ -190,6 +252,10 @@ namespace Fishy.Detective
             _panelPermiso.SetActive(false);
             _btnConfirmar.interactable = false;
             _window.SetActive(true);
+
+            // Aquí es donde aparece el teléfono, ya con permiso dado.
+            MostrarTelefono(true);
+            if (_backdrop != null) _backdrop.color = Col.Backdrop;
             StartCoroutine(ReproducirMensajes(_manager.GetMensajes()));
         }
 
@@ -305,42 +371,6 @@ namespace Fishy.Detective
             ScrollToBottom();
         }
 
-        private void CrearBurbujaPermiso(string texto, string autor, bool esIzquierda, Color colorBase)
-        {
-            var row = new GameObject("RowPermiso", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-            row.transform.SetParent(_permisoBurbujas, false);
-            var hlg = row.GetComponent<HorizontalLayoutGroup>();
-            hlg.childAlignment        = esIzquierda ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
-            hlg.childControlWidth     = true; hlg.childControlHeight     = true;
-            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
-
-            if (!esIzquierda) AgendarSpacer(row.transform);
-
-            var bubble = new GameObject("Bubble",
-                typeof(RectTransform), typeof(Image),
-                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
-            bubble.transform.SetParent(row.transform, false);
-            AplicarFondoRedondeado(bubble.GetComponent<Image>(), colorBase);
-            var vlg = bubble.GetComponent<VerticalLayoutGroup>();
-            vlg.padding = Med.PaddingBurbujaPermiso; vlg.spacing = Med.EspaciadoBurbujaPermiso;
-            vlg.childControlWidth     = true; vlg.childControlHeight     = true;
-            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
-            var fitter = bubble.GetComponent<ContentSizeFitter>();
-            fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            bubble.GetComponent<LayoutElement>().preferredWidth = Med.AnchoBurbujaPermiso;
-
-            var at = CrearTexto(bubble.transform, "Autor", autor, Fnt.AutorPermiso,
-                new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, Col.AlfaAutorPermiso),
-                TextAlignmentOptions.TopLeft);
-            at.fontStyle = FontStyles.Bold;
-
-            CrearTexto(bubble.transform, "Texto", texto, Fnt.TextoPermiso,
-                Col.Texto, TextAlignmentOptions.TopLeft);
-
-            if (esIzquierda) AgendarSpacer(row.transform);
-        }
-
         private static void AgendarSpacer(Transform parent)
         {
             var sp = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
@@ -427,7 +457,8 @@ namespace Fishy.Detective
             var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
             backdrop.transform.SetParent(_window.transform, false);
             Stretch(backdrop.GetComponent<RectTransform>());
-            backdrop.GetComponent<Image>().color = Col.Backdrop;
+            _backdrop = backdrop.GetComponent<Image>();
+            _backdrop.color = Col.Backdrop;
 
             // Panel principal
             var panel = new GameObject("ChatWindow", typeof(RectTransform), typeof(Image));
@@ -438,37 +469,57 @@ namespace Fishy.Detective
             panelRT.pivot     = new Vector2(0.5f, 0.5f);
             panelRT.sizeDelta = Med.Ventana;
             AplicarFondoRedondeado(panel.GetComponent<Image>(), Col.Ventana);
+            _panelPrincipal = panel;
 
             BuildHeader(panel.transform);
             BuildScroll(panel.transform);
             BuildBarraInferior(panel.transform);
+
+            // La ventana del caso no es una ventana: es la pantalla del teléfono que
+            // el NPC acaba de prestar. Va después de las zonas porque la barra de
+            // estado se cuelga dentro del panel.
+            var ajustes = MarcoTelefono.Ajustes.PorDefecto;
+            ajustes.Pantalla          = Med.Ventana;
+            ajustes.Borde             = Med.BordeTelefono;
+            ajustes.AlturaBarraEstado = Med.AlturaBarraEstado;
+            ajustes.TamanoReloj       = Fnt.Reloj;
+            ajustes.MargenBarraInicio = Med.MargenBarraInicio;
+            // Aquí las zonas van por anclajes, no en una pila, y el panel ya está
+            // centrado y medido: nada que recolocar.
+            ajustes.BarraEstadoEnPila = false;
+            ajustes.RecolocarPantalla = false;
+            _marcoTelefono = MarcoTelefono.Montar(panelRT, ajustes);
+
             BuildPanelResultado(_window.transform);
             BuildPanelPermiso(_window.transform);
         }
 
+        /// <summary>
+        /// Panel del ritual de permiso. Es el mismo panel de diálogo que usan los
+        /// NPCs neutros y el chat cara a cara, no una tarjeta flotante: lo que pasa
+        /// ahí es que Otto le habla a alguien que tiene delante, y la interfaz de
+        /// "hablar en persona" ya existe en el juego. Antes eran dos burbujas de
+        /// chat dentro de una tarjeta centrada, que es el lenguaje de una pantalla
+        /// —justo lo que el niño/a todavía no está mirando.
+        /// </summary>
         private void BuildPanelPermiso(Transform parent)
         {
-            _panelPermiso = new GameObject("PanelPermiso", typeof(RectTransform), typeof(Image));
-            _panelPermiso.transform.SetParent(parent, false);
-            Stretch(_panelPermiso.GetComponent<RectTransform>());
-            _panelPermiso.GetComponent<Image>().color = Col.PanelResultado;
+            _permisoDialogo = FishyUIKit.CrearPanelDialogo(parent,
+                fondo:           Col.Ventana,
+                colorNombre:     Col.Texto,
+                colorTexto:      Col.Texto,
+                colorRespuesta:  Col.TextoSuave,
+                ancho:           Med.AnchoPanelPermiso,
+                tamNombre:       Fnt.NombrePermiso,
+                tamTexto:        Fnt.TextoPermiso,
+                tamRespuesta:    Fnt.RespuestaPermiso,
+                margenInferior:  Med.MargenInferiorPermiso,
+                radio:           Spr.RadioRedondeado);
 
-            var card = CrearCard(_panelPermiso.transform, Med.AnchoCardPermiso, Med.PaddingCardPermiso);
+            _panelPermiso = _permisoDialogo.Raiz;
 
-            AgregarTitulo(card, Txt.TituloPermiso);
-
-            var burbujasGO = new GameObject("Burbujas",
-                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            burbujasGO.transform.SetParent(card, false);
-            _permisoBurbujas = burbujasGO.GetComponent<RectTransform>();
-            var bvlg = burbujasGO.GetComponent<VerticalLayoutGroup>();
-            bvlg.spacing = Med.EspaciadoEntreBurbujasPermiso;
-            bvlg.childControlWidth     = true; bvlg.childControlHeight     = true;
-            bvlg.childForceExpandWidth = true; bvlg.childForceExpandHeight = false;
-            burbujasGO.GetComponent<ContentSizeFitter>().verticalFit =
-                ContentSizeFitter.FitMode.PreferredSize;
-
-            _btnContinuarPermiso = CrearBotonCard(card, Txt.BotonContinuarPermiso, Col.BotonConfirmar, null);
+            _btnContinuarPermiso = CrearBotonCard(_permisoDialogo.Opciones,
+                Txt.BotonContinuarPermiso, Col.BotonConfirmar, null);
 
             _panelPermiso.SetActive(false);
         }
@@ -481,6 +532,7 @@ namespace Fishy.Detective
             rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot     = new Vector2(0.5f, 1f);
             rt.sizeDelta = new Vector2(0f, Med.AlturaHeader);
+            rt.anchoredPosition = new Vector2(0f, -Med.AlturaBarraEstado);
             header.GetComponent<Image>().color = Col.Header;
 
             bool hayIcono = CrearIconoLupa(header.transform);
@@ -654,7 +706,7 @@ namespace Fishy.Detective
             var scrollRT = scrollGO.GetComponent<RectTransform>();
             scrollRT.anchorMin = new Vector2(0f, 0f); scrollRT.anchorMax = new Vector2(1f, 1f);
             scrollRT.offsetMin = new Vector2(0f, Med.MargenScrollAbajo);
-            scrollRT.offsetMax = new Vector2(0f, -Med.MargenScrollArriba);
+            scrollRT.offsetMax = new Vector2(0f, -(Med.MargenScrollArriba + Med.AlturaBarraEstado));
             scrollGO.GetComponent<Image>().color = Col.Historial;
             _scrollRect = scrollGO.GetComponent<ScrollRect>();
             _scrollRect.horizontal        = false;
@@ -685,7 +737,7 @@ namespace Fishy.Detective
 
         /// <summary>
         /// Telón de fondo del historial. Mientras se elige cuál usar, lo maneja
-        /// <see cref="DetectiveFondoAleatorio"/>, que va rotando imágenes de una
+        /// <see cref="FondoAleatorio"/>, que va rotando imágenes de una
         /// carpeta con una tecla. Sin imágenes no pasa nada: el historial se ve
         /// con su color liso.
         /// </summary>
@@ -702,9 +754,21 @@ namespace Fishy.Detective
             img.raycastTarget = false;   // los clics son de las burbujas
             img.enabled       = false;   // hasta que haya una imagen que poner
 
-            var rotador = go.AddComponent<DetectiveFondoAleatorio>();
+            var rotador = go.AddComponent<FondoAleatorio>();
             rotador.destino       = img;
             rotador.etiquetaPadre = _window != null ? _window.transform : null;
+            rotador.carpeta          = Fnd.Carpeta;
+            rotador.rotar            = Fnd.Rotar;
+            rotador.fijoPorNombre    = Fnd.FijoPorNombre;
+            rotador.teclaSiguiente   = Fnd.TeclaSiguiente;
+            rotador.tinte            = Fnd.Tinte;
+            rotador.repetir          = Fnd.Repetir;
+            rotador.mostrarNombre    = Fnd.MostrarNombre;
+            rotador.tamanoNombre     = Fnd.TamanoNombre;
+            rotador.colorNombre      = Col.TextoSuave;
+            rotador.rutaFuenteNombre = DetectiveUITheme.Fuentes.RutaCuerpo;
+            rotador.modulo           = "Detective";
+            rotador.Iniciar();
         }
 
         private void BuildBarraInferior(Transform parent)
@@ -842,12 +906,6 @@ namespace Fishy.Detective
                 Destroy(_content.GetChild(i).gameObject);
         }
 
-        private void LimpiarPermiso()
-        {
-            if (_permisoBurbujas == null) return;
-            for (int i = _permisoBurbujas.childCount - 1; i >= 0; i--)
-                Destroy(_permisoBurbujas.GetChild(i).gameObject);
-        }
 
         private void LimpiarExplicaciones()
         {

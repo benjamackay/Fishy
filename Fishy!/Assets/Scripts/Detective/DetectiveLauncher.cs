@@ -3,6 +3,7 @@ using UnityEngine;
 using Fishy.World;
 using Fishy.Mision;
 using Fishy.Net;
+using UnityEngine.Events;
 
 namespace Fishy.Detective
 {
@@ -17,6 +18,10 @@ namespace Fishy.Detective
                  "Tiene que existir en la base: si no, el caso se juega desde el respaldo local " +
                  "y el resultado NO se guarda.")]
         [SerializeField] private string casoId = "DC_CASO_01";
+
+        /// <summary>El caso_id, para que ObjetivoMision pueda encontrar este launcher
+        /// por dato en vez de necesitar la referencia arrastrada a mano.</summary>
+        public string CasoId => casoId;
         [Tooltip("Respaldo local si no hay sesión/backend: Resources/<esto>.json.")]
         [SerializeField] private string resourcePath = "detective_caso_01";
 
@@ -34,6 +39,15 @@ namespace Fishy.Detective
         [Header("Referencias (se crean solas si están vacías)")]
         [SerializeField] private DetectiveCaseManager caseManager;
         [SerializeField] private DetectiveUI          detectiveUI;
+
+        [Header("Eventos")]
+        [Tooltip("Se dispara al cerrar el caso, con cualquier resultado — no hace " +
+                 "falta superar el umbral. Es el enganche para un objetivo de misión " +
+                 "de tipo 'Completar Caso Detective' (ver ObjetivoMision): a " +
+                 "diferencia de 'Desafío Asociado' de arriba, que completa TODA una " +
+                 "misión, esto solo avisa de que el caso terminó, para que cuente " +
+                 "como un objetivo más entre varios.")]
+        public UnityEvent onCasoResuelto = new UnityEvent();
 
         private bool _enCurso   = false;
         private bool _completado = false;
@@ -153,6 +167,8 @@ namespace Fishy.Detective
 
             if (desafioAsociado != null)
                 MissionManager.Instance?.CompletarDesafio(desafioAsociado);
+
+            onCasoResuelto?.Invoke();
 
             Debug.Log("[Detective] Modo detective terminado.");
         }

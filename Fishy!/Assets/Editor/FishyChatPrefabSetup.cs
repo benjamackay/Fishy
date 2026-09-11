@@ -43,8 +43,9 @@ namespace Fishy.EditorTools
             box.size = DefaultTriggerSize;
 
             var launcher = go.AddComponent<PhoneChatLauncher>();
-            launcher.source = PhoneChatLauncher.Source.SoloNpc;
-            launcher.npcId = "NPC_01";
+            // El contenido se elige siempre por escenario_id. Se deja el primero del
+            // banco como ejemplo: quien cree el prefab tiene que cambiarlo por el suyo.
+            launcher.escenarioIds = "M1_CHAT01";
             launcher.modoTelefono = false;   // por defecto: NPC visible, sin celular
 
             bool existiaAntes = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null;

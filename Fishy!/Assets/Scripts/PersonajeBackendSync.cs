@@ -342,8 +342,35 @@ namespace Fishy.Net
             Vector2 ahora = otto.transform.position;
             string escena = SceneManager.GetActiveScene().name;
 
-            api.GuardarPersonaje(escena, ahora.x, ahora.y,
+            // La zona viaja en la MISMA peticion que la posicion, no en otra: asi no
+            // pueden contradecirse ni queda una a medias si la segunda no sale.
+            api.GuardarPersonaje(escena, ahora.x, ahora.y, ZonaDeOtto(),
                 onError: e => Debug.LogWarning($"[PersonajeBackendSync] No se pudo guardar dónde está Otto: {e}"));
+        }
+
+        /// <summary>
+        /// En que zona esta Otto, para mandarla junto a la posicion.
+        ///
+        /// Por el camino normal la pone <see cref="SaveManager"/>: su Guardar() llama
+        /// a GuardarZona() —que recalcula con Revisar()— justo antes de pedirnos que
+        /// subamos, asi que <c>ZonaGuardada</c> es lo mas fresco que hay.
+        ///
+        /// Pero <see cref="GuardarPosicion"/> tambien se llama directo desde
+        /// OnApplicationQuit y OnApplicationPause, sin pasar por SaveManager, y por
+        /// ahi ZonaGuardada seria la del guardado anterior. De ahi el respaldo.
+        ///
+        /// El respaldo lee <c>Actual</c> y NO llama a <c>Revisar()</c> a proposito:
+        /// Revisar dispara OnZonaCambiada, y eso engancharia otro guardado entero
+        /// justo mientras se esta cerrando el juego. Actual se refresca solo cada
+        /// 0,25 s, que para esto sobra.
+        /// </summary>
+        private static string ZonaDeOtto()
+        {
+            var save = Fishy.World.SaveManager.Instance;
+            if (save != null && !string.IsNullOrEmpty(save.ZonaGuardada)) return save.ZonaGuardada;
+
+            var zonas = Fishy.World.ZonaActual.Instance;
+            return zonas != null ? zonas.Actual : null;
         }
 
         // ── Auxiliares ───────────────────────────────────────────────────────

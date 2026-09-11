@@ -47,6 +47,41 @@ namespace Fishy.Mision
             Asegurar();
         }
 
+        /// <summary>
+        /// Añade al catálogo una ficha que no está en Resources.
+        ///
+        /// Existe para las misiones que vienen de la base de datos: ahí no hay ningún
+        /// asset que cargar, pero <see cref="MissionManager.PrecargarConocidos"/> sigue
+        /// necesitando resolver el id de texto a una ficha para poder repintar el panel
+        /// al retomar la partida. Lo usa <see cref="CatalogoMisiones.Ficha"/>.
+        ///
+        /// <b>Un asset de Resources nunca se pisa.</b> Si ya hay ficha con ese id, se
+        /// conserva la que estaba: lo que alguien puso a mano en el proyecto manda
+        /// sobre lo que se fabrique en caliente.
+        /// </summary>
+        public static bool Registrar(DesafioData data)
+        {
+            if (data == null || string.IsNullOrWhiteSpace(data.desafioId)) return false;
+
+            Asegurar();
+            string id = data.desafioId.Trim();
+            if (_porId.ContainsKey(id)) return false;
+
+            _porId[id] = data;
+            return true;
+        }
+
+        /// <summary>
+        /// Quita del catálogo una ficha registrada en caliente. Sirve para soltar las
+        /// del catálogo anterior cuando llega uno nuevo desde la base, y así el panel
+        /// no se quede mostrando un título que ya se corrigió.
+        /// </summary>
+        public static void Olvidar(string desafioId)
+        {
+            if (string.IsNullOrWhiteSpace(desafioId) || _porId == null) return;
+            _porId.Remove(desafioId.Trim());
+        }
+
         private static void Asegurar()
         {
             if (_porId != null) return;

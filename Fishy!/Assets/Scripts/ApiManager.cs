@@ -619,6 +619,58 @@ namespace Fishy.Net
         }
 
         /// <summary>Diálogo de un NPC neutro (HDU-1), por su dialogo_id (ej: NPC_FLAMENCO_SEC).</summary>
+        /// <summary>
+        /// Trae el banco de preguntas entero desde la base (/banco/preguntas/).
+        ///
+        /// Es la misma fuente que el JSON empaquetado —`manage.py cargar_banco` llena
+        /// la tabla desde ese archivo—, pero la base es la que el equipo puede corregir
+        /// sin recompilar el juego. Lo usa <c>BancoBackendSync</c> al arrancar; si falla
+        /// o no hay sesión, el chat sigue con la copia de Resources.
+        /// </summary>
+        public void ObtenerPreguntasBanco(
+            Action<List<PreguntaBancoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el banco no se descarga; se usa la copia de Resources.");
+                return;
+            }
+
+            StartCoroutine(Send<List<PreguntaBancoDto>>("GET", "/banco/preguntas/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Trae el catalogo de misiones entero, con sus objetivos (/misiones/).
+        ///
+        /// <b>Es catalogo, no progreso.</b> Que misiones lleva hechas un nino concreto
+        /// sigue estando en /partidas/{id}/misiones/. Esto es el contenido, igual para
+        /// todos y sin necesidad de partida abierta.
+        ///
+        /// <b>Se usa Fishy.Mision.MisionRegistro como tipo de la respuesta</b>, el mismo
+        /// que lee el archivo de respaldo Resources/misiones.json. Es a proposito: las
+        /// dos fuentes tienen el mismo contenido, asi que darles formas distintas
+        /// obligaria a mantener dos traducciones y a que una se quedara atras. Si el
+        /// backend acaba llamando distinto a algun campo, la traduccion va en un solo
+        /// sitio, aqui.
+        ///
+        /// Lo usa <c>MisionCatalogoSync</c> al arrancar; si falla, no hay sesion o se
+        /// juega en modo local, el juego se queda con el archivo de respaldo.
+        /// </summary>
+        public void ObtenerCatalogoMisiones(
+            Action<List<Fishy.Mision.MisionRegistro>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el catalogo de misiones no se descarga; " +
+                                "se usa Resources/misiones.json.");
+                return;
+            }
+
+            StartCoroutine(Send<List<Fishy.Mision.MisionRegistro>>("GET", "/misiones/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
         public void ObtenerDialogoNpc(string dialogoId,
             Action<DialogoNpcDto> onSuccess = null, Action<string> onError = null)
         {
@@ -901,7 +953,12 @@ namespace Fishy.Net
         /// Guarda donde esta Otto. Es un PATCH: manda solo lo que cambia y lo demas
         /// se queda como estaba.
         /// </summary>
-        public void GuardarPersonaje(string escena, float x, float y, int? partidaId = null,
+        /// <param name="zonaActual">
+        /// Zona del mapa donde esta Otto (`zona_2`). Null o vacio = no se manda, y
+        /// entonces el backend deja la que ya tenia. Ver la nota de abajo.
+        /// </param>
+        public void GuardarPersonaje(string escena, float x, float y, string zonaActual = null,
+            int? partidaId = null,
             Action<PersonajeDto> onSuccess = null, Action<string> onError = null)
         {
             int? pId = partidaId ?? PartidaId;
@@ -912,12 +969,20 @@ namespace Fishy.Net
                 // El trabajo NO va adentro de `onSuccess?.Invoke(...)`: el `?.` corta
                 // la expresion entera cuando el callback es null y no se guardaria
                 // nada, en silencio. Ya paso con el inventario.
-                var guardado = LocalGuardarPersonaje(pId.Value, escena, x, y);
+                var guardado = LocalGuardarPersonaje(pId.Value, escena, x, y, zonaActual);
                 onSuccess?.Invoke(guardado);
                 return;
             }
 
-            var body = new { escena, pos_x = x, pos_y = y };
+            // Sin zona se manda solo la posicion, y el campo se omite del cuerpo.
+            // Es un PATCH: omitir `zona_actual` deja la que ya estaba guardada, pero
+            // mandarla como "" la PISA con vacio, y el vacio significa "nunca se
+            // guardo". Mandar la posicion sin la zona es legitimo; borrar la zona sin
+            // querer, no.
+            object body = string.IsNullOrEmpty(zonaActual)
+                ? (object)new { escena, pos_x = x, pos_y = y }
+                : new { escena, pos_x = x, pos_y = y, zona_actual = zonaActual };
+
             StartCoroutine(Send<PersonajeDto>("PATCH", $"/partidas/{pId}/personaje/", body, auth: true,
                 onSuccess: onSuccess, onError: onError));
         }
@@ -1337,13 +1402,24 @@ namespace Fishy.Net
             catch { return new PersonajeDto { tiene_posicion = false }; }
         }
 
-        private static PersonajeDto LocalGuardarPersonaje(int partidaId, string escena, float x, float y)
+        private static PersonajeDto LocalGuardarPersonaje(int partidaId, string escena, float x, float y,
+            string zonaActual)
         {
+            // Sin zona se conserva la que ya habia, igual que hace el PATCH del
+            // servidor al omitir el campo. Aqui hay que leerla a mano porque esto no
+            // parchea una fila: reescribe el DTO entero, y un `zonaActual ?? ""` la
+            // borraria. Si las dos ramas divergen, el bug aparece recien al
+            // reconectar, que es el peor momento para descubrirlo.
+            string zona = string.IsNullOrEmpty(zonaActual)
+                ? (LocalLeerPersonaje(partidaId).zona_actual ?? "")
+                : zonaActual;
+
             var dto = new PersonajeDto
             {
                 escena = escena ?? "",
                 pos_x = x,
                 pos_y = y,
+                zona_actual = zona,
                 tiene_posicion = true,
                 fecha_actualizacion = LocalNow(),
             };
@@ -1944,6 +2020,57 @@ namespace Fishy.Net
     }
 
     [Serializable]
+    /// <summary>Una opción de respuesta del banco, tal como la sirve el backend.
+    /// Ojo: el backend la llama <c>opcion_id</c> y <c>opciones</c>, mientras que el
+    /// JSON empaquetado usa <c>id</c> y <c>opciones_respuesta</c>. La traducción se
+    /// hace en BancoPreguntasLoader, no aquí.</summary>
+    public class OpcionBancoDto
+    {
+        public string opcion_id;
+        public string texto;
+        public string tipo;
+        public string consecuencia_narrativa;
+        public int    impacto_puntuacion;
+        public string siguiente_pregunta;
+        public int    orden;
+    }
+
+    public class HistorialPrevioDto
+    {
+        public string remitente;
+        public string npc_nombre;
+        public string mensaje;
+        public string categoria;
+    }
+
+    /// <summary>Una pregunta del banco servida por /banco/preguntas/.</summary>
+    public class PreguntaBancoDto
+    {
+        public string pregunta_id;
+        public string hdu;
+        public string zona;
+        public string npc_id;
+        public string npc_nombre;
+        public string npc_avatar;
+
+        // Nullables en la base: hay preguntas sueltas que no pertenecen a ninguna
+        // fase. Con int a secas, Newtonsoft revienta al encontrarse un null.
+        public int?   fase;
+        public int?   orden_en_fase;
+
+        public string narrativa_continuacion;
+        public string escenario_id;
+        public string escenario_nombre;
+        public List<HistorialPrevioDto> historial_previo = new List<HistorialPrevioDto>();
+        public string categoria;
+        public int    nivel_riesgo;
+        public bool   es_mensaje_riesgo;
+        public bool   es_fin_de_npc;
+        public bool   es_fin_de_zona;
+        public string mensaje_npc;
+        public List<OpcionBancoDto> opciones = new List<OpcionBancoDto>();
+    }
+
     public class DialogoNpcDto
     {
         public string dialogo_id;
@@ -2070,6 +2197,15 @@ namespace Fishy.Net
         public string escena;
         public float? pos_x;
         public float? pos_y;
+        /// <summary>
+        /// Region del mapa donde quedo Otto: el `zoneId` de la BlockedZone
+        /// (`zona_1`, `zona_2`...). Cadena vacia = nunca se guardo, nunca null.
+        ///
+        /// NO es lo mismo que la `zona` de ZonaProgresoDto, que es la tematica del
+        /// banco (`desconocidos`, `ciberacoso`). Son dos vocabularios distintos y no
+        /// hay tabla que los relacione.
+        /// </summary>
+        public string zona_actual;
         /// <summary>False = nunca se guardo. Distinto de estar en el (0,0).</summary>
         public bool tiene_posicion;
         public string fecha_actualizacion;

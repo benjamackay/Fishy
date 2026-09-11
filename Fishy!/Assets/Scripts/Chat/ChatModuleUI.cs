@@ -52,9 +52,7 @@ namespace Fishy.Chat
         private RectTransform  _chatPanelRT;  // referencia al panel del chat
         private Image          _backdropImage;
         private static Vector2 NormalWindowSize => ChatMed.Ventana;
-        private GameObject     _phoneChromeRoot; // bezel + status bar generados
-        private TextMeshProUGUI _phoneClockText;
-        private Coroutine      _clockCoroutine;
+        private MarcoTelefono  _marcoTelefono;   // bisel, barra de estado y reloj
 
         private void Awake()
         {
@@ -121,8 +119,7 @@ namespace Fishy.Chat
             moodPanel        = null;
             _chatPanelRT     = null;
             _backdropImage   = null;
-            _phoneChromeRoot = null;
-            _phoneClockText  = null;
+            _marcoTelefono   = null;
 
             BuildRuntimeUI();
             _construida      = true;
@@ -455,6 +452,12 @@ namespace Fishy.Chat
             scrollRect.horizontal = false; scrollRect.vertical = true;
             scrollRect.scrollSensitivity = 30f;
 
+            // El tapiz va como hijo del Scroll y no como su Image, para que el
+            // color liso siga debajo: así el alfa del tinte mezcla ilustración y
+            // paleta en vez de reemplazarla. Y va antes que Content, o taparía
+            // los mensajes.
+            CrearTapiz(scrollGO.transform);
+
             var contentGO = new GameObject("Content",
                 typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             contentGO.transform.SetParent(scrollGO.transform, false);
@@ -472,6 +475,61 @@ namespace Fishy.Chat
             contentGO.GetComponent<ContentSizeFitter>().verticalFit =
                 ContentSizeFitter.FitMode.PreferredSize;
             scrollRect.content = content;
+        }
+
+        /// <summary>
+        /// Papel tapiz del historial, lo mismo que hace el Modo Detective: mientras
+        /// se elige cuál usar lo maneja <see cref="FondoAleatorio"/>, que va rotando
+        /// imágenes de una carpeta con una tecla. Sin imágenes no pasa nada: el
+        /// historial se ve con su color liso.
+        ///
+        /// Solo se llama desde el diseño de mensajería, así que el tapiz sale
+        /// únicamente en el chat por teléfono. El cara a cara se queda liso a
+        /// propósito: una conversación en persona no es una pantalla.
+        ///
+        /// Va envuelto en una máscara y no suelto como en el detective porque aquí
+        /// el historial tiene las esquinas redondeadas: una imagen rectangular
+        /// asomaría por las cuatro puntas. La máscara usa el mismo 9-slice que pinta
+        /// el redondeo, así que el recorte encaja solo aunque cambie el radio.
+        /// </summary>
+        private void CrearTapiz(Transform parent)
+        {
+            var recorteGO = new GameObject("TapizRecorte",
+                typeof(RectTransform), typeof(Image), typeof(Mask));
+            recorteGO.transform.SetParent(parent, false);
+            Stretch(recorteGO.GetComponent<RectTransform>());
+
+            var recorteImg = recorteGO.GetComponent<Image>();
+            recorteImg.sprite        = FishyUIKit.SpriteRedondeado(radio: ChatMed.RadioEsquina);
+            recorteImg.type          = Image.Type.Sliced;
+            recorteImg.raycastTarget = false;
+            recorteGO.GetComponent<Mask>().showMaskGraphic = false;
+
+            var go = new GameObject("Tapiz", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(recorteGO.transform, false);
+            Stretch(go.GetComponent<RectTransform>());
+
+            var img = go.GetComponent<Image>();
+            img.raycastTarget = false;   // los clics son de las burbujas
+            img.enabled       = false;   // hasta que haya una imagen que poner
+
+            var rotador = go.AddComponent<FondoAleatorio>();
+            rotador.destino          = img;
+            // El rótulo de prueba se cuelga de la raíz y no del panel: el panel es
+            // una pila vertical y un hijo más le descuadraría el reparto de alto.
+            rotador.etiquetaPadre    = window != null ? window.transform : null;
+            rotador.carpeta          = MedTel.Fondo.Carpeta;
+            rotador.rotar            = MedTel.Fondo.Rotar;
+            rotador.fijoPorNombre    = MedTel.Fondo.FijoPorNombre;
+            rotador.teclaSiguiente   = MedTel.Fondo.TeclaSiguiente;
+            rotador.tinte            = MedTel.Fondo.Tinte;
+            rotador.repetir          = MedTel.Fondo.Repetir;
+            rotador.mostrarNombre    = MedTel.Fondo.MostrarNombre;
+            rotador.tamanoNombre     = MedTel.Fondo.TamanoNombre;
+            rotador.colorNombre      = ChatCol.TextoSuave;
+            rotador.rutaFuenteNombre = FishyUIKit.RutaCuerpo;
+            rotador.modulo           = "Chat";
+            rotador.Iniciar();
         }
 
         /// <summary>
@@ -599,163 +657,26 @@ namespace Fishy.Chat
 
             if (_chatPanelRT == null) return;
 
-            // 1. Centrar y redimensionar el panel a proporción de celular (9:16)
-            //    (el modo normal lo deja anclado a una esquina, más chico).
-            _chatPanelRT.anchorMin = new Vector2(0.5f, 0.5f);
-            _chatPanelRT.anchorMax = new Vector2(0.5f, 0.5f);
-            _chatPanelRT.pivot = new Vector2(0.5f, 0.5f);
-            _chatPanelRT.anchoredPosition = Vector2.zero;
-            _chatPanelRT.sizeDelta = MedTel.Ventana;
-
             // Actualizar etiqueta de contacto en el header existente.
             if (headerLabel != null) headerLabel.text = contactName;
 
-            // 2. Crear carcasa del celular (visible detrás del panel, con borde).
-            _phoneChromeRoot = new GameObject("PhoneChrome", typeof(RectTransform), typeof(Image));
-            _phoneChromeRoot.transform.SetParent(_chatPanelRT.parent, false);
-            _phoneChromeRoot.transform.SetSiblingIndex(_chatPanelRT.GetSiblingIndex()); // debajo del panel
+            var ajustes = MarcoTelefono.Ajustes.PorDefecto;
+            ajustes.Pantalla          = MedTel.Ventana;
+            ajustes.Borde             = MedTel.Borde;
+            ajustes.AlturaBarraEstado = MedTel.AlturaBarraEstado;
+            ajustes.TamanoReloj       = ChatFnt.Reloj;
+            ajustes.MargenBarraInicio = MedTel.MargenBarraInicio;
+            // El panel del chat es una pila vertical, y fuera del teléfono vive en una
+            // esquina y más chico: hay que centrarlo y medirlo al montar la carcasa.
+            ajustes.BarraEstadoEnPila = true;
+            ajustes.RecolocarPantalla = true;
 
-            var bezelRT = _phoneChromeRoot.GetComponent<RectTransform>();
-            bezelRT.anchorMin = new Vector2(0.5f, 0.5f);
-            bezelRT.anchorMax = new Vector2(0.5f, 0.5f);
-            bezelRT.pivot     = new Vector2(0.5f, 0.5f);
-            // Se calcula del panel: antes era un 640x1120 fijo que no seguía a la
-            // pantalla, y con el canvas de 1080 de alto el marco salía cortado.
-            bezelRT.sizeDelta = MedTel.Ventana
-                              + Vector2.one * (MedTel.Borde * 2f);
-            _phoneChromeRoot.GetComponent<Image>().color = new Color(0.06f, 0.06f, 0.08f, 1f);
-
-            // 3. Notch / cámara frontal.
-            var notch = new GameObject("Notch", typeof(RectTransform), typeof(Image));
-            notch.transform.SetParent(_phoneChromeRoot.transform, false);
-            var notchRT = notch.GetComponent<RectTransform>();
-            notchRT.anchorMin = new Vector2(0.5f, 1f);
-            notchRT.anchorMax = new Vector2(0.5f, 1f);
-            notchRT.pivot     = new Vector2(0.5f, 1f);
-            notchRT.anchoredPosition = new Vector2(0f, -8f);
-            notchRT.sizeDelta = new Vector2(120f, 28f);
-            notch.GetComponent<Image>().color = new Color(0.04f, 0.04f, 0.05f, 1f);
-
-            // 4. Barra de estado DENTRO del panel del chat (encima del header).
-            var statusGO = new GameObject("StatusBar",
-                typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            statusGO.transform.SetParent(_chatPanelRT, false);
-            statusGO.transform.SetAsFirstSibling();
-
-            // El panel es una pila vertical, así que la barra entra como una fila
-            // más y pide su alto. Anclándola a mano quedaba encima de la cabecera.
-            var statusLE = statusGO.GetComponent<LayoutElement>();
-            statusLE.minHeight = MedTel.AlturaBarraEstado;
-            statusLE.preferredHeight = MedTel.AlturaBarraEstado;
-            statusGO.GetComponent<Image>().color = new Color(0.05f, 0.07f, 0.10f, 1f);
-
-            // Reloj (izq).
-            var clockGO = new GameObject("Clock", typeof(RectTransform), typeof(TextMeshProUGUI));
-            clockGO.transform.SetParent(statusGO.transform, false);
-            var clockRT = clockGO.GetComponent<RectTransform>();
-            clockRT.anchorMin = new Vector2(0f, 0f); clockRT.anchorMax = new Vector2(0f, 1f);
-            clockRT.pivot     = new Vector2(0f, 0.5f);
-            clockRT.anchoredPosition = new Vector2(18f, 0f);
-            clockRT.sizeDelta        = new Vector2(160f, 0f);
-            _phoneClockText = clockGO.GetComponent<TextMeshProUGUI>();
-            _phoneClockText.font      = FishyUIKit.Cuerpo;
-            _phoneClockText.fontSize  = ChatFnt.Reloj;
-            _phoneClockText.color     = Color.white;
-            _phoneClockText.alignment = TextAlignmentOptions.MidlineLeft;
-            _phoneClockText.text      = System.DateTime.Now.ToString("HH:mm");
-
-            CrearIconosEstado(statusGO.transform);
-
-            // 6. Barra de inicio (home bar) en el fondo del panel.
-            var homeGO = new GameObject("HomeBar",
-                typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            homeGO.transform.SetParent(_chatPanelRT, false);
-
-            // El panel es una pila vertical: sin esto la barra de inicio entraría
-            // como una fila más y empujaría al resto, en vez de quedarse flotando
-            // sobre el borde inferior como en un celular de verdad.
-            homeGO.GetComponent<LayoutElement>().ignoreLayout = true;
-            var homeRT = homeGO.GetComponent<RectTransform>();
-            homeRT.anchorMin = new Vector2(0.25f, 0f);
-            homeRT.anchorMax = new Vector2(0.75f, 0f);
-            homeRT.pivot     = new Vector2(0.5f, 0f);
-            homeRT.anchoredPosition = new Vector2(0f, 10f);
-            homeRT.sizeDelta        = new Vector2(0f, 8f);
-            homeGO.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.35f);
-
-            // 7. Iniciar reloj actualizable.
-            _clockCoroutine = StartCoroutine(ClockRoutine());
-        }
-
-        /// <summary>
-        /// Iconos de la barra de estado, dibujados con rectángulos en vez de con
-        /// caracteres.
-        ///
-        /// Antes eran el texto "▲▲▲ WiFi 🔋" y salía "▲▲▲ WiFi □": la fuente de
-        /// cuerpo es estática y trae 250 caracteres —Latin-1 y poco más—, así que no
-        /// tiene ni los triángulos (venían de una fuente de respaldo) ni la batería,
-        /// que además es U+1F50B, fuera del BMP. Es el mismo callejón que la lupa del
-        /// Modo Detective. Dibujarlos no depende de ninguna fuente.
-        /// </summary>
-        private void CrearIconosEstado(Transform barra)
-        {
-            var cont = new GameObject("Iconos", typeof(RectTransform));
-            cont.transform.SetParent(barra, false);
-            var rt = cont.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(1f, 0.5f); rt.anchorMax = new Vector2(1f, 0.5f);
-            rt.pivot     = new Vector2(1f, 0.5f);
-            rt.anchoredPosition = new Vector2(-16f, 0f);
-            rt.sizeDelta        = new Vector2(96f, 22f);
-
-            // Cobertura: tres barras crecientes, alineadas por su base.
-            for (int i = 0; i < 3; i++)
-            {
-                float alto = 6f + i * 4f;
-                Rectangulo(cont.transform, $"Senal{i}",
-                    x: -85f + i * 9f, y: -(14f - alto) / 2f,
-                    ancho: 6f, alto: alto, alfa: 0.9f);
-            }
-
-            // WiFi: tres trazos de ancho creciente hacia arriba, centrados en un
-            // mismo eje para que se lean como abanico y no como escalera.
-            for (int i = 0; i < 3; i++)
-            {
-                float ancho = 6f + i * 6f;
-                Rectangulo(cont.transform, $"Wifi{i}",
-                    x: -54f + ancho / 2f, y: -6f + i * 5f,
-                    ancho: ancho, alto: 3f, alfa: 0.9f - i * 0.15f);
-            }
-
-            // Batería: carcasa, carga dentro y borne pegado al cuerpo.
-            Rectangulo(cont.transform, "BateriaBorde", x: -5f,  y: 0f, ancho: 30f, alto: 15f, alfa: 0.45f);
-            Rectangulo(cont.transform, "BateriaCarga", x: -8f,  y: 0f, ancho: 24f, alto: 9f,  alfa: 0.95f);
-            Rectangulo(cont.transform, "BateriaBorne", x: -2f,  y: 0f, ancho: 3f,  alto: 6f,  alfa: 0.45f);
-        }
-
-        /// <summary>Rectangulito blanco de la barra de estado, centrado en (x, y)
-        /// respecto al borde derecho del contenedor.</summary>
-        private static void Rectangulo(Transform parent, string nombre,
-            float x, float y, float ancho, float alto, float alfa)
-        {
-            var go = new GameObject(nombre, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(parent, false);
-
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(1f, 0.5f); rt.anchorMax = new Vector2(1f, 0.5f);
-            rt.pivot     = new Vector2(1f, 0.5f);
-            rt.anchoredPosition = new Vector2(x, y);
-            rt.sizeDelta        = new Vector2(ancho, alto);
-
-            var img = go.GetComponent<Image>();
-            FishyUIKit.FondoRedondeado(img, new Color(1f, 1f, 1f, alfa), radio: 3);
-            img.raycastTarget = false;
+            _marcoTelefono = MarcoTelefono.Montar(_chatPanelRT, ajustes);
         }
 
         private void RemovePhoneChrome()
         {
-            if (_clockCoroutine != null) { StopCoroutine(_clockCoroutine); _clockCoroutine = null; }
-            if (_phoneChromeRoot != null) { Destroy(_phoneChromeRoot); _phoneChromeRoot = null; }
-            _phoneClockText = null;
+            if (_marcoTelefono != null) { _marcoTelefono.Desmontar(); _marcoTelefono = null; }
 
             // Restaurar posición/tamaño del panel normal (esquina, angosto).
             if (_chatPanelRT != null && !_phoneMode)
@@ -768,15 +689,6 @@ namespace Fishy.Chat
             }
         }
 
-        private System.Collections.IEnumerator ClockRoutine()
-        {
-            while (true)
-            {
-                if (_phoneClockText != null)
-                    _phoneClockText.text = System.DateTime.Now.ToString("HH:mm");
-                yield return new WaitForSecondsRealtime(30f);
-            }
-        }
 
         private static void Stretch(RectTransform rt, float padX = 0f, float padY = 0f)
         {
