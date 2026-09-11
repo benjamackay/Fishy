@@ -25,7 +25,6 @@ public class TabsController : MonoBehaviour
     private const string SufijoPestana = "Tab";
     private const string SufijoPagina = "Page";
     private const string NombreContenedorPaginas = "Pages";
-    private PhoneMenuView phone;
 
     private void Awake()
     {
@@ -35,15 +34,12 @@ public class TabsController : MonoBehaviour
         CablearClicks();
         PintarPaginas();
         AsegurarControladoresDePaginas();
-        phone = transform.parent.GetComponent<PhoneMenuView>();
-        if (phone == null) phone = transform.parent.gameObject.AddComponent<PhoneMenuView>();
-        phone.Build(this);
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        phone.ShowHome();
+        ActivateTab(0);
     }
 
     /// <summary>
@@ -258,7 +254,6 @@ public class TabsController : MonoBehaviour
 
     public void ActivateTab(int tabNo)
     {
-        if (phone != null && phone.IsBuilt) { phone.ShowPage(tabNo); return; }
         if (pages == null || pages.Length == 0) return;
 
         if (tabNo < 0 || tabNo >= pages.Length)

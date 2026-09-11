@@ -5173,10 +5173,10 @@ RectTransform:
   - {fileID: 1205356142}
   m_Father: {fileID: 903148099}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 843, y: -150}
+  m_SizeDelta: {x: 318, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &949462640
 MonoBehaviour:
@@ -9203,7 +9203,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1525277862
 RectTransform:
   m_ObjectHideFlags: 0
@@ -15151,10 +15151,10 @@ RectTransform:
   - {fileID: 2107825773}
   m_Father: {fileID: 903148099}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 159, y: -150}
+  m_SizeDelta: {x: 318, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2013504354
 MonoBehaviour:
@@ -15382,10 +15382,10 @@ RectTransform:
   - {fileID: 112817255}
   m_Father: {fileID: 903148099}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 501, y: -150}
+  m_SizeDelta: {x: 318, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2026636344
 MonoBehaviour:
@@ -16310,10 +16310,10 @@ RectTransform:
   - {fileID: 1878666576}
   m_Father: {fileID: 903148099}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 1185, y: -150}
+  m_SizeDelta: {x: 318, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2119179134
 MonoBehaviour:
@@ -16528,7 +16528,6 @@ MonoBehaviour:
   objetivoFontSize: 24
   emptyMessage: Habla con alguien para descubrir nuevas misiones.
   verboseLogs: 0
-  phoneLayout: 0
 --- !u!1001 &5518634559837808659
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -43,7 +43,6 @@ public class QuestPageUI : MonoBehaviour
     public bool verboseLogs = true;
 
     private readonly List<GameObject> filas = new List<GameObject>();
-    [HideInInspector] public bool phoneLayout;
 
     private void Awake()
     {
@@ -142,15 +141,6 @@ public class QuestPageUI : MonoBehaviour
             }
         }
 
-        if (phoneLayout)
-        {
-            layout.spacing = 8f;
-            var separator = new GameObject("Separador", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            separator.transform.SetParent(filaGO.transform, false);
-            separator.GetComponent<Image>().color = PhoneMenuView.Accent;
-            separator.GetComponent<Image>().raycastTarget = false;
-            separator.GetComponent<LayoutElement>().preferredHeight = 4f;
-        }
         return filaGO;
     }
 
