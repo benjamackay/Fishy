@@ -31,6 +31,10 @@ namespace Fishy.World
                  "mapa de partida, que no tiene polígono porque no se bloquea nunca.")]
         public string zonaPorDefecto = "zona_1";
 
+        [Tooltip("Cómo se llama la zona por defecto para el niño/a. Vive aquí y no en " +
+                 "un ZonaMundo porque esa zona no tiene polígono ni objeto propio.")]
+        public string nombrePorDefecto = "Bosque de los desconocidos";
+
         [Tooltip("Cada cuántos segundos se comprueba. Subirlo ahorra trabajo; bajarlo " +
                  "hace que el cambio de zona se note antes.")]
         [Min(0.05f)]

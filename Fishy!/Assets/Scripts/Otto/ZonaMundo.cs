@@ -130,7 +130,17 @@ namespace Fishy.World
         public static string NombreDe(string zonaId)
         {
             ZonaMundo zona = De(zonaId);
-            return zona != null ? zona.Nombre : (zonaId ?? "").Trim();
+            if (zona != null) return zona.Nombre;
+
+            // La zona por defecto no tiene ZonaMundo —no tiene polígono—, así que su
+            // nombre lo guarda ZonaActual, que es quien sabe cuál es.
+            string id = (zonaId ?? "").Trim();
+            ZonaActual actual = ZonaActual.Instance;
+            if (actual != null && id == actual.zonaPorDefecto &&
+                !string.IsNullOrWhiteSpace(actual.nombrePorDefecto))
+                return actual.nombrePorDefecto.Trim();
+
+            return id;
         }
 
         private void Awake()
