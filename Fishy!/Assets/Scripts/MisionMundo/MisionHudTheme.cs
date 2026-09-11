@@ -123,9 +123,6 @@ public static class MisionHudTheme
         /// <summary>Plantilla de la línea que dice a dónde ir. {0} = nombre de zona.</summary>
         public static string IrA = "Ve a {0}";
 
-        /// <summary>Lo que dice cuando Otto ya está en la zona de destino.</summary>
-        public static string YaEnZona = "Ya estás en {0}";
-
         /// <summary>
         /// Viñeta de cada objetivo. Es el punto medio de Latin-1 (U+00B7) y no la
         /// viñeta redonda (U+2022) por lo mismo que el aspa de cerrar se dibuja en

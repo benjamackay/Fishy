@@ -103,8 +103,8 @@ public class MissionUIController : MonoBehaviour
         if (MissionTracker.Instance != null)
             MissionTracker.Instance.OnProgresoCambiado += Refrescar;
 
-        // Entrar en una zona no cambia la misión, pero sí lo que hay que decir de
-        // ella: "Ve al Bosque" pasa a "Ya estás en el Bosque".
+        // Entrar en una zona no cambia la misión, pero sí el cartel: "Ve al Bosque"
+        // desaparece al llegar.
         ZonaActual.OnZonaCambiada += AlCambiarDeZona;
 
         Refrescar();
@@ -258,24 +258,23 @@ public class MissionUIController : MonoBehaviour
         for (int i = usadas; i < caben; i++) _lineasObjetivo[i].gameObject.SetActive(false);
     }
 
+    /// <summary>
+    /// Línea que dice a dónde ir. Sólo aparece con Otto fuera de la zona: ya dentro,
+    /// lo que toca hacer lo dicen los objetivos, y un "Ya estás en…" les quitaba el
+    /// sitio justo cuando el niño/a buscaba qué hacer.
+    /// </summary>
     private void PintarGuia(string zona)
     {
-        if (zona == null) { _guia.gameObject.SetActive(false); return; }
-
         ZonaActual zonas = ZonaActual.Instance;
         bool dentro = zonas != null && zonas.Actual == zona;
 
-        string plantilla = dentro
-            ? MisionHudTheme.Textos.YaEnZona
-            : MisionHudTheme.Textos.IrA;
+        if (zona == null || dentro) { _guia.gameObject.SetActive(false); return; }
 
-        string texto = string.Format(plantilla, ZonaMundo.NombreDe(zona));
+        string texto = string.Format(MisionHudTheme.Textos.IrA, ZonaMundo.NombreDe(zona));
 
         _guia.font = FishyUIKit.FuentePara(texto);
         _guia.text = texto;
-        _guia.color = dentro
-            ? MisionHudTheme.Colores.ObjetivoCumplido
-            : MisionHudTheme.Colores.Guia;
+        _guia.color = MisionHudTheme.Colores.Guia;
         _guia.gameObject.SetActive(true);
     }
 

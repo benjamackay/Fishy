@@ -50,6 +50,9 @@ public class MissionTracker : MonoBehaviour
     /// Existe para el HUD de HDU-16, que muestra el resumen de objetivos de la misión
     /// activa y sin esto sólo se enteraría al completarse la misión entera — o sea,
     /// justo cuando el resumen deja de importar.
+    ///
+    /// También avisa al empezar a seguir una misión: sus objetivos pasan a existir y
+    /// hay que pintarlos.
     /// </summary>
     public event Action OnProgresoCambiado;
 
@@ -117,6 +120,11 @@ public class MissionTracker : MonoBehaviour
 
         // Puede que el objeto ya estuviera en la mochila antes de aceptar la misión.
         Revisar(seguimiento);
+
+        // Quien entrega la misión la registra en el MissionManager antes de llamar
+        // aquí, así que el cartel ya se pintó con ella pero sin objetivos. Sin este
+        // aviso se quedaba así hasta el siguiente cambio de zona o de inventario.
+        OnProgresoCambiado?.Invoke();
     }
 
     /// <summary>Objetivos de una misión, para pintarlos en el panel. Vacío si no se sigue.</summary>
