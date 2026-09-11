@@ -1749,7 +1749,7 @@ GameObject:
   - component: {fileID: 170974272}
   - component: {fileID: 170974277}
   m_Layer: 0
-  m_Name: NPC_Alex_Fisico
+  m_Name: Flamenco Alex
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1893,8 +1893,8 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: -1360283395
+  m_SortingLayer: 5
   m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: -1395529888591567642, guid: 5bee105669678034eb1dc77c307752e5, type: 3}
@@ -1916,8 +1916,8 @@ Transform:
   m_GameObject: {fileID: 170974271}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -13.32, y: 47.719997, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -15.98, y: 47.99, z: 0}
+  m_LocalScale: {x: -1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -2248,12 +2248,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_LocalScale.x
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -15.36
+      value: -16.38
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 32.08
+      value: 31.74
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2299,6 +2303,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 7432870513870851841, guid: 19382bc5e4de2e44a971b3854903bfd6, type: 3}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_WasSpriteAssigned
       value: 1
@@ -2402,7 +2414,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_Name
-      value: Neutral_NPC (3)
+      value: Coipo
       objectReference: {fileID: 0}
     - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_IsTrigger
@@ -2509,11 +2521,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -10.66
+      value: -12.39
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 46.46
+      value: 44.1
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2549,7 +2561,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (6)
+      value: Flamenco Inv
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -2598,11 +2610,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 15.9
+      value: 17.17
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 53.12
+      value: 53.89
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2638,7 +2650,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (7)
+      value: Lobo Marino
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -2660,6 +2672,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 5800196132840099909, guid: 747af32e1ad59774cbcbc52fd5f66a06, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -2685,12 +2705,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalScale.x
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -33.42
+      value: -33.09
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 37.18
+      value: 37.91
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2726,7 +2750,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (3)
+      value: Flama
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -2743,6 +2767,14 @@ PrefabInstance:
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: modoTelefono
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3240,11 +3272,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 18.71
+      value: 24.55
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 62.83
+      value: 63.68
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -3280,7 +3312,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (8)
+      value: Lobo M
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -3302,6 +3334,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 5800196132840099909, guid: 747af32e1ad59774cbcbc52fd5f66a06, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3401,11 +3441,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 12.8
+      value: 14.07
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 65.3
+      value: 68.49
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -3441,7 +3481,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (5)
+      value: Lobito de Mar
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -3463,6 +3503,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 5800196132840099909, guid: 747af32e1ad59774cbcbc52fd5f66a06, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3851,11 +3899,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -8.71
+      value: -9.01
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 23.46
+      value: 26.76
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -3891,7 +3939,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (11)
+      value: Huemy
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -3909,6 +3957,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: -167164456610951095, guid: bd29d4dbcec8bb94faafc5ea8c894378, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -4082,12 +4138,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_LocalScale.x
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -3.32
+      value: -4.53
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -3.83
+      value: -3.75
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.z
@@ -4133,6 +4193,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: -167164456610951095, guid: bd29d4dbcec8bb94faafc5ea8c894378, type: 3}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_WasSpriteAssigned
       value: 1
@@ -4212,7 +4280,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_Name
-      value: Neutral_NPC
+      value: Huemul
       objectReference: {fileID: 0}
     - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_IsTrigger
@@ -4292,7 +4360,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_Name
-      value: Detective_NPC (2)
+      value: Pingu
       objectReference: {fileID: 0}
     - target: {fileID: 4984193045524880670, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_Sprite
@@ -4468,7 +4536,7 @@ Transform:
   m_GameObject: {fileID: 1124251868}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 6.04, y: 9.06, z: 0}
+  m_LocalPosition: {x: -0.57, y: 16.97, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -4590,7 +4658,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (2)
+      value: Pato
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -4822,7 +4890,7 @@ Transform:
   m_GameObject: {fileID: 1301573653}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -27.300001, y: 30.08, z: 0}
+  m_LocalPosition: {x: -33.5, y: 29.74, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5054,12 +5122,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalScale.x
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -19.49
+      value: -19.99
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 15.62
+      value: 16.18
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -5095,7 +5167,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (9)
+      value: Pumy
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -5113,6 +5185,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 4356589255417746392, guid: e7e8883dbdbe29e40970c04055eafd53, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -6925,7 +7005,7 @@ Transform:
   m_GameObject: {fileID: 1550310811}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -13.750001, y: 53.230003, z: 0}
+  m_LocalPosition: {x: -14.6, y: 54.66, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -7119,7 +7199,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -0.19055533, y: -0.7000284}
+  m_Offset: {x: -0.20295471, y: -0.74549294}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
@@ -7129,7 +7209,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1.0060179, y: 0.83611107}
+  m_Size: {x: 1.1465448, y: 0.74518204}
   m_EdgeRadius: 0
 --- !u!50 &1596115616
 Rigidbody2D:
@@ -8825,11 +8905,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 6.95
+      value: 9.14
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 56.24
+      value: 56.78
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.z
@@ -8875,6 +8955,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 57237069389551504, guid: 8c13b2257869987489057612049cc36f, type: 3}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_WasSpriteAssigned
       value: 1
@@ -8978,7 +9066,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_Name
-      value: Neutral_NPC (4)
+      value: Foca
       objectReference: {fileID: 0}
     - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_IsTrigger
@@ -9085,19 +9173,27 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_Name
-      value: Detective_NPC
+      value: "Pud\xFA"
       objectReference: {fileID: 0}
     - target: {fileID: 4984193045524880670, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 6623350425915775769, guid: a90faf2d71a39f349a62e13fbe645e3f, type: 3}
+    - target: {fileID: 4984193045524880670, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4984193045524880670, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 15.818338
+      value: 25.8
       objectReference: {fileID: 0}
     - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 14.592573
+      value: 18.4
       objectReference: {fileID: 0}
     - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_LocalPosition.z
@@ -9156,12 +9252,16 @@ PrefabInstance:
       value: 2.56
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_LocalScale.x
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -12.28
+      value: -11.59
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 63.72
+      value: 63.24
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -9197,7 +9297,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (4)
+      value: Lobo M Jr.
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -9234,11 +9334,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 12.09
+      value: 2.74
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 11.28
+      value: 8.71
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -9274,7 +9374,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
-      value: Chat_NPC (10)
+      value: Puma
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -9292,6 +9392,14 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 4356589255417746392, guid: e7e8883dbdbe29e40970c04055eafd53, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -9932,7 +10040,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2009201996060154778, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_Name
-      value: Detective_NPC (1)
+      value: Coipin
       objectReference: {fileID: 0}
     - target: {fileID: 4984193045524880670, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_Sprite
@@ -11176,7 +11284,7 @@ Transform:
   m_GameObject: {fileID: 1901153110}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 24.36, y: 15.07, z: 0}
+  m_LocalPosition: {x: 26.17, y: 11.87, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -11707,7 +11815,7 @@ Transform:
   m_GameObject: {fileID: 2074407074}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -26.37, y: 13.38, z: 0}
+  m_LocalPosition: {x: -28.35, y: 18.11, z: 0}
   m_LocalScale: {x: 1, y: 0.9727, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -11833,12 +11941,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_LocalScale.x
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -18.68
+      value: -20.74
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 42.92
+      value: 43.88
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.z
@@ -12007,7 +12119,7 @@ PrefabInstance:
       objectReference: {fileID: 1427637925}
     - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_Name
-      value: Neutral_NPC (1)
+      value: Huemul 2
       objectReference: {fileID: 0}
     - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_IsTrigger
@@ -12092,7 +12204,7 @@ GameObject:
   - component: {fileID: 2100368905}
   - component: {fileID: 2100368904}
   m_Layer: 0
-  m_Name: NPC_Alex_Fisico (1)
+  m_Name: Pato Alex
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
