@@ -42,6 +42,11 @@ namespace Fishy.Mision
         /// <summary>Id ESPACIAL de la zona (`zona_1`, `zona_2`, `zona_3`), no el
         /// temático del banco.</summary>
         public string zona_id;
+
+        // ── Si es completar_caso_detective ──
+        /// <summary>caso_id del Modo Detective (`DC_CASO_01`). Cuenta con cualquier
+        /// resultado del caso, no hace falta superar el umbral de aciertos.</summary>
+        public string caso_id;
     }
 
     /// <summary>Una misión del catálogo, tal como viaja en los datos.</summary>

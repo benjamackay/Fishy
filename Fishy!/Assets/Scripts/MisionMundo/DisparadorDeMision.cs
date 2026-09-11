@@ -39,6 +39,12 @@ public abstract class DisparadorDeMision : MonoBehaviour
              "MissionGiver del NPC que la entrega.")]
     public DesafioData mision;
 
+    [Tooltip("Id de la misión en el catálogo (Resources/misiones.json o la base). Se " +
+             "usa cuando 'Mision' se deja vacío — es la única forma de apuntar a una " +
+             "misión que solo existe en el catálogo, sin ficha en el proyecto, que es " +
+             "el caso normal cuando el contenido viene de datos.")]
+    public string misionId = "";
+
     [Tooltip("Escribir en consola cada disparo.")]
     public bool verboseLogs;
 
@@ -66,9 +72,12 @@ public abstract class DisparadorDeMision : MonoBehaviour
 
     private void OnEnable()
     {
+        ResolverMision();
+
         if (mision == null || string.IsNullOrEmpty(mision.desafioId))
         {
-            Debug.LogWarning($"[{name}] {GetType().Name} sin misión asignada: " +
+            Debug.LogWarning($"[{name}] {GetType().Name} sin misión asignada (ni " +
+                             "'Mision' ni un 'Mision Id' que esté en el catálogo): " +
                              "no va a disparar nunca.", this);
             return;
         }
@@ -87,6 +96,17 @@ public abstract class DisparadorDeMision : MonoBehaviour
         if (manager == null) return;
         Desuscribir(manager);
         manager.onPanelActualizado.RemoveListener(RevisarSiYaEstaba);
+    }
+
+    /// <summary>
+    /// Rellena <see cref="mision"/> desde el catálogo cuando no se arrastró ninguna
+    /// ficha. Lo puesto a mano manda: si ya hay una ficha, esto no la toca.
+    /// </summary>
+    private void ResolverMision()
+    {
+        if (mision != null) return;
+        if (string.IsNullOrWhiteSpace(misionId)) return;
+        mision = Fishy.Mision.CatalogoMisiones.Ficha(misionId.Trim());
     }
 
     /// <summary>¿El aviso que acaba de llegar es de la misión que espero?</summary>

@@ -2,7 +2,7 @@
   "version": "2.5",
   "autor": "Luis González — MLOps",
   "fecha_creacion": "2026-06-06",
-  "fecha_actualizacion": "2026-09-07",
+  "fecha_actualizacion": "2026-09-10",
   "hdu_cubiertas": [
     "HDU-1",
     "HDU-2",
@@ -2021,6 +2021,158 @@
       "etiquetas_ml": [
         "fin_zona",
         "desbloqueo_siguiente"
+      ],
+      "opciones_respuesta": null,
+      "narrativa_continuacion": null
+    },
+    {
+      "id": "HDU4_NPC06B_Q01",
+      "hdu": "HDU-4",
+      "zona": "reto_viral",
+      "npc_id": "NPC_06",
+      "npc_nombre": "Lobo Marino",
+      "npc_avatar": "npc_lobo_marino_01",
+      "escenario_id": "M6_DECISION01_BASE",
+      "escenario_nombre": "El último desafío (presión base)",
+      "fase": 1,
+      "orden_en_fase": 1,
+      "categoria": "reto_viral_presion",
+      "nivel_riesgo": 3,
+      "es_mensaje_riesgo": true,
+      "es_fin_de_npc": false,
+      "es_fin_de_zona": false,
+      "historial_previo": [],
+      "mensaje_npc": "¡Salta a ciegas y transmítelo en vivo, así abres el cofre!",
+      "etiquetas_ml": [
+        "presion_social",
+        "reto_peligroso",
+        "incentivo_falso",
+        "transmision_vivo"
+      ],
+      "opciones_respuesta": [
+        {
+          "id": "HDU4_NPC06B_Q01_R1",
+          "texto": "Rechazar el salto y descifrar el cofre con las pistas seguras que ya reuní.",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Lobo Marino reconoce: 'Tienes razón... la valentía era saber decir que no.' Álbum: desbloquea la 'Medalla Dorada de Gran Detective Digital'. Otto abre el cofre y recupera la brújula dorada.",
+          "impacto_puntuacion": 2,
+          "siguiente_pregunta": "HDU4_NPC06B_FIN_SEGURO"
+        },
+        {
+          "id": "HDU4_NPC06B_Q01_R2",
+          "texto": "No salto. Espero a que baje la marea y busco otra forma.",
+          "tipo": "segura_basica",
+          "consecuencia_narrativa": "Otto, tranquilo: 'Ninguna prisa vale más que la seguridad.' Evitas el peligro con calma.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU4_NPC06B_FIN_SEGURO"
+        },
+        {
+          "id": "HDU4_NPC06B_Q01_R3",
+          "texto": "Puedo grabar el cofre sin saltar, ¿eso no sirve?",
+          "tipo": "dudosa",
+          "consecuencia_narrativa": "Lobo Marino no cede: 'No, tiene que ser el salto o nada.'",
+          "impacto_puntuacion": 0,
+          "siguiente_pregunta": "HDU4_NPC06B_Q01_DUDOSA"
+        },
+        {
+          "id": "HDU4_NPC06B_Q01_R4",
+          "texto": "Salto solo un poquito para que me pasen la llave...",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "Foca de Weddell lo ayuda a subir: 'La presión de un grupo entero tampoco es motivo para arriesgarse.'",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU4_NPC06B_FIN_INSEGURO"
+        }
+      ],
+      "narrativa_continuacion": null
+    },
+    {
+      "id": "HDU4_NPC06B_Q01_DUDOSA",
+      "hdu": "HDU-4",
+      "zona": "reto_viral",
+      "npc_id": "NPC_06",
+      "npc_nombre": "Lobo Marino",
+      "npc_avatar": "npc_lobo_marino_01",
+      "escenario_id": "M6_DECISION01_BASE",
+      "escenario_nombre": "El último desafío",
+      "fase": 1,
+      "orden_en_fase": 2,
+      "categoria": "reto_viral_presion",
+      "nivel_riesgo": 3,
+      "es_mensaje_riesgo": true,
+      "es_fin_de_npc": false,
+      "es_fin_de_zona": false,
+      "historial_previo": [],
+      "mensaje_npc": "No, tiene que ser el salto o nada.",
+      "etiquetas_ml": [
+        "presion_social",
+        "reto_peligroso"
+      ],
+      "opciones_respuesta": [
+        {
+          "id": "HDU4_NPC06B_Q01_DUDOSA_R1",
+          "texto": "Entonces no salto.",
+          "tipo": "segura_optima",
+          "consecuencia_narrativa": "Otto abre el cofre con las pistas seguras que ya tenía.",
+          "impacto_puntuacion": 1,
+          "siguiente_pregunta": "HDU4_NPC06B_FIN_SEGURO"
+        },
+        {
+          "id": "HDU4_NPC06B_Q01_DUDOSA_R2",
+          "texto": "Ya, salto.",
+          "tipo": "insegura",
+          "consecuencia_narrativa": "Foca de Weddell lo ayuda a subir: la presión de un grupo entero tampoco es motivo para arriesgarse.",
+          "impacto_puntuacion": -1,
+          "siguiente_pregunta": "HDU4_NPC06B_FIN_INSEGURO"
+        }
+      ],
+      "narrativa_continuacion": null
+    },
+    {
+      "id": "HDU4_NPC06B_FIN_SEGURO",
+      "hdu": "HDU-4",
+      "zona": "reto_viral",
+      "npc_id": "NPC_06",
+      "npc_nombre": "Lobo Marino",
+      "npc_avatar": "npc_lobo_marino_01",
+      "escenario_id": "M6_DECISION01_BASE",
+      "escenario_nombre": "El último desafío",
+      "fase": null,
+      "orden_en_fase": null,
+      "categoria": "neutral",
+      "nivel_riesgo": 0,
+      "es_mensaje_riesgo": false,
+      "es_fin_de_npc": true,
+      "es_fin_de_zona": false,
+      "historial_previo": [],
+      "mensaje_npc": "[SISTEMA] El cofre se abre. La evaluación del recorrido completo dispara el Sistema de Finales.",
+      "etiquetas_ml": [
+        "fin_npc",
+        "exito"
+      ],
+      "opciones_respuesta": null,
+      "narrativa_continuacion": null
+    },
+    {
+      "id": "HDU4_NPC06B_FIN_INSEGURO",
+      "hdu": "HDU-4",
+      "zona": "reto_viral",
+      "npc_id": "NPC_06",
+      "npc_nombre": "Lobo Marino",
+      "npc_avatar": "npc_lobo_marino_01",
+      "escenario_id": "M6_DECISION01_BASE",
+      "escenario_nombre": "El último desafío",
+      "fase": null,
+      "orden_en_fase": null,
+      "categoria": "neutral",
+      "nivel_riesgo": 0,
+      "es_mensaje_riesgo": false,
+      "es_fin_de_npc": true,
+      "es_fin_de_zona": false,
+      "historial_previo": [],
+      "mensaje_npc": "[SISTEMA] Otto vuelve a la orilla con ayuda. El cofre sigue ahí, y la aventura también.",
+      "etiquetas_ml": [
+        "fin_npc",
+        "fallo"
       ],
       "opciones_respuesta": null,
       "narrativa_continuacion": null

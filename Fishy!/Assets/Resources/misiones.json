@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "nota": "Respaldo del catalogo de misiones: lo lee CatalogoMisiones cuando la base no responde, no hay sesion o se juega en modo local. Mismos campos que devuelve /misiones/. PENDIENTE DE REVISAR POR EL EQUIPO: (1) los 'objetivos' van vacios —salvo el de MISION_EXPLORACION_01, puesto para probar el flujo en TestZone— porque el banco no los trae y hay que escribirlos como contenido nuevo; (2) el 'orden' esta puesto por progresion de zonas (desconocidos, ciberacoso, reto_viral) y con la exploracion antes que las secundarias de su zona, pero nadie lo ha confirmado como el orden narrativo; (3) el titulo de MISION_EXPLORACION_01 es un relleno, porque en el banco esa mision no tiene nombre. Ver Assets/Scripts/MisionMundo/README_CATALOGO_MISIONES.md.",
+  "nota": "Respaldo del catalogo de misiones: lo lee CatalogoMisiones cuando la base no responde, no hay sesion o se juega en modo local. Mismos campos que devuelve /misiones/. PENDIENTE DE REVISAR POR EL EQUIPO: (1) la mayoria de los 'objetivos' siguen vacios -el banco no los trae, y MISION_NPC_03/04 son las primeras escritas a mano ademas de MISION_EXPLORACION_01-, asi que falta escribir el resto como contenido nuevo; (2) el 'orden' esta puesto por progresion de zonas (desconocidos, ciberacoso, reto_viral) y con la exploracion antes que las secundarias de su zona, pero nadie lo ha confirmado como el orden narrativo; (3) el titulo de MISION_EXPLORACION_01 es un relleno, porque en el banco esa mision no tiene nombre; (4) hay una quinta categoria de objetivo, 'completar_caso_detective', que el banco no conoce -no viene de ahi, es del Modo Detective-, ver README_CATALOGO_MISIONES.md.",
   "misiones": [
     {
       "mision_id": "MISION_EXPLORACION_01",
@@ -10,7 +10,36 @@
       "zona_objetivo": "zona_1",
       "orden": 10,
       "objetivos": [
-        { "orden": 1, "tipo": "hablar_npc", "dialogo_id": "HDU1_NPC_HUEMUL" }
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_NPC_HUEMUL"
+        }
+      ]
+    },
+    {
+      "mision_id": "MISION_NPC_03",
+      "titulo": "Habla con dos NPCs de chat y resuelve un caso de detective",
+      "tipo": "secundaria",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 15,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M1_CHAT01"
+        },
+        {
+          "orden": 2,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M2_CHAT01"
+        },
+        {
+          "orden": 3,
+          "tipo": "completar_caso_detective",
+          "caso_id": "DC_CASO_01"
+        }
       ]
     },
     {
@@ -21,6 +50,21 @@
       "zona_objetivo": "zona_1",
       "orden": 20,
       "objetivos": []
+    },
+    {
+      "mision_id": "MISION_NPC_04",
+      "titulo": "Habla con Huemul, está buscando sus flores",
+      "tipo": "secundaria",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 25,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_NPC_HUEMUL"
+        }
+      ]
     },
     {
       "mision_id": "MISION_SEC_COLLAR_PUDU",

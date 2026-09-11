@@ -85,7 +85,7 @@ Hoy el mapeo entre ambas, sacado de la escena, es
 `desconocidos → zona_1`, `ciberacoso → zona_2` (Pantano de los susurros),
 `reto_viral → zona_3` (Arrecife de los desafíos).
 
-## Las cuatro categorías de objetivo
+## Las cinco categorías de objetivo
 
 | `tipo` | Campos que usa | Cómo se resuelve contra la escena |
 |---|---|---|
@@ -93,6 +93,11 @@ Hoy el mapeo entre ambas, sacado de la escena, es
 | `hablar_npc` | `dialogo_id` | El `NPC` del mapa cuyo `dialogoId` coincide |
 | `chatear_telefono` | `escenario_ids` | El `PhoneChatLauncher` que tenga ese escenario |
 | `llegar_zona` | `zona_id` | No hace falta resolver nada: el dato es el id |
+| `completar_caso_detective` | `caso_id` | El `DetectiveLauncher` cuyo `CasoId` coincide |
+
+El quinto no viene del banco de preguntas —es del Modo Detective, HDU-10— y cuenta
+con cualquier resultado del caso: no exige superar el umbral de aciertos, porque
+para eso ya está la recompensa propia del caso (HDU-11).
 
 El `tipo` va **en texto y no como número** a propósito: el enum `TipoObjetivo` se
 serializa por índice, y el texto sobrevive a que alguien lo reordene.

@@ -36,6 +36,12 @@ namespace Fishy.Phone
                  "la copia de Resources.")]
         public string escenarioIds = "";
 
+        [Tooltip("Alternativas de contenido según cómo haya jugado el niño/a hasta " +
+                 "ahora (ver VariablesJugador). Se evalúan en orden y gana la " +
+                 "primera que se cumpla; si ninguna se cumple, o la lista está " +
+                 "vacía, se usa 'Escenario Ids' de arriba tal cual.")]
+        public List<VarianteSegunVariable> variantesSegunVariable = new List<VarianteSegunVariable>();
+
         // ── Referencias opcionales ─────────────────────────────────────────────
         [Header("Referencias (se buscan si quedan vacías)")]
         [Tooltip("OttoController: se busca si no se asigna.")]
@@ -224,12 +230,33 @@ namespace Fishy.Phone
             return false;
         }
 
-        /// <summary>Los escenario_id de <see cref="escenarioIds"/>, ya separados y limpios.</summary>
+        /// <summary>
+        /// Los escenario_id a abrir, ya separados y limpios: los de la primera
+        /// variante cuya condición se cumpla, o si ninguna se cumple, los de
+        /// <see cref="escenarioIds"/> tal cual.
+        /// </summary>
         private List<string> EscenariosPedidos()
         {
-            if (string.IsNullOrWhiteSpace(escenarioIds)) return new List<string>();
+            string idsElegidos = escenarioIds;
 
-            return escenarioIds.Split(',')
+            foreach (var variante in variantesSegunVariable)
+            {
+                if (string.IsNullOrWhiteSpace(variante.variable)) continue;
+
+                int actual = VariablesJugador.Instance != null
+                    ? VariablesJugador.Instance.Get(variante.variable)
+                    : 0;
+
+                if (variante.Cumple(actual))
+                {
+                    idsElegidos = variante.escenarioIds;
+                    break;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(idsElegidos)) return new List<string>();
+
+            return idsElegidos.Split(',')
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();

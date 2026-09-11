@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Fishy.Detective;
 using Fishy.Mision;
 using Fishy.Phone;
 using Fishy.World;
@@ -29,6 +30,7 @@ public enum TipoObjetivo
     HablarConNpc,
     ChatearPorTelefono,
     LlegarAZona,
+    CompletarCasoDetective,
 }
 
 [Serializable]
@@ -59,6 +61,12 @@ public class ObjetivoMision
              "y no se deshace si vuelve a salir.")]
     public string zonaDestino = "";
 
+    [Header("Si el tipo es Completar Caso Detective")]
+    [Tooltip("Qué caso hay que resolver. Cuenta con cualquier resultado, no hace " +
+             "falta superar el umbral de aciertos: se da por cumplido cuando el " +
+             "jugador cierra el caso.")]
+    public DetectiveLauncher detective;
+
     [Header("Identificadores (los pone el catálogo; a mano se dejan vacíos)")]
     [Tooltip("itemId del objeto, para resolverlo por CatalogoItems cuando el objetivo " +
              "viene de la base o del archivo en vez de estar arrastrado aquí.")]
@@ -70,6 +78,10 @@ public class ObjetivoMision
 
     [Tooltip("escenario_id del banco, separados por coma si son varias fases.")]
     public string escenarioIds = "";
+
+    [Tooltip("caso_id del Modo Detective (DC_CASO_01), para resolver el objetivo por " +
+             "dato cuando viene del catálogo en vez de estar arrastrado a mano.")]
+    public string casoDetectiveId = "";
 
 
     /// <summary>
@@ -95,14 +107,15 @@ public class ObjetivoMision
             cantidad      = Mathf.Max(1, registro.cantidad),
             itemId        = registro.item_id ?? "",
             dialogoNpcId  = registro.dialogo_id ?? "",
-            escenarioIds  = registro.escenario_ids ?? "",
-            zonaDestino   = registro.zona_id ?? "",
+            escenarioIds    = registro.escenario_ids ?? "",
+            zonaDestino     = registro.zona_id ?? "",
+            casoDetectiveId = registro.caso_id ?? "",
         };
         return objetivo;
     }
 
     /// <summary>
-    /// Las cuatro categorías en texto, tal como viajan en los datos. El texto no
+    /// Las cinco categorías en texto, tal como viajan en los datos. El texto no
     /// reconocido cae en <see cref="TipoObjetivo.RecogerObjeto"/> avisando: es mejor
     /// un objetivo que no se cumple y se ve raro en el panel que uno silenciosamente
     /// convertido en otra cosa.
@@ -111,14 +124,15 @@ public class ObjetivoMision
     {
         switch ((tipo ?? "").Trim().ToLowerInvariant())
         {
-            case "recoger_objeto":    return TipoObjetivo.RecogerObjeto;
-            case "hablar_npc":        return TipoObjetivo.HablarConNpc;
-            case "chatear_telefono":  return TipoObjetivo.ChatearPorTelefono;
-            case "llegar_zona":       return TipoObjetivo.LlegarAZona;
+            case "recoger_objeto":             return TipoObjetivo.RecogerObjeto;
+            case "hablar_npc":                 return TipoObjetivo.HablarConNpc;
+            case "chatear_telefono":           return TipoObjetivo.ChatearPorTelefono;
+            case "llegar_zona":                return TipoObjetivo.LlegarAZona;
+            case "completar_caso_detective":   return TipoObjetivo.CompletarCasoDetective;
             default:
                 Debug.LogWarning($"[ObjetivoMision] Categoría de objetivo desconocida: " +
                                  $"'{tipo}'. Las válidas son recoger_objeto, hablar_npc, " +
-                                 "chatear_telefono y llegar_zona.");
+                                 "chatear_telefono, llegar_zona y completar_caso_detective.");
                 return TipoObjetivo.RecogerObjeto;
         }
     }
@@ -156,6 +170,11 @@ public class ObjetivoMision
             case TipoObjetivo.LlegarAZona:
                 return !string.IsNullOrWhiteSpace(zonaDestino);
 
+            case TipoObjetivo.CompletarCasoDetective:
+                if (detective == null && !string.IsNullOrWhiteSpace(casoDetectiveId))
+                    detective = BuscarDetectivePorCaso(casoDetectiveId.Trim());
+                return detective != null;
+
             default:
                 return false;
         }
@@ -173,6 +192,23 @@ public class ObjetivoMision
         {
             if (candidato == null) continue;
             if (string.Equals(candidato.dialogoId, dialogoId, StringComparison.Ordinal))
+                return candidato;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// El DetectiveLauncher cuyo caso_id coincide. Mismo criterio que
+    /// BuscarNpcPorDialogo: se incluyen los inactivos, porque un caso de una zona
+    /// todavía cerrada puede estar apagado cuando la misión se entrega.
+    /// </summary>
+    private static Fishy.Detective.DetectiveLauncher BuscarDetectivePorCaso(string casoId)
+    {
+        foreach (var candidato in UnityEngine.Object.FindObjectsByType<Fishy.Detective.DetectiveLauncher>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (candidato == null) continue;
+            if (string.Equals(candidato.CasoId, casoId, StringComparison.Ordinal))
                 return candidato;
         }
         return null;
@@ -253,6 +289,9 @@ public class ObjetivoMision
             case TipoObjetivo.LlegarAZona:
                 if (string.IsNullOrWhiteSpace(zonaDestino)) return "Ir a (zona sin asignar)";
                 return $"Ir a {ZonaMundo.NombreDe(zonaDestino)}";
+
+            case TipoObjetivo.CompletarCasoDetective:
+                return "Resolver un caso del Modo Detective";
 
             default:
                 return "(objetivo desconocido)";
@@ -336,6 +375,9 @@ public class ObjetivoMision
 
             case TipoObjetivo.ChatearPorTelefono:
                 return telefono != null ? telefono.onChatClosed : null;
+
+            case TipoObjetivo.CompletarCasoDetective:
+                return detective != null ? detective.onCasoResuelto : null;
 
             default:
                 return null;
