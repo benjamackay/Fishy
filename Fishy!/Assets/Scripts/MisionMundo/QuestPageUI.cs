@@ -157,13 +157,13 @@ public class QuestPageUI : MonoBehaviour
             }
             else
             {
-                foreach (ObjetivoMision objetivo in ObjetivosDe(mision.Id))
+                foreach (ObjetivoMision.LineaDeObjetivo linea in ObjetivoMision.Lineas(ObjetivosDe(mision.Id)))
                 {
-                    string marca = objetivo.cumplido ? "✔" : "•";
-                    Color color = objetivo.cumplido
+                    string marca = linea.Cumplida ? "✔" : "•";
+                    Color color = linea.Cumplida
                         ? colorCompletado
                         : MenuTabsTheme.Colores.ObjetivoPendiente;
-                    ConstruirTexto($"   {marca} {objetivo.Describir()}", objetivoFontSize,
+                    ConstruirTexto($"   {marca} {linea.Texto}", objetivoFontSize,
                         color, filaGO.transform, MenuTabsTheme.Fuente.Objetivos);
                 }
             }
@@ -198,28 +198,15 @@ public class QuestPageUI : MonoBehaviour
             }
             else
             {
-                // Sin "Pendiente"/"Completado" delante: el avance lo dice el contador, y el
-                // objetivo ya cumplido se pinta en verde.
+                // Sin "Pendiente"/"Completado" delante: el avance lo dice el contador, y la
+                // línea ya cumplida se pinta en verde. Los objetivos con la misma
+                // descripción salen juntos en una sola línea; ver ObjetivoMision.Lineas.
                 string verde = ColorUtility.ToHtmlStringRGB(colorCompletado);
-                foreach (var objective in ObjetivosDe(mision.Id))
-                {
-                    string line = ConProgreso(objective);
-                    description.Append("\n").Append(objective.cumplido ? $"<color=#{verde}>{line}</color>" : line);
-                }
+                foreach (ObjetivoMision.LineaDeObjetivo linea in ObjetivoMision.Lineas(ObjetivosDe(mision.Id)))
+                    description.Append("\n").Append(linea.Cumplida ? $"<color=#{verde}>{linea.Texto}</color>" : linea.Texto);
             }
         }
         return TemplateRow(mision.Titulo, description.ToString(), done ? colorCompletado : (Color?)null);
-    }
-
-    /// <summary>
-    /// El objetivo con su avance siempre a la vista. "Juntar" ya trae su contador
-    /// —"Juntar Concha (1/3)"—; el resto se cumple de una vez, así que cuenta 0/1 o 1/1.
-    /// </summary>
-    private static string ConProgreso(ObjetivoMision objetivo)
-    {
-        string texto = objetivo.Describir();
-        if (objetivo.tipo == TipoObjetivo.RecogerObjeto) return texto;
-        return $"{texto} ({(objetivo.cumplido ? 1 : 0)}/1)";
     }
 
     /// <summary>Clona la fila de ejemplo. Con <paramref name="color"/> se pinta la

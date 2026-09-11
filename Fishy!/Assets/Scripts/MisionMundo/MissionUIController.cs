@@ -245,21 +245,25 @@ public class MissionUIController : MonoBehaviour
 
         int usadas = 0;
 
-        // Con más objetivos que huecos, el último hueco cuenta cuántos quedan en vez
-        // de mostrar uno más: cortar la lista sin avisar hace pensar que ya está.
-        bool desborda = caben > 0 && objetivos.Count > caben;
-        int aMostrar = desborda ? caben - 1 : Mathf.Min(objetivos.Count, caben);
+        // Las mismas líneas que la pestaña Misión: los objetivos con la misma
+        // descripción salen juntos, con su avance conjunto ("... (1/3)").
+        List<ObjetivoMision.LineaDeObjetivo> lineas = ObjetivoMision.Lineas(objetivos);
+
+        // Con más líneas que huecos, el último hueco cuenta cuántas quedan en vez
+        // de mostrar una más: cortar la lista sin avisar hace pensar que ya está.
+        bool desborda = caben > 0 && lineas.Count > caben;
+        int aMostrar = desborda ? caben - 1 : Mathf.Min(lineas.Count, caben);
 
         for (int i = 0; i < aMostrar; i++)
         {
-            ObjetivoMision objetivo = objetivos[i];
+            ObjetivoMision.LineaDeObjetivo objetivo = lineas[i];
             TextMeshProUGUI linea = _lineasObjetivo[usadas++];
 
             string vinneta = MisionHudTheme.Textos.Vinneta;
-            linea.text = objetivo.cumplido
-                ? $"{vinneta}  {objetivo.Describir()}  {MisionHudTheme.Textos.Cumplido}"
-                : $"{vinneta}  {objetivo.Describir()}";
-            linea.color = objetivo.cumplido
+            linea.text = objetivo.Cumplida
+                ? $"{vinneta}  {objetivo.Texto}  {MisionHudTheme.Textos.Cumplido}"
+                : $"{vinneta}  {objetivo.Texto}";
+            linea.color = objetivo.Cumplida
                 ? MisionHudTheme.Colores.ObjetivoCumplido
                 : MisionHudTheme.Colores.ObjetivoPendiente;
             linea.gameObject.SetActive(true);
@@ -268,7 +272,7 @@ public class MissionUIController : MonoBehaviour
         if (desborda)
         {
             TextMeshProUGUI linea = _lineasObjetivo[usadas++];
-            int restantes = objetivos.Count - aMostrar;
+            int restantes = lineas.Count - aMostrar;
             // Sin puntos suspensivos tipográficos (U+2026): no están en Latin-1.
             linea.text = $"y {restantes} objetivo(s) más en la pestaña Misión";
             linea.color = MisionHudTheme.Colores.SinMisiones;

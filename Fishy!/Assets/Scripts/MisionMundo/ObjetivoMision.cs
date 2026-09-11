@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Fishy.Detective;
 using Fishy.Mision;
@@ -309,6 +310,79 @@ public class ObjetivoMision
             default:
                 return "(objetivo desconocido)";
         }
+    }
+
+    /// <summary>Una línea del panel o del cartel, con el contador ya puesto.</summary>
+    public readonly struct LineaDeObjetivo
+    {
+        public readonly string Texto;
+        public readonly bool Cumplida;
+
+        public LineaDeObjetivo(string texto, bool cumplida)
+        {
+            Texto = texto;
+            Cumplida = cumplida;
+        }
+    }
+
+    /// <summary>
+    /// Las líneas que se muestran de una lista de objetivos.
+    ///
+    /// Los que comparten la misma <see cref="descripcion"/> se juntan en una sola, con
+    /// el avance de todos: tres chats descritos "Interactuar con tres animales" salen
+    /// como "Interactuar con tres animales (1/3)". Los que no traen descripción van uno
+    /// por línea con su contador: "Juntar" ya trae el suyo, el resto se cumple de una
+    /// vez y cuenta 0/1 o 1/1.
+    ///
+    /// Vive aquí para que el panel del Tab y el cartel de la esquina cuenten igual.
+    /// </summary>
+    public static List<LineaDeObjetivo> Lineas(IReadOnlyList<ObjetivoMision> objetivos)
+    {
+        var lineas = new List<LineaDeObjetivo>();
+        if (objetivos == null) return lineas;
+
+        // Clave de cada línea, en el orden en que aparece por primera vez. Los sueltos
+        // llevan una clave propia que ninguna descripción puede repetir.
+        var claves  = new List<string>();
+        var hechos  = new Dictionary<string, int>();
+        var totales = new Dictionary<string, int>();
+        var sueltos = new Dictionary<string, ObjetivoMision>();
+
+        for (int i = 0; i < objetivos.Count; i++)
+        {
+            ObjetivoMision objetivo = objetivos[i];
+            if (objetivo == null) continue;
+
+            bool agrupa = !string.IsNullOrWhiteSpace(objetivo.descripcion);
+            string clave = agrupa ? objetivo.descripcion.Trim() : "\0" + i;
+
+            if (!totales.ContainsKey(clave))
+            {
+                claves.Add(clave);
+                totales[clave] = 0;
+                hechos[clave] = 0;
+                if (!agrupa) sueltos[clave] = objetivo;
+            }
+            totales[clave]++;
+            if (objetivo.cumplido) hechos[clave]++;
+        }
+
+        foreach (string clave in claves)
+        {
+            if (sueltos.TryGetValue(clave, out ObjetivoMision suelto))
+            {
+                string texto = suelto.Describir();
+                if (suelto.tipo != TipoObjetivo.RecogerObjeto)
+                    texto += $" ({(suelto.cumplido ? 1 : 0)}/1)";
+                lineas.Add(new LineaDeObjetivo(texto, suelto.cumplido));
+            }
+            else
+            {
+                lineas.Add(new LineaDeObjetivo($"{clave} ({hechos[clave]}/{totales[clave]})",
+                    hechos[clave] == totales[clave]));
+            }
+        }
+        return lineas;
     }
 
     /// <summary>Lo que se muestra cuando la referencia no está resuelta: el propio id,
