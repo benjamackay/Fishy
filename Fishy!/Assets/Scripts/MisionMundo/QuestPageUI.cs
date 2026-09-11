@@ -25,6 +25,8 @@ public class QuestPageUI : MonoBehaviour
     [Header("Montaje (opcional)")]
     [Tooltip("Dónde se cuelgan las filas. Si se deja vacío se crea una lista aquí mismo.")]
     public Transform questContainer;
+    [Tooltip("Fila de ejemplo del diseño. Se mantiene oculta y se clona para cada misión.")]
+    public GameObject rowTemplate;
 
     [Header("Aspecto")]
     public Color colorDisponible = MenuTabsTheme.Colores.MisionEnCurso;
@@ -41,10 +43,12 @@ public class QuestPageUI : MonoBehaviour
     public bool verboseLogs = true;
 
     private readonly List<GameObject> filas = new List<GameObject>();
+    [HideInInspector] public bool phoneLayout;
 
     private void Awake()
     {
         if (questContainer == null) questContainer = CrearContenedor();
+        if (rowTemplate != null) rowTemplate.SetActive(false);
     }
 
     private void OnEnable()
@@ -80,9 +84,11 @@ public class QuestPageUI : MonoBehaviour
         foreach (DesafioRuntime mision in misiones) filas.Add(ConstruirFila(mision));
 
         if (misiones.Count == 0 && !string.IsNullOrEmpty(emptyMessage))
-            filas.Add(ConstruirTexto(emptyMessage, tituloFontSize,
-                MenuTabsTheme.Colores.TextoVacio, questContainer,
-                MenuTabsTheme.Fuente.Titulo));
+        {
+            if (rowTemplate != null) filas.Add(TemplateRow("Sin misiones", emptyMessage));
+            else filas.Add(ConstruirTexto(emptyMessage, tituloFontSize,
+                MenuTabsTheme.Colores.TextoVacio, questContainer, MenuTabsTheme.Fuente.Titulo));
+        }
 
         if (verboseLogs)
             Debug.Log($"[Misiones] Página refrescada: {misiones.Count} misión(es).", this);
@@ -92,6 +98,7 @@ public class QuestPageUI : MonoBehaviour
 
     private GameObject ConstruirFila(DesafioRuntime mision)
     {
+        if (rowTemplate != null) return MissionTemplateRow(mision);
         bool completada = mision.estado == EstadoDesafio.Completado;
 
         var filaGO = new GameObject($"Mision_{mision.Id}",
@@ -135,6 +142,15 @@ public class QuestPageUI : MonoBehaviour
             }
         }
 
+        if (phoneLayout)
+        {
+            layout.spacing = 8f;
+            var separator = new GameObject("Separador", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            separator.transform.SetParent(filaGO.transform, false);
+            separator.GetComponent<Image>().color = PhoneMenuView.Accent;
+            separator.GetComponent<Image>().raycastTarget = false;
+            separator.GetComponent<LayoutElement>().preferredHeight = 4f;
+        }
         return filaGO;
     }
 
@@ -143,6 +159,36 @@ public class QuestPageUI : MonoBehaviour
         return MissionTracker.Instance != null
             ? MissionTracker.Instance.Objetivos(desafioId)
             : new List<ObjetivoMision>();
+    }
+
+    private GameObject MissionTemplateRow(DesafioRuntime mision)
+    {
+        bool done = mision.estado == EstadoDesafio.Completado;
+        string progress = MissionTracker.Instance != null ? MissionTracker.Instance.Progreso(mision.Id) : null;
+        string status = done ? "Completada" : "En curso";
+        if (!done && progress != null) status += " " + progress;
+        if (MissionManager.Instance != null && MissionManager.Instance.Activa == mision)
+            status = "ACTIVA · " + status;
+        var description = new System.Text.StringBuilder(status);
+        if (!done)
+            foreach (var objective in ObjetivosDe(mision.Id))
+                description.Append("\n").Append(objective.cumplido ? "Completado: " : "Pendiente: ").Append(objective.Describir());
+        return TemplateRow(mision.Titulo, description.ToString());
+    }
+
+    private GameObject TemplateRow(string title, string description)
+    {
+        var row = Instantiate(rowTemplate, questContainer);
+        row.name = "Mision_" + title;
+        var titleTransform = row.transform.Find("Titulo");
+        var titleLabel = titleTransform != null ? titleTransform.GetComponent<TMP_Text>() : null;
+        foreach (var label in row.GetComponentsInChildren<TMP_Text>(true))
+        {
+            label.text = label == titleLabel ? title : description;
+            label.raycastTarget = false;
+        }
+        row.SetActive(true);
+        return row;
     }
 
     /// <summary>

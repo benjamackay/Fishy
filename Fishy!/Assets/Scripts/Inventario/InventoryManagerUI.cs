@@ -46,6 +46,7 @@ public class InventoryManagerUI : MonoBehaviour
     private readonly List<GameObject> slots = new List<GameObject>();
     private TMP_Text emptyLabel;
     private InventoryManager suscritoA;
+    [HideInInspector] public int minimumVisibleSlots;
 
     private void Awake()
     {
@@ -73,15 +74,23 @@ public class InventoryManagerUI : MonoBehaviour
         // Las casillas se reciclan en vez de destruirse y volverse a crear:
         // Destroy es diferido, así que las viejas seguirían ocupando la grilla
         // durante el frame en que se pintan las nuevas.
-        while (slots.Count < items.Count) slots.Add(CrearSlot());
+        int visibleCount = Mathf.Max(items.Count, minimumVisibleSlots);
+        while (slots.Count < visibleCount) slots.Add(CrearSlot());
 
         for (int i = 0; i < slots.Count; i++)
         {
             if (slots[i] == null) continue;
 
             bool enUso = i < items.Count;
-            slots[i].SetActive(enUso);
+            slots[i].SetActive(i < visibleCount);
             if (enUso) PintarSlot(slots[i], items[i]);
+            else
+            {
+                var icon = BuscarIcono(slots[i]);
+                if (icon != null) icon.enabled = false;
+                var label = slots[i].GetComponentInChildren<TMP_Text>(true);
+                if (label != null) label.text = "";
+            }
         }
 
         MostrarMensajeVacio(items.Count == 0);
