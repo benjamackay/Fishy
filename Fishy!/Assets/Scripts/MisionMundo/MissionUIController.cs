@@ -4,6 +4,7 @@ using Fishy.UI;
 using Fishy.World;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -60,9 +61,24 @@ public class MissionUIController : MonoBehaviour
     /// Tampoco es DontDestroyOnLoad, al revés que SaveManager o MenuPausa: pertenece
     /// a la escena del mundo, y sobrevivir a la vuelta al menú sería justo el
     /// problema que el guardia evita.
+    ///
+    /// <b>Se mira en cada carga de escena, no sólo en la primera.</b> AfterSceneLoad
+    /// corre una sola vez, con la escena con que arranca el juego, y entrando por el
+    /// menú esa escena no tiene a Otto: el cartel no aparecía nunca.
     /// </summary>
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoCrear()
+    {
+        // Quitar antes de poner: sin recarga de dominio al entrar en Play la
+        // suscripción de la sesión anterior sigue viva.
+        SceneManager.sceneLoaded -= AlCargarEscena;
+        SceneManager.sceneLoaded += AlCargarEscena;
+        CrearSiHayOtto();
+    }
+
+    private static void AlCargarEscena(Scene escena, LoadSceneMode modo) => CrearSiHayOtto();
+
+    private static void CrearSiHayOtto()
     {
         if (Instance != null) return;
         if (FindAnyObjectByType<OttoController>() == null) return;
