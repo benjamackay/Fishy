@@ -43,6 +43,8 @@ public class QuestPageUI : MonoBehaviour
     public bool verboseLogs = true;
 
     private readonly List<GameObject> filas = new List<GameObject>();
+    private MissionTracker trackerSuscrito;
+    private InventoryManager inventarioSuscrito;
 
     private void Awake()
     {
@@ -57,6 +59,16 @@ public class QuestPageUI : MonoBehaviour
             manager.onPanelActualizado = new UnityEngine.Events.UnityEvent();
 
         manager.onPanelActualizado.AddListener(Refresh);
+
+        // Avanzar un objetivo no cambia la lista de misiones, así que el MissionManager
+        // no avisa: sin esto un objetivo cumplido con la página abierta no se ponía
+        // verde hasta volver a entrar. El inventario, por los "Juntar X (1/3)", que
+        // suben de a uno sin llegar a cumplir el objetivo.
+        trackerSuscrito = MissionTracker.Instance;
+        if (trackerSuscrito != null) trackerSuscrito.OnProgresoCambiado += Refresh;
+        inventarioSuscrito = InventoryManager.Instance;
+        if (inventarioSuscrito != null) inventarioSuscrito.OnInventoryChanged += Refresh;
+
         Refresh();
     }
 
@@ -64,6 +76,11 @@ public class QuestPageUI : MonoBehaviour
     {
         if (MissionManager.Instance != null)
             MissionManager.Instance.onPanelActualizado?.RemoveListener(Refresh);
+
+        if (trackerSuscrito != null) trackerSuscrito.OnProgresoCambiado -= Refresh;
+        trackerSuscrito = null;
+        if (inventarioSuscrito != null) inventarioSuscrito.OnInventoryChanged -= Refresh;
+        inventarioSuscrito = null;
     }
 
     /// <summary>Reconstruye la lista desde el estado actual del MissionManager.</summary>
@@ -121,7 +138,7 @@ public class QuestPageUI : MonoBehaviour
                         MissionManager.Instance.Activa == mision;
         // Sin símbolo: Mango es una fuente de rótulo y no trae ojivas ni rombos, y un
         // carácter que le falta sale como un cuadrito hueco. Con letras siempre se lee.
-        if (esActiva) estado = "ACTIVA · " + estado;
+        if (esActiva) estado = "ACTIVA - " + estado;
 
         ConstruirTexto($"{mision.Titulo} — {estado}", tituloFontSize,
             completada ? colorCompletado : colorDisponible, filaGO.transform,
@@ -158,15 +175,36 @@ public class QuestPageUI : MonoBehaviour
         string status = done ? "Completada" : "En curso";
         if (!done && progress != null) status += " " + progress;
         if (MissionManager.Instance != null && MissionManager.Instance.Activa == mision)
-            status = "ACTIVA · " + status;
+            status = "ACTIVA - " + status;
         var description = new System.Text.StringBuilder(status);
         if (!done)
+        {
+            // Sin "Pendiente"/"Completado" delante: el avance lo dice el contador, y el
+            // objetivo ya cumplido se pinta en verde.
+            string verde = ColorUtility.ToHtmlStringRGB(colorCompletado);
             foreach (var objective in ObjetivosDe(mision.Id))
-                description.Append("\n").Append(objective.cumplido ? "Completado: " : "Pendiente: ").Append(objective.Describir());
-        return TemplateRow(mision.Titulo, description.ToString());
+            {
+                string line = ConProgreso(objective);
+                description.Append("\n").Append(objective.cumplido ? $"<color=#{verde}>{line}</color>" : line);
+            }
+        }
+        return TemplateRow(mision.Titulo, description.ToString(), done ? colorCompletado : (Color?)null);
     }
 
-    private GameObject TemplateRow(string title, string description)
+    /// <summary>
+    /// El objetivo con su avance siempre a la vista. "Juntar" ya trae su contador
+    /// —"Juntar Concha (1/3)"—; el resto se cumple de una vez, así que cuenta 0/1 o 1/1.
+    /// </summary>
+    private static string ConProgreso(ObjetivoMision objetivo)
+    {
+        string texto = objetivo.Describir();
+        if (objetivo.tipo == TipoObjetivo.RecogerObjeto) return texto;
+        return $"{texto} ({(objetivo.cumplido ? 1 : 0)}/1)";
+    }
+
+    /// <summary>Clona la fila de ejemplo. Con <paramref name="color"/> se pinta la
+    /// fila entera; sin él se queda con los colores del diseño.</summary>
+    private GameObject TemplateRow(string title, string description, Color? color = null)
     {
         var row = Instantiate(rowTemplate, questContainer);
         row.name = "Mision_" + title;
@@ -176,6 +214,7 @@ public class QuestPageUI : MonoBehaviour
         {
             label.text = label == titleLabel ? title : description;
             label.raycastTarget = false;
+            if (color.HasValue) label.color = color.Value;
         }
         row.SetActive(true);
         return row;
