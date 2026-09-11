@@ -2316,7 +2316,7 @@ PrefabInstance:
       objectReference: {fileID: 774275077}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeDesbloqueo
-      value: "\xA1Zona 3 desbloqueada!"
+      value: "\u2728 \xA1Nueva zona desbloqueada!"
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size
@@ -8816,7 +8816,7 @@ PrefabInstance:
       objectReference: {fileID: 774275077}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeDesbloqueo
-      value: "\xA1Zona 3 desbloqueada!"
+      value: "\u2728 \xA1Nueva zona desbloqueada!"
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size
@@ -11701,7 +11701,7 @@ PrefabInstance:
       objectReference: {fileID: 774275077}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeDesbloqueo
-      value: "\xA1Zona 3 desbloqueada!"
+      value: "\u2728 \xA1Nueva zona desbloqueada!"
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size

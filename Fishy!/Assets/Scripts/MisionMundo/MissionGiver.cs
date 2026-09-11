@@ -49,7 +49,7 @@ public class MissionGiver : MonoBehaviour
     [Tooltip("Muestra el movimiento de cámara y el aviso antes de abrir la zona.")]
     public bool usarCinematicaDesbloqueo = true;
 
-    public string mensajeDesbloqueo = "¡Zona 2 desbloqueada!";
+    public string mensajeDesbloqueo = "✨ ¡Nueva zona desbloqueada!";
     public string mensajeMisionPendiente = "Aún no has completado la misión.";
 
     private NPC npc;
