@@ -83,6 +83,14 @@ public class ObjetivoMision
              "dato cuando viene del catálogo en vez de estar arrastrado a mano.")]
     public string casoDetectiveId = "";
 
+    [Header("Descripción (opcional)")]
+    [Tooltip("Texto fijo para el panel, en vez del automático (\"Juntar Concha (1/3)\", " +
+             "\"Hablar con Huemul\"...). Vacío usa el automático. Se ignora si la misión " +
+             "completa tiene su propia descripción: esa reemplaza a la lista entera de " +
+             "objetivos, no sólo a este.")]
+    [TextArea]
+    public string descripcion = "";
+
 
     /// <summary>
     /// Cumplido en esta sesión. No se serializa: el estado de la misión completa
@@ -110,6 +118,7 @@ public class ObjetivoMision
             escenarioIds    = registro.escenario_ids ?? "",
             zonaDestino     = registro.zona_id ?? "",
             casoDetectiveId = registro.caso_id ?? "",
+            descripcion     = registro.descripcion ?? "",
         };
         return objetivo;
     }
@@ -260,6 +269,10 @@ public class ObjetivoMision
     /// <summary>Texto para el panel de misiones. Ej: "Juntar Concha (1/3)".</summary>
     public string Describir()
     {
+        // Lo escrito a mano (o traído del catálogo) manda sobre el automático: es
+        // justo para eso que existe.
+        if (!string.IsNullOrWhiteSpace(descripcion)) return descripcion.Trim();
+
         switch (tipo)
         {
             case TipoObjetivo.RecogerObjeto:

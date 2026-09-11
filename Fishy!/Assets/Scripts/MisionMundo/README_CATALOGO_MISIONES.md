@@ -85,6 +85,24 @@ Hoy el mapeo entre ambas, sacado de la escena, es
 `desconocidos → zona_1`, `ciberacoso → zona_2` (Pantano de los susurros),
 `reto_viral → zona_3` (Arrecife de los desafíos).
 
+## Qué se muestra en el panel: automático o `descripcion`
+
+Por defecto cada objetivo se describe solo, a partir de su tipo y sus datos
+(`ObjetivoMision.Describir()`: "Juntar Concha (1/3)", "Hablar con Huemul"...). Dos
+campos opcionales cambian eso:
+
+- **`descripcion` en un objetivo** reemplaza SOLO el texto de ESE objetivo por el
+  que se escriba ahí. El resto de la misión sigue mostrando la lista normal.
+- **`descripcion` en la misión** reemplaza TODA la lista de objetivos por ese único
+  párrafo — ninguno de los objetivos se lista aparte, tengan o no su propia
+  `descripcion`. Es para una misión que se explica mejor de corrido
+  ("recorre el pantano y habla con cada criatura") que como una lista de tareas.
+
+Las dos son opcionales y vacías por defecto: sin ninguna, el comportamiento es el
+de siempre. `MissionUIController` (el cartel) y `QuestPageUI` (la pestaña Misión)
+aplican el mismo criterio, para que el cartel y la lista completa nunca se
+contradigan.
+
 ## Las cinco categorías de objetivo
 
 | `tipo` | Campos que usa | Cómo se resuelve contra la escena |

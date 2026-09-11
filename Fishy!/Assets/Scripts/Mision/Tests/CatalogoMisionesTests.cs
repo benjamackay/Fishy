@@ -108,7 +108,7 @@ public class CatalogoMisionesTests
     // ── El archivo de verdad ─────────────────────────────────────────────────
 
     [UnityTest]
-    public IEnumerator ArchivoDeRespaldo_ExisteYTraeLasOnceMisiones()
+    public IEnumerator ArchivoDeRespaldo_ExisteYTraeLasDoceMisiones()
     {
         yield return null;
 
@@ -116,11 +116,12 @@ public class CatalogoMisionesTests
 
         Assert.AreEqual(CatalogoMisiones.Origen.Archivo, CatalogoMisiones.DeDonde,
             "Sin Resources/misiones.json el juego se queda sin respaldo.");
-        // 9 originales + MISION_NPC_03 y MISION_NPC_04.
-        Assert.AreEqual(11, CatalogoMisiones.Todas.Count);
+        // 9 originales + MISION_NPC_03, MISION_NPC_04 y MISION_PANTANO_CRIATURAS.
+        Assert.AreEqual(12, CatalogoMisiones.Todas.Count);
         Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_SEC_MASCOTA_COIPO"));
         Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_NPC_03"));
         Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_NPC_04"));
+        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_PANTANO_CRIATURAS"));
     }
 
     [UnityTest]

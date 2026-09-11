@@ -47,6 +47,14 @@ namespace Fishy.Mision
         /// <summary>caso_id del Modo Detective (`DC_CASO_01`). Cuenta con cualquier
         /// resultado del caso, no hace falta superar el umbral de aciertos.</summary>
         public string caso_id;
+
+        /// <summary>
+        /// Texto fijo para el panel, en vez del que arma <c>ObjetivoMision.Describir()</c>
+        /// a partir del tipo (p. ej. "Juntar Concha (1/3)"). Opcional: vacío usa el
+        /// automático. Se ignora si la misión tiene su propia <see cref="MisionRegistro.descripcion"/>,
+        /// que reemplaza a la lista de objetivos entera.
+        /// </summary>
+        public string descripcion;
     }
 
     /// <summary>Una misión del catálogo, tal como viaja en los datos.</summary>
@@ -92,6 +100,16 @@ namespace Fishy.Mision
 
         /// <summary>Lugar en la historia. Menor va antes.</summary>
         public int orden = 100;
+
+        /// <summary>
+        /// Texto fijo para el panel que, cuando no está vacío, REEMPLAZA a la lista de
+        /// objetivos: en vez de una línea por cada uno, se muestra sólo este párrafo.
+        /// Para una lista de tareas conviene dejarlo vacío y describir cada objetivo
+        /// por separado (ver <see cref="ObjetivoRegistro.descripcion"/>); para una
+        /// misión que se explica mejor de corrido ("recorre el pantano y habla con
+        /// cada criatura") esto es lo que hay que llenar.
+        /// </summary>
+        public string descripcion;
 
         public List<ObjetivoRegistro> objetivos = new List<ObjetivoRegistro>();
 
@@ -368,8 +386,7 @@ namespace Fishy.Mision
             ficha.titulo        = registro.Titulo;
             ficha.zonaObjetivo  = registro.zona_objetivo;
             ficha.orden         = registro.orden;
-            // `descripcion` no viaja en el catálogo a propósito: se decidió dejarla
-            // fuera de la base. Sigue existiendo para las fichas hechas a mano.
+            ficha.descripcion   = registro.descripcion ?? "";
             ficha.hideFlags     = HideFlags.HideAndDontSave;
 
             _fichasEnMemoria[id] = ficha;
@@ -391,6 +408,11 @@ namespace Fishy.Mision
             string zonaCat   = registro.zona_objetivo ?? "";
             if (zonaAsset.Trim() != zonaCat.Trim())
                 diferencias.Add($"zona objetivo ('{zonaAsset}' vs '{zonaCat}')");
+
+            string descCatalogo = registro.descripcion ?? "";
+            if (!string.IsNullOrWhiteSpace(descCatalogo) &&
+                (asset.descripcion ?? "").Trim() != descCatalogo.Trim())
+                diferencias.Add("descripción (la ficha trae otra distinta)");
 
             if (diferencias.Count == 0) return;
 
@@ -434,6 +456,7 @@ namespace Fishy.Mision
                 ficha.titulo       = registro.Titulo;
                 ficha.zonaObjetivo = registro.zona_objetivo;
                 ficha.orden        = registro.orden;
+                ficha.descripcion  = registro.descripcion ?? "";
             }
         }
     }

@@ -8,8 +8,11 @@ using UnityEngine.Events;
 ///
 /// Ejemplo típico: abrir una zona. <c>alCompletar</c> → la cinemática de apertura;
 /// <c>alRestaurar</c> → <c>BlockedZone.Unlock()</c> a secas, sin cinemática.
+///
+/// Admite varios en el mismo GameObject, uno por cada misión que haya que vigilar
+/// desde ese punto: cada instancia guarda su propia <c>mision</c>/<c>misionId</c> y
+/// sus propios eventos, sin nada compartido entre componentes.
 /// </summary>
-[DisallowMultipleComponent]
 public class AlCompletarMision : DisparadorDeMision
 {
     [Header("Qué pasa")]

@@ -18,9 +18,11 @@ using UnityEngine.Events;
 /// a encender lo que ya sobra.
 ///
 /// Para apagar eso mismo al terminarla, pon además un <see cref="AlCompletarMision"/>
-/// en el mismo GameObject: son componentes distintos, conviven sin problema.
+/// en el mismo GameObject: son componentes distintos, conviven sin problema. También
+/// admite varios de sí mismo en un solo GameObject, uno por cada misión que vigilar:
+/// cada instancia guarda su propia <c>mision</c>/<c>misionId</c> y sus propios
+/// eventos, sin nada compartido entre componentes.
 /// </summary>
-[DisallowMultipleComponent]
 public class AlQuedarDisponibleMision : DisparadorDeMision
 {
     [Header("Qué pasa")]

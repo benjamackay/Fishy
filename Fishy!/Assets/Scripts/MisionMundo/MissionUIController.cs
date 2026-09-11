@@ -223,12 +223,27 @@ public class MissionUIController : MonoBehaviour
 
     private void PintarObjetivos(DesafioRuntime activa)
     {
+        int caben = _lineasObjetivo.Count;
+
+        // La misión completa manda: si trae su propia descripción, se muestra ESA,
+        // sola, en vez de una línea por objetivo. Cubre tanto la que antes era la
+        // única excepción —una misión sin objetivos seguidos— como cualquier otra:
+        // el criterio ya no es "¿hay objetivos?", es "¿la misión quiso describirse
+        // ella misma?".
+        if (activa.data != null && !string.IsNullOrWhiteSpace(activa.data.descripcion) && caben > 0)
+        {
+            _lineasObjetivo[0].text = activa.data.descripcion.Trim();
+            _lineasObjetivo[0].color = MisionHudTheme.Colores.ObjetivoPendiente;
+            _lineasObjetivo[0].gameObject.SetActive(true);
+            for (int i = 1; i < caben; i++) _lineasObjetivo[i].gameObject.SetActive(false);
+            return;
+        }
+
         IReadOnlyList<ObjetivoMision> objetivos = MissionTracker.Instance != null
             ? MissionTracker.Instance.Objetivos(activa.Id)
             : new List<ObjetivoMision>();
 
         int usadas = 0;
-        int caben = _lineasObjetivo.Count;
 
         // Con más objetivos que huecos, el último hueco cuenta cuántos quedan en vez
         // de mostrar uno más: cortar la lista sin avisar hace pensar que ya está.
@@ -257,17 +272,6 @@ public class MissionUIController : MonoBehaviour
             // Sin puntos suspensivos tipográficos (U+2026): no están en Latin-1.
             linea.text = $"y {restantes} objetivo(s) más en la pestaña Misión";
             linea.color = MisionHudTheme.Colores.SinMisiones;
-            linea.gameObject.SetActive(true);
-        }
-
-        // Una misión sin objetivos seguidos es informativa: en vez de dejar el hueco
-        // vacío se aprovecha la descripción de la ficha, que es la pista escrita.
-        if (objetivos.Count == 0 && activa.data != null &&
-            !string.IsNullOrWhiteSpace(activa.data.descripcion) && caben > 0)
-        {
-            TextMeshProUGUI linea = _lineasObjetivo[usadas++];
-            linea.text = activa.data.descripcion.Trim();
-            linea.color = MisionHudTheme.Colores.ObjetivoPendiente;
             linea.gameObject.SetActive(true);
         }
 

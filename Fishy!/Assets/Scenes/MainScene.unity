@@ -1716,6 +1716,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.ZonaActual
   zonaPorDefecto: zona_1
+  nombrePorDefecto: Bosque de los desconocidos
   intervalo: 0.25
   verboseLogs: 1
 --- !u!4 &128738868
@@ -3306,6 +3307,82 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+--- !u!1 &754695999
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 754696000}
+  - component: {fileID: 754696003}
+  - component: {fileID: 754696002}
+  - component: {fileID: 754696001}
+  m_Layer: 0
+  m_Name: MisionOnStep
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &754696000
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 754695999}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1848732944}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &754696001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 754695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
+  misionId: MISION_PANTANO_CRIATURAS
+  verboseLogs: 1
+--- !u!114 &754696002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 754695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75e94149e8c96e0418e67e1f17b39f4d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionAlEntrarZona
+  zonaId: zona_2
+  verboseLogs: 1
+--- !u!114 &754696003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 754695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
+  misionId: 
+  verboseLogs: 1
 --- !u!1001 &768531405
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4078,7 +4155,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size
-      value: 4
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeMisionPendiente
@@ -9800,6 +9877,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1364329626}
+  - {fileID: 754696000}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1848732945
@@ -11170,6 +11248,129 @@ MonoBehaviour:
   onPickup:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &1980227217
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1980227220}
+  - component: {fileID: 1980227219}
+  - component: {fileID: 1980227218}
+  m_Layer: 0
+  m_Name: Mision Listener
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1980227218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1980227217}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b91248bc9f391f352879e31d43df4e22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AlCompletarMision
+  mision: {fileID: 0}
+  misionId: MISION_PANTANO_CRIATURAS
+  verboseLogs: 0
+  alCompletar:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 774275077}
+        m_TargetAssemblyTypeName: Fishy.World.BlockedZone, Assembly-CSharp
+        m_MethodName: Unlock
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  alRestaurar:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 774275077}
+        m_TargetAssemblyTypeName: Fishy.World.BlockedZone, Assembly-CSharp
+        m_MethodName: Unlock
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &1980227219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1980227217}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b91248bc9f391f352879e31d43df4e22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AlCompletarMision
+  mision: {fileID: 0}
+  misionId: MISION_NPC_03
+  verboseLogs: 0
+  alCompletar:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1848732943}
+        m_TargetAssemblyTypeName: Fishy.World.BlockedZone, Assembly-CSharp
+        m_MethodName: Unlock
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  alRestaurar:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1848732943}
+        m_TargetAssemblyTypeName: Fishy.World.BlockedZone, Assembly-CSharp
+        m_MethodName: Unlock
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!4 &1980227220
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1980227217}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.17448, y: 12.42984, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1991218066
 GameObject:
   m_ObjectHideFlags: 0
@@ -12157,3 +12358,4 @@ SceneRoots:
   - {fileID: 1887548408}
   - {fileID: 1108575987}
   - {fileID: 854021133}
+  - {fileID: 1980227220}

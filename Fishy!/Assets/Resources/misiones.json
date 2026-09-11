@@ -103,6 +103,32 @@
       "objetivos": []
     },
     {
+      "mision_id": "MISION_PANTANO_CRIATURAS",
+      "titulo": "Habla con todas las criaturas del pantano",
+      "tipo": "secundaria",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 65,
+      "descripcion": "Recorre el Pantano de los Susurros y conversa con cada una de sus criaturas antes de seguir al arrecife.",
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "M4_FASE01"
+        },
+        {
+          "orden": 2,
+          "tipo": "hablar_npc",
+          "dialogo_id": "M4_FASE02"
+        },
+        {
+          "orden": 3,
+          "tipo": "hablar_npc",
+          "dialogo_id": "M3_DECISION01"
+        }
+      ]
+    },
+    {
       "mision_id": "MISION_EXPLORACION_03",
       "titulo": "Las llaves del cofre",
       "tipo": "exploracion",

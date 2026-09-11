@@ -147,14 +147,25 @@ public class QuestPageUI : MonoBehaviour
         // El detalle de qué hay que hacer sólo aporta mientras esté pendiente.
         if (!completada)
         {
-            foreach (ObjetivoMision objetivo in ObjetivosDe(mision.Id))
+            // La misión completa manda: si trae su propia descripción, se muestra ESA
+            // en vez de una línea por objetivo. Mismo criterio que MissionUIController.
+            if (mision.data != null && !string.IsNullOrWhiteSpace(mision.data.descripcion))
             {
-                string marca = objetivo.cumplido ? "✔" : "•";
-                Color color = objetivo.cumplido
-                    ? colorCompletado
-                    : MenuTabsTheme.Colores.ObjetivoPendiente;
-                ConstruirTexto($"   {marca} {objetivo.Describir()}", objetivoFontSize,
-                    color, filaGO.transform, MenuTabsTheme.Fuente.Objetivos);
+                ConstruirTexto($"   {mision.data.descripcion.Trim()}", objetivoFontSize,
+                    MenuTabsTheme.Colores.ObjetivoPendiente, filaGO.transform,
+                    MenuTabsTheme.Fuente.Objetivos);
+            }
+            else
+            {
+                foreach (ObjetivoMision objetivo in ObjetivosDe(mision.Id))
+                {
+                    string marca = objetivo.cumplido ? "✔" : "•";
+                    Color color = objetivo.cumplido
+                        ? colorCompletado
+                        : MenuTabsTheme.Colores.ObjetivoPendiente;
+                    ConstruirTexto($"   {marca} {objetivo.Describir()}", objetivoFontSize,
+                        color, filaGO.transform, MenuTabsTheme.Fuente.Objetivos);
+                }
             }
         }
 
@@ -179,13 +190,22 @@ public class QuestPageUI : MonoBehaviour
         var description = new System.Text.StringBuilder(status);
         if (!done)
         {
-            // Sin "Pendiente"/"Completado" delante: el avance lo dice el contador, y el
-            // objetivo ya cumplido se pinta en verde.
-            string verde = ColorUtility.ToHtmlStringRGB(colorCompletado);
-            foreach (var objective in ObjetivosDe(mision.Id))
+            // La misión completa manda: si trae su propia descripción, se muestra ESA
+            // en vez de la lista con contador y color.
+            if (mision.data != null && !string.IsNullOrWhiteSpace(mision.data.descripcion))
             {
-                string line = ConProgreso(objective);
-                description.Append("\n").Append(objective.cumplido ? $"<color=#{verde}>{line}</color>" : line);
+                description.Append("\n").Append(mision.data.descripcion.Trim());
+            }
+            else
+            {
+                // Sin "Pendiente"/"Completado" delante: el avance lo dice el contador, y el
+                // objetivo ya cumplido se pinta en verde.
+                string verde = ColorUtility.ToHtmlStringRGB(colorCompletado);
+                foreach (var objective in ObjetivosDe(mision.Id))
+                {
+                    string line = ConProgreso(objective);
+                    description.Append("\n").Append(objective.cumplido ? $"<color=#{verde}>{line}</color>" : line);
+                }
             }
         }
         return TemplateRow(mision.Titulo, description.ToString(), done ? colorCompletado : (Color?)null);
