@@ -82,7 +82,13 @@
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
       "orden": 40,
-      "objetivos": []
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_NPC_COIPO"
+        }
+      ]
     },
     {
       "mision_id": "MISION_SEC_MASCOTA_COIPO",
@@ -109,22 +115,31 @@
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
       "orden": 65,
-      "descripcion": "Recorre el Pantano de los Susurros y conversa con cada una de sus criaturas antes de seguir al arrecife.",
       "objetivos": [
         {
           "orden": 1,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M4_FASE01"
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_ROCA",
+          "cantidad": 1,
+          "descripcion": "Recolectar mascota"
         },
         {
           "orden": 2,
           "tipo": "chatear_telefono",
-          "escenario_ids": "M4_FASE02"
+          "escenario_ids": "M4_FASE01",
+          "descripcion": "Interactuar con tres animales"
         },
         {
           "orden": 3,
           "tipo": "chatear_telefono",
-          "escenario_ids": "M3_DECISION01"
+          "escenario_ids": "M4_FASE02",
+          "descripcion": "Interactuar con tres animales"
+        },
+        {
+          "orden": 4,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M3_DECISION01",
+          "descripcion": "Interactuar con tres animales"
         }
       ]
     },

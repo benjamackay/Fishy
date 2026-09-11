@@ -1754,7 +1754,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &170974272
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2318,7 +2318,11 @@ PrefabInstance:
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: desafio
       value: 
-      objectReference: {fileID: 11400000, guid: 23fc6b24c2b20ba469becba23cabdd01, type: 2}
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: misionId
+      value: MISION_PANTANO_CRIATURAS
+      objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: soloUnaVez
       value: 1
@@ -2326,14 +2330,14 @@ PrefabInstance:
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: zonaADesbloquear
       value: 
-      objectReference: {fileID: 774275077}
+      objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeDesbloqueo
       value: "\u2728 \xA1Nueva zona desbloqueada!"
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size
-      value: 3
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeMisionPendiente
@@ -2342,7 +2346,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: requiereVolverParaEntregar
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.data[0].npc
@@ -2459,7 +2463,7 @@ PrefabInstance:
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueData
       value: 
-      objectReference: {fileID: 11400000, guid: b1a4dc2c9c6f22d4683d28a58b6fabdd, type: 2}
+      objectReference: {fileID: 11400000, guid: 3c7e1a9d4b2f4e6a8d5c0b1e2f3a4c5d, type: 2}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueText
       value: 
@@ -2499,7 +2503,7 @@ Animator:
   m_GameObject: {fileID: 275759689}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: f576c993b4f67334fbe334e7a835d91b, type: 2}
+  m_Controller: {fileID: 9100000, guid: 19bf9fa94ec97a2468d50527dcffee0f, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -2521,11 +2525,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -12.39
+      value: -12
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 44.1
+      value: 38.8
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2577,7 +2581,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: modoTelefono
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Sprite
@@ -2710,11 +2714,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -33.09
+      value: -28.94
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 37.91
+      value: 36.14
       objectReference: {fileID: 0}
     - target: {fileID: 766929412441306038, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_LocalPosition.z
@@ -3392,7 +3396,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
-  misionId: MISION_PANTANO_CRIATURAS
+  misionId: MISION_EXPLORACION_02
   verboseLogs: 1
 --- !u!114 &754696002
 MonoBehaviour:
@@ -3495,6 +3499,10 @@ PrefabInstance:
     - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_SortingLayerID
       value: -1360283395
+      objectReference: {fileID: 0}
+    - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3647,6 +3655,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 625274780}
+  - {fileID: 1990000002}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &774275079
@@ -3926,6 +3935,10 @@ PrefabInstance:
     - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Name
       value: Huemy
+      objectReference: {fileID: 0}
+    - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
@@ -4358,7 +4371,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5958660424376028720, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: resourcePath
-      value: detective_caso_02
+      value: detective_caso_03
       objectReference: {fileID: 0}
     - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4421,7 +4434,7 @@ Animator:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1108575988}
-  m_Enabled: 1
+  m_Enabled: 0
   m_Avatar: {fileID: 0}
   m_Controller: {fileID: 9100000, guid: 19bf9fa94ec97a2468d50527dcffee0f, type: 2}
   m_CullingMode: 0
@@ -4522,7 +4535,7 @@ Transform:
   m_GameObject: {fileID: 1124251868}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.57, y: 16.97, z: 0}
+  m_LocalPosition: {x: 0.5, y: 19.4, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -4660,12 +4673,20 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: modoTelefono
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 3580563070811647201, guid: 7894851ee929ac744bd38fdf9b1722e5, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -4807,7 +4828,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1301573654
 SpriteRenderer:
   serializedVersion: 2
@@ -4876,7 +4897,7 @@ Transform:
   m_GameObject: {fileID: 1301573653}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -33.5, y: 29.74, z: 0}
+  m_LocalPosition: {x: 35.48, y: 16.39, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -8956,7 +8977,7 @@ PrefabInstance:
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: desafio
       value: 
-      objectReference: {fileID: 11400000, guid: 23fc6b24c2b20ba469becba23cabdd01, type: 2}
+      objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: soloUnaVez
       value: 1
@@ -8964,14 +8985,14 @@ PrefabInstance:
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: zonaADesbloquear
       value: 
-      objectReference: {fileID: 774275077}
+      objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeDesbloqueo
       value: "\u2728 \xA1Nueva zona desbloqueada!"
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size
-      value: 3
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeMisionPendiente
@@ -8980,75 +9001,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: requiereVolverParaEntregar
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].npc
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].npc
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].tipo
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].tipo
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].objeto
-      value: 
-      objectReference: {fileID: 11400000, guid: 60db56fa65ebca3419c690d2613f3edb, type: 2}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].objeto
-      value: 
-      objectReference: {fileID: 11400000, guid: 3a60c9cef2649fa42883fbd9c36e8873, type: 2}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[2].objeto
-      value: 
-      objectReference: {fileID: 11400000, guid: c6f7f46a1ce018b4a85d8fd2d06d47fc, type: 2}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[3].objeto
-      value: 
-      objectReference: {fileID: 11400000, guid: 5a783e4b9008896459a58098987abbe3, type: 2}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[4].objeto
-      value: 
-      objectReference: {fileID: 11400000, guid: 5a783e4b9008896459a58098987abbe3, type: 2}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].telefono
-      value: 
-      objectReference: {fileID: 1427637925}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].telefono
-      value: 
-      objectReference: {fileID: 1427637925}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[2].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[2].telefono
-      value: 
-      objectReference: {fileID: 1427637925}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[3].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[4].cantidad
-      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_Name
@@ -9097,7 +9050,7 @@ PrefabInstance:
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueData
       value: 
-      objectReference: {fileID: 11400000, guid: b1a4dc2c9c6f22d4683d28a58b6fabdd, type: 2}
+      objectReference: {fileID: 11400000, guid: 7f0ca5e8b1d24c3f9a6e2d4b8c1f0a3e, type: 2}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueText
       value: 
@@ -9113,6 +9066,74 @@ PrefabInstance:
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: onDialogueEnded.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
       value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: misionId
+      value: MISION_EXPLORACION_03
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].tipo
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].escenarioIds
+      value: M5A_DECISION01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].descripcion
+      value: Enfrentar los retos del Lobo Marino
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].tipo
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].escenarioIds
+      value: M5B_DECISION01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].descripcion
+      value: Enfrentar los retos del Lobo Marino
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].tipo
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].casoDetectiveId
+      value: DC_CASO_03
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].descripcion
+      value: "Revisar el caso del Ping\xFCino"
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].tipo
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].escenarioIds
+      value: M6_DECISION01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].descripcion
+      value: "Superar el \xFAltimo desaf\xEDo"
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -9135,7 +9156,7 @@ Animator:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1695938085}
-  m_Enabled: 1
+  m_Enabled: 0
   m_Avatar: {fileID: 0}
   m_Controller: {fileID: 9100000, guid: f576c993b4f67334fbe334e7a835d91b, type: 2}
   m_CullingMode: 0
@@ -9175,11 +9196,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 25.8
+      value: 15.8
       objectReference: {fileID: 0}
     - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 18.4
+      value: 15.9
       objectReference: {fileID: 0}
     - target: {fileID: 8598532372670378235, guid: 09e9dff6b426a27aa9f70c248a3325a5, type: 3}
       propertyPath: m_LocalPosition.z
@@ -9295,7 +9316,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: escenarioIds
-      value: M5A_DECISION01
+      value: M5B_DECISION01
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: modoTelefono
@@ -11283,7 +11304,7 @@ Transform:
   m_GameObject: {fileID: 1901153110}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 26.17, y: 11.87, z: 0}
+  m_LocalPosition: {x: 15.4, y: 2.3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -11586,7 +11607,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1992260831
 SpriteRenderer:
   serializedVersion: 2
@@ -11945,11 +11966,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -20.74
+      value: -30.46
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 43.88
+      value: 6.52
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.z
@@ -11996,13 +12017,25 @@ PrefabInstance:
       value: 
       objectReference: {fileID: -167164456610951095, guid: bd29d4dbcec8bb94faafc5ea8c894378, type: 3}
     - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
+      objectReference: {fileID: 0}
+    - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_WasSpriteAssigned
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: desafio
       value: 
-      objectReference: {fileID: 11400000, guid: 23fc6b24c2b20ba469becba23cabdd01, type: 2}
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: misionId
+      value: MISION_SEC_MOCHILA_HUEMUL
+      objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: soloUnaVez
       value: 1
@@ -12010,14 +12043,14 @@ PrefabInstance:
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: zonaADesbloquear
       value: 
-      objectReference: {fileID: 774275077}
+      objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeDesbloqueo
       value: "\u2728 \xA1Nueva zona desbloqueada!"
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size
-      value: 5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: mensajeMisionPendiente
@@ -12026,7 +12059,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: requiereVolverParaEntregar
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.data[0].npc
@@ -12120,6 +12153,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Huemul 2
       objectReference: {fileID: 0}
+    - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_IsTrigger
       value: 1
@@ -12208,7 +12245,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &2100368904
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12424,6 +12461,159 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!1 &1990000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1990000002}
+  - component: {fileID: 1990000003}
+  - component: {fileID: 1990000004}
+  m_Layer: 0
+  m_Name: MisionArrecife
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1990000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 774275078}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1990000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
+  misionId: 
+  mision: {fileID: 11400000, guid: 5a2c7e9b1d3f4a6c8e0b2d4f6a8c0e1b, type: 2}
+  objetivos:
+  - tipo: 1
+    objeto: {fileID: 0}
+    cantidad: 1
+    npc: {fileID: 0}
+    telefono: {fileID: 0}
+    zonaDestino: 
+    detective: {fileID: 0}
+    itemId: 
+    dialogoNpcId: HDU1_NPC_FOCA
+    escenarioIds: 
+    casoDetectiveId: 
+    descripcion: 
+  verboseLogs: 1
+--- !u!114 &1990000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75e94149e8c96e0418e67e1f17b39f4d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionAlEntrarZona
+  zonaId: zona_3
+  verboseLogs: 1
+--- !u!1 &1990000011
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1990000012}
+  - component: {fileID: 1990000013}
+  - component: {fileID: 1990000014}
+  m_Layer: 0
+  m_Name: CierreDelJuego
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1990000012
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000011}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1990000013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e4b1c7a2d5f4e8a9b3c6d0e1f2a4b6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MensajeDeCierre
+--- !u!114 &1990000014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b91248bc9f391f352879e31d43df4e22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AlCompletarMision
+  mision: {fileID: 0}
+  misionId: MISION_EXPLORACION_03
+  verboseLogs: 1
+  alCompletar:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1990000013}
+        m_TargetAssemblyTypeName: MensajeDeCierre, Assembly-CSharp
+        m_MethodName: Mostrar
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  alRestaurar:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -12470,3 +12660,4 @@ SceneRoots:
   - {fileID: 1108575987}
   - {fileID: 854021133}
   - {fileID: 1980227220}
+  - {fileID: 1990000012}
