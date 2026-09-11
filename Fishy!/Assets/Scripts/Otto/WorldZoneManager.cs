@@ -63,7 +63,10 @@ namespace Fishy.World
             {
                 if (rule.zone != null && rule.zone.zoneId == zoneId)
                 {
-                    rule.zone.Unlock();
+                    // Sin cinemática: este manager nunca la mostró, y BlockedZone.Unlock()
+                    // ahora sí la muestra por defecto. UnlockInmediato() conserva el
+                    // comportamiento de siempre.
+                    rule.zone.UnlockInmediato();
                     return true;
                 }
             }
@@ -81,7 +84,7 @@ namespace Fishy.World
             {
                 if (rule.zone == null) continue;
                 if (rule.progresoRequerido >= 0f && progreso >= rule.progresoRequerido)
-                    rule.zone.Unlock();
+                    rule.zone.UnlockInmediato();   // sin cinemática, igual que siempre
             }
         }
     }

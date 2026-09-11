@@ -52,6 +52,10 @@ namespace Fishy.World
         [Tooltip("Segundos mínimos entre dos apariciones del mensaje (evita spam al empujar).")]
         public float mensajeCooldown = 2.5f;
 
+        [Tooltip("Cartel de la cinemática al desbloquear con Unlock(). No se usa en " +
+                 "UnlockInmediato(), que no muestra nada.")]
+        public string mensajeDesbloqueo = "✨ ¡Nueva zona desbloqueada!";
+
         [Header("Aspecto (oscurecido)")]
         [Tooltip("SpriteRenderer que oscurece la zona. Opcional.")]
         public SpriteRenderer overlay;
@@ -207,8 +211,33 @@ namespace Fishy.World
                 target.x / spriteSize.x, target.y / spriteSize.y, 1f);
         }
 
-        /// <summary>Desbloquea la zona: Otto ya puede entrar y desaparece el oscurecido.</summary>
+        /// <summary>
+        /// Desbloquea la zona CON la cinemática de apertura (paneo de cámara, oscurecido
+        /// que se desvanece, cartel): Otto ya puede entrar y el niño/a lo ve pasar.
+        ///
+        /// El cambio de estado en sí no ocurre aquí, sino a mitad de la cinemática —ver
+        /// <see cref="UnlockInmediato"/>, que es lo que <see cref="ZoneUnlockCinematic"/>
+        /// llama en el momento justo de su propia secuencia. Sin esa separación, Unlock()
+        /// llamando a la cinemática y la cinemática llamando de vuelta a Unlock() se
+        /// llamarían en círculo.
+        ///
+        /// Para un desbloqueo SIN cinemática —restaurar una partida donde la zona ya
+        /// estaba abierta, por ejemplo, donde celebrar de nuevo confundiría en vez de
+        /// alegrar— usa <see cref="UnlockInmediato"/> directamente.
+        /// </summary>
         public void Unlock()
+        {
+            if (!isLocked) return;
+            ZoneUnlockCinematic.GetOrCreate().Play(this, mensajeDesbloqueo);
+        }
+
+        /// <summary>
+        /// El cambio de estado en sí, sin cámara ni cartel: apaga los colliders y el
+        /// oscurecido al instante. Es lo que hay que llamar para un desbloqueo
+        /// silencioso, y lo que usa <see cref="ZoneUnlockCinematic"/> por
+        /// dentro cuando el oscurecido de su propia animación ya llegó a cero.
+        /// </summary>
+        public void UnlockInmediato()
         {
             if (!isLocked) return;
             isLocked = false;

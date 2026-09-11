@@ -6,8 +6,9 @@ using UnityEngine.Events;
 /// Espera a que se complete una misión concreta. Ver <see cref="DisparadorDeMision"/>
 /// para el porqué de los dos eventos y de los dos caminos.
 ///
-/// Ejemplo típico: abrir una zona. <c>alCompletar</c> → la cinemática de apertura;
-/// <c>alRestaurar</c> → <c>BlockedZone.Unlock()</c> a secas, sin cinemática.
+/// Ejemplo típico: abrir una zona. <c>alCompletar</c> → <c>BlockedZone.Unlock()</c>,
+/// que YA incluye la cinemática de apertura; <c>alRestaurar</c> →
+/// <c>BlockedZone.UnlockInmediato()</c>, la misma zona sin cámara ni cartel.
 ///
 /// Admite varios en el mismo GameObject, uno por cada misión que haya que vigilar
 /// desde ese punto: cada instancia guarda su propia <c>mision</c>/<c>misionId</c> y

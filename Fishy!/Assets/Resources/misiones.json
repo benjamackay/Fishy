@@ -113,18 +113,18 @@
       "objetivos": [
         {
           "orden": 1,
-          "tipo": "hablar_npc",
-          "dialogo_id": "M4_FASE01"
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M4_FASE01"
         },
         {
           "orden": 2,
-          "tipo": "hablar_npc",
-          "dialogo_id": "M4_FASE02"
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M4_FASE02"
         },
         {
           "orden": 3,
-          "tipo": "hablar_npc",
-          "dialogo_id": "M3_DECISION01"
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M3_DECISION01"
         }
       ]
     },

@@ -3356,6 +3356,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 754696000}
+  - component: {fileID: 754696003}
   - component: {fileID: 754696002}
   - component: {fileID: 754696001}
   m_Layer: 0
@@ -3407,6 +3408,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionAlEntrarZona
   zonaId: zona_2
+  verboseLogs: 1
+--- !u!114 &754696003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 754695999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
+  misionId: 
   verboseLogs: 1
 --- !u!1001 &768531405
 PrefabInstance:
@@ -3629,7 +3644,6 @@ MonoBehaviour:
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
   mensajeCooldown: 2.5
-  mensajeDesbloqueo: "\u2728 \xA1Nueva zona desbloqueada!"
   overlay: {fileID: 0}
   darkenAlpha: 0.6
   ottoTag: Player
@@ -9379,18 +9393,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 4356589255417746392, guid: e7e8883dbdbe29e40970c04055eafd53, type: 3}
     - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: m_Color.b
-      value: 0.78431374
-      objectReference: {fileID: 0}
-    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: m_Color.g
-      value: 0.78431374
-      objectReference: {fileID: 0}
-    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: m_Color.r
-      value: 0.78431374
-      objectReference: {fileID: 0}
-    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_SortingLayer
       value: 5
       objectReference: {fileID: 0}
@@ -9966,7 +9968,6 @@ MonoBehaviour:
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
   mensajeCooldown: 2.5
-  mensajeDesbloqueo: "\u2728 \xA1Nueva zona desbloqueada!"
   overlay: {fileID: 0}
   darkenAlpha: 0.606
   ottoTag: Player
@@ -11408,7 +11409,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 774275077}
         m_TargetAssemblyTypeName: Fishy.World.BlockedZone, Assembly-CSharp
-        m_MethodName: UnlockInmediato
+        m_MethodName: Unlock
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -11453,7 +11454,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 1848732943}
         m_TargetAssemblyTypeName: Fishy.World.BlockedZone, Assembly-CSharp
-        m_MethodName: UnlockInmediato
+        m_MethodName: Unlock
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

@@ -13,6 +13,15 @@ using UnityEngine;
 /// No necesita collider ni estar cerca de nada: <see cref="ZonaActual.OnZonaCambiada"/>
 /// es un evento global, así que este GameObject puede vivir en cualquier parte de la
 /// escena, incluso junto a otros disparadores de misión.
+///
+/// <b>El entregador se busca solo, no se arrastra.</b> Va de la mano con
+/// <see cref="EntregarMisionDelCatalogo"/>: los dos en el mismo GameObject, sin
+/// ninguno extra. Con exactamente esos dos, Unity ya se encarga de agregar el
+/// EntregarMisionDelCatalogo al poner este componente (RequireComponent); si alguna
+/// vez apareciera un segundo EntregarMisionDelCatalogo en el mismo objeto —por
+/// ejemplo, uno agregado a mano sin darse cuenta de que el automático ya estaba—,
+/// GetComponent devolvería el primero de la lista sin avisar de que había otro, así
+/// que eso se detecta y se dice en voz alta en vez de fallar en silencio.
 /// </summary>
 [RequireComponent(typeof(EntregarMisionDelCatalogo))]
 public class EntregarMisionAlEntrarZona : MonoBehaviour
@@ -30,7 +39,21 @@ public class EntregarMisionAlEntrarZona : MonoBehaviour
 
     private EntregarMisionDelCatalogo entregador;
 
-    private void Awake() => entregador = GetComponent<EntregarMisionDelCatalogo>();
+    private void Awake()
+    {
+        EntregarMisionDelCatalogo[] candidatos = GetComponents<EntregarMisionDelCatalogo>();
+        entregador = candidatos.Length > 0 ? candidatos[0] : null;
+
+        if (candidatos.Length > 1)
+        {
+            string ids = string.Join(", ", System.Array.ConvertAll(candidatos,
+                c => string.IsNullOrEmpty(c.misionId) ? "(sin Mision Id)" : c.misionId));
+            Debug.LogWarning($"[{name}] Hay {candidatos.Length} EntregarMisionDelCatalogo " +
+                             $"en este GameObject ({ids}); se está usando el primero " +
+                             $"('{entregador.misionId}'). Deja sólo uno, o el que entra a " +
+                             "la zona no es el que crees.", this);
+        }
+    }
 
     private void OnEnable()
     {

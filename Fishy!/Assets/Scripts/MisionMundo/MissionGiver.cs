@@ -203,6 +203,6 @@ public class MissionGiver : MonoBehaviour
         if (usarCinematicaDesbloqueo)
             ZoneUnlockCinematic.GetOrCreate().Play(zonaADesbloquear, mensajeDesbloqueo);
         else
-            zonaADesbloquear.Unlock();
+            zonaADesbloquear.UnlockInmediato();
     }
 }

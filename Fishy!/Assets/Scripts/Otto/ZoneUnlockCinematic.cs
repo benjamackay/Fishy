@@ -76,7 +76,7 @@ namespace Fishy.World
 
             if (zone == null || _cam == null || IsPlaying)
             {
-                if (zone != null) zone.Unlock();   // fallback: desbloqueo inmediato
+                if (zone != null) zone.UnlockInmediato();   // fallback: desbloqueo inmediato
                 onComplete?.Invoke();
                 return;
             }
@@ -118,7 +118,9 @@ namespace Fishy.World
                 yield return null;
             }
             // Desbloqueo efectivo: desactiva los colliders (el oscurecido ya está en 0).
-            zone.Unlock();
+            // UnlockInmediato() y no Unlock(): éste último vuelve a llamar aquí mismo, a
+            // Play(), y se llamarían en círculo.
+            zone.UnlockInmediato();
 
             // 4) Mantener un momento con la zona iluminada.
             yield return new WaitForSeconds(holdDuration);

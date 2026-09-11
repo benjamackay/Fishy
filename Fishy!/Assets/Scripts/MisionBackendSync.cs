@@ -283,7 +283,7 @@ namespace Fishy.Net
 
                 // Sin cinemática: esto es restaurar algo que el niño/a ya había abierto,
                 // no un logro nuevo. Celebrarlo otra vez al entrar confundiría.
-                bloqueada.Unlock();
+                bloqueada.UnlockInmediato();
                 Debug.Log($"[MisionBackendSync] Zona '{zona}' restaurada como desbloqueada.");
             }
         }
