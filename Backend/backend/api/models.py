@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+import uuid
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -851,6 +852,47 @@ class ObjetoRecogido(models.Model):
                 fields=["partida", "objeto_id"], name="objeto_unico_por_partida"
             )
         ]
+
+
+class GrupoTutor(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tutor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="grupos")
+    nombre = models.CharField(max_length=80)
+    descripcion = models.CharField(max_length=280, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+
+class MiembroGrupo(models.Model):
+    """La unidad del curso es un perfil infantil concreto, nunca todos los hijos del adulto."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="miembros")
+    jugador = models.ForeignKey(UsuarioJugador, on_delete=models.CASCADE, related_name="grupos")
+    nombre_invitado = models.CharField(max_length=150)
+    fecha_ingreso = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["grupo", "jugador"], name="miembro_unico_por_grupo_jugador")]
+
+
+class InvitacionGrupo(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="invitaciones")
+    email = models.EmailField()
+    nombre_nino = models.CharField(max_length=150)
+    nombre_clave = models.CharField(max_length=450)
+    # Solo se persiste el hash. El secreto viaja únicamente en el correo.
+    token_hash = models.CharField(max_length=64, unique=True)
+    estado = models.CharField(max_length=12, default="pendiente", choices=[("pendiente", "Pendiente"), ("aceptada", "Aceptada"), ("cancelada", "Cancelada")])
+    estado_envio = models.CharField(max_length=12, default="enviando", choices=[("enviando", "Enviando"), ("enviado", "Enviado"), ("fallido", "Fallido")])
+    miembro = models.ForeignKey(MiembroGrupo, on_delete=models.SET_NULL, null=True, blank=True, related_name="invitaciones")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    ultimo_intento = models.DateTimeField()
+    enviada_en = models.DateTimeField(null=True, blank=True)
+    vence_en = models.DateTimeField()
+    aceptada_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["grupo", "email", "nombre_clave"], condition=models.Q(estado="pendiente"), name="invitacion_pendiente_unica_por_nino")]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

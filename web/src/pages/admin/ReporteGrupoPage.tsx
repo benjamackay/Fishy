@@ -39,6 +39,7 @@ export default function ReporteGrupoPage() {
     {r && <>
       <div className="encabezado"><div><span className="eyebrow">UNA MIRADA AL APRENDIZAJE COLECTIVO</span><h1>{r.nombre_grupo}</h1><p className="muted">Reporte grupal · Resumen de decisiones seguras por temática.</p></div><button type="button" className="boton boton--primario" disabled={!disponible || descargando || !!estado.error} onClick={descargar}><Icono nombre="descargar" />{descargando ? 'Generando PDF…' : 'Descargar reporte'}</button></div>
       {error && <ErrorAviso error={error} />}{exito && <Exito>PDF generado. La descarga está lista en tu navegador.</Exito>}
+      <p><Link className="text-link" to={'/admin/grupos/' + id + '#seguimiento'}>Ver alumnos que necesitan apoyo en el panel del grupo →</Link></p>
       {disponible ? <>
         <div className="kpis"><Estadistica etiqueta="Integrantes del grupo" valor={r.total_integrantes} pie="en este grupo" /><Estadistica etiqueta="Con resultados" valor={r.participantes_con_resultados} pie="aportan al resumen agregado" /><Estadistica etiqueta="Temáticas disponibles" valor={tematicasCompletas(r.tematicas).filter(t => t.metricas).length + ' de 3'} pie="con datos suficientes" /></div>
         <div className="section-heading"><h2>Decisiones seguras por temática</h2><Sincronizacion actualizando={estado.actualizando} actualizado={r.actualizado_en} error={!!estado.error} /></div>

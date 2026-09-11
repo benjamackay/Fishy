@@ -129,14 +129,17 @@ describe('permisos antes de invocar el servicio', () => {
     p => p.listarGrupos(),
     p => p.crearGrupo({ nombre: 'No permitido' }),
     p => p.obtenerGrupo('grupo'),
-    p => p.agregarUsuario('grupo', 'familia@example.com'),
+    p => p.invitarFamilia('grupo', { email: 'familia@example.com', nombre_nino: 'Martina' }),
+    p => p.reenviarInvitacion('grupo', 'invitacion'),
+    p => p.cancelarInvitacion('grupo', 'invitacion'),
     p => p.eliminarUsuario('grupo', 'miembro'),
     p => p.eliminarGrupo('grupo'),
     p => p.obtenerReporteGrupo('grupo'),
+    p => p.obtenerSeguimientoGrupo('grupo'),
   ]
   it.each([false, undefined, 'true', 1, null])('deniega todas las operaciones grupales con un rol no autorizado: %s', async rol => {
     const fuente = crearPanelDemo(1001)
-    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'agregarUsuario', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
+    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo', 'obtenerSeguimientoGrupo'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
     const perfil = { ...perfilesDemo.principal, is_admin: rol } as AdultoResponsable
     const panel = aplicarPermisosPanel(fuente, perfil)
     for (const operacion of operaciones) await expect(operacion(panel)).rejects.toThrow('Solo los tutores administradores')
@@ -147,8 +150,9 @@ describe('permisos antes de invocar el servicio', () => {
     expect((await panel.listarGrupos()).length).toBeGreaterThan(0)
     const g = await panel.crearGrupo({ nombre: 'Curso' })
     expect((await panel.obtenerGrupo(g.id)).nombre).toBe('Curso')
-    const detalle = await panel.agregarUsuario(g.id, 'familia.silva@example.com')
-    await panel.eliminarUsuario(g.id, detalle.miembros[0].id)
+    const invitacion = await panel.invitarFamilia(g.id, { email: 'familia.silva@example.com', nombre_nino: 'Sofía' })
+    await panel.reenviarInvitacion(g.id, invitacion.id)
+    await panel.cancelarInvitacion(g.id, invitacion.id)
     expect((await panel.obtenerReporteGrupo(g.id)).total_integrantes).toBe(0)
     await panel.eliminarGrupo(g.id)
     await expect(panel.obtenerGrupo(g.id)).rejects.toThrow('No encontramos')

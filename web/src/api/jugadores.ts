@@ -2,8 +2,8 @@ import { api } from '@/lib/api'
 import type { Partida, UsuarioJugador } from '@/types/api'
 
 /** Perfiles de menores del adulto autenticado. */
-export function listarJugadores(): Promise<UsuarioJugador[]> {
-  return api.get<UsuarioJugador[]>('/jugadores/')
+export function listarJugadores(opciones?: { signal?: AbortSignal }): Promise<UsuarioJugador[]> {
+  return api.get<UsuarioJugador[]>('/jugadores/', opciones)
 }
 
 export function obtenerJugador(id: number): Promise<UsuarioJugador> {

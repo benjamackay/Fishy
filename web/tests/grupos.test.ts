@@ -12,28 +12,33 @@ describe('gestión de grupos', () => {
     await expect(panel.crearGrupo({ nombre: '   ' })).rejects.toThrow('nombre')
     await expect(panel.crearGrupo({ nombre: 'x'.repeat(81) })).rejects.toThrow('nombre')
   })
-  it('agrega por correo normalizado e impide duplicados de forma concurrente', async () => {
+  it('invita por niño y correo normalizado e impide duplicados concurrentes', async () => {
     const panel = crearPanelDemo(1001)
     const g = await panel.crearGrupo({ nombre: 'Correos' })
     const resultados = await Promise.allSettled([
-      panel.agregarUsuario(g.id, '  FAMILIA.ROJAS@example.com  '),
-      panel.agregarUsuario(g.id, 'familia.rojas@example.com'),
+      panel.invitarFamilia(g.id, { email: '  FAMILIA.ROJAS@example.com  ', nombre_nino: 'Martina' }),
+      panel.invitarFamilia(g.id, { email: 'familia.rojas@example.com', nombre_nino: ' martina ' }),
     ])
     expect(resultados.filter(r => r.status === 'fulfilled')).toHaveLength(1)
     expect(resultados.filter(r => r.status === 'rejected')).toHaveLength(1)
-    expect((await panel.obtenerGrupo(g.id)).miembros).toHaveLength(1)
-    await expect(panel.agregarUsuario(g.id, 'familia.rojas@example.com')).rejects.toThrow('ya forma parte')
+    expect((await panel.obtenerGrupo(g.id)).miembros).toHaveLength(0)
+    expect((await panel.obtenerGrupo(g.id)).invitaciones).toHaveLength(1)
+    await expect(panel.invitarFamilia(g.id, { email: 'familia.rojas@example.com', nombre_nino: 'Martina' })).rejects.toThrow('Ya existe una invitación')
+    await panel.invitarFamilia(g.id, { email: 'familia.rojas@example.com', nombre_nino: 'Tomás' })
+    expect((await panel.obtenerGrupo(g.id)).invitaciones).toHaveLength(2)
   })
-  it('valida el correo, avisa si no existe y permite quitar y volver a agregar', async () => {
+  it('admite familias nuevas, no finge correo real y permite reenviar y cancelar', async () => {
     const panel = crearPanelDemo(1001)
     const g = await panel.crearGrupo({ nombre: 'Grupo' })
-    await expect(panel.agregarUsuario(g.id, 'invalido')).rejects.toThrow('válido')
-    await expect(panel.agregarUsuario(g.id, 'nadie@example.com')).rejects.toThrow('No encontramos')
-    const conUsuario = await panel.agregarUsuario(g.id, 'familia.rojas@example.com')
-    await panel.eliminarUsuario(g.id, conUsuario.miembros[0].id)
+    await expect(panel.invitarFamilia(g.id, { email: 'invalido', nombre_nino: 'Martina' })).rejects.toThrow('válido')
+    const inv = await panel.invitarFamilia(g.id, { email: 'nueva@example.com', nombre_nino: 'Martina' })
+    expect(inv.estado_envio).toBe('simulado')
+    expect((await panel.reenviarInvitacion(g.id, inv.id)).estado_envio).toBe('simulado')
+    await panel.cancelarInvitacion(g.id, inv.id)
+    await expect(panel.reenviarInvitacion(g.id, inv.id)).rejects.toThrow('ya no está disponible')
     expect((await panel.obtenerGrupo(g.id)).miembros).toHaveLength(0)
-    await panel.agregarUsuario(g.id, 'familia.rojas@example.com')
-    expect((await panel.obtenerGrupo(g.id)).miembros).toHaveLength(1)
+    await panel.invitarFamilia(g.id, { email: 'nueva@example.com', nombre_nino: 'Martina' })
+    expect((await panel.obtenerGrupo(g.id)).invitaciones.filter(i => i.estado === 'pendiente')).toHaveLength(1)
   })
   it('eliminar un grupo no elimina usuarios ni reportes', async () => {
     const panel = crearPanelDemo(1001)

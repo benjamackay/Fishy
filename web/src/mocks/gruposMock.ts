@@ -1,4 +1,5 @@
 import { ErrorUsuario } from '@/lib/errores'
+import { CRITERIOS_SEGUIMIENTO_DEMO, evaluarSeguimientoDemo, ordenarSeguimiento } from '@/lib/seguimiento'
 import { hayResultados, porcentajeSeguro, tematicasCompletas } from '@/lib/reportes'
 import { EVENTO_DATOS } from '@/hooks/useDatosVivos'
 import type { FuentePanel } from '@/types/panel'
@@ -6,6 +7,8 @@ import type { Grupo, GrupoDetalle, NuevoGrupo } from '@/types/grupos'
 import type { NinoResumen, ReporteNino, ReporteGrupo, ResultadoTematica, TematicaId } from '@/types/reportes'
 import { TEMATICAS } from '@/types/reportes'
 import { perfilesDemo } from './sesionDemo'
+import { claveNombre } from '@/api/invitaciones'
+import type { InvitacionGrupo } from '@/types/grupos'
 
 /** Datos ficticios, separados de auth real y por cuenta. Jamás son un fallback de red. */
 export const MINIMO_PARTICIPANTES_DEMO = 3
@@ -42,10 +45,10 @@ function sembrar(adultoId: number): Almacen {
     return { nino, actualizado_en: nino.actualizado_en, tematicas }
   })
   const usuarios = ids.map((nino_id, i) => ({ id: 'usuario-' + nino_id, email: correos[i], nino_id }))
-  const miembros = usuarios.filter((_, i) => !(principal && i === 1)).map(u => ({ id: u.id, email: u.email, fecha_ingreso: ahora }))
+  const miembros = usuarios.filter((_, i) => !(principal && i === 1)).map(u => ({ id: u.id, email: u.email, nombre_nino: ninos.find(n => n.nino.id === u.nino_id)!.nino.nombre, fecha_ingreso: ahora }))
   return { version: 2, ninos, usuarios, grupos: [
-    { id: 'grupo-demo-' + adultoId + '-a', nombre: '5° Básico A', descripcion: 'Taller de ciudadanía y seguridad digital.', total_miembros: miembros.length, fecha_creacion: ahora, actualizado_en: ahora, miembros },
-    { id: 'grupo-demo-' + adultoId + '-b', nombre: 'Taller de bienvenida', descripcion: 'Un nuevo espacio para aprender juntos.', total_miembros: 0, fecha_creacion: ahora, actualizado_en: ahora, miembros: [] },
+    { id: 'grupo-demo-' + adultoId + '-a', nombre: '5° Básico A', descripcion: 'Taller de ciudadanía y seguridad digital.', total_miembros: miembros.length, fecha_creacion: ahora, actualizado_en: ahora, miembros, invitaciones: [] },
+    { id: 'grupo-demo-' + adultoId + '-b', nombre: 'Taller de bienvenida', descripcion: 'Un nuevo espacio para aprender juntos.', total_miembros: 0, fecha_creacion: ahora, actualizado_en: ahora, miembros: [], invitaciones: [] },
   ] }
 }
 function leer(adultoId: number): Almacen {
@@ -63,6 +66,13 @@ function leer(adultoId: number): Almacen {
 
 /** Corrige la demo anterior sin perder grupos, integrantes ni progreso guardado. */
 function migrarVinculosProfesor(adultoId: number, datos: Almacen): Almacen {
+  for (const g of datos.grupos) {
+    g.invitaciones ??= []
+    for (const m of g.miembros) {
+      const ninoId = datos.usuarios.find(u => u.id === m.id)?.nino_id
+      m.nombre_nino ??= datos.ninos.find(r => r.nino.id === ninoId)?.nino.nombre ?? 'Perfil vinculado'
+    }
+  }
   if (adultoId !== perfilesDemo.alternativa.id) return datos
   const vinculados = datos.ninos.filter(r => r.nino.adulto_id === adultoId)
   if (vinculados.length) {
@@ -89,7 +99,7 @@ function buscarGrupo(datos: Almacen, id: string): GrupoGuardado {
 function resumen(g: GrupoGuardado): Grupo {
   return { id: g.id, nombre: g.nombre, descripcion: g.descripcion, total_miembros: g.miembros.length, fecha_creacion: g.fecha_creacion }
 }
-function detalle(g: GrupoGuardado): GrupoDetalle { return { ...resumen(g), miembros: copia(g.miembros) } }
+function detalle(g: GrupoGuardado): GrupoDetalle { return { ...resumen(g), miembros: copia(g.miembros), invitaciones: copia(g.invitaciones).map(i => ({ ...i, estado: i.estado === 'pendiente' && Date.parse(i.vence_en) <= Date.now() ? 'vencida' : i.estado })) } }
 function mutar<T>(adultoId: number, accion: (datos: Almacen) => T): Promise<T> {
   const ejecutar = () => {
     const datos = leer(adultoId)
@@ -121,21 +131,45 @@ export function crearPanelDemo(adultoId: number): FuentePanel {
     crearGrupo: datos => mutar(adultoId, almacen => {
       const valores = validarGrupo(datos)
       const ahora = new Date().toISOString()
-      const grupo: GrupoGuardado = { id: crypto.randomUUID(), nombre: valores.nombre, descripcion: valores.descripcion ?? '', total_miembros: 0, miembros: [], fecha_creacion: ahora, actualizado_en: ahora }
+      const grupo: GrupoGuardado = { id: crypto.randomUUID(), nombre: valores.nombre, descripcion: valores.descripcion ?? '', total_miembros: 0, miembros: [], invitaciones: [], fecha_creacion: ahora, actualizado_en: ahora }
       almacen.grupos.unshift(grupo)
       return resumen(grupo)
     }),
     obtenerGrupo: async id => detalle(buscarGrupo(leer(adultoId), id)),
-    agregarUsuario: (id, correo) => mutar(adultoId, almacen => {
+    obtenerSeguimientoGrupo: async id => {
+      const almacen = leer(adultoId)
       const grupo = buscarGrupo(almacen, id)
-      const email = normalizarCorreo(correo)
+      const ahora = Date.now()
+      const alumnos = grupo.miembros.map(m => {
+        const ninoId = almacen.usuarios.find(u => u.id === m.id)?.nino_id
+        return evaluarSeguimientoDemo(m, almacen.ninos.find(r => r.nino.id === ninoId), ahora)
+      })
+      return { grupo_id: id, nombre_grupo: grupo.nombre, consultado_en: new Date(ahora).toISOString(),
+        criterios: { ...CRITERIOS_SEGUIMIENTO_DEMO }, alumnos: ordenarSeguimiento(alumnos) }
+    },
+    invitarFamilia: (id, datos) => mutar(adultoId, almacen => {
+      const grupo = buscarGrupo(almacen, id)
+      const email = normalizarCorreo(datos.email)
+      const nombre = datos.nombre_nino.trim()
+      if (!nombre || nombre.length > 150) throw new ErrorUsuario('Ingresa el nombre del niño o niña.')
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new ErrorUsuario('Ingresa un correo electrónico válido.')
-      if (grupo.miembros.some(m => normalizarCorreo(m.email) === email)) throw new ErrorUsuario('El usuario ya forma parte del grupo.')
-      const usuario = almacen.usuarios.find(u => u.email === email)
-      if (!usuario) throw new ErrorUsuario('No encontramos un usuario registrado con ese correo.')
-      grupo.miembros.push({ id: usuario.id, email, fecha_ingreso: new Date().toISOString() })
-      grupo.actualizado_en = new Date().toISOString()
-      return detalle(grupo)
+      if (grupo.miembros.some(m => normalizarCorreo(m.email) === email && claveNombre(m.nombre_nino) === claveNombre(nombre))) throw new ErrorUsuario('Ese niño ya forma parte del grupo con este padre o madre.')
+      if (grupo.invitaciones.some(i => i.email === email && claveNombre(i.nombre_nino) === claveNombre(nombre) && i.estado === 'pendiente')) throw new ErrorUsuario('Ya existe una invitación para ese niño y correo. Reenvíala o cancélala desde el grupo.')
+      const invitacion: InvitacionGrupo = { id: crypto.randomUUID(), email, nombre_nino: nombre, estado: 'pendiente', estado_envio: 'simulado', fecha_creacion: new Date().toISOString(), enviada_en: null, vence_en: new Date(Date.now() + 7 * 86400000).toISOString() }
+      grupo.invitaciones.unshift(invitacion)
+      return copia(invitacion)
+    }),
+    reenviarInvitacion: (id, invitacionId) => mutar(adultoId, almacen => {
+      const inv = buscarGrupo(almacen, id).invitaciones.find(i => i.id === invitacionId)
+      if (!inv || inv.estado !== 'pendiente') throw new ErrorUsuario('Esta invitación ya no está disponible.')
+      inv.vence_en = new Date(Date.now() + 7 * 86400000).toISOString()
+      inv.estado_envio = 'simulado'
+      return copia(inv)
+    }),
+    cancelarInvitacion: (id, invitacionId) => mutar(adultoId, almacen => {
+      const inv = buscarGrupo(almacen, id).invitaciones.find(i => i.id === invitacionId)
+      if (!inv || inv.estado !== 'pendiente') throw new ErrorUsuario('Esta invitación ya no está disponible.')
+      inv.estado = 'cancelada'
     }),
     eliminarUsuario: (id, miembroId) => mutar(adultoId, almacen => {
       const grupo = buscarGrupo(almacen, id)
@@ -181,3 +215,24 @@ export function simularProgreso(adultoId: number, ninoId: number, tematica: Tema
   })
 }
 export function correosDemo(adultoId: number): string[] { return leer(adultoId).usuarios.map(u => u.email) }
+
+/** Reemplaza únicamente resultados ficticios del grupo desde controles explícitos de demo. */
+export function simularSeguimiento(adultoId: number, grupoId: string, mejora = false): Promise<void> {
+  return mutar(adultoId, almacen => {
+    const grupo = buscarGrupo(almacen, grupoId)
+    grupo.miembros.forEach((m, i) => {
+      const ninoId = almacen.usuarios.find(u => u.id === m.id)?.nino_id
+      const r = almacen.ninos.find(r => r.nino.id === ninoId)
+      if (!r) return
+      const casos = [
+        [resultado('desconocidos', 0), resultado('ciberacoso', 2), resultado('retos_virales', 8)],
+        [resultado('desconocidos', 4), resultado('ciberacoso', 6), resultado('retos_virales', null)],
+        [resultado('desconocidos', 0, 3, false), resultado('ciberacoso', null), resultado('retos_virales', null)],
+        TEMATICAS.map(t => resultado(t.id, null)),
+      ]
+      r.tematicas = mejora ? TEMATICAS.map(t => resultado(t.id, 18, 20)) : casos[i % casos.length]
+      r.actualizado_en = new Date().toISOString()
+    })
+    grupo.actualizado_en = new Date().toISOString()
+  })
+}

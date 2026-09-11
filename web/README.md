@@ -1,8 +1,8 @@
 # Fishy! · Panel de tutores
 
-Frontend en React + TypeScript + Vite. El alcance de este trabajo es la interfaz,
-los flujos, los estados, la actualización de lecturas y la exportación a PDF.
-No se modificó Django, Unity, la base de datos ni se crearon endpoints.
+Frontend en React + TypeScript + Vite, con grupos e invitaciones por niño
+integrados con Django. El envío de correo queda preparado para configurar el
+proveedor elegido. Ver [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
 ## Ejecutar y probar
 
@@ -23,8 +23,9 @@ backend ni contraseña y siempre muestra una etiqueta de datos ficticios.
 - Diego, tutor administrador/profesor: únicamente creación, gestión y reportes
   de grupos. No tiene niños asociados ni acceso a reportes individuales.
 - La demo de profesor abre Mis grupos, con un grupo con resultados y otro sin datos.
-- En cada formulario de agregar usuario, “Correos de la demostración” lista
-  las cuentas ficticias registradas. Un correo desconocido produce un error.
+- “Invitar familia” solicita nombre del niño y correo del padre. La demo simula
+  invitaciones, reenvío y cancelación; nunca afirma que se envió un correo real.
+  Dos hermanos requieren dos invitaciones, aunque compartan el correo del padre.
 - En un reporte individual, “Probar la actualización automática” simula un
   nivel completado. El cambio también afecta al agregado del grupo cuando
   ese perfil participa en él.
@@ -50,6 +51,7 @@ con el juego y los endpoints reales.
 | Ruta | Vista |
 |---|---|
 | /login | Inicio de sesión existente y entrada separada a demo |
+| /invitacion#token | Registro/login y aceptación de una invitación para un niño |
 | / | Reportes de los hijos para padres; redirección a grupos para profesores |
 | /reportes/:id | Resumen individual por temática, exclusivo de padres |
 | /admin/grupos | Lista y creación de grupos |
@@ -74,15 +76,17 @@ El servicio real debe validar también rol y pertenencia en cada operación.
 las lecturas individuales de profesores antes de invocar la fuente de datos,
 incluso si el servicio antiguo todavía les atribuye perfiles infantiles.
 
-## Integración pendiente del otro integrante
+## Integración del backend
 
 Ver [INTEGRACION_FRONTEND.md](INTEGRACION_FRONTEND.md).
 El contrato es `src/types/panel.ts` (`FuentePanel`); el punto de conexión es
 `src/api/panelReal.ts`. No hay que reescribir las pantallas.
 
 El login y el listado de perfiles conservan las llamadas que ya existían.
-Las operaciones nuevas de reportes y grupos están pendientes en ese adaptador:
-una cuenta real muestra un estado de función no disponible hasta conectarlas.
+El adaptador conecta grupos, invitaciones, integrantes y reportes con los nuevos
+endpoints de Django. Para activar el entorno real hay que aplicar la migración
+aditiva del backend y completar su configuración SMTP. Las invitaciones exigen
+aceptación con el correo destinatario y vinculan solo un perfil infantil.
 **No se reemplaza una respuesta fallida del servicio real por datos ficticios.**
 
 La demo está disponible por defecto solo en desarrollo. `VITE_DEMO=true` la
@@ -90,6 +94,17 @@ ofrece explícitamente en un build de demostración; `VITE_DEMO=false` la oculta
 `VITE_GRUPOS_MOCK` y `VITE_FORZAR_ADMIN` no activan las nuevas pantallas.
 
 ## Reportes y privacidad
+
+El detalle de cada grupo incluye **Alumnos que necesitan apoyo**, visible solo
+para su profesor. Explica las dificultades con métricas por temática y permite
+preparar un correo a la familia. Los umbrales iniciales son 60% para apoyo y 40%
+para prioridad, con al menos cinco decisiones por temática. Las muestras pequeñas
+y antiguas se distinguen explícitamente. El reporte grupal y su PDF permanecen
+agregados. Ver criterios completos en [INTEGRACION_FRONTEND.md](INTEGRACION_FRONTEND.md).
+
+Para probarlo en la demo: entrar como profesor → abrir 5° Básico A →
+**Probar casos de apoyo** → **Simular casos de apoyo**. **Simular mejora**
+permite verificar que las alertas se retiran automáticamente.
 
 - Tres temáticas fijas: Desconocidos, Ciberacoso y Retos Virales.
 - Decisiones seguras / decisiones evaluadas × 100, redondeado al entero.
@@ -121,6 +136,14 @@ resultado visible; ante revocación de acceso se retira. El servidor sigue siend
 responsable de guardar el nuevo progreso y entregar un agregado reciente.
 
 ## Diseño
+
+El acceso alterna entre **Iniciar sesión** y **Registrarse** con un indicador
+deslizante, un trazo de luz y entrada escalonada de los campos. La altura se adapta
+al contenido y las animaciones respetan `prefers-reduced-motion`. Las pestañas
+admiten flechas, Inicio y Fin, y solo el formulario activo queda accesible.
+El registro utiliza `/auth/registro/` del contrato existente, muestra errores y
+confirma únicamente una respuesta válida. Tras crear la cuenta permite volver
+al login con el usuario rellenado. Los permisos siguen viniendo del perfil real.
 
 Café claro `#b78e70`, café pastel `#f0e4d9` y blanco. El café oscuro se utiliza
 en texto y controles para legibilidad. Navegación lateral en escritorio y

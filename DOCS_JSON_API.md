@@ -1,5 +1,9 @@
 # Documentación JSON — Comunicación con la Base de Datos
 
+El contrato nuevo del portal de grupos, invitaciones por niño y reportes se
+documenta en [Backend/INVITACIONES.md](Backend/INVITACIONES.md). El perfil
+autenticado incluye ahora `is_admin` (solo lectura) para distinguir los roles.
+
 > ⚠️ **Actualizado a la Fase 2 (control parental, 2026-08-12).** El contrato de
 > la API **cambió**: quien inicia sesión es un **adulto responsable**, que
 > gestiona uno o más **perfiles de menores**, y la partida cuelga del perfil, no

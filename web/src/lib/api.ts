@@ -64,7 +64,7 @@ async function parseBody(response: Response): Promise<unknown> {
 
 export const api = {
   get: <T>(path: string, opciones?: { signal?: AbortSignal }) => request<T>('GET', path, undefined, opciones?.signal),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+  post: <T>(path: string, body?: unknown, opciones?: { signal?: AbortSignal }) => request<T>('POST', path, body, opciones?.signal),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),

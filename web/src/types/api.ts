@@ -25,6 +25,15 @@ export interface RespuestaLogin {
   adulto_id: number
 }
 
+/** Campos del registro existente documentado en DOCS_JSON_API.md. */
+export interface RegistroAdulto {
+  nombre: string
+  email: string
+  password: string
+  apellido?: string
+  fecha_nacimiento?: string
+}
+
 /** Perfil de un menor. El progreso cuelga de aca, no de la cuenta del adulto. */
 export interface UsuarioJugador {
   id: number

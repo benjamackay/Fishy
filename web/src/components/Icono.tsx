@@ -16,6 +16,8 @@ const trazos = {
   alerta: 'm12 3 10 18H2z M12 9v4 M12 17h.01',
   borrar: 'M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7',
   correo: 'M3 5h18v14H3z m0 0 9 7 9-7',
+  ojo: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
+  ojoCerrado: 'm3 3 18 18 M10.6 5.1A13 13 0 0 1 12 5c7 0 10 7 10 7a17 17 0 0 1-3 3.9 M6.3 6.3A19 19 0 0 0 2 12s3 7 10 7a13 13 0 0 0 5.7-1.3 M9.9 9.9a3 3 0 0 0 4.2 4.2',
 } as const
 export function Icono({ nombre, style }: { nombre: keyof typeof trazos; style?: CSSProperties }) {
   return <svg className="icon" style={style} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={trazos[nombre]} /></svg>

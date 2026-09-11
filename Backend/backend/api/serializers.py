@@ -12,6 +12,12 @@ class RegistroSerializer(serializers.ModelSerializer):
     """Alta de la cuenta del adulto responsable (la única con login)."""
     password = serializers.CharField(write_only=True, min_length=4)
 
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if AdultoResponsable.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Ya existe una cuenta con este correo.")
+        return value
+
     class Meta:
         model = AdultoResponsable
         fields = ["id", "nombre", "apellido", "email", "edad", "fecha_nacimiento", "password"]
@@ -24,7 +30,7 @@ class AdultoResponsableSerializer(serializers.ModelSerializer):
     """Datos del adulto autenticado (sin password)."""
     class Meta:
         model = AdultoResponsable
-        fields = ["id", "nombre", "apellido", "email", "edad", "fecha_nacimiento", "fecha_creacion"]
+        fields = ["id", "nombre", "apellido", "email", "edad", "fecha_nacimiento", "fecha_creacion", "is_admin"]
         read_only_fields = fields
 
 

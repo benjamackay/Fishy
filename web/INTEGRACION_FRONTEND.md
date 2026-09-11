@@ -1,134 +1,155 @@
-# Contrato para integrar el panel
+# Integración del panel de Fishy
 
-El frontend está preparado y probado con una fuente de datos de demostración.
-Este documento no define rutas de API obligatorias ni realiza cambios de backend.
+El frontend consume ahora grupos, invitaciones y reportes reales. El contrato
+de dominio permanece en `src/types/panel.ts` y el adaptador en
+`src/api/panelReal.ts`. La demostración continúa separada: un fallo del servidor
+jamás activa datos ficticios.
 
-## Punto de conexión
+La implementación y configuración del servidor están documentadas en
+[Backend/INVITACIONES.md](../Backend/INVITACIONES.md). La migración
+`0012_grupos_invitaciones` debe aplicarse en el entorno de backend donde se active
+esta versión. No se han aplicado cambios a la base compartida desde este trabajo.
 
-Completar las operaciones de `panelReal` en `src/api/panelReal.ts`, respetando
-`FuentePanel` de `src/types/panel.ts`. Las pantallas lo obtienen mediante
-`usePanel`. Se mantienen el inicio de sesión y el listado real de perfiles
-preexistentes. Las demás operaciones devuelven un error de función no disponible
-hasta que se conecten. No hay fallback de datos reales a mock.
+## Vinculación por niño
 
-| Operación | Resultado esperado |
+El profesor envía `{ email, nombre_nino }` desde el detalle de su propio grupo.
+Se crea una invitación con UUID, vencimiento y secreto de un solo uso. El envío no
+agrega al padre ni incorpora automáticamente sus hijos.
+
+El enlace abre `/invitacion#<token>`. El secreto no aparece en parámetros enviados
+al servidor web, no se guarda en localStorage y no se incluye en listados.
+La página ofrece el mismo acceso animado: iniciar sesión o registrarse con el
+correo de la invitación. El registro crea la cuenta; después del login se exige
+confirmar el perfil y aceptar expresamente el vínculo.
+
+Con una cuenta existente, la interfaz ofrece perfiles del padre cuyo nombre
+coincide con el de la invitación. El servidor verifica correo, propiedad del ID
+seleccionado y nombre antes de vincularlo. No se asigna un niño automáticamente
+por nombre. Si existe con otro nombre, el profesor debe cancelar y corregir la
+invitación para conservar su progreso. Si no existe, se crea únicamente ese
+perfil dentro de la misma transacción que lo incorpora al curso.
+
+La membresía persiste `grupo + jugador_id`, con unicidad en base de datos.
+Dos hermanos requieren dos invitaciones. Quitar a un integrante elimina solo
+su pertenencia al curso, conservando la cuenta, el perfil y el juego.
+
+## FuentePanel
+
+| Operación | Resultado |
 |---|---|
-| listarNinos | NinoResumen[] de los hijos del padre/madre autenticado; no permitido a profesores |
-| obtenerReporteNino(id) | ReporteNino del hijo autorizado; no permitido a profesores |
-| listarGrupos | Grupo[] administrados por el tutor |
-| crearGrupo(datos) | Grupo con identificador único asignado por el servidor |
-| obtenerGrupo(id) | GrupoDetalle, con correos para gestionar membresías |
-| agregarUsuario(id, email) | GrupoDetalle confirmado por el servidor |
-| eliminarUsuario(id, miembroId) | Finaliza solo tras confirmar la eliminación |
-| eliminarGrupo(id) | Elimina el grupo; conserva cuentas y progreso |
-| obtenerReporteGrupo(id) | ReporteGrupo agregado, sin filas de integrantes |
+| listarNinos | Hijos del padre autenticado |
+| obtenerReporteNino | Resumen del hijo autorizado |
+| listarGrupos / crearGrupo / obtenerGrupo | Grupos propios del profesor |
+| invitarFamilia | Invitación para un correo y un niño |
+| reenviarInvitacion | Nuevo enlace; invalida el anterior |
+| cancelarInvitacion | Invalida el enlace sin borrar perfiles |
+| eliminarUsuario | Quita una membresía infantil concreta |
+| eliminarGrupo | Elimina grupo y enlaces; conserva perfiles |
+| obtenerReporteGrupo | Agregado de los niños vinculados, sin filas individuales |
+| obtenerSeguimientoGrupo | Seguimiento privado por alumno del propio curso, sin textos del juego |
 
-Las lecturas reciben un AbortSignal opcional. El cliente existente
-`api.get(ruta, { signal })` lo acepta; usarlo para abortar al abandonar una vista.
-Las mutaciones no deben resolver antes de que el cambio haya sido aceptado.
-Mapear errores del servicio a ApiError (401, 403, 404, 409, 400) o ErrorUsuario
-con un mensaje apto para el tutor. Un duplicado debe informar “El usuario ya
-forma parte del grupo”, incluso si se produce entre solicitudes concurrentes.
+Los errores previstos del nuevo contrato se muestran con mensajes aptos para las
+familias y profesores. Un fallo de correo no muestra éxito: la fila conserva
+`estado_envio: fallido` y puede reenviarse. Sin proveedor configurado se informa
+que el envío no está disponible. La demo solo simula creación, reenvío y cancelación;
+no envía correos ni genera enlaces reales de aceptación.
 
-## Datos por temática
+## Roles y privacidad
 
-Los identificadores de dominio de este frontend son `desconocidos`,
-`ciberacoso` y `retos_virales`. Si el juego utiliza nombres de zona diferentes,
-hacer el mapeo en el adaptador acordado, sin adivinar correspondencias.
+`GET /auth/perfil/` expone `is_admin` como booleano de solo lectura.
+El registro no permite asignar el rol de profesor. Padres y madres no pueden
+gestionar grupos; profesores consultan sus propios grupos, sus agregados y las
+necesidades de apoyo de los alumnos vinculados a ese curso.
+Los endpoints nuevos verifican estas reglas en servidor además del frontend.
+La invitación no concede acceso a un perfil ajeno ni convierte a un profesor
+en responsable de un niño.
 
-```json
-{
-  "tematica": "desconocidos",
-  "metricas": {
-    "decisiones_seguras": 8,
-    "decisiones_evaluadas": 10,
-    "completada": true
-  }
-}
-```
+Los endpoints y el admin histórico del juego conservan su arquitectura existente.
+La separación entre administradores internos de Django y profesores del portal
+sigue usando el campo histórico `is_admin`; revisar esa política antes de
+habilitar el admin interno a cuentas de profesores.
 
-```json
-{
-  "tematica": "retos_virales",
-  "metricas": null,
-  "motivo": "sin_resultados"
-}
-```
+## Reportes
 
-Los contadores deben ser enteros no negativos; seguras <= evaluadas.
-Sin observaciones, usar null. La UI también completa temáticas omitidas como
-ausentes. No convertir riesgo_acumulado, progreso o puntajes normalizados
-en un porcentaje de decisiones seguras: representan cosas diferentes.
+El servidor toma exclusivamente `jugador_id` de las membresías aceptadas, nunca
+todos los perfiles de los padres del grupo. Lee las decisiones guardadas que
+tienen `opcion_banco_id` resoluble contra el banco y cuentan con tipo
+`segura_basica`, `segura_optima` o `insegura`. El porcentaje usa decisiones
+seguras / decisiones evaluadas; no convierte un puntaje de riesgo a porcentaje.
 
-El reporte individual incluye el niño y su adulto_id para que la interfaz
-descarte datos de otra cuenta. Esto es una defensa de presentación: el servidor
-debe validar pertenencia antes de entregar cualquier información.
+Se consideran todas las decisiones clasificadas guardadas de esos perfiles,
+en las zonas `desconocidos`, `ciberacoso` y `retos_virales`. Los mensajes
+sin clasificación o de zonas desconocidas no generan métricas inventadas.
+El backend debe recibir las opciones del juego para que aparezcan resultados.
+Otros modos que no guardan opciones del banco no se mezclan en esta métrica.
 
-## Reglas que debe garantizar el servidor
+Cada temática grupal requiere al menos tres niños con resultados. Si no alcanza
+la muestra, devuelve `metricas: null` y `motivo: muestra_insuficiente`; si no hay
+decisiones clasificadas, `motivo: sin_resultados`. La fecha se deriva de eventos
+guardados. La finalización se deriva de `ZonaProgreso.fecha_completada`.
 
-- Exponer `is_admin` como booleano en el perfil autenticado: `false` identifica
-  al tutor padre/madre y `true` al tutor administrador/profesor. Si se usa otro
-  nombre para el rol, mapearlo en el adaptador de autenticación. Mientras el
-  campo no esté disponible, la interfaz no habilita administración.
-- Reservar todas las operaciones de grupos, reportes grupales y exportación a
-  profesores autorizados. Devolver 403 a padres/madres; además, comprobar que
-  el profesor administra el grupo solicitado. Ocultar el menú y proteger las
-  rutas del frontend no reemplaza estos controles del servidor.
-- Los profesores no pueden tener niños asociados ni consultar reportes
-  individuales. Reservar la vinculación de hijos y las lecturas individuales
-  a padres/madres, y rechazar esas operaciones para profesores, incluso si
-  existen asociaciones antiguas. Su migración real corresponde al backend;
-  este cambio solo corrige la demo local y los permisos del frontend.
-- Autenticar por la sesión existente y derivar del token el tutor responsable.
-  Nunca confiar en un adulto_id enviado por el cliente.
-- Filtrar niños, grupos, detalle, reportes y mutaciones por autorización.
-- Definir qué usuario registrado identifica el correo y qué perfiles aportan
-  resultados al grupo. En la demo se utiliza una cuenta ficticia con un perfil.
-  No se crean credenciales de menores ni se envían invitaciones por correo.
-- Normalizar correo, resolver identidad y evitar duplicados con unicidad
-  transaccional. Validar grupo, miembro y autorizaciones también al eliminar.
-- Asignar identificadores únicos persistentes. La demo utiliza UUID locales.
-- Persistir los eventos del juego al completar nivel/temática y generar el
-  reporte con los resultados recientes. Acordar si se incluyen todos los
-  intentos, el último o una ventana temporal; el frontend no inventa esa regla.
-- Entregar actualizado_en como ISO 8601 correspondiente a los resultados.
-- Definir un umbral de resultados suficientes. El frontend usa como mínimo
-  provisional tres participantes por temática. Con un umbral mayor, reflejarlo
-  en minimo_participantes y aplicar la supresión desde el servidor.
-- Suprimir cada temática con pocos participantes usando metricas:null y
-  motivo:muestra_insuficiente. No basta con un umbral global del grupo.
-- Entregar solo agregados en ReporteGrupo, sin nombres, correos, IDs o
-  resultados por integrante. Calcular el agregado en servidor; el navegador
-  real no debe descargar resultados de otras familias para sumar localmente.
-- No devolver transcripciones o decisiones textuales a estos reportes.
-- Evitar cachés que sirvan resultados vencidos. Las lecturas del cliente
-  solicitan no-store, pero eso no corrige cachés internas del servidor.
+Los reportes grupales y PDF solo reciben métricas agregadas: no incluyen nombres,
+correos, IDs infantiles ni conversaciones. Los reportes individuales validan
+el propietario. El PDF mantiene el diseño y logo oficiales ya implementados.
 
-## Actualización sin intervención del tutor
+## Actualización y validación
 
-El frontend reconsulta cada 15 segundos mientras la pestaña está visible y al
-volver a una vista/foco/conexión. Si se integra SSE o WebSocket, tras una
-notificación de progreso se puede emitir:
+### Seguimiento de apoyo en el grupo
 
-```ts
-window.dispatchEvent(new Event('fishy:datos-actualizados'))
-```
+`GET /grupos/:id/seguimiento/` devuelve `SeguimientoGrupo` (contrato en
+`src/types/seguimiento.ts`). Es una consulta independiente del reporte grupal:
+contiene el ID de la membresía, nombre invitado, correo familiar, estado,
+contadores por temática, fecha de la última decisión y criterios utilizados.
+Solo el profesor propietario puede consultarla. No habilita las rutas de
+reportes personales para profesores ni incorpora hermanos o invitaciones pendientes.
+El correo y la aceptación de invitaciones explican esta visibilidad a la familia.
 
-No hay suscripción real al juego en este cambio. El registro de progreso en
-base de datos y la entrega de nuevos resultados son tareas de integración.
+Criterios iniciales configurables en `settings.FISHY_SEGUIMIENTO`:
 
-## Comprobación conjunta pendiente
+- Se toman las últimas 20 decisiones clasificadas por niño y temática, ordenadas
+  por fecha e ID. La ventana se limita en SQL y se recalcula en cada consulta.
+- Con un mínimo de 5 decisiones: menos de 40% seguras → `prioritario`;
+  de 40% a menos de 60% → `apoyo`; desde 60% → `sin_alertas`.
+  Se comparan contadores sin redondear; se muestra como máximo un decimal.
+- De 1 a 4 decisiones → `muestra_insuficiente`; ninguna → `sin_datos`.
+  En ambos casos porcentaje y contador de decisiones seguras son `null`.
+- El resumen general pondera por decisiones de las temáticas con muestra
+  suficiente: necesita al menos 10 decisiones en 2 temáticas. Una temática baja
+  mantiene la alerta incluso con un promedio alto; no mide modos del juego
+  sin opciones clasificadas ni pretende ser un diagnóstico.
+- `datos_antiguos` indica que la ventana incluye algún resultado de hace más de
+  30 días. Una sola decisión nueva no esconde el resto de la muestra antigua.
+  Los resultados futuros o no clasificables se excluyen. Un resultado antiguo
+  sigue visible, rotulado para verificar el aprendizaje actual.
 
-Validar con un padre/madre real con hijos vinculados y un profesor real sin
-niños asociados, con grupos a su cargo. Comprobar que el padre no puede listar, crear,
-modificar ni obtener reportes de grupos, incluso usando directamente la API.
-Comprobar que el profesor puede gestionar solo los grupos autorizados y no puede
-vincular niños, listarlos ni consultar sus reportes individuales, tampoco desde
-enlaces antiguos o con relaciones previas. Validar el caso de perfil sin rol
-y los cambios de sesión entre ambos roles.
-Para los reportes individuales, validar acceso directo a
-IDs ajenos, cambio de sesión, completar un nivel en Unity, volver al reporte,
-observar la actualización, duplicados concurrentes, eliminación, agregados sin
-información individual, grupos sin muestra suficiente y PDF con datos actuales.
-Revisar también la interfaz en navegador a 320, 390, 768 y 1440 px, zoom 200%,
-navegación con teclado y foco/restauración de las ventanas nativas.
+El panel reconsulta cada 15 segundos, al volver a él y con cambios del juego.
+Una mejora que cruza el umbral retira la alerta automáticamente. La eliminación
+de un vínculo también retira su seguimiento; los errores de permisos eliminan
+los datos previos y los fallos de conexión identifican la última consulta conocida.
+Los filtros distinguen alumnos que requieren apoyo, alumnos sin ninguna temática
+con muestra suficiente y todos los alumnos. Las temáticas faltantes siguen
+indicándose aunque otras sí tengan resultados.
+
+“Preparar correo a la familia” abre un borrador `mailto:` editable con la
+sugerencia de coordinar una conversación, sin envío automático. No depende
+del proveedor SMTP de invitaciones. El PDF y la pantalla de reporte mantienen
+solo métricas agregadas; el seguimiento también se oculta en la impresión web.
+
+En la demo del profesor, abrir el grupo → “Probar casos de apoyo” → “Simular
+casos de apoyo”. Se reemplazan únicamente resultados ficticios del grupo: prioridad,
+apoyo, muestra insuficiente y ausencia de datos. “Simular mejora” cambia las
+muestras ficticias al 90% y permite comprobar que las alertas desaparecen.
+
+### Comprobación
+
+Las pantallas reconsultan al entrar, cada 15 segundos con la pestaña visible
+y al recuperar foco o conexión. Las respuestas usan `no-store`. La aceptación
+del enlace solo ocurre al confirmar el formulario, nunca al abrirlo (incluidos
+escáneres de correo).
+
+Las pruebas cubren creación de cuenta y regreso a la invitación, selección de un
+único hijo, conservación del progreso, permisos, duplicados, vencimiento,
+cancelación, reenvío, fallo SMTP y agregados que excluyen hermanos. Se ejecutan
+con DOM simulado y base SQLite aislada, sin correo externo ni acceso a Supabase.
+Pendiente al activar el entorno: configurar SMTP, aplicar la migración, validar
+entrega con el proveedor elegido y probar con los eventos reales de Unity.

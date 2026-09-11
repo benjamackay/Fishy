@@ -46,8 +46,8 @@ describe('reportes y privacidad', () => {
   })
   it('no agrega con menos de tres participantes y bloquea la exportación', async () => {
     const panel = crearPanelDemo(1001)
-    const g = await panel.crearGrupo({ nombre: 'Grupo pequeño' })
-    await panel.agregarUsuario(g.id, 'familia.rojas@example.com')
+    const g = await panel.obtenerGrupo('grupo-demo-1001-a')
+    for (const miembro of g.miembros.slice(1)) await panel.eliminarUsuario(g.id, miembro.id)
     const r = await panel.obtenerReporteGrupo(g.id)
     expect(r.tematicas.every(t => t.metricas === null)).toBe(true)
     expect(() => crearPdfGrupo(r)).toThrow('datos suficientes')

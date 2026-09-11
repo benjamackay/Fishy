@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .models import GrupoTutor, MiembroGrupo, InvitacionGrupo
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.db.models import Q
 from .models import (
@@ -10,6 +11,43 @@ from .models import (
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
     MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido, NpcProgreso,
 )
+
+
+class GrupoSoloLecturaAdmin(admin.ModelAdmin):
+    """El admin permite inspección; altas y cambios pasan por las reglas de invitación."""
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(tutor=request.user) if self.model is GrupoTutor else qs.filter(grupo__tutor=request.user)
+
+
+@admin.register(GrupoTutor)
+class GrupoTutorAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("id", "nombre", "fecha_creacion")
+    fields = ("id", "nombre", "descripcion", "fecha_creacion")
+    readonly_fields = fields
+
+
+@admin.register(MiembroGrupo)
+class MiembroGrupoAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("id", "grupo", "nombre_invitado", "fecha_ingreso")
+    fields = ("id", "grupo", "nombre_invitado", "fecha_ingreso")
+    readonly_fields = fields
+
+
+@admin.register(InvitacionGrupo)
+class InvitacionGrupoAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("id", "grupo", "nombre_nino", "estado", "estado_envio", "vence_en")
+    fields = ("id", "grupo", "nombre_nino", "email", "estado", "estado_envio", "vence_en", "enviada_en", "aceptada_en")
+    readonly_fields = fields
 
 
 class UsuarioJugadorInline(admin.TabularInline):

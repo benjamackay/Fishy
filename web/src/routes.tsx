@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RequiereAdmin, RequierePadre, RequiereSesion } from '@/auth/guardias'
 import RootLayout from '@/layouts/RootLayout'
 import LoginPage from '@/pages/LoginPage'
+import InvitacionPage from '@/pages/InvitacionPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import GrupoPage from '@/pages/admin/GrupoPage'
 import GruposPage from '@/pages/admin/GruposPage'
@@ -14,6 +15,7 @@ export const rutas = [{
   path: '/', element: <RootLayout />, errorElement: <NotFoundPage />,
   children: [
     { path: 'login', element: <LoginPage /> },
+    { path: 'invitacion', element: <InvitacionPage /> },
     { element: <RequiereSesion />, children: [
       { element: <RequierePadre />, children: [
         { index: true, element: <SesionesPage /> },

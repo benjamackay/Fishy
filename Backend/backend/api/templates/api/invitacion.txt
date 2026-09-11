@@ -1,0 +1,12 @@
+Invitación a Fishy
+
+{{ profesor }} te invita al curso {{ grupo }} para acompañar a {{ nombre_nino }}.
+
+Abre el enlace e inicia sesión o crea tu cuenta con este mismo correo:
+{{ enlace }}
+
+Confirma el perfil de {{ nombre_nino }}. Si ya existe, podrás conservar su progreso; de lo contrario se creará únicamente ese perfil. Tus demás hijos no se agregarán al curso.
+
+El enlace vence en {{ dias }} días y solo puede aceptarse con la cuenta destinataria. El profesor podrá consultar el resumen del grupo y un seguimiento de las necesidades de apoyo por temática de {{ nombre_nino }}, con su nombre y tu correo para coordinar el acompañamiento. No verá conversaciones ni respuestas literales. El PDF grupal contiene únicamente resultados agregados.
+
+Si no reconoces al profesor, al curso o al niño, no aceptes la invitación. Contacta al profesor para corregirla.
