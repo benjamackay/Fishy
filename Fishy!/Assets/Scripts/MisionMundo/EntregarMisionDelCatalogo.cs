@@ -18,8 +18,18 @@ using UnityEngine;
 public class EntregarMisionDelCatalogo : MonoBehaviour
 {
     [Tooltip("Id de la misión a entregar, tal como está en Resources/misiones.json o " +
-             "en la base. Ej: MISION_NPC_04.")]
+             "en la base. Ej: MISION_NPC_04. Se ignora si se arrastra una ficha abajo.")]
     public string misionId = "";
+
+    [Header("Sin catálogo (opcional)")]
+    [Tooltip("Ficha hecha a mano (Assets → Create → Fishy → Mision → Nuevo Desafio). Si " +
+             "está puesta manda sobre 'Mision Id': sirve para una misión que no está en " +
+             "el catálogo.")]
+    public DesafioData mision;
+
+    [Tooltip("Objetivos puestos a mano. Si la lista tiene algo, mandan sobre los del " +
+             "catálogo, igual que en MissionGiver.")]
+    public List<ObjetivoMision> objetivos = new List<ObjetivoMision>();
 
     [Tooltip("Escribir en consola qué se entregó.")]
     public bool verboseLogs = true;
@@ -28,14 +38,17 @@ public class EntregarMisionDelCatalogo : MonoBehaviour
     /// DisparadorDeMision, un botón, el final de una cinemática.</summary>
     public void Entregar()
     {
-        if (string.IsNullOrWhiteSpace(misionId))
+        // Lo puesto a mano manda sobre el catálogo, como en MissionGiver.
+        DesafioData ficha = mision;
+        string id = ficha != null ? ficha.desafioId : (misionId ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(id))
         {
-            Debug.LogWarning($"[{name}] EntregarMisionDelCatalogo sin 'Mision Id'.", this);
+            Debug.LogWarning($"[{name}] EntregarMisionDelCatalogo sin 'Mision Id' ni ficha.", this);
             return;
         }
 
-        string id = misionId.Trim();
-        DesafioData ficha = CatalogoMisiones.Ficha(id);
+        if (ficha == null) ficha = CatalogoMisiones.Ficha(id);
         if (ficha == null)
         {
             Debug.LogWarning($"[{name}] '{id}' no está en el catálogo de misiones " +
@@ -56,7 +69,9 @@ public class EntregarMisionDelCatalogo : MonoBehaviour
 
         if (manager.EstaCompletado(ficha.desafioId)) return;
 
-        List<ObjetivoMision> lista = ObjetivosDesdeCatalogo(id);
+        List<ObjetivoMision> lista = objetivos != null && objetivos.Count > 0
+            ? objetivos
+            : ObjetivosDesdeCatalogo(id);
         if (lista.Count > 0)
             MissionTracker.GetOrCreate().Seguir(ficha, lista);
     }
