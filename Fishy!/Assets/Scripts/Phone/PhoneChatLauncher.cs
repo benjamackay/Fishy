@@ -127,6 +127,14 @@ namespace Fishy.Phone
         {
             _sequenceRunning = true;
 
+            // Con variantes, el contenido depende de cómo viene jugando el niño/a (ver
+            // VariablesJugador), y ese valor sólo se refresca al cambiar de zona: los
+            // retos rechazados dentro de la misma zona no llegaban al chat siguiente.
+            // Se pide de nuevo antes de elegir, con un tope para no dejar a Otto
+            // esperando si el servidor no responde.
+            if (variantesSegunVariable.Count > 0)
+                yield return RefrescarVariables();
+
             if (modoTelefono)
                 yield return PhoneSequenceConCelular();
             else
@@ -134,6 +142,20 @@ namespace Fishy.Phone
 
             onChatClosed?.Invoke();
             _sequenceRunning = false;
+        }
+
+        private const float EsperaMaximaVariables = 3f;
+
+        /// <summary>Pide los valores de VariablesJugador y espera la respuesta, como
+        /// mucho <see cref="EsperaMaximaVariables"/> segundos. Sin sesión vuelve al
+        /// instante y se usa el último valor conocido.</summary>
+        private IEnumerator RefrescarVariables()
+        {
+            bool listo = false;
+            VariablesJugador.GetOrCreate().Refrescar(() => listo = true);
+
+            float tope = Time.realtimeSinceStartup + EsperaMaximaVariables;
+            while (!listo && Time.realtimeSinceStartup < tope) yield return null;
         }
 
         /// <summary>Secuencia diegética completa: celular vibra, notificación, zoom.</summary>
