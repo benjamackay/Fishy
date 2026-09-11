@@ -286,6 +286,18 @@ namespace Fishy.Chat
         // ── Cierre + estado emocional de Otto ──────────────────────────────────
         private void EndSession()
         {
+            // Un chat sin ninguna respuesta que evaluar —sólo narración, como el cierre
+            // de una zona— no tiene estado de Otto que mostrar: con 0 respuestas el
+            // porcentaje daba 100 y salía "Otto se siente seguro" tapando el último
+            // mensaje. Se deja leer y se cierra con Continuar.
+            if (safeCount + unsafeCount == 0)
+            {
+                Debug.Log("[ChatModule] Sesión cerrada sin respuestas que evaluar: " +
+                          "no se muestra el estado de Otto.");
+                ui.ShowOptions(new[] { ChatUITheme.Textos.BotonContinuar }, _ => CloseModule());
+                return;
+            }
+
             float percent = SafePercent();
             var tier = PickTier(percent);
 
