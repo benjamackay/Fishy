@@ -75,6 +75,20 @@ public class iniciar : MonoBehaviour
     /// <summary>Separacion vertical entre campos, tomada del layout de la escena.</summary>
     private const float AltoFila = 51f;
 
+    /// <summary>Tamano de cada boton de la lista de partidas. Caben dos lineas de texto:
+    /// "Seguir donde quedaste" y la fecha en que se guardo.</summary>
+    private const float AnchoBoton = 380f;
+    private const float AltoBoton = 70f;
+    private const float TamanoTextoBoton = 21f;
+
+    /// <summary>Aire entre dos botones de la lista de partidas, para que no se toquen.</summary>
+    private const float SeparacionBotones = 10f;
+
+    /// <summary>Aire entre el titulo y el primer boton, y entre el ultimo boton y el
+    /// borde de abajo del cartel (que tiene marco y sombra).</summary>
+    private const float MargenBajoTitulo = 14f;
+    private const float MargenInferior = 30f;
+
     private Modo modo = Modo.Login;
     private TMP_InputField emailInput;   // solo existe en modo registro
     private TMP_Text estadoLabel;        // se crea en runtime: la escena no trae uno
@@ -287,13 +301,13 @@ public class iniciar : MonoBehaviour
 
     private void MostrarSelectorDePartidas(List<PartidaDto> partidas)
     {
-        // Sin el boton que clonar no hay lista que montar. Antes de HDU-15 esta puerta
-        // retomaba la mas reciente sin preguntar: se vuelve a eso en vez de dejar al
-        // nino/a en una pantalla vacia.
-        if (ingresarButton == null || cartel == null || usuarioInput == null)
+        // Sin cartel donde montarla no hay lista. Antes de HDU-15 esta puerta retomaba la
+        // mas reciente sin preguntar: se vuelve a eso en vez de dejar al nino/a en una
+        // pantalla vacia.
+        if (cartel == null || usuarioInput == null)
         {
             Debug.LogWarning("[Ingresar] No se pudo montar la lista de partidas " +
-                             "(falta el cartel o el boton). Se retoma la mas reciente.");
+                             "(falta el cartel). Se retoma la mas reciente.");
             ContinuarPartida(partidas[0]);
             return;
         }
@@ -301,9 +315,25 @@ public class iniciar : MonoBehaviour
         int cuantas = Mathf.Min(partidas.Count, Mathf.Max(1, maxPartidasEnLista));
         int filas = cuantas + 1;   // + "empezar una partida nueva"
 
-        // El cartel crece hacia abajo igual que en modo registro: tres filas caben en el
-        // hueco que dejaba el formulario, y de la cuarta en adelante hay que agrandarlo.
-        float crecer = Mathf.Max(0, filas - 3) * AltoFila;
+        // El titulo en UNA linea: "¿Seguimos tu aventura?" no cabe a 55 en los 403 px del
+        // diseno, y la segunda linea ("aventura?") quedaba escondida detras del primer
+        // boton. Se achica solo lo justo para caber.
+        if (tituloLabel != null)
+        {
+            tituloLabel.text = "¿Seguimos tu aventura?";
+            tituloLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            tituloLabel.fontSizeMax = tituloLabel.fontSize;
+            tituloLabel.fontSizeMin = Mathf.Min(28f, tituloLabel.fontSize);
+            tituloLabel.enableAutoSizing = true;
+        }
+
+        // Los botones van en el hueco entre el titulo y el borde de abajo del cartel,
+        // medido en el cartel SIN crecer. Si no caben, el cartel crece justo lo que falta,
+        // hacia abajo igual que en modo registro.
+        float bloque = filas * AltoBoton + (filas - 1) * SeparacionBotones;
+        float techo = BordeInferiorDelTitulo() - MargenBajoTitulo;
+        float piso = -cartelSizeOriginal.y * 0.5f + MargenInferior;
+        float crecer = Mathf.Max(0f, bloque - (techo - piso));
         cartel.sizeDelta = cartelSizeOriginal + new Vector2(0f, crecer);
         cartel.anchoredPosition = cartelPosOriginal - new Vector2(0f, crecer * 0.5f);
 
@@ -311,29 +341,28 @@ public class iniciar : MonoBehaviour
                                                   ingresarButton, registerButton, cuentaLabel })
             if (c != null) c.gameObject.SetActive(false);
 
-        if (tituloLabel != null)
-        {
-            tituloLabel.text = "¿Seguimos tu aventura?";
-            Mover(tituloLabel, crecer * 0.5f);
-        }
+        // El titulo sube con el borde de arriba, para quedar donde estaba.
+        Mover(tituloLabel, crecer * 0.5f);
 
-        Vector2 filaBase = posOriginal.TryGetValue((RectTransform)usuarioInput.transform, out var p)
-            ? p + new Vector2(0f, crecer * 0.5f)
-            : Vector2.zero;
+        // Al crecer, el techo sube y el piso baja la mitad cada uno: el centro del hueco
+        // no se mueve, y ahi va el centro del bloque.
+        float centro = (techo + piso) * 0.5f;
+        float primera = centro + bloque * 0.5f - AltoBoton * 0.5f;
+        float paso = AltoBoton + SeparacionBotones;
 
         for (int i = 0; i < cuantas; i++)
         {
             var partida = partidas[i];       // copia local: sin ella todos los botones
             bool masReciente = i == 0;       // usarian la ultima partida del bucle
 
-            var boton = ClonarBoton($"Partida{partida.id}",
-                TextoDePartida.Etiqueta(partida, masReciente),
-                filaBase - new Vector2(0f, i * AltoFila));
+            var boton = CrearBotonPartida(TextoDePartida.Etiqueta(partida, masReciente),
+                masReciente ? Paleta.Verde : Paleta.MarronSuave,
+                new Vector2(0f, primera - i * paso));
             boton.onClick.AddListener(() => ContinuarPartida(partida));
         }
 
-        var nueva = ClonarBoton("PartidaNueva", "Empezar una partida nueva",
-            filaBase - new Vector2(0f, cuantas * AltoFila));
+        var nueva = CrearBotonPartida("Empezar una partida nueva", Paleta.Madera,
+            new Vector2(0f, primera - cuantas * paso));
         nueva.onClick.AddListener(CrearPartidaNueva);
 
         ReubicarEstado();
@@ -342,38 +371,39 @@ public class iniciar : MonoBehaviour
             : $"Partidas de {perfilElegido.nombre}.", colorInfo);
     }
 
-    /// <summary>Clona el boton "Ingresar" para una fila de la lista.</summary>
-    private Button ClonarBoton(string nombre, string texto, Vector2 posicion)
+    /// <summary>
+    /// Crea una fila de la lista de partidas.
+    ///
+    /// Antes se clonaba el boton "Ingresar" para heredar el diseno, pero ese boton es
+    /// una imagen con la palabra INGRESAR dibujada (images/log_in_button2.png) y no
+    /// trae ningun texto adentro. El clon no tenia donde escribir, asi que todas las
+    /// filas salian diciendo "Ingresar" y no habia forma de saber cual era "Empezar
+    /// una partida nueva": el nino/a apretaba una y se le creaba otra partida.
+    /// </summary>
+    private Button CrearBotonPartida(string texto, Color fondo, Vector2 posicion)
     {
-        var boton = Instantiate(ingresarButton, ingresarButton.transform.parent);
-        boton.name = nombre;
-        boton.gameObject.SetActive(true);   // el original ya esta oculto: el clon nace igual
+        var boton = FishyUIKit.Boton(cartel, texto, fondo, TamanoTextoBoton, AltoBoton, null);
 
-        // Y nace tambien DESACTIVADO: se clona en mitad del login, donde SetOcupado(true)
-        // dejo el boton "Ingresar" con interactable = false y OnAuthOk a proposito nunca
-        // lo suelta ("la pantalla se descarga al cambiar de escena"). Sin esta linea la
-        // lista se dibuja entera y no responde a ningun toque.
-        boton.interactable = true;
+        // El cartel no tiene layout, asi que el LayoutElement que trae el boton no manda:
+        // tamano y posicion van a mano, anclados al centro del cartel igual que los
+        // campos del formulario.
+        var rt = (RectTransform)boton.transform;
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(AnchoBoton, AltoBoton);
+        rt.anchoredPosition = posicion;
 
-        // El boton "Ingresar" trae MenuDos() en su onClick PERSISTENTE (guardado en
-        // Ingresar.unity) y RemoveAllListeners no borra esos: el clon reenviaria el
-        // formulario. Reemplazar el evento entero es la unica forma de partir limpio,
-        // el mismo truco que usa CrearCampoEmail con onSubmit.
-        boton.onClick = new Button.ButtonClickedEvent();
-
-        var etiqueta = boton.GetComponentInChildren<TMP_Text>(true);
-        if (etiqueta != null)
-        {
-            etiqueta.text = texto;
-            // Dos lineas donde el diseno esperaba una palabra.
-            etiqueta.fontSize = Mathf.Max(14f, etiqueta.fontSize * 0.7f);
-            etiqueta.alignment = TextAlignmentOptions.Center;
-            etiqueta.textWrappingMode = TextWrappingModes.Normal;
-        }
-
-        ((RectTransform)boton.transform).anchoredPosition = posicion;
         botonesPartida.Add(boton);
         return boton;
+    }
+
+    /// <summary>Altura del borde de abajo del titulo en el cartel sin crecer, que es
+    /// donde empieza el hueco para la lista. Sin titulo, se deja la mitad de arriba
+    /// del cartel libre.</summary>
+    private float BordeInferiorDelTitulo()
+    {
+        if (tituloLabel != null && posOriginal.TryGetValue(tituloLabel.rectTransform, out var pos))
+            return pos.y - tituloLabel.rectTransform.rect.height * tituloLabel.rectTransform.pivot.y;
+        return cartelSizeOriginal.y * 0.25f;
     }
 
     /// <summary>Entra al juego con una partida que ya existia.</summary>
