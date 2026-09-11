@@ -30,6 +30,9 @@ namespace Fishy.Chat
             [Tooltip("Trigger del Animator de Otto (opcional).")]
             public string animatorTrigger;
             public Color messageColor = Color.white;
+            [Tooltip("Hoja de sprites de Otto dentro de Resources que reemplaza al " +
+                     "emoji. Vacío, o si no se encuentra, se muestra el emoji.")]
+            public string animacion;
         }
 
         [Header("Estados emocionales de Otto (según % de respuestas seguras)")]
@@ -39,13 +42,15 @@ namespace Fishy.Chat
             {
                 minSafePercent = 70f, mood = OttoMood.Seguro, emoji = "😌",
                 message = "Otto se siente seguro", animatorTrigger = "Seguro",
-                messageColor = new Color(0.55f, 0.9f, 0.6f)
+                messageColor = new Color(0.55f, 0.9f, 0.6f),
+                animacion = ChatUITheme.Animo.Seguro
             },
             new MoodTier
             {
                 minSafePercent = 0f, mood = OttoMood.Preocupado, emoji = "😟",
                 message = "Otto está preocupado. Repasemos cómo cuidarte en internet.",
-                animatorTrigger = "Preocupado", messageColor = new Color(0.95f, 0.7f, 0.4f)
+                animatorTrigger = "Preocupado", messageColor = new Color(0.95f, 0.7f, 0.4f),
+                animacion = ChatUITheme.Animo.Preocupado
             },
         };
 
@@ -289,7 +294,8 @@ namespace Fishy.Chat
 
             if (ottoMood != null) ottoMood.SetMood(tier.mood, tier.animatorTrigger);
 
-            ui.ShowMood(tier.emoji, tier.message, tier.messageColor, onClose: CloseModule);
+            ui.ShowMood(tier.emoji, tier.message, tier.messageColor, onClose: CloseModule,
+                animacion: tier.animacion);
         }
 
         /// <summary>Porcentaje de respuestas seguras (sobre las que cuentan).</summary>

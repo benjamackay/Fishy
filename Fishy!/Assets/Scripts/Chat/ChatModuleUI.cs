@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Fishy.UI;
 using TMPro;
@@ -10,6 +11,7 @@ using MedCara = Fishy.Chat.ChatUITheme.CaraACara;
 using MedTel  = Fishy.Chat.ChatUITheme.Telefono;
 using ChatFnt = Fishy.Chat.ChatUITheme.Fuente;
 using ChatTxt = Fishy.Chat.ChatUITheme.Textos;
+using ChatAnim = Fishy.Chat.ChatUITheme.Animo;
 
 namespace Fishy.Chat
 {
@@ -36,6 +38,8 @@ namespace Fishy.Chat
         [Header("Panel de estado emocional (Otto)")]
         public GameObject moodPanel;
         public TextMeshProUGUI moodEmoji;
+        [Tooltip("Animación de Otto en el sitio del emoji. Si falta, se muestra el emoji.")]
+        public Image moodAnimacion;
         public TextMeshProUGUI moodMessage;
         public Button moodCloseButton;
 
@@ -46,6 +50,11 @@ namespace Fishy.Chat
         private FishyUIKit.PanelDialogo _panel;
         private ScrollRect    _opcionesScroll;
         private LayoutElement _opcionesLayout;
+        private Coroutine     _animoEnCurso;
+
+        /// <summary>Frames ya cargados por ruta, para no ir a Resources en cada cierre.</summary>
+        private static readonly Dictionary<string, Sprite[]> _framesPorRuta =
+            new Dictionary<string, Sprite[]>();
 
         // ── Modo teléfono ──────────────────────────────────────────────────────
         private bool           _phoneMode;
@@ -117,6 +126,7 @@ namespace Fishy.Chat
             headerLabel      = null;
             closeButton      = null;
             moodPanel        = null;
+            moodAnimacion    = null;
             _chatPanelRT     = null;
             _backdropImage   = null;
             _marcoTelefono   = null;
@@ -201,19 +211,73 @@ namespace Fishy.Chat
             _opcionesLayout.preferredHeight = Mathf.Min(pedido, tope);
         }
 
-        public void ShowMood(string emoji, string message, Color color, Action onClose)
+        public void ShowMood(string emoji, string message, Color color, Action onClose,
+            string animacion = null)
         {
             ClearOptions();
             if (moodPanel == null) return;
             moodPanel.SetActive(true);
             moodPanel.transform.SetAsLastSibling();
             if (moodEmoji != null) moodEmoji.text = emoji;
+            MostrarAnimacion(animacion);
             if (moodMessage != null) { moodMessage.text = message; moodMessage.color = color; }
             if (moodCloseButton != null)
             {
                 moodCloseButton.onClick.RemoveAllListeners();
                 moodCloseButton.onClick.AddListener(() => onClose?.Invoke());
             }
+        }
+
+        /// <summary>
+        /// Reproduce la animación de Otto en bucle, en el sitio del emoji, mientras el
+        /// panel esté a la vista: se queda ahí hasta que el niño/a pulse Continuar.
+        /// Sin frames —la hoja no está en Resources o no se cortó— vuelve al emoji,
+        /// para que el panel no quede con un hueco.
+        /// </summary>
+        private void MostrarAnimacion(string ruta)
+        {
+            if (_animoEnCurso != null) { StopCoroutine(_animoEnCurso); _animoEnCurso = null; }
+
+            Sprite[] frames = FramesDe(ruta);
+            bool hayAnimacion = moodAnimacion != null && frames.Length > 0;
+
+            if (moodEmoji != null) moodEmoji.gameObject.SetActive(!hayAnimacion);
+            if (moodAnimacion == null) return;
+
+            moodAnimacion.gameObject.SetActive(hayAnimacion);
+            if (hayAnimacion) _animoEnCurso = StartCoroutine(ReproducirEnBucle(frames));
+        }
+
+        private IEnumerator ReproducirEnBucle(Sprite[] frames)
+        {
+            // Da vueltas mientras el panel esté a la vista. Al esconderse termina sola,
+            // y el siguiente cierre de sesión arranca otra.
+            int i = 0;
+            while (moodAnimacion != null && moodAnimacion.gameObject.activeInHierarchy)
+            {
+                moodAnimacion.sprite = frames[i];
+                i = (i + 1) % frames.Length;
+                // Tiempo real: el chat puede abrirse con el juego en pausa.
+                yield return new WaitForSecondsRealtime(ChatAnim.SegundosPorFrame);
+            }
+            _animoEnCurso = null;
+        }
+
+        /// <summary>Los frames de una hoja, en orden. Resources.LoadAll no promete
+        /// ninguno, así que se ordenan por nombre: otto_safe_0, _1, _2.</summary>
+        private static Sprite[] FramesDe(string ruta)
+        {
+            if (string.IsNullOrWhiteSpace(ruta)) return Array.Empty<Sprite>();
+            if (_framesPorRuta.TryGetValue(ruta, out var guardados)) return guardados;
+
+            Sprite[] frames = Resources.LoadAll<Sprite>(ruta);
+            Array.Sort(frames, (a, b) => string.CompareOrdinal(a.name, b.name));
+            if (frames.Length == 0)
+                Debug.LogWarning($"[ChatModuleUI] No hay frames en Resources/{ruta}: " +
+                                 "se muestra el emoji.");
+
+            _framesPorRuta[ruta] = frames;
+            return frames;
         }
 
         // ── Burbujas ────────────────────────────────────────────────────────────
@@ -625,6 +689,20 @@ namespace Fishy.Chat
             emojiRT.pivot = new Vector2(0.5f, 1f);
             emojiRT.anchoredPosition = new Vector2(0f, -60f);
             emojiRT.sizeDelta = new Vector2(400f, 240f);
+
+            // La animación de Otto va en el mismo sitio y reemplaza al emoji cuando
+            // hay frames; ver MostrarAnimacion.
+            var animGO = new GameObject("Animacion", typeof(RectTransform), typeof(Image));
+            animGO.transform.SetParent(card.transform, false);
+            moodAnimacion = animGO.GetComponent<Image>();
+            moodAnimacion.preserveAspect = true;
+            moodAnimacion.raycastTarget = false;
+            var animRT = moodAnimacion.rectTransform;
+            animRT.anchorMin = new Vector2(0.5f, 1f); animRT.anchorMax = new Vector2(0.5f, 1f);
+            animRT.pivot = new Vector2(0.5f, 1f);
+            animRT.anchoredPosition = emojiRT.anchoredPosition;
+            animRT.sizeDelta = ChatAnim.Tamano;
+            animGO.SetActive(false);
 
             moodMessage = FishyUIKit.Texto(card.transform, "Message", "", ChatFnt.MensajeAnimo,
                 ChatCol.Texto, TextAlignmentOptions.Center);

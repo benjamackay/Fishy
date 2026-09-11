@@ -224,5 +224,28 @@ namespace Fishy.Chat
             /// <summary>Prefijo de la respuesta elegida en el panel cara a cara.</summary>
             public static string PrefijoRespuesta = "Tú: ";
         }
+
+        /// <summary>
+        /// Animación de Otto en el panel de cierre, en el sitio del emoji. Cada una es
+        /// una hoja de sprites dentro de una carpeta Resources, cortada en frames
+        /// (_0, _1, _2) en el Sprite Editor. Se reproduce en bucle mientras el panel
+        /// esté abierto.
+        /// </summary>
+        public static class Animo
+        {
+            /// <summary>"Otto se siente seguro": las flores se abren.</summary>
+            public static string Seguro     = "Otto/otto_safe";
+
+            /// <summary>"Otto está preocupado": la gota de sudor crece.</summary>
+            public static string Preocupado = "Otto/otto_worried";
+
+            /// <summary>Cuánto dura cada frame. Con tres, cada vuelta tarda menos de
+            /// un segundo.</summary>
+            public static float SegundosPorFrame = 0.25f;
+
+            /// <summary>Tamaño en pantalla. Los frames miden 256 px; cuanto más
+            /// cerca de eso, más nítidos.</summary>
+            public static Vector2 Tamano = new Vector2(240f, 240f);
+        }
     }
 }
