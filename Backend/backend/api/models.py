@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
-import uuid
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -145,13 +144,18 @@ class PersonajeJugador(models.Model):
     aqui los atributos": esto es eso. Guarda lo minimo para volver a dejar a Otto
     donde estaba, que sin esto reaparecia en el `spawnPoint` de la escena.
 
-    **No hay `zona_actual` a proposito.** Seria util para el reporte al tutor, pero
-    hoy Unity no tiene el concepto de "zona en la que esta Otto" -las `BlockedZone`
-    saben abrirse, no saben contener- asi que el campo nacria vacio y alguien lo
-    leeria creyendo que significa algo. Cuando exista quien lo llene, se agrega.
+    `zona_actual` es la region del mapa donde quedo Otto, y **no tiene nada que ver
+    con `ZonaProgreso.zona`**: alla "zona" es la tematica del banco (`desconocidos`,
+    `ciberacoso`), aca es geografia (`zona_1`, `zona_2`). De ahi que sea texto libre
+    sin FK ni `choices` -el catalogo de zonas vive en la escena de Unity, mismo
+    criterio que `mision_id` o `item_id`-, y de ahi tambien que no sirva colgarla de
+    `ZonaProgreso`, que solo tiene fila para zonas ya desbloqueadas: Otto esta en
+    `zona_1` desde el primer minuto y esa zona no tiene fila nunca.
 
-    Las tres columnas admiten null: una partida recien creada no tiene posicion
-    guardada, y eso es distinto de tenerla en (0,0), que es un lugar del mapa.
+    Las columnas de posicion admiten null: una partida recien creada no tiene
+    posicion guardada, y eso es distinto de tenerla en (0,0), que es un lugar del
+    mapa. `zona_actual` no las sigue y va con la cadena vacia, igual que `escena`,
+    porque ahi el vacio ya significa "no se guardo" sin ambiguedad.
     """
     partida = models.OneToOneField(
         Partida,
@@ -165,6 +169,11 @@ class PersonajeJugador(models.Model):
     )
     pos_x  = models.FloatField(null=True, blank=True)
     pos_y  = models.FloatField(null=True, blank=True)
+    zona_actual = models.CharField(
+        max_length=50, blank=True,
+        help_text="Zona del mapa donde quedo Otto, ej. `zona_2`. Es el `zoneId` de la "
+                  "BlockedZone de Unity, NO el slug del banco que usa ZonaProgreso.zona."
+    )
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     @property
@@ -852,47 +861,6 @@ class ObjetoRecogido(models.Model):
                 fields=["partida", "objeto_id"], name="objeto_unico_por_partida"
             )
         ]
-
-
-class GrupoTutor(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    tutor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="grupos")
-    nombre = models.CharField(max_length=80)
-    descripcion = models.CharField(max_length=280, blank=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-
-
-class MiembroGrupo(models.Model):
-    """La unidad del curso es un perfil infantil concreto, nunca todos los hijos del adulto."""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="miembros")
-    jugador = models.ForeignKey(UsuarioJugador, on_delete=models.CASCADE, related_name="grupos")
-    nombre_invitado = models.CharField(max_length=150)
-    fecha_ingreso = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=["grupo", "jugador"], name="miembro_unico_por_grupo_jugador")]
-
-
-class InvitacionGrupo(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="invitaciones")
-    email = models.EmailField()
-    nombre_nino = models.CharField(max_length=150)
-    nombre_clave = models.CharField(max_length=450)
-    # Solo se persiste el hash. El secreto viaja únicamente en el correo.
-    token_hash = models.CharField(max_length=64, unique=True)
-    estado = models.CharField(max_length=12, default="pendiente", choices=[("pendiente", "Pendiente"), ("aceptada", "Aceptada"), ("cancelada", "Cancelada")])
-    estado_envio = models.CharField(max_length=12, default="enviando", choices=[("enviando", "Enviando"), ("enviado", "Enviado"), ("fallido", "Fallido")])
-    miembro = models.ForeignKey(MiembroGrupo, on_delete=models.SET_NULL, null=True, blank=True, related_name="invitaciones")
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    ultimo_intento = models.DateTimeField()
-    enviada_en = models.DateTimeField(null=True, blank=True)
-    vence_en = models.DateTimeField()
-    aceptada_en = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        constraints = [models.UniqueConstraint(fields=["grupo", "email", "nombre_clave"], condition=models.Q(estado="pendiente"), name="invitacion_pendiente_unica_por_nino")]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

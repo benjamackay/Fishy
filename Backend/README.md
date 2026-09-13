@@ -51,8 +51,15 @@ Backend/
    .venv/Scripts/python -m pip install -r backend/requirements.txt
    ```
 
-3. La BD compartida ya está migrada y con el banco cargado, así que **no hace
-   falta correr `migrate` ni `cargar_banco`** para empezar. Solo si vas a usar
+3. **Comprueba las migraciones de tu rama contra la base compartida.** El banco
+   ya cargado no implica que todas las migraciones nuevas estén aplicadas.
+   En `web`, se restauraron los modelos y migraciones de `dev`, incluida
+   `0012_personaje_zona_actual`; se retiró la persistencia de grupos e invitaciones.
+   La [revisión de migraciones](REVISION_MIGRACIONES_WEB.md) registra el cambio.
+   `run.ps1 --check` compara modelos y migraciones;
+   `run.ps1 --global --fase 1` también consulta pendientes en la base. Ninguno
+   aplica migraciones. Coordina los cambios de esquema con el equipo y no vuelvas
+   a cargar el banco solo por cambiar de rama. Si vas a usar
    el panel `/admin/` necesitas una cuenta (pide nombre, **email** y contraseña).
    Carga antes el `.env` como se explica en *Cómo correr* — cualquier comando
    `manage.py` necesita las credenciales en el entorno:
@@ -61,6 +68,9 @@ Backend/
    ```
 
 ## Si ya tenías el repo antes de la Fase 2
+
+Esta sección describe el cambio histórico de agosto de 2026. No es un
+procedimiento para corregir las diferencias actuales entre `web` y `dev`.
 
 El commit *Cablear el modelo de control parental* cambió el modelo de usuarios y
 **reseteó las migraciones**. Después de hacer `pull`:
@@ -77,8 +87,10 @@ El commit *Cablear el modelo de control parental* cambió el modelo de usuarios 
    Remove-Item -Recurse -Force .\backend\api\migrations\__pycache__
    ```
 
-3. **No corras `migrate`**: la BD compartida ya fue reseteada y migrada el
-   2026-08-12. Comprueba que estás en sync — debe decir *No changes detected*:
+3. La BD compartida fue reseteada y migrada el 2026-08-12. Ese estado histórico
+   no garantiza que las migraciones posteriores estén aplicadas. Comprueba los
+   modelos contra los archivos de tu rama — debe decir *No changes detected* —
+   y revisa por separado las migraciones pendientes en la base:
    ```powershell
    .\.venv\Scripts\python .\backend\manage.py makemigrations --check --dry-run
    ```
@@ -172,7 +184,7 @@ Luego, en la misma sesión:
 ## Verificar que funciona
 
 ```powershell
-# 1. Código y BD en sync (debe decir "No changes detected"):
+# 1. Modelos y archivos de migración coinciden ("No changes detected"):
 .\.venv\Scripts\python .\backend\manage.py check
 .\.venv\Scripts\python .\backend\manage.py makemigrations --check --dry-run
 
