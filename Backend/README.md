@@ -53,9 +53,9 @@ Backend/
 
 3. **Comprueba las migraciones de tu rama contra la base compartida.** El banco
    ya cargado no implica que todas las migraciones nuevas estén aplicadas.
-   En `web`, se restauraron los modelos y migraciones de `dev`, incluida
-   `0012_personaje_zona_actual`; se retiró la persistencia de grupos e invitaciones.
-   La [revisión de migraciones](REVISION_MIGRACIONES_WEB.md) registra el cambio.
+   En `web`, las migraciones siguen a `dev` hasta `0012_personaje_zona_actual` y
+   agregan `0013_adulto_rol` (rol padre/profesor) y `0014_grupos_invitaciones`.
+   La [revisión de migraciones](REVISION_MIGRACIONES_WEB.md) registra el orden.
    `run.ps1 --check` compara modelos y migraciones;
    `run.ps1 --global --fase 1` también consulta pendientes en la base. Ninguno
    aplica migraciones. Coordina los cambios de esquema con el equipo y no vuelvas

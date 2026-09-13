@@ -1,5 +1,19 @@
 # Revisión de migraciones de web
 
+## Reincorporación ordenada (13 de septiembre de 2026, posterior)
+
+La reversión de abajo fue deliberada, para ordenar el esquema antes de retomar
+grupos. Después se aplicaron, en este orden:
+
+1. `0013_adulto_rol`: separa `rol` (padre/profesor) de `is_admin`, con
+   `db_default='padre'` para que el backend de `dev` pueda seguir insertando.
+   Aplicada en Supabase con respaldo previo.
+2. `0014_grupos_invitaciones`: las tres tablas de grupos e invitaciones, ahora
+   sobre `0013`. Solo crea tablas; `dev` no se ve afectado.
+
+El código de grupos se tomó de `1065c32` y se corrigió: profesor por `rol`, el
+seguimiento lee `reto_viral` y el admin muestra todos los grupos al equipo técnico.
+
 ## Estado posterior a la reversión solicitada
 
 El 13 de septiembre de 2026 se restauraron `models.py`, `admin.py` y

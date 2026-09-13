@@ -9,7 +9,53 @@ from .models import (
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
     MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido, NpcProgreso,
+    GrupoTutor, MiembroGrupo, InvitacionGrupo,
 )
+
+
+class GrupoSoloLecturaAdmin(admin.ModelAdmin):
+    """Inspección para el equipo técnico; altas y cambios pasan por las reglas de invitación.
+
+    Muestra todos los grupos: quien entra aquí tiene `is_admin`, que ya no es
+    profesor, así que filtrar por `tutor=request.user` dejaría la lista vacía.
+    El token de invitación no se muestra, ni siquiera su hash.
+    """
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(GrupoTutor)
+class GrupoTutorAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("nombre", "tutor", "fecha_creacion")
+    search_fields = ("nombre", "tutor__nombre")
+    fields = ("id", "nombre", "descripcion", "tutor", "fecha_creacion")
+    readonly_fields = fields
+    list_select_related = ("tutor",)
+
+
+@admin.register(MiembroGrupo)
+class MiembroGrupoAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("nombre_invitado", "grupo", "fecha_ingreso")
+    search_fields = ("nombre_invitado", "grupo__nombre")
+    fields = ("id", "grupo", "jugador", "nombre_invitado", "fecha_ingreso")
+    readonly_fields = fields
+    list_select_related = ("grupo",)
+
+
+@admin.register(InvitacionGrupo)
+class InvitacionGrupoAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("nombre_nino", "grupo", "estado", "estado_envio", "vence_en")
+    list_filter = ("estado", "estado_envio")
+    search_fields = ("nombre_nino", "grupo__nombre")
+    fields = ("id", "grupo", "nombre_nino", "email", "estado", "estado_envio", "vence_en", "enviada_en", "aceptada_en")
+    readonly_fields = fields
+    list_select_related = ("grupo",)
 
 
 class UsuarioJugadorInline(admin.TabularInline):

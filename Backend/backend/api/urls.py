@@ -1,17 +1,18 @@
 from django.urls import path
-from . import views, grupos, reportes_web
+from . import views, invitaciones, reportes_web, seguimiento
 
 urlpatterns = [
-    path("grupos/", grupos.no_disponible),
-    path("grupos/<uuid:grupo_id>/", grupos.no_disponible),
-    path("grupos/<uuid:grupo_id>/reporte/", grupos.no_disponible),
-    path("grupos/<uuid:grupo_id>/seguimiento/", grupos.no_disponible),
+    # Portal web: grupos, invitaciones y reportes
+    path("grupos/", invitaciones.grupos),
+    path("grupos/<uuid:grupo_id>/", invitaciones.grupo_detalle),
+    path("grupos/<uuid:grupo_id>/reporte/", reportes_web.reporte_grupo),
+    path("grupos/<uuid:grupo_id>/seguimiento/", seguimiento.seguimiento_grupo),
     path("jugadores/<int:jugador_id>/reporte/", reportes_web.reporte_nino),
-    path("grupos/<uuid:grupo_id>/miembros/<uuid:miembro_id>/", grupos.no_disponible),
-    path("grupos/<uuid:grupo_id>/invitaciones/", grupos.no_disponible),
-    path("grupos/<uuid:grupo_id>/invitaciones/<uuid:invitacion_id>/", grupos.no_disponible),
-    path("invitaciones/consultar/", grupos.no_disponible),
-    path("invitaciones/aceptar/", grupos.no_disponible),
+    path("grupos/<uuid:grupo_id>/miembros/<uuid:miembro_id>/", invitaciones.quitar_miembro),
+    path("grupos/<uuid:grupo_id>/invitaciones/", invitaciones.invitar),
+    path("grupos/<uuid:grupo_id>/invitaciones/<uuid:invitacion_id>/", invitaciones.gestionar_invitacion),
+    path("invitaciones/consultar/", invitaciones.consultar_invitacion),
+    path("invitaciones/aceptar/", invitaciones.aceptar_invitacion),
     # Health
     path("health/", views.health_check, name="health_check"),
 

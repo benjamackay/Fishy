@@ -1,17 +1,15 @@
 # Integración del panel de Fishy
 
-**Estado al 13 de septiembre de 2026:** el backend conserva los modelos y las
-migraciones de `dev`. Se retiró la implementación persistente de grupos e
-invitaciones: sus rutas, incluido reporte grupal y seguimiento, responden 503
-con un mensaje de indisponibilidad. Login, perfiles y reportes individuales
-siguen disponibles. La demostración continúa separada; un fallo del servidor
-jamás activa datos ficticios.
+**Estado al 13 de septiembre de 2026:** el frontend consume grupos, invitaciones,
+reportes y seguimiento reales. El backend los reincorporó con la migración
+`0014_grupos_invitaciones`, sobre el esquema de `dev`. Invitar y reenviar
+responden 503 mientras no se configure el proveedor de correo; lo demás funciona.
+La demostración continúa separada: un fallo del servidor jamás activa datos
+ficticios.
 
-Las secciones siguientes conservan el contrato del frontend y el diseño previsto
-para una futura integración del backend, no describen servicios grupales activos.
-Los tipos permanecen en `src/types/panel.ts` y el adaptador en `src/api/panelReal.ts`.
-No aplicar `0012_grupos_invitaciones`: fue retirada. Véase el estado actual en
-[Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
+El contrato de dominio está en `src/types/panel.ts` y el adaptador en
+`src/api/panelReal.ts`. La implementación y la configuración del servidor están
+en [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
 ## Vinculación por niño
 

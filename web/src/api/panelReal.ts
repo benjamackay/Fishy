@@ -7,8 +7,9 @@ import type { ReporteGrupo, ReporteNino } from '@/types/reportes'
 import type { SeguimientoGrupo } from '@/types/seguimiento'
 
 /**
- * Contrato previsto para grupos e invitaciones. Con el esquema de dev, el backend
- * responde 503 a estas operaciones hasta que se implemente su persistencia.
+ * Grupos e invitaciones usan el contrato implementado en Backend/backend/api/invitaciones.py.
+ * Los reportes se agregan en el servidor a partir de los perfiles infantiles aceptados.
+ * Invitar responde 503 mientras el backend no tenga configurado el envío de correo.
  */
 const ruta = (id: string) => '/grupos/' + encodeURIComponent(id) + '/'
 export const panelReal: FuentePanel = {

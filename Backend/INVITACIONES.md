@@ -1,16 +1,15 @@
-# Grupos e invitaciones: contrato previsto
+# Invitaciones a un niño de un curso
 
-**Estado al 13 de septiembre de 2026:** se retiraron los modelos, la migración
-`0012_grupos_invitaciones` y la implementación del backend que dependía de ellos.
-Los modelos y migraciones coinciden con `dev`, incluida `zona_actual`. Las rutas
-de grupos, invitaciones, reporte grupal y seguimiento responden 503 sin consultas
-a tablas de grupos ni envío de correo. La demo del frontend y los reportes
-individuales se conservan.
+**Estado al 13 de septiembre de 2026:** grupos, invitaciones, reporte grupal y
+seguimiento están activos en el backend. Se reincorporaron sobre el esquema de
+`dev` con la migración `0014_grupos_invitaciones`, que depende de
+`0013_adulto_rol` y solo crea tablas nuevas. Profesor significa `rol=profesor`;
+`is_admin` solo da acceso al admin de Django y no permite gestionar grupos.
 
-El remitente **Fishy <no-reply@fishygame.cl>**, las variables SMTP y las plantillas
-quedan como preparación para una futura integración. Activar una variable de
-correo no reactiva la funcionalidad. Las siguientes secciones son referencia
-del diseño anterior; no son instrucciones de despliegue para el estado actual.
+El remitente es **Fishy <no-reply@fishygame.cl>**, pero el envío sigue desactivado
+(`FISHY_EMAIL_ENABLED=False`) hasta elegir el proveedor y verificar el dominio.
+Mientras tanto, crear grupos, reportes y seguimiento funcionan; invitar y reenviar
+responden 503 sin guardar la invitación.
 
 ## Modelo y recorrido
 
@@ -69,9 +68,12 @@ Los bloqueos de grupo/invitación/adulto y las restricciones de unicidad evitan
 dobles membresías. SQLite valida lógica y restricciones; la concurrencia por
 filas se ejecuta con PostgreSQL en producción.
 
-## Referencia histórica de implementación y activación
+## Seguimiento y activación
 
-La implementación retirada del seguimiento utilizaba las últimas 20 decisiones
+El seguimiento está en `api/seguimiento.py` y sus criterios iniciales en
+`settings.FISHY_SEGUIMIENTO`. Lee las decisiones del banco con el slug
+`reto_viral` (y `retos_virales` por compatibilidad) y las entrega como
+`retos_virales`, igual que los reportes. Usa las últimas 20 decisiones
 clasificadas por alumno y temática; requiere 5 para evaluar apoyo (<60%) o
 prioridad (<40%). El resumen general necesita al menos 10 decisiones en 2
 temáticas. Cada tema de la muestra que incluye datos de hace más de 30 días
@@ -84,10 +86,10 @@ Las invitaciones informan a las familias de esta visibilidad; el PDF sigue usand
 exclusivamente el endpoint agregado. No se añade otra migración para seguimiento.
 El detalle del contrato y los casos borde están en `web/INTEGRACION_FRONTEND.md`.
 
-1. Para retomar este diseño, implementar nuevamente su persistencia sobre el
-   historial vigente de `dev`, con sus modelos, migraciones y pruebas. La
-   migración de grupos anterior fue retirada y no debe ejecutarse por estas
-   instrucciones. No se modificaron tablas ni registros de Supabase al retirarla.
+1. Aplicar la migración aditiva `0014_grupos_invitaciones`, con respaldo previo
+   de la base. No modifica partidas, perfiles ni relaciones padre-hijo existentes.
+   La antigua `0012_grupos_invitaciones` no existe más: nunca se aplicó en Supabase.
+   Para marcar a un profesor, el equipo cambia su `rol` en `/admin/`.
 2. Completar en `Backend/.env` las variables de `Backend/.env.example`:
    `FISHY_WEB_URL` (origen público HTTPS del portal, sin `/login`), `DEFAULT_FROM_EMAIL`
    (`Fishy <no-reply@fishygame.cl>`),
@@ -133,15 +135,15 @@ y [recomendaciones OWASP para tokens por correo](https://cheatsheetseries.owasp.
 Desde `Backend/backend`, con el entorno Python del proyecto activo:
 
 ```sh
-python manage.py test api.tests.test_portal_sin_grupos --settings=juego_backend.settings_test_sqlite
+python manage.py test api.tests.test_invitaciones api.tests.test_seguimiento --settings=juego_backend.settings_test_sqlite
 python manage.py test api --settings=juego_backend.settings_test_sqlite
 python manage.py makemigrations --check --dry-run --settings=juego_backend.settings_test_sqlite
 ```
 
-Las pruebas actuales comprueban que los servicios retirados respondan 503 sin
-consultar tablas ni enviar correo, y que los reportes individuales mantengan
-sus permisos. La implementación anterior de invitaciones y sus pruebas fueron
-retiradas junto con la migración.
+Las pruebas de invitaciones usan el buzón en memoria de Django. Verifican el
+contenido y destinatario de los correos, expiración, rotación, cancelación,
+cuentas nuevas/existentes, aislamiento de hermanos, rollback, fallos de envío,
+que `is_admin` no gestione grupos y que el admin técnico vea todos los grupos.
 No envían correo externo. En el frontend: `npm test`, `npm run build`, `npm run lint`.
 
 La demo permite simular invitaciones pendientes, reenvío y cancelación. Está

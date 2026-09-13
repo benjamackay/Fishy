@@ -84,11 +84,11 @@ El contrato es `src/types/panel.ts` (`FuentePanel`); el punto de conexión es
 `src/api/panelReal.ts`. No hay que reescribir las pantallas.
 
 El login y el listado de perfiles conservan las llamadas que ya existían.
-Los reportes individuales siguen conectados. Grupos, invitaciones, reporte grupal
-y seguimiento permanecen disponibles en demostración: su persistencia en Django
-se retiró para conservar el esquema de `dev`. Las rutas reales responden 503 con
-un mensaje claro. Su activación necesita una nueva integración del backend;
-no basta con habilitar SMTP ni aplicar la migración de grupos retirada.
+El adaptador conecta grupos, invitaciones, integrantes, reportes y seguimiento
+con los endpoints de Django (migración `0014_grupos_invitaciones`). Invitar
+necesita además la configuración SMTP del backend; sin ella responde 503 con un
+mensaje claro. Las invitaciones exigen aceptación con el correo destinatario y
+vinculan solo un perfil infantil.
 **No se reemplaza una respuesta fallida del servicio real por datos ficticios.**
 
 La demo está disponible por defecto solo en desarrollo. `VITE_DEMO=true` la

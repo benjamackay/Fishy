@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -8,33 +6,13 @@ from api.models import AdultoResponsable, Chat, Mensaje, NPC, OpcionBanco, Parti
 
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
-class PortalSinGruposTests(TestCase):
+class ReporteNinoTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.padre = AdultoResponsable.objects.create_user(nombre="Familia", email="familia@example.com", password="prueba")
         self.profesor = AdultoResponsable.objects.create_user(nombre="Profesor", email="profe@example.com", password="prueba", rol=AdultoResponsable.ROL_PROFESOR)
         self.nina = UsuarioJugador.objects.create(adulto=self.padre, nombre="Martina")
         self.ajeno = UsuarioJugador.objects.create(adulto=self.profesor, nombre="Perfil ajeno de prueba")
-
-    def test_grupos_retirados_informan_indisponibilidad_sin_consultar_tablas(self):
-        self.client.force_authenticate(self.profesor)
-        grupo = "11111111-1111-4111-8111-111111111111"
-        rutas = ["/api/grupos/", f"/api/grupos/{grupo}/", f"/api/grupos/{grupo}/reporte/", f"/api/grupos/{grupo}/seguimiento/"]
-        for ruta in rutas:
-            with self.subTest(ruta=ruta), self.assertNumQueries(0):
-                respuesta = self.client.get(ruta)
-                self.assertEqual(respuesta.status_code, 503)
-                self.assertIn("no está habilitada", respuesta.data["detail"])
-                self.assertEqual(respuesta["Cache-Control"], "no-store")
-
-    def test_invitaciones_retiradas_no_envian_correos_ni_crean_perfiles(self):
-        cantidad = UsuarioJugador.objects.count()
-        with patch("django.core.mail.EmailMultiAlternatives.send") as enviar:
-            for ruta in ["/api/invitaciones/consultar/", "/api/invitaciones/aceptar/", "/api/grupos/11111111-1111-4111-8111-111111111111/invitaciones/"]:
-                with self.subTest(ruta=ruta), self.assertNumQueries(0):
-                    self.assertEqual(self.client.post(ruta, {"token": "prueba", "crear_perfil": True}, format="json").status_code, 503)
-            enviar.assert_not_called()
-        self.assertEqual(UsuarioJugador.objects.count(), cantidad)
 
     def test_reportes_individuales_conservan_rol_y_propiedad(self):
         ruta = f"/api/jugadores/{self.nina.pk}/reporte/"

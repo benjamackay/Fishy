@@ -115,8 +115,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # parental). Los perfiles de menores (`UsuarioJugador`) NO tienen credenciales.
 AUTH_USER_MODEL = "api.AdultoResponsable"
 
-# Configuración de correo reservada para una futura integración de invitaciones.
-# Con el esquema de dev, las rutas de grupos responden 503 y no envían correos.
+# Invitaciones: el remitente y la URL se configuran en el servidor, nunca en el navegador.
+# Sin FISHY_EMAIL_ENABLED=True y un proveedor SMTP, invitar responde 503 sin guardar nada.
 FISHY_WEB_URL = os.environ.get("FISHY_WEB_URL", "http://127.0.0.1:5174").rstrip("/")
 FISHY_EMAIL_ENABLED = os.environ.get("FISHY_EMAIL_ENABLED", "False").lower() == "true"
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -128,6 +128,20 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() == "true"
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "").strip() or "Fishy <no-reply@fishygame.cl>"
+FISHY_INVITACION_DIAS = 7
+FISHY_REPORTE_MINIMO = 3
+
+# Criterios educativos iniciales, configurables por el equipo. No son una escala clínica.
+FISHY_SEGUIMIENTO = {
+    "umbral_apoyo": 60,
+    "umbral_prioridad": 40,
+    "minimo_decisiones": 5,
+    "ventana_decisiones": 20,
+    "minimo_decisiones_general": 10,
+    "minimo_tematicas_general": 2,
+    "dias_datos_antiguos": 30,
+}
+
 # ─── Django REST Framework ────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [

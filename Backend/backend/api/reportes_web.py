@@ -1,11 +1,13 @@
 """Métricas de decisiones clasificadas en el banco; jamás serializa conversaciones."""
 from collections import defaultdict
 
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from .invitaciones import grupo_propio
 from .models import Mensaje, OpcionBanco, UsuarioJugador, ZonaProgreso
 
 TEMAS = ("desconocidos", "ciberacoso", "retos_virales")
@@ -62,6 +64,18 @@ def sin_cache(datos):
     respuesta = Response(datos)
     respuesta["Cache-Control"] = "no-store"
     return respuesta
+
+
+@api_view(["GET"])
+def reporte_grupo(request, grupo_id):
+    grupo = grupo_propio(request, grupo_id)
+    # No usar jugador__adulto__in: eso incorporaría hermanos de otros cursos.
+    ids = list(grupo.miembros.values_list("jugador_id", flat=True))
+    minimo = max(3, settings.FISHY_REPORTE_MINIMO)
+    temas, participantes, fecha = calcular(ids, minimo)
+    return sin_cache({"grupo_id": str(grupo.pk), "nombre_grupo": grupo.nombre, "total_integrantes": len(ids),
+                      "participantes_con_resultados": participantes, "minimo_participantes": minimo,
+                      "actualizado_en": fecha, "tematicas": temas})
 
 
 @api_view(["GET"])
