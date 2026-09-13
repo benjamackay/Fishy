@@ -19,19 +19,24 @@ class UsuarioJugadorInline(admin.TabularInline):
 
 @admin.register(AdultoResponsable)
 class AdultoResponsableAdmin(BaseUserAdmin):
-    list_display  = ("nombre", "apellido", "email", "is_admin", "fecha_creacion")
-    list_filter   = ("is_admin",)
+    list_display  = ("nombre", "apellido", "email", "rol", "is_admin", "fecha_creacion")
+    list_filter   = ("rol", "is_admin")
     search_fields = ("nombre", "apellido", "email")
     ordering      = ("nombre",)
     filter_horizontal = ()
     inlines = (UsuarioJugadorInline,)
+    # `rol` y `is_admin` van separados a propósito: marcar a alguien como
+    # profesor NO le da acceso a este admin, que ve los datos de todos los niños.
     fieldsets = (
         (None,          {"fields": ("nombre", "password")}),
         ("Datos personales", {"fields": ("apellido", "email", "edad", "fecha_nacimiento")}),
-        ("Permisos",    {"fields": ("is_admin",)}),
+        ("Portal web",  {"fields": ("rol",),
+                         "description": "Profesor: gestiona cursos y no tiene perfiles de menores."}),
+        ("Permisos técnicos", {"fields": ("is_admin",),
+                               "description": "Da acceso a este administrador de Django. Solo para el equipo."}),
     )
     add_fieldsets = (
-        (None, {"fields": ("nombre", "email", "password1", "password2")}),
+        (None, {"fields": ("nombre", "email", "rol", "password1", "password2")}),
     )
 
 

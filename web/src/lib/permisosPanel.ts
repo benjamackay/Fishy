@@ -8,10 +8,10 @@ import type { FuentePanel } from '@/types/panel'
 export function aplicarPermisosPanel(fuente: FuentePanel, perfil: AdultoResponsable | null): FuentePanel {
   function comprobarPadre(usuario: AdultoResponsable | null): asserts usuario is AdultoResponsable {
     if (!usuario) throw new ErrorUsuario('Inicia sesión para consultar tus reportes.')
-    if (usuario.is_admin === true) throw new ErrorUsuario('Los tutores administradores solo tienen acceso a grupos y reportes grupales.')
+    if (usuario.rol === 'profesor') throw new ErrorUsuario('Los tutores administradores solo tienen acceso a grupos y reportes grupales.')
   }
   async function soloAdministrador<T>(operacion: () => Promise<T>): Promise<T> {
-    if (perfil?.is_admin !== true) throw new ErrorUsuario('Solo los tutores administradores pueden gestionar grupos y consultar sus reportes.')
+    if (perfil?.rol !== 'profesor') throw new ErrorUsuario('Solo los tutores administradores pueden gestionar grupos y consultar sus reportes.')
     return operacion()
   }
   return {

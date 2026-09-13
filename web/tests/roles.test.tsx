@@ -66,10 +66,15 @@ describe('tutores padres y administradores', () => {
     await user.click(screen.getByRole('link', { name: 'Ver los reportes de mis hijos' }))
     expect(await screen.findByRole('link', { name: 'Ver reporte de Martina' })).toBeTruthy()
   })
-  it.each([false, undefined])('el perfil real con is_admin=%s no recibe administración', async rol => {
+  it.each([
+    { rol: 'padre' },
+    { rol: undefined },
+    // `is_admin` es solo acceso técnico a Django: ya no convierte a nadie en profesor.
+    { rol: 'padre', is_admin: true },
+  ])('el perfil real %o no recibe administración', async campos => {
     localStorage.setItem('fishy.token', 'token-prueba')
     vi.stubEnv('VITE_FORZAR_ADMIN', 'true')
-    vi.spyOn(auth, 'obtenerPerfil').mockResolvedValue({ ...perfilesDemo.principal, is_admin: rol })
+    vi.spyOn(auth, 'obtenerPerfil').mockResolvedValue({ ...perfilesDemo.principal, ...campos } as AdultoResponsable)
     abrir('/admin/grupos')
     await screen.findByRole('heading', { name: 'Acceso exclusivo para profesores' })
     expect(screen.queryByRole('link', { name: 'Mis grupos' })).toBeNull()
@@ -137,10 +142,10 @@ describe('permisos antes de invocar el servicio', () => {
     p => p.obtenerReporteGrupo('grupo'),
     p => p.obtenerSeguimientoGrupo('grupo'),
   ]
-  it.each([false, undefined, 'true', 1, null])('deniega todas las operaciones grupales con un rol no autorizado: %s', async rol => {
+  it.each(['padre', undefined, 'Profesor', 'admin', true, null])('deniega todas las operaciones grupales con un rol no autorizado: %s', async rol => {
     const fuente = crearPanelDemo(1001)
     const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo', 'obtenerSeguimientoGrupo'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
-    const perfil = { ...perfilesDemo.principal, is_admin: rol } as AdultoResponsable
+    const perfil = { ...perfilesDemo.principal, is_admin: true, rol } as unknown as AdultoResponsable
     const panel = aplicarPermisosPanel(fuente, perfil)
     for (const operacion of operaciones) await expect(operacion(panel)).rejects.toThrow('Solo los tutores administradores')
     for (const espia of espias) expect(espia).not.toHaveBeenCalled()

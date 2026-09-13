@@ -59,18 +59,22 @@ no envía correos ni genera enlaces reales de aceptación.
 
 ## Roles y privacidad
 
-`GET /auth/perfil/` expone `is_admin` como booleano de solo lectura.
-El registro no permite asignar el rol de profesor. Padres y madres no pueden
+`GET /auth/perfil/` expone `rol` (`padre` o `profesor`) de solo lectura.
+El registro no permite asignar el rol de profesor: lo asigna el equipo desde el
+admin de Django. Los endpoints de perfiles de menores (`jugadores/`, su detalle
+y sus partidas) y el reporte individual responden 403 a los profesores. Padres y madres no pueden
 gestionar grupos; profesores consultan sus propios grupos, sus agregados y las
 necesidades de apoyo de los alumnos vinculados a ese curso.
 Los endpoints nuevos verifican estas reglas en servidor además del frontend.
 La invitación no concede acceso a un perfil ajeno ni convierte a un profesor
 en responsable de un niño.
 
-Los endpoints y el admin histórico del juego conservan su arquitectura existente.
-La separación entre administradores internos de Django y profesores del portal
-sigue usando el campo histórico `is_admin`; revisar esa política antes de
-habilitar el admin interno a cuentas de profesores.
+`rol` y `is_admin` son independientes. `is_admin` solo da acceso al admin
+interno de Django, que muestra los datos de todos los niños, y no se expone al
+portal. Marcar una cuenta como profesor no le da ese acceso, y un administrador
+técnico no se vuelve profesor. La columna `rol` tiene `padre` como valor por
+defecto en la propia base (migración `0013_adulto_rol`), para que el backend
+de otra rama que no la conoce pueda seguir creando cuentas.
 
 ## Reportes
 

@@ -27,10 +27,11 @@ class RegistroSerializer(serializers.ModelSerializer):
 
 
 class AdultoResponsableSerializer(serializers.ModelSerializer):
-    """Datos del adulto autenticado (sin password)."""
+    """Datos del adulto autenticado (sin password). Expone `rol`, no `is_admin`:
+    el privilegio técnico de Django no le sirve al portal."""
     class Meta:
         model = AdultoResponsable
-        fields = ["id", "nombre", "apellido", "email", "edad", "fecha_nacimiento", "fecha_creacion", "is_admin"]
+        fields = ["id", "nombre", "apellido", "email", "edad", "fecha_nacimiento", "fecha_creacion", "rol"]
         read_only_fields = fields
 
 

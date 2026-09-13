@@ -68,8 +68,9 @@ individuales. Su navegación contiene únicamente Mis grupos. Al abrir `/`,
 consultar datos individuales.
 
 La navegación, todo el árbol de rutas `/admin` y las operaciones de `usePanel`
-requieren `perfil.is_admin === true`. Si el campo está ausente o es falso, la
-administración permanece bloqueada. `VITE_FORZAR_ADMIN` no otorga permisos.
+requieren `perfil.rol === 'profesor'`. Si el campo está ausente o trae otro
+valor, la administración permanece bloqueada. `is_admin` (acceso técnico al
+admin de Django) no concede nada en el portal. `VITE_FORZAR_ADMIN` no otorga permisos.
 El rol real proviene del perfil autenticado, sin selector de rol en el login.
 El servicio real debe validar también rol y pertenencia en cada operación.
 `RequierePadre` protege las rutas individuales y `aplicarPermisosPanel` rechaza

@@ -14,7 +14,7 @@ import './login.css'
 type Vista = 'login' | 'registro'
 
 export default function LoginPage({ invitacion }: { invitacion?: InvitacionPublica } = {}) {
-  const { entrar, entrarDemo, autenticado, esAdmin, cargando } = useSesion()
+  const { entrar, entrarDemo, autenticado, esProfesor, cargando } = useSesion()
   const ubicacion = useLocation()
   const [vista, setVista] = useState<Vista>('login')
   const [nombre, setNombre] = useState('')
@@ -26,7 +26,7 @@ export default function LoginPage({ invitacion }: { invitacion?: InvitacionPubli
   const pestanas = useRef<(HTMLButtonElement | null)[]>([])
   const ocupado = enviando || cargando
   const desde = (ubicacion.state as { desde?: string } | null)?.desde
-  const destino = desde?.startsWith('/') && !desde.startsWith('//') && desde !== '/login' ? desde : esAdmin ? '/admin/grupos' : '/'
+  const destino = desde?.startsWith('/') && !desde.startsWith('//') && desde !== '/login' ? desde : esProfesor ? '/admin/grupos' : '/'
 
   // Anima la altura real, también al mostrar errores o al cambiar de tamaño de pantalla.
   // Si ResizeObserver no está disponible, el panel conserva su altura natural.

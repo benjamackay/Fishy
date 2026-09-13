@@ -66,7 +66,7 @@ def sin_cache(datos):
 
 @api_view(["GET"])
 def reporte_nino(request, jugador_id):
-    if request.user.is_admin:
+    if request.user.es_profesor:
         raise PermissionDenied("Los profesores solo pueden consultar reportes grupales.")
     nino = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
     temas, _, fecha = calcular([nino.pk], 1)

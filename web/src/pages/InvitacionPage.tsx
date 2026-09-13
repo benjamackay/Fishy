@@ -18,7 +18,7 @@ export default function InvitacionPage() {
 }
 
 function ContenidoInvitacion({ token }: { token: string }) {
-  const { perfil, autenticado, cargando, esAdmin, modoDemo, salir } = useSesion()
+  const { perfil, autenticado, cargando, esProfesor, modoDemo, salir } = useSesion()
   const [datos, setDatos] = useState<InvitacionPublica | null>(null)
   const [jugadores, setJugadores] = useState<UsuarioJugador[] | null>(null)
   const [error, setError] = useState<Error | null>(null)
@@ -35,11 +35,11 @@ function ContenidoInvitacion({ token }: { token: string }) {
     if (cargando || !/^[A-Za-z0-9_-]{43}$/.test(token)) return
     consultarInvitacion(token, controller.signal).then(async invitacion => {
       let perfiles: UsuarioJugador[] | null = null
-      if (autenticado && !esAdmin && !modoDemo && perfil?.email.toLowerCase() === invitacion.email.toLowerCase()) perfiles = await listarJugadores({ signal: controller.signal })
+      if (autenticado && !esProfesor && !modoDemo && perfil?.email.toLowerCase() === invitacion.email.toLowerCase()) perfiles = await listarJugadores({ signal: controller.signal })
       if (!controller.signal.aborted) { setDatos(invitacion); setJugadores(perfiles) }
     }).catch(e => { if (!controller.signal.aborted) setError(comoError(e)) })
     return () => controller.abort()
-  }, [token, autenticado, cargando, esAdmin, modoDemo, perfil?.id, perfil?.email, intento])
+  }, [token, autenticado, cargando, esProfesor, modoDemo, perfil?.id, perfil?.email, intento])
   useEffect(() => { if (aceptada) exito.current?.focus() }, [aceptada])
 
   async function aceptar(e: React.FormEvent) {
@@ -56,7 +56,7 @@ function ContenidoInvitacion({ token }: { token: string }) {
   if (!datos || cargando) return <Cargando mensaje="Comprobando la invitación…" />
   if (!autenticado) return <LoginPage invitacion={datos} />
   if (aceptada) return <section className="card invitation-card" ref={exito} tabIndex={-1}><Exito>Invitación aceptada</Exito><h1>{datos.nombre_nino} ya está vinculado a {aceptada.grupo}.</h1><p>Sus demás hermanos no se agregaron al curso. El perfil conserva su progreso y sigue perteneciendo a tu cuenta.</p><Link className="boton boton--primario" to={'/reportes/' + aceptada.jugador_id}>Ver su reporte</Link></section>
-  const cuentaIncorrecta = modoDemo || esAdmin || perfil?.email.toLowerCase() !== datos.email.toLowerCase()
+  const cuentaIncorrecta = modoDemo || esProfesor || perfil?.email.toLowerCase() !== datos.email.toLowerCase()
   const candidatos = jugadores?.filter(j => j.adulto === perfil?.id && claveNombre(j.nombre) === claveNombre(datos.nombre_nino)) ?? []
   return <section className="card invitation-card">
     <div className="brand"><Marca /></div><span className="eyebrow">INVITACIÓN A UN CURSO</span><h1>Confirma el perfil del niño</h1>

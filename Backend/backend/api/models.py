@@ -32,13 +32,25 @@ class AdultoResponsableManager(BaseUserManager):
 
 class AdultoResponsable(AbstractBaseUser):
     """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
+    ROL_PADRE    = "padre"
+    ROL_PROFESOR = "profesor"
+    ROLES = [(ROL_PADRE, "Padre o madre"), (ROL_PROFESOR, "Profesor")]
+
     nombre           = models.CharField(max_length=150, unique=True)
     apellido         = models.CharField(max_length=150, blank=True)
     email            = models.EmailField(unique=True)
     edad             = models.PositiveSmallIntegerField(null=True, blank=True)
     fecha_nacimiento = models.DateField(null=True, blank=True)
     fecha_creacion   = models.DateTimeField(auto_now_add=True)
+    # Solo privilegio técnico: entrar a /admin/ de Django. NO significa profesor.
     is_admin         = models.BooleanField(default=False)
+    # Recorrido en el portal web. Lo asigna el equipo desde /admin/; el registro
+    # no lo acepta. `db_default` deja el valor en la propia base: Supabase es
+    # compartida con dev, cuyo backend no conoce esta columna y la omite al
+    # insertar (el mismo problema que tuvo `zona_actual`).
+    rol              = models.CharField(
+        max_length=10, choices=ROLES, default=ROL_PADRE, db_default=ROL_PADRE,
+    )
 
     objects = AdultoResponsableManager()
 
@@ -54,6 +66,9 @@ class AdultoResponsable(AbstractBaseUser):
 
     @property
     def is_staff(self): return self.is_admin
+
+    @property
+    def es_profesor(self): return self.rol == self.ROL_PROFESOR
 
     class Meta:
         verbose_name = "Adulto Responsable"

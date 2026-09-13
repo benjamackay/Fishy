@@ -12,7 +12,7 @@ class PortalSinGruposTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.padre = AdultoResponsable.objects.create_user(nombre="Familia", email="familia@example.com", password="prueba")
-        self.profesor = AdultoResponsable.objects.create_user(nombre="Profesor", email="profe@example.com", password="prueba", is_admin=True)
+        self.profesor = AdultoResponsable.objects.create_user(nombre="Profesor", email="profe@example.com", password="prueba", rol=AdultoResponsable.ROL_PROFESOR)
         self.nina = UsuarioJugador.objects.create(adulto=self.padre, nombre="Martina")
         self.ajeno = UsuarioJugador.objects.create(adulto=self.profesor, nombre="Perfil ajeno de prueba")
 
@@ -40,10 +40,10 @@ class PortalSinGruposTests(TestCase):
         ruta = f"/api/jugadores/{self.nina.pk}/reporte/"
         self.assertEqual(self.client.get(ruta).status_code, 401)
         self.client.force_authenticate(self.profesor)
-        self.assertTrue(self.client.get("/api/auth/perfil/").data["is_admin"])
+        self.assertEqual(self.client.get("/api/auth/perfil/").data["rol"], "profesor")
         self.assertEqual(self.client.get(ruta).status_code, 403)
         self.client.force_authenticate(self.padre)
-        self.assertFalse(self.client.get("/api/auth/perfil/").data["is_admin"])
+        self.assertEqual(self.client.get("/api/auth/perfil/").data["rol"], "padre")
         self.assertEqual(self.client.get(f"/api/jugadores/{self.ajeno.pk}/reporte/").status_code, 404)
         reporte = self.client.get(ruta)
         self.assertEqual(reporte.status_code, 200)

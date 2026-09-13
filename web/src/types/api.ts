@@ -13,11 +13,13 @@ export interface AdultoResponsable {
   fecha_nacimiento: string | null
   fecha_creacion: string
   /**
-   * true: tutor administrador (profesor); false: tutor padre/madre.
-   * El servicio de perfil debe exponerlo. Si falta, la interfaz no habilita
-   * permisos de administración. El rol no se elige en el formulario de login.
+   * Recorrido en el portal: 'profesor' gestiona grupos; 'padre', los reportes de
+   * sus hijos. Lo asigna el equipo desde el admin de Django; no se elige al
+   * registrarse ni en el login. Si falta o trae otro valor, la interfaz no
+   * habilita la gestión de grupos. No confundir con el acceso técnico al admin
+   * de Django, que el backend no expone.
    */
-  is_admin?: boolean
+  rol?: 'padre' | 'profesor'
 }
 
 export interface RespuestaLogin {

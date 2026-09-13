@@ -7,7 +7,7 @@ import { rutas } from '@/routes'
 
 const token = 'a'.repeat(43)
 const invitacion = { grupo: '5° Básico A', profesor: 'Profesora Ana', nombre_nino: 'Martina', email: 'familia@example.com', vence_en: '2027-01-01T12:00:00Z' }
-const padre = { id: 4, nombre: 'padre', email: invitacion.email, apellido: '', is_admin: false }
+const padre = { id: 4, nombre: 'padre', email: invitacion.email, apellido: '', rol: 'padre' }
 const perfiles = [
   { id: 10, adulto: 4, nombre: 'Martina', edad: 10 },
   { id: 11, adulto: 4, nombre: 'Tomás', edad: 7 },

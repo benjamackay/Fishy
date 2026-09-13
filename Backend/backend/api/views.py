@@ -75,9 +75,23 @@ def perfil_adulto(request):
 
 # ── Perfiles de menores (control parental) ────────────────────────────────────
 
+def _rechazar_profesor(request):
+    """Los profesores no tienen ni gestionan perfiles de menores. Se valida aquí
+    y no solo en el portal: ocultar el botón no impide llamar a la API."""
+    if request.user.es_profesor:
+        return Response(
+            {"error": "Las cuentas de profesor no gestionan perfiles de menores."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return None
+
+
 @api_view(["GET", "POST"])
 def jugadores(request):
     """GET: perfiles del adulto autenticado. POST: crea uno. Body: nombre (+ edad)."""
+    rechazo = _rechazar_profesor(request)
+    if rechazo is not None:
+        return rechazo
     if request.method == "GET":
         qs = request.user.jugadores.all()
         return Response(UsuarioJugadorSerializer(qs, many=True).data)
@@ -104,6 +118,9 @@ def partidas_jugador(request, jugador_id):
     viene algo continúa con la primera; si viene vacía, crea una con
     `POST /partidas/`.
     """
+    rechazo = _rechazar_profesor(request)
+    if rechazo is not None:
+        return rechazo
     jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
     partidas = jugador.partidas.order_by("-fecha_update")
     return Response(PartidaSerializer(partidas, many=True).data)
@@ -111,6 +128,10 @@ def partidas_jugador(request, jugador_id):
 
 @api_view(["GET", "PATCH", "DELETE"])
 def jugador_detalle(request, jugador_id):
+    # Antes del 404: así un profesor tampoco puede sondear qué ids existen.
+    rechazo = _rechazar_profesor(request)
+    if rechazo is not None:
+        return rechazo
     jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
     if request.method == "GET":
         return Response(UsuarioJugadorSerializer(jugador).data)
