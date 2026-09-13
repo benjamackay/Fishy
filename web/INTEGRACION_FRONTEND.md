@@ -81,7 +81,10 @@ tienen `opcion_banco_id` resoluble contra el banco y cuentan con tipo
 seguras / decisiones evaluadas; no convierte un puntaje de riesgo a porcentaje.
 
 Se consideran todas las decisiones clasificadas guardadas de esos perfiles,
-en las zonas `desconocidos`, `ciberacoso` y `retos_virales`. Los mensajes
+en las zonas `desconocidos`, `ciberacoso` y `retos_virales`. El banco, Unity y
+`ZonaProgreso` guardan esta última como `reto_viral`; el backend la lee con ese
+slug (y con `retos_virales` por compatibilidad) y la entrega siempre como
+`retos_virales`, así que el frontend no cambia. Los mensajes
 sin clasificación o de zonas desconocidas no generan métricas inventadas.
 El backend debe recibir las opciones del juego para que aparezcan resultados.
 Otros modos que no guardan opciones del banco no se mezclan en esta métrica.

@@ -1,9 +1,10 @@
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from api.models import AdultoResponsable, Chat, Mensaje, NPC, OpcionBanco, Partida, PreguntaBanco, UsuarioJugador
+from api.models import AdultoResponsable, Chat, Mensaje, NPC, OpcionBanco, Partida, PreguntaBanco, UsuarioJugador, ZonaProgreso
 
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
@@ -61,3 +62,18 @@ class PortalSinGruposTests(TestCase):
         self.assertEqual(reporte.data["tematicas"][0]["metricas"]["decisiones_seguras"], 1)
         for texto in ["Texto privado", "Respuesta privada", "ConversacionPrivada"]:
             self.assertNotIn(texto, str(reporte.data))
+
+    def test_retos_virales_lee_el_slug_reto_viral_del_banco(self):
+        # El banco y Unity usan `reto_viral`; antes el reporte filtraba `retos_virales` y nunca veía nada.
+        partida = Partida.objects.create(usuario_jugador=self.nina)
+        npc = NPC.objects.create(partida=partida, nombre="NPC", area="zona", tipo="neutral")
+        chat = Chat.objects.create(partida=partida, npc=npc)
+        for i, (zona, tipo) in enumerate([("reto_viral", "segura_basica"), ("reto_viral", "insegura"), ("retos_virales", "segura_optima")]):
+            pregunta = PreguntaBanco.objects.create(pregunta_id=f"R{i}", zona=zona, mensaje_npc="x")
+            OpcionBanco.objects.create(pregunta=pregunta, opcion_id=f"RO{i}", texto="x", tipo=tipo, consecuencia_narrativa="x")
+            Mensaje.objects.create(chat=chat, tipo="chain", respuesta="x", opcion_banco_id=f"RO{i}")
+        ZonaProgreso.objects.create(partida=partida, zona="reto_viral", fecha_completada=timezone.now())
+        self.client.force_authenticate(self.padre)
+        tematicas = {t["tematica"]: t for t in self.client.get(f"/api/jugadores/{self.nina.pk}/reporte/").data["tematicas"]}
+        self.assertNotIn("reto_viral", tematicas)
+        self.assertEqual(tematicas["retos_virales"]["metricas"], {"decisiones_seguras": 2, "decisiones_evaluadas": 3, "completada": True})

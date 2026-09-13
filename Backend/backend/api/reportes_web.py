@@ -10,6 +10,14 @@ from .models import Mensaje, OpcionBanco, UsuarioJugador, ZonaProgreso
 
 TEMAS = ("desconocidos", "ciberacoso", "retos_virales")
 TIPOS = {"segura_basica", "segura_optima", "insegura"}
+# El banco, Unity y ZonaProgreso guardan `reto_viral`; el frontend espera `retos_virales`.
+# Se aceptan ambos slugs al leer para no depender de renombrar registros históricos.
+ALIAS_TEMA = {"reto_viral": "retos_virales"}
+ZONAS_BD = set(TEMAS) | set(ALIAS_TEMA)
+
+
+def tema_portal(zona):
+    return ALIAS_TEMA.get(zona, zona)
 
 
 def calcular(jugadores, minimo):
@@ -18,8 +26,8 @@ def calcular(jugadores, minimo):
     mensajes = list(Mensaje.objects.filter(chat__partida__usuario_jugador_id__in=ids)
                     .exclude(opcion_banco_id__isnull=True).exclude(opcion_banco_id="")
                     .values_list("chat__partida__usuario_jugador_id", "opcion_banco_id", "timestamp"))
-    opciones = {o.opcion_id: (o.pregunta.zona, o.tipo) for o in OpcionBanco.objects
-                .filter(opcion_id__in={m[1] for m in mensajes}, tipo__in=TIPOS, pregunta__zona__in=TEMAS)
+    opciones = {o.opcion_id: (tema_portal(o.pregunta.zona), o.tipo) for o in OpcionBanco.objects
+                .filter(opcion_id__in={m[1] for m in mensajes}, tipo__in=TIPOS, pregunta__zona__in=ZONAS_BD)
                 .select_related("pregunta")}
     resultados = defaultdict(lambda: defaultdict(lambda: [0, 0]))
     actualizada = None
@@ -32,8 +40,8 @@ def calcular(jugadores, minimo):
         resultado[1] += 1
         actualizada = max(actualizada, fecha) if actualizada else fecha
     completadas = set()
-    for jugador_id, tema, fecha in ZonaProgreso.objects.filter(partida__usuario_jugador_id__in=ids, fecha_completada__isnull=False).values_list("partida__usuario_jugador_id", "zona", "fecha_completada"):
-        completadas.add((jugador_id, tema))
+    for jugador_id, zona, fecha in ZonaProgreso.objects.filter(partida__usuario_jugador_id__in=ids, fecha_completada__isnull=False).values_list("partida__usuario_jugador_id", "zona", "fecha_completada"):
+        completadas.add((jugador_id, tema_portal(zona)))
         actualizada = max(actualizada, fecha) if actualizada else fecha
     tematicas = []
     for tema in TEMAS:
