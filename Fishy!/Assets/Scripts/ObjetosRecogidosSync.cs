@@ -44,13 +44,6 @@ public class ObjetosRecogidosSync : MonoBehaviour
     private static int? partidaCargada;
     private bool avisoDeSinPartidaDado;
 
-    /// <summary>
-    /// Objetos recogidos antes de que hubiera partida o conexión. Se mandan cuando
-    /// se pueda: perder el registro de algo que el niño/a ya tiene en la mochila
-    /// dejaría el objeto de vuelta en el suelo la próxima vez.
-    /// </summary>
-    private static readonly List<string> pendientesDeSubir = new List<string>();
-
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void LimpiarEstadoEstatico()
     {
@@ -58,7 +51,6 @@ public class ObjetosRecogidosSync : MonoBehaviour
         // activado. Sin esto, la segunda corrida arrancaría creyendo que ya sabe qué
         // se recogió, y escondería objetos de la partida anterior.
         yaRecogidos.Clear();
-        pendientesDeSubir.Clear();
         registroCargado = false;
         partidaCargada = null;
     }
@@ -113,25 +105,25 @@ public class ObjetosRecogidosSync : MonoBehaviour
         string id = objetoId.Trim();
         if (!yaRecogidos.Add(id)) return;   // ya estaba
 
-        Subir(id);
-    }
-
-    private static void Subir(string id)
-    {
-        var api = ApiManager.Instance;
-        if (api == null || api.PartidaId == null)
-        {
-            if (!pendientesDeSubir.Contains(id)) pendientesDeSubir.Add(id);
-            return;
-        }
-
-        api.MarcarObjetoRecogido(id,
-            onSuccess: _ => pendientesDeSubir.Remove(id),
-            onError: e =>
+        // Ya no se sube aquí: se encola y sale cuando el SaveManager vacíe. La lista de
+        // pendientes y el bucle que la reintentaba cada medio segundo eran una cola en
+        // memoria hecha a mano; ahora la hace ColaDeCambios, que además sabe esperar a
+        // que termine antes de dejar cerrar el juego.
+        ColaDeCambios.EncolarAppend($"objeto:{id}",
+            (ok, error) =>
             {
-                if (!pendientesDeSubir.Contains(id)) pendientesDeSubir.Add(id);
-                Debug.LogWarning($"[ObjetosRecogidos] No se pudo guardar '{id}': {e}. Se reintentará.");
-            });
+                var api = ApiManager.Instance;
+                if (api == null || api.PartidaId == null) { error("No hay partida."); return; }
+
+                api.MarcarObjetoRecogido(id,
+                    onSuccess: _ => ok(),
+                    onError: e =>
+                    {
+                        Debug.LogWarning($"[ObjetosRecogidos] No se pudo guardar '{id}': {e}");
+                        error(e);
+                    });
+            },
+            $"objeto {id}");
     }
 
     // ── Bajar el registro ────────────────────────────────────────────────────
@@ -170,11 +162,6 @@ public class ObjetosRecogidosSync : MonoBehaviour
                     Bajar();
                 }
 
-                // Lo que quedó pendiente por falta de partida o de red, se reintenta.
-                if (pendientesDeSubir.Count > 0)
-                {
-                    foreach (var id in new List<string>(pendientesDeSubir)) Subir(id);
-                }
             }
 
             yield return espera;

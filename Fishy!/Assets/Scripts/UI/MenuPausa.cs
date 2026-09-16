@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using Fishy.Net;
 using Fishy.World;
 using TMPro;
 using UnityEngine;
@@ -41,6 +43,7 @@ namespace Fishy.UI
         public bool Abierto => _raiz != null && _raiz.activeSelf;
 
         private GameObject _raiz;
+        private TextMeshProUGUI _titulo;
         private TextMeshProUGUI _estado;
         private Button _btnSeguir, _btnSalir;
         private float _timeScalePrevio = 1f;
@@ -137,24 +140,122 @@ namespace Fishy.UI
             if (_btnSalir != null) _btnSalir.interactable = false;
             if (_estado != null) _estado.text = "Guardando tu partida…";
 
-            // CierreDeAplicacion y no Manual: es exactamente eso, y además es el único
-            // motivo que se salta la espera mínima entre guardados.
-            SaveManager.Instance?.Guardar(SaveManager.Motivo.CierreDeAplicacion);
+            // Ahora SÍ se espera: `GuardarYEsperar` termina cuando la cola está vacía o
+            // se acabó el plazo. Antes esto era un WaitForSecondsRealtime a ciegas y el
+            // texto de arriba mentía por diseño — decía "guardando" y no sabía nada.
+            var save = SaveManager.Instance;
+            if (save != null)
+                yield return save.GuardarYEsperar(SaveManager.Motivo.CierreDeAplicacion,
+                                                  save.topeDeCierre);
 
-            // Guardar deja las peticiones EN VUELO, no esperadas: no hay ningún aviso
-            // de "ya subió" al que engancharse. Se les da un respiro antes de cerrar,
-            // en tiempo real porque el juego está en pausa (timeScale = 0).
-            yield return new WaitForSecondsRealtime(esperaAntesDeSalir);
+            // Si algo quedó sin subir se pregunta, igual que en el cierre por el aspa.
+            while (ColaDeCambios.Pendientes > 0)
+            {
+                bool esperar = false, respondido = false;
+                PreguntarSiEsperar(ColaDeCambios.Pendientes,
+                    alEsperar: () => { esperar = true;  respondido = true; },
+                    alCerrar:  () => { esperar = false; respondido = true; });
+
+                while (!respondido) yield return null;
+                if (!esperar) break;
+
+                // El texto ya lo puso `Congelar` al pulsar el botón.
+                var cola = ColaDeCambios.Instance;
+                if (cola == null) break;
+                yield return cola.Vaciar("CierreDeAplicacion",
+                                         save != null ? save.topeDeCierre : esperaAntesDeSalir,
+                                         reintentarSiFalla: false);
+            }
+
+            if (_estado != null)
+                _estado.text = ColaDeCambios.Pendientes == 0
+                    ? "Listo, ya se guardó."
+                    : "No se pudo guardar todo. Cerrando…";
 
             // Que quede a 1 pase lo que pase: en el editor el proceso sigue vivo
             // después de parar el Play y timeScale es global.
             Time.timeScale = _timeScalePrevio;
+
+            // Un frame para que se lea el mensaje final antes de que desaparezca todo.
+            yield return new WaitForSecondsRealtime(0.4f);
+
+            // Marcar el cierre como listo evita que `SaveManager.wantsToQuit` arranque
+            // un segundo vaciado: este ya lo hizo, y con su propio diálogo.
+            SaveManager.MarcarCierreListo();
 
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else
             Application.Quit();
 #endif
+        }
+
+        // ── El cartel de "el servidor no responde" ─────────────────────────────
+
+        /// <summary>
+        /// Pregunta si esperar más o cerrar perdiendo lo que quede.
+        ///
+        /// Lo llaman los dos caminos de cierre: este menú y el
+        /// <see cref="SaveManager"/> cuando se cierra por el aspa o Alt+F4, donde no hay
+        /// ningún menú abierto. Por eso construye su propia UI si hace falta.
+        ///
+        /// No decide por el jugador: puede que solo falte esperar un poco más, y puede
+        /// que prefiera irse sabiendo lo que pierde. Lo que no vale es cerrar en
+        /// silencio, que es lo que hacía antes.
+        /// </summary>
+        public void PreguntarSiEsperar(int cambiosPendientes, Action alEsperar, Action alCerrar)
+        {
+            if (_raiz == null) Construir();
+
+            _timeScalePrevio = Abierto ? _timeScalePrevio : Time.timeScale;
+            Time.timeScale = 0f;
+            _raiz.SetActive(true);
+
+            if (_titulo != null) _titulo.text = "Sin conexión";
+            if (_estado != null)
+                _estado.text = $"No se pudo conectar con el servidor.\n" +
+                               $"Quedan {cambiosPendientes} cambio(s) sin guardar.";
+
+            Reemplazar(_btnSeguir, "Seguir esperando", () =>
+            {
+                Congelar("Reintentando…");
+                alEsperar?.Invoke();
+            });
+
+            Reemplazar(_btnSalir, "Cerrar de todas formas", () =>
+            {
+                Congelar("Cerrando sin guardar…");
+                alCerrar?.Invoke();
+            });
+        }
+
+        /// <summary>Cambia el texto y la acción de un botón ya construido.</summary>
+        private static void Reemplazar(Button boton, string texto, Action alPulsar)
+        {
+            if (boton == null) return;
+            boton.interactable = true;
+            boton.onClick.RemoveAllListeners();
+            boton.onClick.AddListener(() => alPulsar?.Invoke());
+
+            var etiqueta = boton.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (etiqueta != null) etiqueta.text = texto;
+        }
+
+        /// <summary>
+        /// Apaga los dos botones y dice qué se está haciendo.
+        ///
+        /// Los botones NO vuelven a ser "Seguir jugando" / "Guardar y salir": una vez que
+        /// se preguntó, el juego se está cerrando por un camino o por otro. Devolverlos a
+        /// su estado de menú dejaba un "Seguir jugando" pulsable en mitad del cierre por
+        /// el aspa —donde `_saliendo` es false—, y pulsarlo escondía el menú mientras
+        /// Unity seguía esperando a que la cola terminara. Si hay que volver a preguntar,
+        /// <see cref="PreguntarSiEsperar"/> los reenciende.
+        /// </summary>
+        private void Congelar(string queEstaPasando)
+        {
+            if (_estado != null) _estado.text = queEstaPasando;
+            if (_btnSeguir != null) _btnSeguir.interactable = false;
+            if (_btnSalir != null) _btnSalir.interactable = false;
         }
 
         // ── UI ────────────────────────────────────────────────────────────────
@@ -203,7 +304,7 @@ namespace Fishy.UI
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
-            FishyUIKit.Texto(tarjetaGO.transform, "Titulo", "Pausa",
+            _titulo = FishyUIKit.Texto(tarjetaGO.transform, "Titulo", "Pausa",
                 64f, Paleta.Crema, TextAlignmentOptions.Center);
 
             _estado = FishyUIKit.Texto(tarjetaGO.transform, "Estado", "¿Qué quieres hacer?",

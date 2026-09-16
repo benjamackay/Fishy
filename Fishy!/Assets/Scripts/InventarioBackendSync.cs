@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,10 @@ namespace Fishy.Net
     ///      en la mochila. Es lo que hacía falta para que cerrar el juego dejara de
     ///      vaciar el inventario.
     ///
-    ///   2. <b>Después sube los cambios</b>, pero <b>no uno por uno</b>: espera a que
-    ///      la mochila deje de moverse. Ver <see cref="EsperaAntesDeSubir"/>.
+    ///   2. <b>Después marca la mochila como sucia</b> en <see cref="ColaDeCambios"/>,
+    ///      que la sube cuando toca. Recoger tres flores seguidas deja una sola entrada
+    ///      en la cola, no tres peticiones: el endpoint manda la mochila entera, así
+    ///      que solo importa la última.
     ///
     /// <b>Por qué es un componente aparte y no código dentro de InventoryManager:</b>
     /// por lo mismo que MisionBackendSync — dejar la mochila funcionando igual sin
@@ -34,17 +37,6 @@ namespace Fishy.Net
         private const float EsperaEntreIntentos = 0.5f;
 
         /// <summary>
-        /// Segundos de calma antes de subir. Recoger tres flores seguidas dispara tres
-        /// veces <c>OnInventoryChanged</c>, y como el endpoint manda la mochila entera,
-        /// subir en cada una serían tres PUT donde el último ya contiene a los otros
-        /// dos. Se espera a que pare de cambiar y se manda una sola vez.
-        ///
-        /// Medio segundo es suficiente para agrupar una ráfaga y lo bastante corto
-        /// para que cerrar el juego justo después de recoger algo no lo pierda.
-        /// </summary>
-        private const float EsperaAntesDeSubir = 0.5f;
-
-        /// <summary>
         /// Lo último que el servidor confirmó. Sirve para no mandar un PUT idéntico al
         /// estado que allá ya existe, que es lo que pasaría al bajar el inventario:
         /// aplicarlo dispara OnInventoryChanged y sin esto se subiría de vuelta lo que
@@ -53,7 +45,6 @@ namespace Fishy.Net
         private string ultimoSubido;
 
         private int? partidaAtendida;
-        private Coroutine subidaPendiente;
         private bool suscrito;
         private bool avisoDeSinPartidaDado;
 
@@ -206,55 +197,53 @@ namespace Fishy.Net
             suscrito = false;
         }
 
-        private void AlCambiarLaMochila()
-        {
-            if (subidaPendiente != null) StopCoroutine(subidaPendiente);
-            subidaPendiente = StartCoroutine(SubirCuandoSeCalme());
-        }
-
-        private IEnumerator SubirCuandoSeCalme()
-        {
-            yield return new WaitForSeconds(EsperaAntesDeSubir);
-            subidaPendiente = null;
-            Subir();
-        }
+        private void AlCambiarLaMochila() => MarcarSucio();
 
         /// <summary>
-        /// Sube la mochila ahora, cancelando la espera que agrupa los cambios.
+        /// Pone la mochila en la cola. No sube nada todavía.
         ///
-        /// Esa espera de medio segundo existe para no mandar tres peticiones cuando
-        /// el niño/a recoge tres cosas seguidas, pero al cerrar la aplicación esa
-        /// misma espera se come el último cambio. <see cref="SaveManager"/> la salta
-        /// en los momentos en que no habrá otra oportunidad.
+        /// Ya no hace falta la espera de medio segundo que agrupaba las ráfagas: la cola
+        /// coalesce por clave hasta el vaciado, que es estrictamente mejor. Recoger tres
+        /// flores seguidas deja una sola entrada, no tres peticiones ni una espera.
+        ///
+        /// Es un snapshot: lo que se encola es la orden de leer la mochila, no la
+        /// mochila. Así siempre sube el estado final y no uno intermedio.
         /// </summary>
-        public void GuardarAhora()
-        {
-            if (subidaPendiente != null)
-            {
-                StopCoroutine(subidaPendiente);
-                subidaPendiente = null;
-            }
-            Subir();
-        }
+        public void MarcarSucio()
+            => ColaDeCambios.EncolarSnapshot("inventario", Subir, "mochila");
 
-        private void Subir()
+        /// <summary>Nombre viejo de <see cref="MarcarSucio"/>. Lo llaman las pruebas
+        /// de editor y algún camino antiguo.</summary>
+        public void GuardarAhora() => MarcarSucio();
+
+        /// <summary>
+        /// Lo que la cola ejecuta al vaciar. Ver la nota de
+        /// <c>PersonajeBackendSync.GuardarPosicion</c> sobre por qué "no hay nada que
+        /// hacer" llama a <paramref name="ok"/> y no a <paramref name="error"/>.
+        /// </summary>
+        private void Subir(Action ok, Action<string> error)
         {
             var api = ApiManager.Instance;
-            if (api == null || api.PartidaId == null) return;
+            if (api == null || api.PartidaId == null) { ok(); return; }
 
             var items = LeerMochila();
             string firma = Firma(items);
 
             // Nada que decir: el servidor ya tiene exactamente esto.
-            if (firma == ultimoSubido) return;
+            if (firma == ultimoSubido) { ok(); return; }
 
             api.GuardarInventario(items,
                 onSuccess: _ =>
                 {
                     ultimoSubido = firma;
                     Debug.Log($"[InventarioBackendSync] Mochila guardada ({items.Count} objeto(s)).");
+                    ok();
                 },
-                onError: e => Debug.LogWarning($"[InventarioBackendSync] No se pudo guardar la mochila: {e}"));
+                onError: e =>
+                {
+                    Debug.LogWarning($"[InventarioBackendSync] No se pudo guardar la mochila: {e}");
+                    error(e);
+                });
         }
 
         // ── Auxiliares ───────────────────────────────────────────────────────

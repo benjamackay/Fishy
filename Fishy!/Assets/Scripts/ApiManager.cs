@@ -62,6 +62,36 @@ namespace Fishy.Net
         /// <summary>True si se esta simulando todo localmente (sin servidor).</summary>
         public bool IsLocalMode => useLocalMode;
 
+        // ── Peticiones en vuelo ─────────────────────────────────────────────────
+        //
+        // Todas las llamadas son StartCoroutine(Send(...)) y nadie guarda el handle,
+        // asi que hasta ahora no habia forma de saber cuando termino una peticion.
+        // La cola de cambios lo necesita para poder decir "ya esta todo subido" antes
+        // de dejar que el juego se cierre.
+        //
+        // No basta con que la cola cuente sus propios callbacks: en el chat, el
+        // onSuccess de una peticion lanza la siguiente, asi que una operacion puede
+        // "terminar" con otra todavia en el aire. Este contador si las ve todas.
+
+        private int _enVuelo;
+
+        /// <summary>Cuantas peticiones HTTP hay ahora mismo sin resolver.</summary>
+        public int PeticionesEnVuelo => _enVuelo;
+
+        /// <summary>
+        /// Recorta el timeout de las peticiones mientras dure un vaciado con plazo.
+        /// Null = usar <c>timeoutSeconds</c>.
+        ///
+        /// Sin esto, al cerrar el juego una peticion podria seguir viva despues de que
+        /// el vaciado se haya rendido: se le diria al nino/a que su avance se perdio
+        /// cuando todavia podia llegar. Acotando cada peticion a lo que le queda al
+        /// plazo, al vencer este ya todas reportaron su resultado de verdad.
+        ///
+        /// Quien lo pone es responsable de devolverlo a null en un <c>finally</c>, o el
+        /// juego se queda con timeouts cortos para el resto de la sesion.
+        /// </summary>
+        public int? TopeDeTiempoParaPeticiones { get; set; }
+
         // ── Estado de sesion (en memoria) ───────────────────────────────────────
         public string Token { get; private set; }
 
@@ -1231,70 +1261,86 @@ namespace Fishy.Net
         private IEnumerator Send<TResponse>(string method, string path, object body, bool auth,
             Action<TResponse> onSuccess, Action<string> onError)
         {
-            string url = baseUrl + path;
-
-            using var req = new UnityWebRequest(url, method);
-            req.timeout = timeoutSeconds;
-            req.downloadHandler = new DownloadHandlerBuffer();
-
-            if (body != null)
+            // El contador se baja en un `finally` para que lo hagan tambien los tres
+            // `yield break` de mas abajo (sin token, error de red, JSON invalido). Si
+            // alguno se escapara, el contador se quedaria clavado en >0 y el cierre del
+            // juego esperaria para siempre a una peticion que ya no existe.
+            //
+            // Un `yield return` dentro de un `try` solo es legal si ese try NO tiene
+            // `catch`; por eso el catch del parseo se queda en su propio try interno,
+            // que no lleva ningun yield.
+            _enVuelo++;
+            try
             {
-                string json = JsonConvert.SerializeObject(body);
-                byte[] raw = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(raw);
-                req.SetRequestHeader("Content-Type", "application/json");
-                if (verboseLogs) Debug.Log($"[API] {method} {url}\n{Censurar(json, path)}");
-            }
-            else if (verboseLogs)
-            {
-                Debug.Log($"[API] {method} {url}");
-            }
+                string url = baseUrl + path;
 
-            if (auth)
-            {
-                if (!IsLoggedIn)
+                using var req = new UnityWebRequest(url, method);
+                req.timeout = TopeDeTiempoParaPeticiones ?? timeoutSeconds;
+                req.downloadHandler = new DownloadHandlerBuffer();
+
+                if (body != null)
                 {
-                    onError?.Invoke("No hay token: debes hacer Login/Registro primero.");
+                    string json = JsonConvert.SerializeObject(body);
+                    byte[] raw = Encoding.UTF8.GetBytes(json);
+                    req.uploadHandler = new UploadHandlerRaw(raw);
+                    req.SetRequestHeader("Content-Type", "application/json");
+                    if (verboseLogs) Debug.Log($"[API] {method} {url}\n{Censurar(json, path)}");
+                }
+                else if (verboseLogs)
+                {
+                    Debug.Log($"[API] {method} {url}");
+                }
+
+                if (auth)
+                {
+                    if (!IsLoggedIn)
+                    {
+                        onError?.Invoke("No hay token: debes hacer Login/Registro primero.");
+                        yield break;
+                    }
+                    req.SetRequestHeader("Authorization", $"Token {Token}");
+                }
+
+                yield return req.SendWebRequest();
+
+                string text = req.downloadHandler != null ? req.downloadHandler.text : "";
+
+                if (req.result != UnityWebRequest.Result.Success)
+                {
+                    // La respuesta de error tambien se censura: con DEBUG=True el
+                    // servidor devuelve una traza HTML que incluye la contrasena.
+                    string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{Censurar(text, path)}";
+                    if (verboseLogs) Debug.LogError(msg);
+                    onError?.Invoke(string.IsNullOrEmpty(text) ? req.error : text);
                     yield break;
                 }
-                req.SetRequestHeader("Authorization", $"Token {Token}");
-            }
 
-            yield return req.SendWebRequest();
+                if (verboseLogs) Debug.Log($"[API] OK {(int)req.responseCode} {path}\n{Censurar(text, path)}");
 
-            string text = req.downloadHandler != null ? req.downloadHandler.text : "";
-
-            if (req.result != UnityWebRequest.Result.Success)
-            {
-                // La respuesta de error tambien se censura: con DEBUG=True el
-                // servidor devuelve una traza HTML que incluye la contrasena.
-                string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{Censurar(text, path)}";
-                if (verboseLogs) Debug.LogError(msg);
-                onError?.Invoke(string.IsNullOrEmpty(text) ? req.error : text);
-                yield break;
-            }
-
-            if (verboseLogs) Debug.Log($"[API] OK {(int)req.responseCode} {path}\n{Censurar(text, path)}");
-
-            TResponse parsed = default;
-            if (!string.IsNullOrEmpty(text) && typeof(TResponse) != typeof(string))
-            {
-                try
+                TResponse parsed = default;
+                if (!string.IsNullOrEmpty(text) && typeof(TResponse) != typeof(string))
                 {
-                    parsed = JsonConvert.DeserializeObject<TResponse>(text);
+                    try
+                    {
+                        parsed = JsonConvert.DeserializeObject<TResponse>(text);
+                    }
+                    catch (Exception e)
+                    {
+                        onError?.Invoke($"Error al parsear JSON: {e.Message}\n{text}");
+                        yield break;
+                    }
                 }
-                catch (Exception e)
+                else if (typeof(TResponse) == typeof(string))
                 {
-                    onError?.Invoke($"Error al parsear JSON: {e.Message}\n{text}");
-                    yield break;
+                    parsed = (TResponse)(object)text;
                 }
-            }
-            else if (typeof(TResponse) == typeof(string))
-            {
-                parsed = (TResponse)(object)text;
-            }
 
-            onSuccess?.Invoke(parsed);
+                onSuccess?.Invoke(parsed);
+            }
+            finally
+            {
+                _enVuelo--;
+            }
         }
 
         /// <summary>

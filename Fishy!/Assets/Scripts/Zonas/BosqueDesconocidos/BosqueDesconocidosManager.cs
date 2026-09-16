@@ -127,9 +127,10 @@ namespace Fishy.Zonas.BosqueDesconocidos
             {
                 if (progresoAlCompletar >= 0f)
                 {
-                    ApiManager.Instance.ActualizarPartida(progreso: progresoAlCompletar,
-                        onSuccess: _ => Debug.Log($"[BosqueDesconocidos] Progreso {progresoAlCompletar} guardado en la partida."),
-                        onError:   e => Debug.LogWarning($"[BosqueDesconocidos] No se pudo actualizar progreso: {e}"));
+                    // La cola fusiona el progreso por MÁXIMO, no por "gana el último":
+                    // si dos zonas se cerraran entre dos vaciados y la segunda tuviera
+                    // un valor menor, el progreso del niño/a retrocedería.
+                    ColaDeCambios.EncolarProgreso(progresoAlCompletar);
                 }
                 else
                 {
@@ -143,9 +144,7 @@ namespace Fishy.Zonas.BosqueDesconocidos
                 // cerró; esto sí, y es lo que lee el reporte del adulto.
                 if (!string.IsNullOrEmpty(zonaBanco))
                 {
-                    ApiManager.Instance.RegistrarProgresoZona(zonaBanco, completada: true,
-                        onSuccess: _ => Debug.Log($"[BosqueDesconocidos] Zona '{zonaBanco}' marcada como completada en la BD."),
-                        onError:   e => Debug.LogWarning($"[BosqueDesconocidos] No se pudo marcar la zona completada: {e}"));
+                    ColaDeCambios.EncolarZona(zonaBanco, completada: true);
                 }
                 else
                 {

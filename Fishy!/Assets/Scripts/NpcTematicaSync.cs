@@ -38,16 +38,12 @@ public class NpcTematicaSync : MonoBehaviour
     private static int? partidaCargada;
     private bool avisoDeSinPartidaDado;
 
-    /// <summary>Lo marcado sin partida o sin red, para reintentar.</summary>
-    private static readonly Dictionary<string, bool> pendientesDeSubir = new Dictionary<string, bool>();
-
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void LimpiarEstadoEstatico()
     {
         // Los estáticos sobreviven al Stop del editor con "Enter Play Mode Options",
         // y sin esto la segunda corrida creería que la temática ya estaba hecha.
         terminados.Clear();
-        pendientesDeSubir.Clear();
         registroCargado = false;
         partidaCargada = null;
     }
@@ -92,22 +88,28 @@ public class NpcTematicaSync : MonoBehaviour
         Subir(id, exito);
     }
 
+    /// <summary>
+    /// Lo pone en la cola; sale cuando el SaveManager vacíe. El diccionario de
+    /// pendientes y el bucle que lo reintentaba cada medio segundo eran una cola en
+    /// memoria hecha a mano: ahora la hace ColaDeCambios para todos por igual.
+    /// </summary>
     private static void Subir(string id, bool exito)
     {
-        var api = ApiManager.Instance;
-        if (api == null || api.PartidaId == null)
-        {
-            pendientesDeSubir[id] = exito;
-            return;
-        }
-
-        api.MarcarNpcTerminado(id, exito,
-            onSuccess: _ => pendientesDeSubir.Remove(id),
-            onError: e =>
+        ColaDeCambios.EncolarAppend($"npc:{id}",
+            (ok, error) =>
             {
-                pendientesDeSubir[id] = exito;
-                Debug.LogWarning($"[NpcTematica] No se pudo guardar '{id}': {e}. Se reintentará.");
-            });
+                var api = ApiManager.Instance;
+                if (api == null || api.PartidaId == null) { error("No hay partida."); return; }
+
+                api.MarcarNpcTerminado(id, exito,
+                    onSuccess: _ => ok(),
+                    onError: e =>
+                    {
+                        Debug.LogWarning($"[NpcTematica] No se pudo guardar '{id}': {e}");
+                        error(e);
+                    });
+            },
+            $"NPC {id}");
     }
 
     // ── Bajar y repartir ─────────────────────────────────────────────────────
@@ -145,10 +147,6 @@ public class NpcTematicaSync : MonoBehaviour
                     terminados.Clear();
                     Bajar();
                 }
-
-                if (pendientesDeSubir.Count > 0)
-                    foreach (var par in new Dictionary<string, bool>(pendientesDeSubir))
-                        Subir(par.Key, par.Value);
 
                 // Los NPCs viven en la escena de juego, que carga después de que hay
                 // partida. Mientras el registro esté cargado se sigue intentando

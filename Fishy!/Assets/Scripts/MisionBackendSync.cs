@@ -307,23 +307,42 @@ namespace Fishy.Net
             var api = ApiManager.Instance;
             if (api == null || api.IsLocalMode || !api.IsLoggedIn || api.PartidaId == null) return;
 
-            // No repetir lo que el servidor ya tiene. El endpoint es idempotente, así
-            // que repetirlo no rompería nada; se evita sólo para no llenar el log ni
-            // mandar una petición cada vez que el niño/a se acerca a un objeto.
-            // Si allá ya figura completada no hay nada que mandar (completar es un
-            // camino de ida); si figura disponible, sólo interesa el paso a completada.
+            // No repetir lo que ya está puesto. Ojo al cambio: `misionesEnServidor`
+            // antes quería decir "lo que el servidor confirmó" y se escribía en el
+            // onSuccess. Con la cola eso no filtraría nada, porque la confirmación no
+            // llega hasta el vaciado y entre medio pasarían diez encolados. Ahora
+            // significa "encolado o confirmado" y se escribe aquí.
+            //
+            // La regla de fondo no cambia: si ya figura completada no hay nada que
+            // mandar (completar es un camino de ida); si figura disponible, sólo
+            // interesa el paso a completada.
             if (misionesEnServidor.TryGetValue(misionId, out bool completadaEnServidor) &&
                 (completadaEnServidor || !completada))
                 return;
 
-            api.RegistrarProgresoMision(misionId, completada,
-                onSuccess: dto =>
+            misionesEnServidor[misionId] = completada;
+
+            ColaDeCambios.EncolarAppend($"mision:{misionId}",
+                (ok, error) =>
                 {
-                    misionesEnServidor[misionId] = dto != null && dto.Completada;
-                    Debug.Log($"[MisionBackendSync] Misión '{misionId}' guardada como " +
-                              $"{(completada ? "completada" : "disponible")}.");
+                    var actual = ApiManager.Instance;
+                    if (actual == null || actual.PartidaId == null) { error("No hay partida."); return; }
+
+                    actual.RegistrarProgresoMision(misionId, completada,
+                        onSuccess: dto =>
+                        {
+                            misionesEnServidor[misionId] = dto != null && dto.Completada;
+                            Debug.Log($"[MisionBackendSync] Misión '{misionId}' guardada como " +
+                                      $"{(completada ? "completada" : "disponible")}.");
+                            ok();
+                        },
+                        onError: e =>
+                        {
+                            Debug.LogWarning($"[MisionBackendSync] No se pudo guardar '{misionId}': {e}");
+                            error(e);
+                        });
                 },
-                onError: e => Debug.LogWarning($"[MisionBackendSync] No se pudo guardar '{misionId}': {e}"));
+                $"misión {misionId}");
         }
 
         private void AlDesbloquearZona(BlockedZone zona)
@@ -339,13 +358,14 @@ namespace Fishy.Net
             var api = ApiManager.Instance;
             if (api == null || api.IsLocalMode || !api.IsLoggedIn || api.PartidaId == null) return;
 
-            api.RegistrarProgresoZona(slug, completada: false,
-                onSuccess: _ =>
-                {
-                    zonasEnServidor.Add(slug);
-                    Debug.Log($"[MisionBackendSync] Zona '{slug}' guardada como desbloqueada.");
-                },
-                onError: e => Debug.LogWarning($"[MisionBackendSync] No se pudo guardar la zona '{slug}': {e}"));
+            zonasEnServidor.Add(slug);
+
+            // Va por EncolarZona y no por EncolarAppend: la cola fusiona las zonas por
+            // OR. Aquí se manda `completada: false` (desbloqueada) y desde el Bosque se
+            // manda `true`; sin la fusión, este desbloqueo llegando después degradaría
+            // una zona ya completada en el reporte del adulto.
+            ColaDeCambios.EncolarZona(slug, completada: false);
+            Debug.Log($"[MisionBackendSync] Zona '{slug}' encolada como desbloqueada.");
         }
     }
 }

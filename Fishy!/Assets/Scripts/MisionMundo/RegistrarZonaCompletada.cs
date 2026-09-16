@@ -35,8 +35,9 @@ public class RegistrarZonaCompletada : MonoBehaviour
             return;
         }
 
-        api.RegistrarProgresoZona(zona, completada: true,
-            onSuccess: _ => Debug.Log($"[RegistrarZonaCompletada] Zona '{zona}' marcada como completada en la BD.", this),
-            onError:   e => Debug.LogWarning($"[RegistrarZonaCompletada] No se pudo marcar '{zona}' como completada: {e}", this));
+        // Encolar y no mandar: sale cuando el SaveManager vacíe. La cola fusiona las
+        // zonas por OR, así que este `true` no lo puede pisar después un desbloqueo.
+        ColaDeCambios.EncolarZona(zona, completada: true);
+        Debug.Log($"[RegistrarZonaCompletada] Zona '{zona}' encolada como completada.", this);
     }
 }

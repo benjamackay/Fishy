@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -162,29 +163,26 @@ namespace Fishy.Net
         }
 
         /// <summary>
-        /// Sube dónde está Otto ahora mismo. Es la única vía: este componente ya no
-        /// guarda por su cuenta, así que si nadie llama aquí, no se guarda.
+        /// Pone la posición de Otto en la cola. No sube nada todavía: sale cuando
+        /// <see cref="SaveManager"/> vacía la cola, al cambiar de zona o al cerrar.
         ///
-        /// La usa <see cref="SaveManager"/> en el cambio de zona y en el cierre.
-        /// Manda la posición siempre, se haya movido Otto o no: los momentos que
-        /// quedan son de los que puede no haber otro después.
+        /// Es un snapshot, así que lo que se encola NO son los datos sino la orden de
+        /// leerlos: <see cref="GuardarPosicion"/> mira dónde está Otto en el momento en
+        /// que la cola la ejecuta. Por eso marcar sucio mil veces cuesta lo mismo que
+        /// una, y por eso siempre sube la posición de verdad y no una de hace un rato.
         /// </summary>
-        public void GuardarAhora() => GuardarPosicion();
+        public void MarcarSucio()
+            => ColaDeCambios.EncolarSnapshot("personaje", GuardarPosicion, "posición de Otto");
 
-        private void OnApplicationQuit()
-        {
-            // Último guardado antes de cerrar, best-effort: si el proceso muere antes
-            // de que salga la petición, se pierde. El menú de pausa ("Guardar y salir")
-            // es el camino bueno, porque ahí sí se le da un respiro a la petición.
-            GuardarPosicion();
-        }
+        /// <summary>Nombre viejo de <see cref="MarcarSucio"/>. Se conserva porque lo
+        /// llaman las pruebas de editor.</summary>
+        public void GuardarAhora() => MarcarSucio();
 
-        private void OnApplicationPause(bool pausado)
-        {
-            // En móvil, `OnApplicationQuit` muchas veces no llega: el sistema mata la
-            // app pausada sin avisar. Esta es la única señal fiable de "se va".
-            if (pausado) GuardarPosicion();
-        }
+        // Ya NO hay OnApplicationQuit ni OnApplicationPause aquí. Antes subían la
+        // posición por su cuenta saltándose al SaveManager; con la cola se saltarían
+        // también la cola, que es peor: mandarían una petición suelta en el mismo frame
+        // del cierre, justo cuando no hay tiempo de que salga. Ahora el cierre lo
+        // gobierna SaveManager, que retiene la aplicación hasta que la cola se vacía.
 
         // ── 1. Restaurar ─────────────────────────────────────────────────────
 
@@ -331,13 +329,22 @@ namespace Fishy.Net
 
         // ── 2. Guardar ───────────────────────────────────────────────────────
 
-        private void GuardarPosicion()
+        /// <summary>
+        /// Lo que la cola ejecuta cuando le toca el turno al snapshot `personaje`.
+        ///
+        /// Los dos casos de "no hay nada que hacer" llaman a <paramref name="ok"/> y no
+        /// a <paramref name="error"/>: no es un fallo que estemos en un menú sin Otto, y
+        /// tratarlo como tal haría que la cola lo reintentara tres veces y lo reportara
+        /// como avance perdido. Lo que no puede pasar es no llamar a ninguno de los dos:
+        /// eso dejaría el vaciado esperando hasta agotar el plazo.
+        /// </summary>
+        private void GuardarPosicion(Action ok, Action<string> error)
         {
             var api = ApiManager.Instance;
-            if (api == null || api.PartidaId == null) return;
+            if (api == null || api.PartidaId == null) { ok(); return; }
 
             var otto = BuscarOtto();
-            if (otto == null) return;   // escena de menú: no hay nada que guardar
+            if (otto == null) { ok(); return; }   // escena de menú: no hay nada que guardar
 
             Vector2 ahora = otto.transform.position;
             string escena = SceneManager.GetActiveScene().name;
@@ -345,7 +352,12 @@ namespace Fishy.Net
             // La zona viaja en la MISMA peticion que la posicion, no en otra: asi no
             // pueden contradecirse ni queda una a medias si la segunda no sale.
             api.GuardarPersonaje(escena, ahora.x, ahora.y, ZonaDeOtto(),
-                onError: e => Debug.LogWarning($"[PersonajeBackendSync] No se pudo guardar dónde está Otto: {e}"));
+                onSuccess: _ => ok(),
+                onError: e =>
+                {
+                    Debug.LogWarning($"[PersonajeBackendSync] No se pudo guardar dónde está Otto: {e}");
+                    error(e);
+                });
         }
 
         /// <summary>
