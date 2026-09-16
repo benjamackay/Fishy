@@ -14,15 +14,15 @@ al completarla ambas cosas pasan solas a la siguiente.
 
 | Archivo | Qué hace |
 |---|---|
-| `Mision/MissionManager.cs` | `Activa`, `HayMisionActiva`, `ZonaObjetivoActiva`, `onMisionActivaCambiada`. **Aquí se decide todo.** |
-| `Mision/DesafioData.cs` | Campos nuevos `zonaObjetivo` y `orden`. |
-| `MisionMundo/MissionUIController.cs` | El cartel permanente arriba a la izquierda (CA1, CA6). |
-| `MisionMundo/ZoneMarker.cs` | La flecha que señala la zona (CA2, CA4). Sólo dibuja. |
-| `MisionMundo/MisionHudTheme.cs` | Colores, tamaños y textos de los dos. Sólo variables. |
-| `MisionMundo/ObjetivoMision.cs` | Tipo de objetivo `LlegarAZona` (CA3). |
-| `MisionMundo/MissionTracker.cs` | Escucha el cambio de zona y avisa de cada avance. |
+| `Mision/Nucleo/MissionManager.cs` | `Activa`, `HayMisionActiva`, `ZonaObjetivoActiva`, `onMisionActivaCambiada`. **Aquí se decide todo.** |
+| `Mision/Nucleo/DesafioData.cs` | Campos nuevos `zonaObjetivo` y `orden`. |
+| `Mision/MissionUIController.cs` | El cartel permanente arriba a la izquierda (CA1, CA6). |
+| `Mision/ZoneMarker.cs` | La flecha que señala la zona (CA2, CA4). Sólo dibuja. |
+| `Mision/MisionHudTheme.cs` | Colores, tamaños y textos de los dos. Sólo variables. |
+| `Mision/ObjetivoMision.cs` | Tipo de objetivo `LlegarAZona` (CA3). |
+| `Mision/MissionTracker.cs` | Escucha el cambio de zona y avisa de cada avance. |
 | `Otto/ZonaMundo.cs` | `nombreVisible`, `Centro`, `De(id)`, `NombreDe(id)`. |
-| `Mision/Tests/MisionActivaTests.cs` | Pruebas de la misión activa y del interruptor de la flecha. |
+| `Mision/Nucleo/Tests/MisionActivaTests.cs` | Pruebas de la misión activa y del interruptor de la flecha. |
 
 ## Cómo se reparte el trabajo
 

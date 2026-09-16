@@ -11,7 +11,7 @@ la escena vieja habría borrado los NPCs nuevos y sus animaciones idle.
 2. Reponer el NPC Huemul en la escena.
 3. En su componente de diálogo, apuntar `dialogueData` a
    `Assets/Sprites/NPCs/huemul/HuemulDialogue.asset`.
-4. Añadirle el componente **MissionGiver** (`Assets/Scripts/MisionMundo/MissionGiver.cs`).
+4. Añadirle el componente **MissionGiver** (`Assets/Scripts/Mision/MissionGiver.cs`).
 5. Rellenar con estos valores exactos:
 
 | Campo | Valor |

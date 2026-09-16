@@ -18,7 +18,7 @@ construir) se apoyarán en este módulo.
 
 `MissionPanelUI.cs`, el panel desplegable con el botón "Misiones" que era la UI
 de esta HDU, está en `deprecated/Misiones/`: HDU-16 lo reemplazó por
-`MisionMundo/MissionUIController.cs`, un cartel permanente que no hay que abrir.
+`Mision/MissionUIController.cs`, un cartel permanente que no hay que abrir.
 La lista completa de misiones vive en la pestaña Misión del Tab (`QuestPageUI`).
 
 ## Montaje en la escena
@@ -45,7 +45,7 @@ MissionManager.Instance.onDesafioCompletado.AddListener(desafio => { ... });
 
 ## Configurar los tests PlayMode
 Si el proyecto todavía no tiene una carpeta de tests con Assembly Definition:
-1. En `Assets/Scripts/Mision/Tests/`, click derecho → **Create → Testing →
+1. En `Assets/Scripts/Mision/Nucleo/Tests/`, click derecho → **Create → Testing →
    Assembly Definition**, márcala como **Test Assemblies**.
 2. Asegúrate de que referencie el ensamblado donde vive `MissionManager`
    (si los scripts del proyecto no usan asmdefs propios, Unity los incluye en

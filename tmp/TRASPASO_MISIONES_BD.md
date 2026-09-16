@@ -178,7 +178,7 @@ print([dict(zip([d[0] for d in c.execute('select * from api_mision').description
 - Código grande que se borra va a `deprecated/` en la raíz con `git mv`, nunca
   `git rm` (y se mueve también el `.meta`).
 - Temas visuales = **solo variables, cero métodos** (`UI/FishyUIKit.cs` con `Paleta`,
-  `Menu/MenuTabsTheme.cs`, `MisionMundo/MisionHudTheme.cs`, …).
+  `Menu/MenuTabsTheme.cs`, `Mision/MisionHudTheme.cs`, …).
 - **Las fuentes del juego son Latin-1 y poco más.** `✔`, `•`, `…`, `—`, `◆` salen como
   cuadritos huecos. Está documentado en `FishyUIKit.Aspa`. Para texto en pantalla,
   usar `·` y palabras. (`QuestPageUI` todavía usa `✔` y `•`; es deuda conocida.)
@@ -191,7 +191,7 @@ print([dict(zip([d[0] for d in c.execute('select * from api_mision').description
 
 ```
 Fishy.Mision (asmdef propio)      Assembly-CSharp (todo lo demás)
-├── DesafioData.cs                ├── MisionMundo/*  (objetivos, HUD, ZoneMarker,
+├── DesafioData.cs                ├── Mision/*  (objetivos, HUD, ZoneMarker,
 ├── MissionManager.cs             │                   disparadores, QuestPageUI)
 ├── CatalogoDesafios.cs           ├── Otto/*  (ZonaActual, ZonaMundo, BlockedZone)
 └── Tests/                        └── MisionBackendSync.cs  (el puente con la API)

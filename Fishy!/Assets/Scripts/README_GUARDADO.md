@@ -356,7 +356,7 @@ guardó y nadie sabe por qué"* y un diagnóstico.
 | `UI/MenuPausa.cs` | El botón de salir y el cartel de "sin conexión" |
 | `Chat/ChatBackendLogger.cs` | Graba la conversación y la manda entera |
 | `PersonajeBackendSync.cs`, `InventarioBackendSync.cs`, `ObjetosRecogidosSync.cs`, `NpcTematicaSync.cs`, `MisionBackendSync.cs` | Encolan en vez de llamar |
-| `Detective/DetectiveCaseManager.cs`, `MisionMundo/RegistrarZonaCompletada.cs`, `Zonas/BosqueDesconocidos/BosqueDesconocidosManager.cs` | Ídem, escrituras sueltas |
+| `Detective/DetectiveCaseManager.cs`, `Mision/RegistrarZonaCompletada.cs`, `Zonas/BosqueDesconocidos/BosqueDesconocidosManager.cs` | Ídem, escrituras sueltas |
 | `../Editor/FishyPruebasCola.cs` | Las pruebas headless |
 
 ---

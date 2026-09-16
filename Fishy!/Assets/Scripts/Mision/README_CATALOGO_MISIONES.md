@@ -33,14 +33,14 @@ roto.
 
 | Archivo | Qué hace |
 |---|---|
-| `Mision/CatalogoMisiones.cs` | El catálogo en memoria, las dos fuentes y la fábrica de fichas |
-| `Mision/CatalogoDesafios.cs` | `Registrar` / `Olvidar`, para las fichas que no son assets |
-| `MisionMundo/MisionCatalogoSync.cs` | Espera a que haya sesión y baja el catálogo |
-| `MisionMundo/ObjetivoMision.cs` | `DesdeRegistro` y `Resolver`: de identificadores a objetos de la escena |
-| `MisionMundo/MissionGiver.cs` | Toma ficha y objetivos del catálogo si no están en el Inspector |
-| `MisionMundo/MisionInicial.cs` | Entrega una misión al empezar, sin NPC que la dé |
+| `Mision/Nucleo/CatalogoMisiones.cs` | El catálogo en memoria, las dos fuentes y la fábrica de fichas |
+| `Mision/Nucleo/CatalogoDesafios.cs` | `Registrar` / `Olvidar`, para las fichas que no son assets |
+| `Mision/MisionCatalogoSync.cs` | Espera a que haya sesión y baja el catálogo |
+| `Mision/ObjetivoMision.cs` | `DesdeRegistro` y `Resolver`: de identificadores a objetos de la escena |
+| `Mision/MissionGiver.cs` | Toma ficha y objetivos del catálogo si no están en el Inspector |
+| `Mision/MisionInicial.cs` | Entrega una misión al empezar, sin NPC que la dé |
 | `Resources/misiones.json` | El respaldo |
-| `Mision/Tests/CatalogoMisionesTests.cs` | Pruebas del catálogo y del respaldo |
+| `Mision/Nucleo/Tests/CatalogoMisionesTests.cs` | Pruebas del catálogo y del respaldo |
 
 ## Formato del archivo
 
