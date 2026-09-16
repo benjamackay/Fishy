@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: surf
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_SURF
-  itemName: 
+  itemName: Tabla de surf
   itemIcon: {fileID: 0}
   itemDescription: 
   itemType: 0
