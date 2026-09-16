@@ -89,6 +89,17 @@ public class MissionGiver : MonoBehaviour
             ? misionId.Trim()
             : (desafio != null ? desafio.desafioId : null);
 
+        // Nada puesto a mano: el propio diálogo de este NPC ya dice, en el banco
+        // (`mision_desbloquea`), qué misión desbloquea — es la misma relación que el
+        // backend carga en DialogoNPC.mision. Usarla evita escribir el id dos veces
+        // (una en el diálogo, otra a mano aquí) y que las dos copias se desincronicen.
+        if (string.IsNullOrWhiteSpace(id) && npc != null && !string.IsNullOrWhiteSpace(npc.dialogoId))
+        {
+            var entradaDialogo = DialogoNpcLoader.BuscarEnBanco(npc.dialogoId);
+            if (entradaDialogo != null && !string.IsNullOrWhiteSpace(entradaDialogo.mision_desbloquea))
+                id = entradaDialogo.mision_desbloquea.Trim();
+        }
+
         if (string.IsNullOrWhiteSpace(id)) return;
 
         MisionRegistro registro = CatalogoMisiones.Buscar(id);

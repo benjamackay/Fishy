@@ -113,6 +113,30 @@ namespace Fishy.Mision
 
         public List<ObjetivoRegistro> objetivos = new List<ObjetivoRegistro>();
 
+        /// <summary>
+        /// Id de la misión que se entrega sola en cuanto ÉSTA se completa. Vacío = no
+        /// encadena nada. Lo resuelve <c>ConexionAutomaticaMisiones</c>, que reemplaza
+        /// —solo para el caso simple "al completar A, dar B"— a poner a mano un
+        /// AlCompletarMision + EntregarMisionDelCatalogo en la escena. Para algo más
+        /// que eso (cinemática, desbloqueo de zona, mensaje propio) el camino manual
+        /// sigue siendo el que hay que usar: dejar este campo vacío es la forma de
+        /// decir "esta cadena la maneja la escena, no el catálogo".
+        /// </summary>
+        public string desbloquea_mision;
+
+        /// <summary>
+        /// Id del ItemData (de <c>Resources/Items</c>) que se entrega solo al
+        /// completar ÉSTA misión. Vacío = sin recompensa automática. Se
+        /// entrega una sola vez: las misiones no se repiten, así que no hace falta un
+        /// "no duplica al repetir" como en las recompensas del Modo Detective. Mismo
+        /// resolutor que <see cref="desbloquea_mision"/>.
+        /// </summary>
+        public string recompensa_item_id;
+
+        /// <summary>Unidades de <see cref="recompensa_item_id"/> a entregar. 0 o
+        /// negativo se trata como 1.</summary>
+        public int recompensa_cantidad;
+
         /// <summary>Los objetivos por su <c>orden</c>, que es el que se muestra.</summary>
         public List<ObjetivoRegistro> ObjetivosEnOrden() =>
             (objetivos ?? new List<ObjetivoRegistro>())

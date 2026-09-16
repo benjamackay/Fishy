@@ -72,8 +72,80 @@ namespace Fishy.Detective
                 noIdentificados = noIdentificados
             };
 
+            OtorgarRecompensaSiCorresponde(porcentaje);
             ReportarProgreso(resultado);
             return resultado;
+        }
+
+        /// <summary>
+        /// HDU-11 — Entrega el pin del caso si el jugador llegó al umbral de
+        /// aciertos. La recompensa se busca primero en <see cref="_caso"/> (lo que
+        /// haya traído el backend con el caso) y, si no vino nada ahí, se cae al
+        /// catálogo local <see cref="CatalogoRecompensasDetective"/> — el mismo
+        /// contenido, pero embebido en el juego. Cubre tres situaciones con el
+        /// mismo código: backend todavía no manda el campo (hoy), backend caído
+        /// (Detective siempre tiene respaldo local, ver DetectiveCaseLoader), y
+        /// juego sin conexión.
+        ///
+        /// Guard con GetQuantity a propósito: InventoryManager.AddItem SUMA
+        /// cantidad, no la fija (no es idempotente). Sin este guard, repetir un
+        /// caso ya aprobado volvería a sumar el pin cada vez.
+        /// </summary>
+        private void OtorgarRecompensaSiCorresponde(float porcentaje)
+        {
+            var recompensa = ResolverRecompensa(_caso);
+            if (recompensa == null || porcentaje < recompensa.umbralAciertos) return;
+
+            var item = CatalogoItems.Buscar(recompensa.itemId);
+            if (item == null)
+            {
+                Debug.LogWarning($"[Detective] Recompensa '{recompensa.itemId}' del caso " +
+                                  $"{_caso.caseId} no tiene ItemData en Resources/Items.");
+                return;
+            }
+
+            bool yaLoTiene = InventoryManager.Instance.GetQuantity(item) > 0;
+            if (recompensa.noDuplicaAlRepetir && yaLoTiene) return;
+
+            InventoryManager.Instance.AddItem(item, 1);
+            OtorgarAlbumSiEsPrimerPin();
+            Debug.Log($"[Detective] Recompensa entregada: {recompensa.itemId} ({_caso.caseId})");
+
+            DetectiveRewardEvents.RaiseOtorgada(new RecompensaOtorgada(recompensa.itemId, recompensa.nombre));
+        }
+
+        private static RecompensaCaso ResolverRecompensa(DetectiveCase caso)
+        {
+            if (caso.TieneRecompensa)
+            {
+                return new RecompensaCaso
+                {
+                    caseId = caso.caseId,
+                    itemId = caso.recompensaItemId,
+                    nombre = caso.recompensaNombre,
+                    accesorioHdu06 = caso.recompensaAccesorioHdu06,
+                    umbralAciertos = caso.recompensaUmbralAciertos,
+                    noDuplicaAlRepetir = caso.recompensaNoDuplicaAlRepetir,
+                };
+            }
+            return CatalogoRecompensasDetective.Buscar(caso.caseId);
+        }
+
+        /// <summary>Adelanto mínimo de HDU-12: el álbum aparece en la mochila junto
+        /// con el primer pin. La versión completa (agrupar por caso, cada señal
+        /// individual) queda para esa historia.</summary>
+        private void OtorgarAlbumSiEsPrimerPin()
+        {
+            var album = CatalogoItems.Buscar(AlbumEvidenciasUI.ItemIdAlbum);
+            if (album == null)
+            {
+                Debug.LogWarning($"[Detective] No se encontró el ItemData del álbum " +
+                                  $"('{AlbumEvidenciasUI.ItemIdAlbum}') en Resources/Items.");
+                return;
+            }
+
+            if (InventoryManager.Instance.GetQuantity(album) == 0)
+                InventoryManager.Instance.AddItem(album, 1);
         }
 
         /// <summary>Registro best-effort en el backend: si no hay sesión/partida

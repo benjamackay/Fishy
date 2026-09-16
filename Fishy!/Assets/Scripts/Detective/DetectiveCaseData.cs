@@ -31,5 +31,18 @@ namespace Fishy.Detective
         public string permisoNpcResponse;
         public List<DetectiveMessage> mensajes;
         public List<ExplicacionEntry> explicacionGuiada;
+
+        // HDU-11 — Recompensa que trajo el backend con el caso (todavía no la
+        // manda: ver Backend/PENDIENTE_HDU11_RECOMPENSAS_DETECTIVE.md). Vacío a
+        // propósito para los casos cargados del respaldo local en Resources, que
+        // no traen estos campos: DetectiveCaseManager cae a
+        // CatalogoRecompensasDetective cuando TieneRecompensa es false.
+        public string recompensaItemId;
+        public string recompensaNombre;
+        public string recompensaAccesorioHdu06;
+        public float recompensaUmbralAciertos;
+        public bool recompensaNoDuplicaAlRepetir;
+
+        public bool TieneRecompensa => !string.IsNullOrWhiteSpace(recompensaItemId);
     }
 }

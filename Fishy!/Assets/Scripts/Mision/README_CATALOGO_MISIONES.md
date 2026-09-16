@@ -170,6 +170,48 @@ Con eso la ficha y los objetivos salen del catálogo. Si se prefiere cablear los
 objetivos a mano pero tomar el título de la base, basta con llenar la lista de
 objetivos: sólo se toman del catálogo si está vacía.
 
+### Ni siquiera hace falta escribir el id: puede salir del propio diálogo
+
+Si `Mision Id` y `Desafio` se dejan los dos vacíos, `MissionGiver` prueba una
+última cosa antes de rendirse: busca en el banco (`dialogos_npc_neutros`) la
+entrada cuyo `id` sea el `dialogoId` de este NPC, y si esa entrada trae
+`mision_desbloquea`, usa eso. Es la misma relación que ya carga el backend en
+`DialogoNPC.mision` — un NPC cuyo diálogo ya dice qué misión desbloquea no
+necesita que nadie repita ese id a mano en el `MissionGiver`; alcanza con que
+el NPC tenga su `Dialogo Id` puesto (`HDU1_SEC_COIPO_MASCOTA`, etc.).
+
+## Conexión automática: encadenar misiones y dar recompensas sin tocar la escena
+
+Dos campos más, opcionales, en el catálogo (`Resources/misiones.json` o la
+base): **`desbloquea_mision`** e **`recompensa_item_id`** (+ `recompensa_cantidad`,
+1 si se omite). Los resuelve `ConexionAutomaticaMisiones`, que se crea sola al
+arrancar y revisa el catálogo cada vez que el panel se actualiza:
+
+```json
+{
+  "mision_id": "MISION_NPC_03",
+  "...": "...",
+  "desbloquea_mision": "MISION_NPC_04",
+  "recompensa_item_id": "ITEM_BRUJULA",
+  "recompensa_cantidad": 1
+}
+```
+
+Al completarse `MISION_NPC_03`, sola: se entrega `MISION_NPC_04` (por
+`EntregarMisionDelCatalogo.EntregarPorId`, la misma lógica que ya usaban los
+disparadores de escena) y se agrega `ITEM_BRUJULA` al inventario (con el
+mismo guard de `CatalogoRecompensasDetective` — `GetQuantity` antes de
+`AddItem`, porque una misión no se repite y por eso no hace falta un "no
+duplica al repetir").
+
+**No reemplaza a `DisparadorDeMision` + `EntregarMisionDelCatalogo` /
+`EntregarMisionAlEntrarZona`.** Esos siguen siendo el camino para lo que
+necesita algo más que "dar esta misión" o "dar este ítem" —cinemática,
+desbloqueo de zona, mensaje propio—. Dejar los dos campos vacíos es la forma
+de decir "esta misión se conecta a mano, en la escena", y ninguna misión
+existente se tocó: los dos campos están vacíos en todo `misiones.json` hoy,
+así que nada de lo ya cableado a mano cambió de comportamiento.
+
 ## La misión inicial: que Otto arranque con algo que hacer
 
 Todas las demás misiones las entrega un `MissionGiver` colgado del

@@ -33,6 +33,8 @@ el banco borraría lo que los niños llevan hecho.
 | **Orden en la historia** | Sí | Decide cuál es la misión activa y cuál entra cuando se completa la anterior | **Falta** |
 | **Tipo** | Sí | principal / secundaria / exploración | Ya existe |
 | **Zona a la que pertenece** | Sí | Agrupar y filtrar por temática de contenido | Ya existe |
+| **Misión que desbloquea al completarse** | No | Qué misión se entrega sola, sin que nadie la dé a mano, en cuanto ÉSTA se completa. Vacío = ninguna (esa cadena se resuelve a mano, cableada en la escena) | **Falta** (ver más abajo) |
+| **Recompensa al completarse** | No | Qué ítem —y cuántas unidades— se entrega solo al completar ÉSTA misión. Vacío = sin recompensa automática | **Falta** (ver más abajo) |
 
 Sobre el **identificador**: tiene que ser único en todo el juego y estable en el
 tiempo. Es lo que se guarda en el progreso, así que renombrarlo desconecta a los
@@ -59,6 +61,32 @@ Sobre el **orden**: hace falta un criterio de secuencia explícito. Sin él no s
 puede contestar "¿cuál es la siguiente misión?", que es lo que el juego necesita
 al completar una. Un valor numérico donde menor va antes sirve; conviene poder
 dejar huecos para intercalar misiones nuevas sin renumerar las demás.
+
+### Tres conexiones automáticas, para no cablear todo a mano en la escena
+
+El juego ya sabe conectar tres cosas solo, sin que nadie ponga un componente en
+la escena, **siempre que el dato esté anotado en el catálogo**. Si no está, la
+conexión hay que armarla a mano (y eso sigue funcionando igual que hasta ahora).
+Las tres:
+
+1. **Diálogo de un NPC → misión que entrega.** Ya existe: es
+   `mision_desbloquea` en `dialogos_npc_neutros` del banco, que ya carga
+   `DialogoNPC.mision` (`cargar_banco.py`) y ya lo expone `/dialogos-npc/`. Lo
+   único que faltaba era que Unity lo usara — esta sesión se corrigió: si un
+   NPC no tiene la misión puesta a mano, ahora se resuelve sola desde el
+   diálogo. **No hace falta ningún cambio de datos para esto**, ya estaba.
+2. **Misión completada → siguiente misión que se entrega sola** (fila nueva de
+   arriba). Esto es distinto de (1): (1) es "esta conversación da esta
+   misión", (2) es "terminar esta misión da la siguiente", para encadenar
+   secundarias sin pasar por un NPC. **No existe hoy en ningún lado** — ni en
+   el banco ni en la base —, es un campo nuevo.
+3. **Misión completada → ítem de recompensa** (fila nueva de arriba). Mismo
+   caso que (2): no existe hoy, campo nuevo.
+
+Para (2) y (3), el juego ya sabe leerlos si llegan del catálogo (del archivo
+de respaldo o, el día que exista `GET /misiones/`, de la base): son
+opcionales, y una misión que no los tenga sigue su camino manual de siempre
+sin ningún cambio de comportamiento.
 
 ---
 

@@ -67,6 +67,14 @@ namespace Fishy.Detective
                     .Where(m => !string.IsNullOrEmpty(m.explicacion))
                     .Select(m => new ExplicacionEntry { mensajeId = m.mensaje_id, explicacion = m.explicacion })
                     .ToList(),
+
+                // HDU-11 — si el backend todavía no manda estos campos quedan
+                // vacíos y DetectiveCaseManager cae al catálogo local.
+                recompensaItemId = dto.recompensa_item_id,
+                recompensaNombre = dto.recompensa_nombre,
+                recompensaAccesorioHdu06 = dto.recompensa_accesorio_hdu06,
+                recompensaUmbralAciertos = dto.recompensa_umbral_aciertos,
+                recompensaNoDuplicaAlRepetir = dto.recompensa_no_duplica_al_repetir,
             };
 
             Debug.Log($"[Detective] Caso cargado (backend): {caso.caseId} ({caso.mensajes.Count} mensajes)");

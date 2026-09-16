@@ -1,0 +1,28 @@
+{
+  "recompensas": [
+    {
+      "caseId": "DC_CASO_01",
+      "itemId": "PIN_VIGIA_SILENCIOSO",
+      "nombre": "Pin del Vigía Silencioso",
+      "accesorioHdu06": "Gorro de detective con visera",
+      "umbralAciertos": 0.5,
+      "noDuplicaAlRepetir": true
+    },
+    {
+      "caseId": "DC_CASO_02",
+      "itemId": "PIN_TESTIGO_SOLIDARIO",
+      "nombre": "Pin del Testigo Solidario",
+      "accesorioHdu06": "Brazalete de apoyo",
+      "umbralAciertos": 0.5,
+      "noDuplicaAlRepetir": true
+    },
+    {
+      "caseId": "DC_CASO_03",
+      "itemId": "PIN_ANALISTA_CORRIENTES",
+      "nombre": "Pin del Analista de Corrientes",
+      "accesorioHdu06": "Guantes de buzo",
+      "umbralAciertos": 0.5,
+      "noDuplicaAlRepetir": true
+    }
+  ]
+}

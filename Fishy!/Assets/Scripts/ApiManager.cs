@@ -2063,6 +2063,15 @@ namespace Fishy.Net
         public string permiso_npc_nombre;
         public string permiso_npc_response;
         public List<MensajeDetectiveDto> mensajes = new List<MensajeDetectiveDto>();
+
+        // HDU-11 — el backend todavía no los manda (ver
+        // Backend/PENDIENTE_HDU11_RECOMPENSAS_DETECTIVE.md); quedan en su default
+        // y DetectiveCaseManager cae al catálogo local cuando vienen vacíos.
+        public string recompensa_item_id;
+        public string recompensa_nombre;
+        public string recompensa_accesorio_hdu06;
+        public float recompensa_umbral_aciertos;
+        public bool recompensa_no_duplica_al_repetir;
     }
 
     [Serializable]

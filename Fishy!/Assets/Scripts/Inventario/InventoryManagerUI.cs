@@ -118,22 +118,49 @@ public class InventoryManagerUI : MonoBehaviour
         }
 
         TMP_Text texto = slot.GetComponentInChildren<TMP_Text>(true);
-        if (texto == null) return;
+        if (texto != null)
+        {
+            string cantidad = showQuantity && item.itemQuantity > 1 ? $"x{item.itemQuantity}" : "";
+            if (hayIcono)
+            {
+                // Con icono el dibujo ya identifica el objeto; el texto sólo cuenta.
+                texto.text = cantidad;
+            }
+            else if (string.IsNullOrEmpty(cantidad))
+            {
+                texto.text = nombre;
+            }
+            else
+            {
+                texto.text = $"{nombre} {cantidad}";
+            }
+        }
 
-        string cantidad = showQuantity && item.itemQuantity > 1 ? $"x{item.itemQuantity}" : "";
-        if (hayIcono)
+        ConfigurarInteraccion(slot, item);
+    }
+
+    /// <summary>
+    /// HDU-11 (adelanto mínimo de HDU-12) — el único ítem interactivo hoy es el
+    /// Álbum de Evidencias. No es un sistema genérico de "usar ítem": solo este
+    /// caso puntual. Los slots se reciclan (<see cref="Refresh"/>), así que el
+    /// listener se rehace en cada pintado en vez de engancharse una sola vez en
+    /// <see cref="CrearSlot"/> -si no, un slot que fue el álbum seguiría
+    /// abriéndolo aunque ahora tenga otro objeto.
+    /// </summary>
+    private void ConfigurarInteraccion(GameObject slot, Item item)
+    {
+        bool esAlbum = item.itemData != null && item.itemData.itemId == AlbumEvidenciasUI.ItemIdAlbum;
+
+        Button boton = slot.GetComponent<Button>();
+        if (!esAlbum)
         {
-            // Con icono el dibujo ya identifica el objeto; el texto sólo cuenta.
-            texto.text = cantidad;
+            if (boton != null) boton.onClick.RemoveAllListeners();
+            return;
         }
-        else if (string.IsNullOrEmpty(cantidad))
-        {
-            texto.text = nombre;
-        }
-        else
-        {
-            texto.text = $"{nombre} {cantidad}";
-        }
+
+        if (boton == null) boton = slot.AddComponent<Button>();
+        boton.onClick.RemoveAllListeners();
+        boton.onClick.AddListener(AlbumEvidenciasUI.Show);
     }
 
     /// <summary>

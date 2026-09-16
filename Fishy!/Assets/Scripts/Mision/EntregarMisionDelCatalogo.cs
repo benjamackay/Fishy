@@ -76,6 +76,43 @@ public class EntregarMisionDelCatalogo : MonoBehaviour
             MissionTracker.GetOrCreate().Seguir(ficha, lista);
     }
 
+    /// <summary>
+    /// Igual que <see cref="Entregar"/> pero sin instancia ni overrides puestos a
+    /// mano: entrega la misión tal como está en el catálogo, solo por su id.
+    ///
+    /// Es lo que usa <see cref="ConexionAutomaticaMisiones"/> para encadenar
+    /// misiones sin que haga falta un GameObject en la escena — mismo resultado que
+    /// poner este componente a mano y llamar a <see cref="Entregar"/>, para el caso
+    /// en que no hace falta ninguna ficha ni objetivo especial.
+    /// </summary>
+    public static void EntregarPorId(string misionId)
+    {
+        string id = (misionId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(id)) return;
+
+        DesafioData ficha = CatalogoMisiones.Ficha(id);
+        if (ficha == null)
+        {
+            Debug.LogWarning($"[EntregarMisionDelCatalogo] '{id}' no está en el catálogo de " +
+                             "misiones (ni en la base ni en Resources/misiones.json).");
+            return;
+        }
+
+        MissionManager manager = MissionManager.GetOrCreate();
+
+        if (manager.GetEstado(ficha.desafioId) == null)
+        {
+            manager.RegistrarDesafioDisponible(ficha);
+            Debug.Log($"[EntregarMisionDelCatalogo] '{ficha.titulo}' ({id}) entregada.");
+        }
+
+        if (manager.EstaCompletado(ficha.desafioId)) return;
+
+        List<ObjetivoMision> lista = ObjetivosDesdeCatalogo(id);
+        if (lista.Count > 0)
+            MissionTracker.GetOrCreate().Seguir(ficha, lista);
+    }
+
     private static List<ObjetivoMision> ObjetivosDesdeCatalogo(string misionId)
     {
         var lista = new List<ObjetivoMision>();
