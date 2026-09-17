@@ -259,7 +259,7 @@ entregue.
 ### Ojo con el objetivo "hablar con NPC"
 
 Se resuelve buscando el `NPC` del mapa cuyo `dialogoId` coincida. **Hoy ninguno de
-los NPCs de `SampleScene` tiene `dialogoId` puesto**, así que por la vía de datos no
+los NPCs de `MainScene` tiene `dialogoId` puesto**, así que por la vía de datos no
 resuelve nada. Dos salidas:
 
 - **Arrastrar el NPC** al campo `Npc` del objetivo. Funciona ya, sin tocar datos.
@@ -285,5 +285,5 @@ está en memoria (`Ninguno` · `Archivo` · `Base`).
 - **El título de `MISION_EXPLORACION_01` es un relleno**, porque en el banco esa
   misión no tiene nombre.
 - **El endpoint `GET /misiones/` todavía no existe.** Está especificado en
-  `REQUISITOS_BD_MISIONES.md`; hasta que exista, el juego corre con el respaldo y
+  `REQUISITOS_BD.md`; hasta que exista, el juego corre con el respaldo y
   lo dice en consola.

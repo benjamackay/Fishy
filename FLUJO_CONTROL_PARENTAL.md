@@ -152,7 +152,7 @@ Estos son los que **rompen** clientes viejos:
 | `Assets/Scripts/ApiManager.cs` | `AdultoId` y `JugadorId` en el estado; `Registro()` con email; `CrearPartida()` manda `usuario_jugador_id`; DTOs nuevos; 7 métodos nuevos de perfiles; modo local ampliado |
 | `Assets/Scripts/UI/AuthScreen.cs` | Reescrito: login y registro separados, campo email, panel "¿Quién va a jugar?" |
 | `Assets/Scripts/ApiSmokeTest.cs` | Pasa por perfil de menor antes de crear partida |
-| `Assets/Scripts/UI/README_Arranque.md` | Documentación del flujo de dos pasos |
+| `documentacion/README_Arranque.md` | Documentación del flujo de dos pasos |
 
 **Método clave:** `ContinuarOCrearPartida(jugadorId, (partida, esNueva) => ...)` — encapsula
 el paso 3 completo (pedir partidas → retomar la primera, o crear si no hay).

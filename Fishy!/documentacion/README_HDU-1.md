@@ -10,9 +10,12 @@ construir) se apoyarán en este módulo.
   descripción, ícono, y desde HDU-16 también `zonaObjetivo` y `orden`). Se crean
   assets vía **Assets → Create → Fishy → Mision → Nuevo Desafio**.
 - `MissionManager.cs` — singleton persistente (`DontDestroyOnLoad`) que lleva el
-  registro de desafíos disponibles/completados, dispara eventos y persiste el
-  progreso en `PlayerPrefs` como fallback local (no hay endpoints de desafíos en
-  el backend todavía, igual que pasó con el modo Detective).
+  registro de desafíos disponibles/completados y dispara eventos. Guarda en
+  `PlayerPrefs` como respaldo local (sin sesión o en modo local), pero el
+  progreso real ya sube al backend: `MisionBackendSync.cs` (en
+  `Assets/Scripts/`, fuera de esta carpeta porque hace de puente entre este
+  ensamblado y `ApiManager`) baja lo completado al empezar la partida y sube
+  cada cambio por la cola de guardado — ver `README_GUARDADO.md`.
 - `Tests/MissionManagerTests.cs` — pruebas PlayMode (NUnit) del MissionManager.
 - `Tests/MisionActivaTests.cs` — pruebas PlayMode de la misión activa (HDU-16).
 
@@ -43,20 +46,28 @@ MissionManager.Instance.onDesafioDisponible.AddListener(desafio => { ... });
 MissionManager.Instance.onDesafioCompletado.AddListener(desafio => { ... });
 ```
 
-## Configurar los tests PlayMode
-Si el proyecto todavía no tiene una carpeta de tests con Assembly Definition:
-1. En `Assets/Scripts/Mision/Nucleo/Tests/`, click derecho → **Create → Testing →
-   Assembly Definition**, márcala como **Test Assemblies**.
-2. Asegúrate de que referencie el ensamblado donde vive `MissionManager`
-   (si los scripts del proyecto no usan asmdefs propios, Unity los incluye en
-   `Assembly-CSharp` automáticamente y no hace falta referenciar nada extra).
-3. Abre **Window → General → Test Runner → PlayMode** y corre los tests.
+## Correr los tests PlayMode
+Ya está montado: `Mision/Nucleo/Tests/` tiene su propio Assembly Definition
+(`Fishy.Mision.Tests`, marcado **Test Assemblies**), que referencia a
+`Fishy.Mision` (donde vive `MissionManager`). Para correrlos, **Window →
+General → Test Runner → PlayMode**.
 
-## Pendiente (siguientes pasos de HDU-1)
-- `InteractableObject` — objetos con contorno/brillo, recolección, y llamado a
-  `RegistrarDesafioDisponible` al desbloquear un desafío.
-- Acción de "Interactuar" en `OttoController` (tecla + botón en pantalla), y
-  detección del interactuable más cercano.
-- NPC neutro con diálogo narrativo lineal (pista), distinto del árbol de
-  decisiones de `Desconocidos` (HDU-2).
-- Persistencia de objetos ya recolectados (mismo patrón PlayerPrefs que aquí).
+También se pueden correr en modo headless, sin abrir el editor — ver
+`README_GUARDADO.md`, sección "Cómo comprobarlo", para el comando de
+`-executeMethod` y los arneses (`FishyPruebasCola`, `FishyPruebasPartida`).
+
+## Ya construido (esto era "pendiente" cuando se escribió este documento)
+
+Los cuatro próximos pasos que este documento planteaba ya están hechos, con
+nombres distintos a los que se previeron acá:
+
+- **Objetos interactuables**: no existe `InteractableObject`; la pieza real es
+  `IInteractable.cs` (interfaz) + `InteractionDetector.cs` (detecta el
+  interactuable más cercano) + `Inventario/WorldItem.cs` (la recolección).
+- **Acción de "Interactuar"**: la resuelve `InteractionDetector.cs`, no
+  `OttoController` directamente.
+- **NPC neutro con diálogo lineal**: `NPC.cs` + `DialogoNpcLoader.cs`, que lee
+  la sección `dialogos_npc_neutros` del banco de preguntas — distinto del
+  árbol de decisiones de `Desconocidos` (HDU-2), tal como se planeó acá.
+- **Persistencia de objetos recogidos**: ya no es solo `PlayerPrefs`; sube al
+  backend por `ObjetosRecogidosSync.cs` — ver `README_GUARDADO.md`.

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Fishy.Net;
 using Fishy.Mision;
 
@@ -54,9 +55,10 @@ namespace Fishy.Chat
             },
         };
 
-        [Header("Ritmo")]
-        [Tooltip("Segundos entre mensajes encadenados del NPC (0 = inmediato).")]
-        public float autoAdvanceDelay = 0.6f;
+        // Ritmo: entre mensajes encadenados y antes de la reacción de Otto, el juego
+        // espera a que el niño/a toque "Continuar" o pulse E — ver EsperarContinuar().
+        // Antes eran WaitForSeconds fijos e "iba demasiado rápido" para quien lee más
+        // despacio; ahora el ritmo lo pone quien juega, no un número fijo.
 
         public bool IsActive { get; private set; }
 
@@ -229,19 +231,46 @@ namespace Fishy.Chat
 
             if (!string.IsNullOrEmpty(node.nextNodeId))
             {
-                StartCoroutine(AdvanceAfterDelay(node.nextNodeId));
+                StartCoroutine(AdvanceAfterContinue(node.nextNodeId));
                 return;
             }
 
             EndCurrentConversation("fin_de_rama");
         }
 
-        private IEnumerator AdvanceAfterDelay(string nextNodeId)
+        private IEnumerator AdvanceAfterContinue(string nextNodeId)
         {
-            if (autoAdvanceDelay > 0f)
-                yield return new WaitForSecondsRealtime(autoAdvanceDelay);
+            yield return EsperarContinuar();
             if (!IsActive) yield break;
             Avanzar(nextNodeId);
+        }
+
+        /// <summary>
+        /// Muestra "Continuar" y no sigue hasta que el niño/a lo toque o pulse E.
+        /// Antes esto era un tiempo fijo —"iba demasiado rápido" para quien lee más
+        /// despacio—; ahora el ritmo lo pone quien juega, igual que ya pasa con el
+        /// diálogo de un NPC neutro (ver <see cref="NPC.Interact"/>).
+        /// </summary>
+        private IEnumerator EsperarContinuar()
+        {
+            bool avanzado = false;
+            ui.ShowOptions(new[] { ChatUITheme.Textos.BotonContinuar }, _ => avanzado = true);
+
+            // Un frame de gracia: si el E que disparó el paso anterior (elegir una
+            // opción, o el Continuar de antes) todavía se lee como "presionado este
+            // frame" en la primera vuelta, este Continuar se saltaría solo.
+            yield return null;
+
+            while (!avanzado)
+            {
+                if (!IsActive) yield break;
+                if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+                    avanzado = true;
+                else
+                    yield return null;
+            }
+
+            ui.ClearOptions();
         }
 
         private void OnOption(ChatNode node, int index)
@@ -297,6 +326,20 @@ namespace Fishy.Chat
                 ui.ShowOptions(new[] { ChatUITheme.Textos.BotonContinuar }, _ => CloseModule());
                 return;
             }
+
+            StartCoroutine(MostrarReaccionTrasEspera());
+        }
+
+        /// <summary>
+        /// Espera a que el niño/a toque Continuar (o pulse E) antes de mostrar la
+        /// reacción de Otto, para no taparle el último mensaje justo cuando termina
+        /// de aparecer. Mismo mecanismo que <see cref="EsperarContinuar"/> usa entre
+        /// mensajes encadenados.
+        /// </summary>
+        private IEnumerator MostrarReaccionTrasEspera()
+        {
+            yield return EsperarContinuar();
+            if (!IsActive) yield break;
 
             float percent = SafePercent();
             var tier = PickTier(percent);

@@ -33,7 +33,7 @@ namespace Fishy.Detective
         public List<ExplicacionEntry> explicacionGuiada;
 
         // HDU-11 — Recompensa que trajo el backend con el caso (todavía no la
-        // manda: ver Backend/PENDIENTE_HDU11_RECOMPENSAS_DETECTIVE.md). Vacío a
+        // manda: ver REQUISITOS_BD.md, seccion C). Vacío a
         // propósito para los casos cargados del respaldo local en Resources, que
         // no traen estos campos: DetectiveCaseManager cae a
         // CatalogoRecompensasDetective cuando TieneRecompensa es false.

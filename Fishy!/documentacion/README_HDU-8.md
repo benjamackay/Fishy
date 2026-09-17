@@ -12,6 +12,7 @@ seguras.
 |--------|-----|
 | `ChatConversation.cs` | Datos de una conversación (grafo de nodos) como ScriptableObject. |
 | `ChatDefaultConversations.cs` | Conversaciones de ejemplo listas (parque / fotos+secreto). |
+| `BancoPreguntasLoader.cs` | Arma conversaciones desde el banco de preguntas (`banco_preguntas.json`), por `npc_id`. |
 | `ChatModuleController.cs` | Lógica: recorre nodos, registra historial, calcula % seguras, muestra estado de Otto. |
 | `ChatModuleUI.cs` | UI de mensajería (historial + opciones + panel de estado). Se autogenera. |
 | `OttoMoodController.cs` | Aplica la animación/sprite del estado emocional a Otto. |
@@ -32,8 +33,14 @@ seguras.
 1. Crea un Button (p.ej. "Abrir chat").
 2. Añade `ChatModuleLauncher` a un GameObject y, en el OnClick del Button, llama a
    `ChatModuleLauncher.OpenChat`.
-3. `source`: `ZonaDesconocidosPorDefecto` (usa el contenido incluido) o
-   `ConversacionesAsignadas` (tus propios `ChatConversation`).
+3. `source`: `ZonaDesconocidosPorDefecto` (usa el contenido incluido),
+   `ConversacionesAsignadas` (tus propios `ChatConversation`) o `BancoPorNpcId`
+   (arma la conversación desde `banco_preguntas.json` a partir del `npc_id` que
+   pongas en `Npc Id`, vía `BancoPreguntasLoader`).
+4. Opcional: `Desafio Asociado` (una misión del panel que esta conversación
+   desbloquea/completa al cerrarse) y `Repetible` (permite volver a hablar con
+   este NPC más de una vez; si no, alejarse y volver no reabre la conversación
+   sola).
 
 ### Opción B — al acercarse
 1. En el GameObject del módulo pon un `Collider2D` (Is Trigger) + `ChatModuleLauncher`.

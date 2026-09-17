@@ -198,7 +198,7 @@ public class ObjetivoMision
     private static NPC BuscarNpcPorDialogo(string dialogoId)
     {
         foreach (NPC candidato in UnityEngine.Object.FindObjectsByType<NPC>(
-                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+                     FindObjectsInactive.Include))
         {
             if (candidato == null) continue;
             if (string.Equals(candidato.dialogoId, dialogoId, StringComparison.Ordinal))
@@ -215,7 +215,7 @@ public class ObjetivoMision
     private static Fishy.Detective.DetectiveLauncher BuscarDetectivePorCaso(string casoId)
     {
         foreach (var candidato in UnityEngine.Object.FindObjectsByType<Fishy.Detective.DetectiveLauncher>(
-                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+                     FindObjectsInactive.Include))
         {
             if (candidato == null) continue;
             if (string.Equals(candidato.CasoId, casoId, StringComparison.Ordinal))
@@ -237,7 +237,7 @@ public class ObjetivoMision
         string[] escenarios = TrocearEscenarios(escenarioIds);
 
         foreach (PhoneChatLauncher candidato in UnityEngine.Object.FindObjectsByType<PhoneChatLauncher>(
-                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+                     FindObjectsInactive.Include))
         {
             if (candidato == null) continue;
 

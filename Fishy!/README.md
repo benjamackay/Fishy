@@ -16,6 +16,8 @@
    - [HDU-8 — Chat de prevención](#hdu-8--chat-de-prevención)
    - [Celular diegético](#celular-diegético)
    - [Banco de Preguntas](#banco-de-preguntas)
+   - [Sistema de Misiones](#sistema-de-misiones)
+   - [Modo Detective y recompensas](#modo-detective-y-recompensas)
    - [Sistema de autenticación y partida](#sistema-de-autenticación-y-partida)
 5. [Backend Django](#backend-django)
 6. [Flujo de datos pedagógico](#flujo-de-datos-pedagógico)
@@ -46,9 +48,9 @@ El sistema registra todas las respuestas del jugador en una base de datos Postgr
 | Lenguaje de juego | C# | .NET (Unity) |
 | Serialización JSON (Unity) | Newtonsoft.Json + JsonUtility | — |
 | Backend | Django + Django REST Framework | ≥5.0 |
-| Base de datos | PostgreSQL | 16 |
+| Base de datos | PostgreSQL (Supabase, administrado en la nube) | 16 |
 | Autenticación backend | Token Authentication (DRF) | — |
-| Infraestructura | Docker + Docker Compose | — |
+| Infraestructura | Docker Compose (solo servicio `web`) | — |
 | Lenguaje backend | Python | 3.12 |
 
 ---
@@ -63,7 +65,7 @@ El sistema registra todas las respuestas del jugador en una base de datos Postgr
 │                    │                │               │
 │  ChatModuleController              HTTP             │
 │  PhoneChatLauncher                 │               │
-│  GroomingDialogue                  ▼               │
+│  ColaDeCambios / SaveManager       ▼               │
 └─────────────────────────────────────────────────────┘
                                      │
                               HTTP/REST (JSON)
@@ -71,10 +73,11 @@ El sistema registra todas las respuestas del jugador en una base de datos Postgr
 ┌─────────────────────────────────────────────────────┐
 │                  DJANGO BACKEND                     │
 │                                                     │
-│  /api/auth/      /api/partidas/    /api/chats/      │
-│  /api/npcs/      /api/banco/       /api/health/     │
+│  /api/auth/       /api/jugadores/   /api/partidas/  │
+│  /api/chats/      /api/npcs/        /api/banco/     │
+│  /api/casos-detective/  /api/dialogos-npc/  /api/health/ │
 │                                                     │
-│  models.py ──► PostgreSQL (Docker)                  │
+│  models.py ──► PostgreSQL (Supabase, en la nube)    │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -90,11 +93,14 @@ El sistema registra todas las respuestas del jugador en una base de datos Postgr
 
 Movimiento 2D de Otto con el nuevo Input System, cámara con seguimiento suave y sistema de **zonas bloqueadas** con condiciones de desbloqueo.
 
+Al desbloquearse, `BlockedZone.Unlock()` ya no quita el bloqueo en seco: dispara una **cinemática de desbloqueo** (`ZoneUnlockCinematic`) que hace un paneo de cámara hacia la zona, desvanece el oscurecido y muestra un cartel, y solo entonces aplica el cambio de estado real (`BlockedZone.UnlockInmediato()`). `UnlockInmediato()` se mantiene como el desbloqueo silencioso/sin cámara que se usa al restaurar una partida donde la zona ya estaba abierta.
+
 | Script | Ubicación | Función |
 |--------|-----------|---------|
 | `OttoController.cs` | `Scripts/Otto/` | Movimiento físico (Rigidbody2D + IA) |
 | `CameraFollow2D.cs` | `Scripts/Camera/` | Seguimiento con lerp configurable |
 | `BlockedZone.cs` | `Scripts/Otto/` | Zona que bloquea el paso hasta completar la HDU anterior |
+| `ZoneUnlockCinematic.cs` | `Scripts/Otto/` | Cinemática de desbloqueo (paneo + cartel) que corre antes de aplicar el desbloqueo real |
 | `ZonePopupUI.cs` | `Scripts/Otto/` | Notificación emergente al entrar en una zona de riesgo |
 | `WorldZoneManager.cs` | `Scripts/Otto/` | Registro global del estado de las zonas |
 
@@ -104,35 +110,37 @@ Movimiento 2D de Otto con el nuevo Input System, cámara con seguimiento suave y
 
 NPCs que simulan tácticas de **grooming progresivo**: ganan confianza del jugador y luego van escalando las peticiones (datos, secretos, encuentros).
 
+> **El diálogo en sí ya no vive en esta carpeta.** El guion, la UI, la ramificación y el registro en el backend corren por el módulo de chat genérico de HDU-8 (`Scripts/Chat/`, `ChatModuleLauncher`/`ChatModuleController`), que arma las conversaciones de esta zona a partir del `banco_preguntas.json` compartido. Los scripts de `Scripts/Zonas/BosqueDesconocidos/` son solo lo específico de la zona: decidir éxito/fracaso, hacer que el NPC "se aleje" y desbloquear la siguiente zona. La versión anterior (`DialogueController`, `DialogueUI`, `GroomingDialogue`, `DesconocidosDefaultScripts`, `GroomingChatLogger`) se movió a `deprecated/Desconocidos/` en la raíz del repo.
+
 #### Flujo de interacción
 
 ```
-Otto entra en rango del NPC (Collider2D trigger)
-  └─► DesconocidosNPC.OnTriggerEnter2D
-        └─► DialogueController.StartDialogue(script)
-              ├─► Fase 1: mensaje neutro + halago
-              ├─► Fase 2: pide nombre / edad
-              ├─► Fase 3: pide dirección / colegio
-              └─► Fase 4: propone encuentro secreto
-                    ├─► Acepta → cierre educativo (EndCaptured)
-                    └─► Rechaza → NPC se aleja (EndSuccess)
+Otto entra en rango del NPC (Collider2D trigger, ChatModuleLauncher.openOnTriggerEnter)
+  └─► ChatModuleController recorre el grafo armado desde el banco de preguntas
+        ├─► Fase 1: mensaje neutro + halago
+        ├─► Fase 2: pide nombre / edad
+        ├─► Fase 3: pide dirección / colegio
+        └─► Fase 4: propone encuentro secreto
+              └─► ChatModuleLauncher.OnSesionFinalizada(safePercent)
+                    └─► BosqueDesconocidosNPC decide éxito/fracaso (umbral 70% por defecto)
+                          ├─► Éxito → NPC se aleja + mensaje de felicitación
+                          └─► Fracaso → cierre educativo (nodo de sistema del grafo)
+                    └─► Cuando terminan todos los NPCs de la temática → BosqueDesconocidosManager
+                          marca la temática completada y desbloquea la siguiente zona
 ```
 
 | Script | Función |
 |--------|---------|
-| `GroomingDialogue.cs` | ScriptableObject con el grafo de nodos + fases |
-| `DesconocidosDefaultScripts.cs` | Guiones prefabricados: **Alex** y **Sam** |
-| `DesconocidosNPC.cs` | NPC con trigger de cercanía y control de estados |
-| `DialogueController.cs` | Recorre el grafo, aplica reglas de ramificación |
-| `DialogueUI.cs` | Panel de diálogo + botones de respuesta (se autogenera) |
-| `GroomingChatLogger.cs` | Registro best-effort en el backend (`start/request/chain/end`) |
-| `ZonaDesconocidosManager.cs` | Marca la temática completada y desbloquea la siguiente zona |
+| `BosqueDesconocidosNPC.cs` | Reacciona cuando el `ChatModuleLauncher` de este NPC cierra su sesión: decide éxito/fracaso según % de respuestas seguras, hace que el NPC "se aleje" si corresponde, y avisa al manager |
+| `BosqueDesconocidosManager.cs` | Lleva la cuenta de los NPCs de la zona; al completarse todos, marca la temática y habilita la siguiente zona del mapa (con la cinemática de `ZoneUnlockCinematic`) |
 
 ---
 
 ### HDU-8 — Chat de prevención
 
 Módulo de chat tipo mensajería que simula conversaciones con señales de riesgo (ciberacoso, retos virales, grooming en plataformas). El jugador elige entre 2-3 respuestas por mensaje peligroso. Al finalizar, Otto muestra su estado emocional según el porcentaje de respuestas seguras.
+
+**Aspecto unificado:** `ChatModuleUI.EnablePhoneMode()` decide el diseño completo, no solo el marco. Hablar cara a cara con un NPC (sea neutro o sospechoso) se ve siempre como el panel de diálogo de los NPCs neutros; hablar por teléfono (sea con un NPC sospechoso o dentro del Modo Detective) se ve siempre como una app de mensajería, con el mismo aspecto que el Modo Detective. Antes eran 4 sistemas visualmente distintos (NPC neutro, NPC sospechoso cara a cara, NPC sospechoso por teléfono, Modo Detective); ahora hay dos aspectos —cara a cara y teléfono— compartidos entre esos cuatro casos.
 
 #### Grafo de nodos `ChatConversation`
 
@@ -268,11 +276,54 @@ Resources/banco_preguntas.json
 | `"segura_basica"` | `Safe` |
 | `"insegura"` | `Unsafe` |
 
+#### El banco también trae diálogos de NPCs neutros
+
+Además de `preguntas`, el JSON tiene un arreglo `dialogos_npc_neutros` (cargado por `DialogoNpcLoader.cs`, `Scripts/NPC/`) con las líneas de los NPCs que no son de riesgo. Cada entrada puede traer un campo opcional `mision_desbloquea`: si el `NPC` de la escena tiene su `dialogoId` puesto y coincide con el `id` de esa entrada, `MissionGiver` puede resolver solo qué misión entregar sin que nadie escriba el id a mano (ver [Sistema de Misiones](#sistema-de-misiones)).
+
+---
+
+### Sistema de Misiones
+
+`CatalogoMisiones` es la fuente de verdad de qué misiones existen y qué pide cada una. Al arrancar se lee de forma síncrona `Resources/misiones.json` (nunca falla, no depende de red); si más tarde responde el backend (`GET /misiones/`, hoy sin implementar del lado servidor) reemplaza el catálogo en memoria y avisa a los `MissionGiver` que todavía no entregaron su misión para que se resuelvan solos. El catálogo es de contenido, no de progreso: qué misiones lleva hechas un niño/a concreto lo sigue llevando `MissionManager` + `MisionBackendSync`, por su lado.
+
+Cada misión del catálogo puede traer, opcionalmente, `desbloquea_mision` y `recompensa_item_id` (+ `recompensa_cantidad`). Los resuelve `ConexionAutomaticaMisiones`, que se crea sola al arrancar: al completarse una misión con esos campos, entrega automáticamente la siguiente misión encadenada y/o agrega el ítem de recompensa al inventario (con guardia anti-duplicado). Esto no reemplaza a `DisparadorDeMision`/`EntregarMisionAlEntrarZona` para misiones que necesitan algo más que "dar esta misión o este ítem" (cinemática, desbloqueo de zona, mensaje propio); dejando los campos vacíos la conexión sigue siendo manual, como antes.
+
+Un NPC también puede resolver sola la misión que entrega: si su `MissionGiver` no tiene `Mision Id` ni `Desafio` asignados, busca en `dialogos_npc_neutros` del banco de preguntas la entrada cuyo `id` sea el `dialogoId` del NPC, y si trae `mision_desbloquea`, la usa.
+
+| Script | Ubicación | Función |
+|--------|-----------|---------|
+| `CatalogoMisiones.cs` | `Scripts/Mision/Nucleo/` | Catálogo en memoria: las dos fuentes (archivo/backend) y la fábrica de fichas |
+| `CatalogoDesafios.cs` | `Scripts/Mision/Nucleo/` | Registro de fichas fabricadas en memoria para las misiones que no son un asset |
+| `MisionCatalogoSync.cs` | `Scripts/Mision/` | Espera a que haya sesión y baja el catálogo desde el backend |
+| `ConexionAutomaticaMisiones.cs` | `Scripts/Mision/` | Encadena misiones y entrega recompensas automáticamente según el catálogo |
+| `MissionGiver.cs` | `Scripts/Mision/` | Entrega una misión (de un NPC), tomando ficha/objetivos del catálogo si no están cableados a mano |
+| `MissionManager.cs` | `Scripts/Mision/Nucleo/` | Progreso de misiones de la partida actual |
+| `MissionTracker.cs` | `Scripts/Mision/` | Sigue el progreso de los objetivos de una misión activa |
+| `ObjetivoMision.cs` | `Scripts/Mision/` | Resuelve identificadores del catálogo a objetos concretos de la escena |
+| `MisionInicial.cs` | `Scripts/Mision/` | Entrega la primera misión sin que haga falta un NPC |
+| `Resources/misiones.json` | `Resources/` | Respaldo local del catálogo (misma forma de datos que `GET /misiones/`) |
+
+---
+
+### Modo Detective y recompensas
+
+El Modo Detective (HDU-10) presenta un caso: una conversación ya ocurrida donde el niño/a debe marcar qué mensajes fueron señales de riesgo (`DetectiveCaseManager`, `DetectiveUI`). Al calcular el resultado, si el % de aciertos alcanza el umbral del caso, se entrega automáticamente un **pin** de recompensa al inventario (sin duplicarse si el caso se repite) y, junto con el primer pin, un ítem mínimo de **álbum de evidencias** (`AlbumEvidenciasUI`) — adelanto de HDU-12, que agrupará las evidencias por caso más adelante. La recompensa de cada caso se busca primero en lo que trae el propio caso desde el backend y, si no vino nada, cae al catálogo local `CatalogoRecompensasDetective` (mismo contenido, embebido en el juego); esto cubre caso sin backend, backend sin el campo todavía, y juego sin conexión con el mismo código.
+
+| Script | Ubicación | Función |
+|--------|-----------|---------|
+| `DetectiveCaseManager.cs` | `Scripts/Detective/` | Calcula el resultado del caso y otorga la recompensa (pin + álbum) si corresponde |
+| `CatalogoRecompensasDetective.cs` | `Scripts/Detective/` | Respaldo local de recompensas por caso (umbral, ítem, si no se duplica al repetir) |
+| `DetectiveRewardPopup.cs` | `Scripts/Detective/` | Cartel de recompensa obtenida |
+| `DetectiveRewardEvents.cs` | `Scripts/Detective/` | Evento estático que avisa cuándo se otorgó una recompensa |
+| `DetectiveCaseLoader.cs` / `DetectiveCaseData.cs` | `Scripts/Detective/` | Carga de casos (backend con respaldo local) |
+
 ---
 
 ### Sistema de autenticación y partida
 
-#### Flujo de login inteligente
+#### Flujo de login en tres pasos (control parental)
+
+El login dejó de ser un solo paso: ahora la cuenta que se autentica es la del **adulto responsable**, que gestiona uno o más **perfiles de menores** (`UsuarioJugador`), y cada perfil puede tener varias partidas guardadas.
 
 ```
 AuthScreen.Awake()
@@ -280,15 +331,21 @@ AuthScreen.Awake()
         ├─► OK  → badge 🟢, formulario habilitado (modo BD real)
         └─► Fallo → useLocalMode = true, badge 🔴 (modo offline)
 
-AuthScreen.Submit() — modo "Entrar"
-  └─► ApiManager.Login(user, pass)
-        ├─► OK  → OnAuthSuccess() → CrearPartida() → StartGame()
-        └─► Error → TryAutoRegister(user, pass)
-              ├─► OK  → cuenta nueva creada → OnAuthSuccess()
-              └─► Error "ya existe" → "Contraseña incorrecta."
+Paso 1 — cuenta del adulto (modo "Iniciar sesión" / "Crear cuenta", con toggle explícito)
+  └─► ApiManager.Login(user, pass) o ApiManager.Registro(user, email, pass)
+        └─► OK → OnAuthSuccess()
+
+Paso 2 — perfil de menor
+  └─► ApiManager.ListarJugadores() → elegir uno existente o crear uno nuevo
+        └─► ChooseProfile(jugador) → ApiManager.SeleccionarJugador(jugador.id)
+
+Paso 3 — partida
+  └─► ApiManager.ObtenerPartidasJugador(jugador.id)
+        ├─► Sin partidas → EmpezarPartidaNueva() → StartGame()
+        └─► Con partidas → ShowSaves() → elegir cuál continuar → StartGame()
 ```
 
-**Ventaja pedagógica:** el jugador no necesita saber si ya tiene cuenta. Con el mismo botón "Entrar" se hace login o registro automáticamente.
+A diferencia de antes, el registro ya no es un fallback automático del login: son dos modos explícitos con un botón para alternar entre ellos, y crear cuenta pide además un email.
 
 #### Sesión persistente entre escenas
 
@@ -300,12 +357,20 @@ AuthScreen.Submit() — modo "Entrar"
 
 ### Modelos principales
 
+> El modelo de cuentas se dividió en dos: **`AdultoResponsable`** es la única entidad con login (`AUTH_USER_MODEL`); gestiona uno o más **`UsuarioJugador`** (perfiles de menores, sin credenciales propias), y toda la data de juego cuelga del `UsuarioJugador`, no de la cuenta.
+
 ```
-Usuario (AbstractBaseUser)
-  └── nombre (unique), password (hashed)
+AdultoResponsable (AbstractBaseUser)
+  └── nombre (unique), email (unique), apellido, edad, password (hashed)
+
+UsuarioJugador
+  └── adulto FK, nombre, edad
 
 Partida
-  └── usuario FK, progreso, nivel_riesgo FK, fechas
+  └── usuario_jugador FK, progreso, nivel_riesgo FK, fechas
+
+PersonajeJugador (1 a 1 con Partida)
+  └── escena, pos_x, pos_y, zona_actual        ← restaurar a Otto donde quedó
 
 NPC
   └── partida FK, nombre, area, tipo (aliado/neutral/enemigo), confianza
@@ -316,30 +381,35 @@ Chat
 Mensaje
   └── chat FK, tipo (start/chain/request/end),
       respuesta, calidad_respuesta (buena/neutral/mala),
-      pregunta_banco_id ← vincula con el banco de preguntas
+      pregunta_banco_id, opcion_banco_id ← vinculan con el banco de preguntas
       timestamp
 
 PosibleRespuesta
   └── mensaje FK, texto, orden, calidad_respuesta
 
-PreguntaBanco
-  └── pregunta_id (ej: "HDU2_NPC01_F2_Q01"), hdu, zona, npc_id,
-      fase, mensaje_npc, es_mensaje_riesgo, es_fin_de_npc, ...
+PreguntaBanco / OpcionBanco
+  └── igual que antes (pregunta_id, hdu, zona, npc_id, fase... / opcion_id, tipo,
+      consecuencia_narrativa, impacto_puntuacion, siguiente_pregunta)
 
-OpcionBanco
-  └── pregunta FK, opcion_id, texto, tipo, consecuencia_narrativa,
-      impacto_puntuacion, siguiente_pregunta
+Zona / ZonaProgreso, Mision / MisionProgreso
+  └── catálogo + progreso por partida de zonas y misiones (HDU-3/4/1 CA5)
+
+ItemInventario, ObjetoRecogido, NpcProgreso
+  └── inventario, objetos ya recogidos y avance por NPC, todos por partida (HDU-15)
+
+RecompensaAlbum / RecompensaObtenida
+  └── catálogo y progreso del álbum de evidencias
+
+CasoDetective, MensajeDetective, CasoDetectiveProgreso
+  └── casos del Modo Detective y el progreso/resultado por partida (HDU-10/11)
+
+DialogoNPC
+  └── diálogos de NPCs neutros (equivalente backend de `dialogos_npc_neutros`), con pista_mision
 ```
 
 ### Migraciones aplicadas
 
-| Migración | Descripción |
-|-----------|-------------|
-| `0001_initial` | Modelos base: Usuario, NivelRiesgo, Partida, NPC, Chat, Mensaje, PosibleRespuesta |
-| `0002_chat_fecha_termino...` | Agrega `fecha_termino` a Chat, `puntaje` a NivelRiesgo |
-| `0003_banco_preguntas` | Modelos `PreguntaBanco` y `OpcionBanco` |
-| `0004_preguntabanco_fin_flags` | Flags `es_fin_de_npc` y `es_fin_de_zona` en PreguntaBanco |
-| `0005_mensaje_pregunta_banco_id` | Campo `pregunta_banco_id` en Mensaje (trazabilidad analítica) |
+El backend ya pasó de las 5 migraciones originales a 12 (`0001_initial` … `0012_personaje_zona_actual`), que fueron agregando —en este orden aproximado— el split de cuentas y control parental, el modelo Detective, el catálogo de misiones y álbum, el progreso de misiones/zonas, el inventario y los objetos recogidos, y el progreso por NPC. Ver `Backend/backend/api/migrations/` para el detalle migración por migración.
 
 ---
 
@@ -384,64 +454,96 @@ Banco de Preguntas (JSON)
 ```
 Assets/
 ├── Resources/
-│   └── banco_preguntas.json          ← banco oficial (24 preguntas HDU-2 y HDU-8)
+│   ├── banco_preguntas.json          ← banco oficial (50 preguntas + diálogos de NPCs neutros)
+│   └── misiones.json                 ← respaldo local del catálogo de misiones
 │
 └── Scripts/
-    ├── ApiManager.cs                 ← cliente HTTP central (Login, Partida, NPC, Chat)
+    ├── ApiManager.cs                 ← cliente HTTP central (Login, Partida, NPC, Chat...)
+    ├── ColaDeCambios.cs              ← cola de cambios en memoria (ver Sistema de guardado más abajo)
+    ├── SaveManager.cs                ← dispara el vaciado de la cola al cambiar de zona / cerrar el juego
+    ├── PersonajeBackendSync.cs, InventarioBackendSync.cs, ObjetosRecogidosSync.cs,
+    │   NpcTematicaSync.cs, MisionBackendSync.cs           ← encolan cambios en vez de llamar directo al backend
+    ├── VariablesJugador.cs, GlobalHelper.cs, IInteractable.cs, ApiSmokeTest.cs
     │
     ├── Camera/
     │   └── CameraFollow2D.cs
     │
-    ├── Chat/                         ← HDU-8
+    ├── Chat/                         ← HDU-8 (también usado por HDU-2, ver más abajo)
     │   ├── BancoPreguntasData.cs     ← clases serializables (mapeo JSON)
     │   ├── BancoPreguntasLoader.cs   ← carga JSON → ChatConversation en runtime
-    │   ├── ChatBackendLogger.cs      ← cola asíncrona de mensajes al backend
+    │   ├── BancoBackendSync.cs       ← sincroniza el banco con el backend, con respaldo local
+    │   ├── ChatBackendLogger.cs      ← graba la conversación y la encola entera al terminar
     │   ├── ChatConversation.cs       ← ScriptableObject: grafo de nodos
     │   ├── ChatDefaultConversations.cs
     │   ├── ChatModuleController.cs   ← lógica de sesión + cálculo de estado Otto
     │   ├── ChatModuleLauncher.cs
-    │   ├── ChatModuleUI.cs           ← UI chat + chrome de teléfono
+    │   ├── ChatModuleUI.cs           ← UI chat, aspecto cara a cara o teléfono según el caso
+    │   ├── ChatUITheme.cs            ← colores/medidas compartidos (cara a cara, teléfono, ánimo)
+    │   ├── VarianteSegunVariable.cs
     │   └── OttoMoodController.cs
     │
-    ├── Desconocidos/                 ← HDU-2
-    │   ├── DesconocidosDefaultScripts.cs
-    │   ├── DesconocidosNPC.cs
-    │   ├── DialogueController.cs
-    │   ├── DialogueUI.cs
-    │   ├── GroomingChatLogger.cs
-    │   ├── GroomingDialogue.cs
-    │   └── ZonaDesconocidosManager.cs
+    ├── Zonas/
+    │   ├── BosqueDesconocidos/       ← HDU-2 (lo específico de la zona; el diálogo lo pone Chat/)
+    │   │   ├── BosqueDesconocidosNPC.cs
+    │   │   └── BosqueDesconocidosManager.cs
+    │   ├── PolygonColliderVisual.cs
+    │   └── Triangulator.cs
+    │
+    ├── NPC/                          ← diálogo de NPCs neutros (unificado con el chat, ver arriba)
+    │   ├── NPC.cs, NPCDialogue.cs
+    │   ├── DialogoNpcLoader.cs       ← carga `dialogos_npc_neutros` del banco
+    │   └── InteractionDetector.cs
     │
     ├── Otto/                         ← HDU-5
     │   ├── BlockedZone.cs
+    │   ├── ZoneUnlockCinematic.cs    ← cinemática de desbloqueo (paneo + cartel)
     │   ├── OttoController.cs
     │   ├── OttoOnScreenButton.cs
+    │   ├── PuntoDeAparicion.cs, ZonaActual.cs, ZonaMundo.cs
     │   ├── WorldZoneManager.cs
     │   └── ZonePopupUI.cs
     │
-    ├── Phone/                        ← celular diegético (nuevo)
+    ├── Phone/                        ← celular diegético
     │   ├── OttoPhone.cs              ← objeto físico: vibración, pantalla on/off
     │   ├── PhoneChatLauncher.cs      ← trigger de zona + secuencia completa
     │   └── PhoneZoomController.cs    ← zoom de cámara + overlay de fade
     │
-    └── UI/                           ← arranque
-        ├── AuthScreen.cs             ← login inteligente + health check
-        ├── LoadingScreen.cs
-        └── UiBootstrap.cs
+    ├── Mision/                       ← ver tabla en «Sistema de Misiones»
+    │   └── Nucleo/                   ← CatalogoMisiones, CatalogoDesafios, MissionManager
+    │
+    ├── Detective/                    ← ver tabla en «Modo Detective y recompensas»
+    │
+    ├── Inventario/
+    │   ├── InventoryManager.cs, InventoryManagerUI.cs
+    │   ├── Item.cs, ItemData.cs, CatalogoItems.cs, WorldItem.cs
+    │   └── AlbumEvidenciasUI.cs      ← ítem mínimo de álbum de evidencias (HDU-11/HDU-12)
+    │
+    ├── Menu/                         ← menús de inicio, pausa y pestañas de la mochila
+    │
+    └── UI/                           ← arranque y HUD
+        ├── AuthScreen.cs             ← login en 3 pasos (cuenta → perfil → partida) + health check
+        ├── LoadingScreen.cs, UiBootstrap.cs
+        ├── MenuPausa.cs              ← salir del juego, cartel de "sin conexión" al cerrar
+        ├── MarcoTelefono.cs          ← chrome de teléfono compartido (Chat, Detective)
+        └── DialogoNeutroSkin.cs, DialogoNeutroTheme.cs  ← aspecto compartido del panel "cara a cara"
 ```
 
 **Namespaces:**
 
 | Namespace | Scripts |
 |-----------|---------|
-| `Fishy.Net` | `ApiManager` |
+| `Fishy.Net` | `ApiManager`, `ColaDeCambios`, sincronizadores backend |
 | `Fishy.Chat` | Chat, BancoPreguntas |
-| `Fishy.Desconocidos` | HDU-2 |
+| `Fishy.Zonas.BosqueDesconocidos` | HDU-2 (`BosqueDesconocidosNPC`/`Manager`) |
+| `Fishy.Mision` | Núcleo del sistema de misiones (`CatalogoMisiones`, `MissionManager`...) |
+| `Fishy.Detective` | Modo Detective y recompensas |
 | `Fishy.Otto` | HDU-5 |
 | `Fishy.Phone` | Celular diegético |
-| `Fishy.World` | ZonePopupUI |
-| `Fishy.UI` | AuthScreen, LoadingScreen |
-| `Fishy.Camera` | CameraFollow2D |
+| `Fishy.World` | `ZonePopupUI`, `SaveManager`, `VariablesJugador` |
+| `Fishy.UI` | `AuthScreen`, `LoadingScreen`, `MenuPausa`, `MarcoTelefono`... |
+| `Fishy.Camera` | `CameraFollow2D` |
+
+> Varias carpetas nuevas (`Mision/` fuera de `Nucleo/`, `Inventario/`, `NPC/`, `Menu/`) tienen scripts sin namespace declarado (namespace global) en vez de uno propio.
 
 ---
 
@@ -455,20 +557,16 @@ Backend/
     ├── requirements.txt              django, psycopg2-binary, djangorestframework
     ├── manage.py
     ├── juego_backend/
-    │   ├── settings.py               AUTH_USER_MODEL = "api.Usuario"
+    │   ├── settings.py               AUTH_USER_MODEL = "api.AdultoResponsable"
     │   └── urls.py                   path("api/", include("api.urls"))
     └── api/
-        ├── models.py                 Usuario, Partida, NPC, Chat, Mensaje, PreguntaBanco...
+        ├── models.py                 AdultoResponsable, UsuarioJugador, Partida, NPC, Chat,
+        │                              Mensaje, PreguntaBanco, Zona, Mision, CasoDetective...
         ├── serializers.py
         ├── views.py
         ├── urls.py
         ├── admin.py
-        ├── migrations/
-        │   ├── 0001_initial.py
-        │   ├── 0002_chat_fecha_termino_...
-        │   ├── 0003_banco_preguntas.py
-        │   ├── 0004_preguntabanco_fin_flags.py
-        │   └── 0005_mensaje_pregunta_banco_id.py
+        ├── migrations/                0001_initial.py … 0012_personaje_zona_actual.py
         └── management/commands/
             └── cargar_banco.py       comando: python manage.py cargar_banco
 ```
@@ -482,30 +580,42 @@ Todos los endpoints autenticados requieren el header:
 Authorization: Token <token>
 ```
 
-### Auth (sin autenticación)
+### Auth (sin autenticación) — cuenta del adulto responsable
 
 | Método | URL | Descripción |
 |--------|-----|-------------|
 | `GET` | `/api/health/` | Health check |
-| `POST` | `/api/auth/registro/` | Crear cuenta `{nombre, password}` |
-| `POST` | `/api/auth/login/` | Login `{nombre, password}` → `{token, usuario_id}` |
+| `POST` | `/api/auth/registro/` | Crear cuenta `{nombre, email, password, ...}` |
+| `POST` | `/api/auth/login/` | Login `{nombre, password}` → `{token, adulto_id}` |
+| `GET` | `/api/auth/perfil/` | Datos de la cuenta autenticada |
 
-### Partida (HDU-2)
+### Perfiles de menores (control parental)
 
 | Método | URL | Descripción |
 |--------|-----|-------------|
-| `POST` | `/api/partidas/` | Crear partida |
+| `GET/POST` | `/api/jugadores/` | Listar / crear perfiles de menor del adulto autenticado |
+| `GET` | `/api/jugadores/{id}/` | Detalle de un perfil |
+| `GET` | `/api/jugadores/{id}/partidas/` | Partidas guardadas de ese perfil |
+
+### Partida
+
+| Método | URL | Descripción |
+|--------|-----|-------------|
+| `POST` | `/api/partidas/` | Crear partida (de un perfil de menor) |
 | `GET/PATCH` | `/api/partidas/{id}/` | Ver / actualizar progreso |
 | `GET/POST` | `/api/partidas/{id}/npcs/` | Listar / registrar NPC |
 | `PATCH` | `/api/npcs/{id}/` | Actualizar confianza del NPC |
+| `GET` | `/api/partidas/{id}/misiones/`, `/zonas/`, `/progreso-npcs/` | Progreso de misiones, zonas y NPCs (HDU-1/3/4 CA5) |
+| `GET/PATCH/PUT` | `/api/partidas/{id}/personaje/`, `/inventario/`, `/objetos-recogidos/` | Posición de Otto, inventario y objetos recogidos (HDU-15) |
+| `GET` | `/api/partidas/{id}/riesgo-por-zona/`, `/presion-social/`, `/oportunidades-mejora/` | Reportes para el adulto |
 
-### Chat (HDU-8)
+### Chat (HDU-8, también usado por HDU-2)
 
 | Método | URL | Descripción |
 |--------|-----|-------------|
 | `POST` | `/api/chats/` | Iniciar chat |
 | `GET` | `/api/chats/{id}/mensajes/` | Historial completo |
-| `POST` | `/api/chats/{id}/mensajes/registrar/` | Registrar mensaje + `pregunta_banco_id` |
+| `POST` | `/api/chats/{id}/mensajes/registrar/` | Registrar mensaje + `pregunta_banco_id`/`opcion_banco_id` |
 | `POST` | `/api/chats/{id}/finalizar/` | Cerrar chat (crea mensaje `end`) |
 
 ### Banco de Preguntas
@@ -514,6 +624,18 @@ Authorization: Token <token>
 |--------|-----|-------------|
 | `GET` | `/api/banco/preguntas/` | Listar (filtros: `zona`, `npc_id`, `fase`, `hdu`, `solo_riesgo`) |
 | `GET` | `/api/banco/preguntas/{pregunta_id}/` | Detalle de una pregunta |
+| `GET` | `/api/banco/zonas/`, `/api/banco/zonas/{zona}/preguntas/` | Zonas del banco y sus preguntas |
+| `GET` | `/api/dialogos-npc/`, `/api/dialogos-npc/{id}/` | Diálogos de NPCs neutros (HDU-1) |
+
+### Modo Detective (HDU-10)
+
+| Método | URL | Descripción |
+|--------|-----|-------------|
+| `GET` | `/api/casos-detective/`, `/api/casos-detective/{caso_id}/` | Listar / detalle de casos |
+| `POST` | `/api/casos-detective/{caso_id}/progreso/` | Registrar progreso/resultado de un caso |
+| `GET` | `/api/partidas/{id}/casos-detective/` | Progreso Detective de la partida |
+
+> No existe (todavía) un `GET /misiones/` de catálogo — el sistema de misiones corre hoy con el respaldo local `Resources/misiones.json` (ver [Sistema de Misiones](#sistema-de-misiones)).
 
 ---
 
@@ -525,11 +647,12 @@ Authorization: Token <token>
 tipo             = CharField  # "start" | "request" | "chain" | "end"
 respuesta        = TextField  # texto enviado
 calidad_respuesta = CharField # "buena" | "neutral" | "mala"
-pregunta_banco_id = CharField # "HDU2_NPC01_F2_Q01" — vincula con el banco
+pregunta_banco_id = CharField # "HDU2_NPC01_F2_Q01" — vincula con la pregunta del banco
+opcion_banco_id   = CharField # "HDU2_NPC01_F2_Q01_R2" — vincula con la opción elegida
 timestamp        = DateTimeField(auto_now_add=True)
 ```
 
-El campo `pregunta_banco_id` (migración 0005) es el nexo de trazabilidad entre las respuestas registradas en la BD y las preguntas pedagógicas del banco, permitiendo reportes del tipo:
+Los campos `pregunta_banco_id` y `opcion_banco_id` son el nexo de trazabilidad entre las respuestas registradas en la BD y las preguntas/opciones pedagógicas del banco — `opcion_banco_id` es además la llave que permite acumular riesgo por zona (se resuelve contra `OpcionBanco` para obtener `impacto_puntuacion` y la zona de su pregunta), permitiendo reportes del tipo:
 
 > *"El 73 % de los jugadores eligió una respuesta insegura ante la pregunta HDU2_NPC01_F2_Q01."*
 
@@ -539,23 +662,26 @@ El campo `pregunta_banco_id` (migración 0005) es el nexo de trazabilidad entre 
 
 ### Backend
 
-```bash
-# Primera vez
-cd Backend
-docker-compose up --build
+> La base de datos ya no es un contenedor Postgres local: es **Supabase** (Postgres administrado en la nube), y `docker-compose.yml` sólo levanta el servicio `web`. La BD compartida ya está migrada y con el banco cargado, así que normalmente no hace falta `migrate` ni `cargar_banco`.
 
-# Uso diario (sin reconstruir)
-docker start backend-db-1 backend-web-1
+```bash
+cd Backend
+cp .env.example .env            # primera vez: completar DB_PASSWORD (Supabase)
+
+# Atajo recomendado (carga el .env solo)
+./run.sh                        # servidor en 127.0.0.1:8000
+./run.sh --check                # config + drift de migraciones
+./run.sh --smoke                # smoke test (con el servidor ya corriendo)
 
 # Verificar que está activo
 curl http://127.0.0.1:8000/api/health/
 # → {"status": "ok"}
 
-# Cargar banco de preguntas en la BD (opcional)
-docker-compose exec web python manage.py cargar_banco
+# Cargar banco de preguntas en la BD (solo si hiciera falta)
+python backend/manage.py cargar_banco
 ```
 
-> ⚠️ No usar `docker-compose down -v`: borra la base de datos.
+Existe también `docker-compose up --build` para correr el servicio `web` en Docker, y `run.ps1` (equivalente a `run.sh` en PowerShell). Ver `Backend/README.md` para el detalle de configuración de `.env` y el modo local con SQLite (`run.sh --local`, sin depender de Supabase).
 
 ### Unity
 

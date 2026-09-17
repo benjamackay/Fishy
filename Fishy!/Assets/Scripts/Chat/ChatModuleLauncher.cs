@@ -8,12 +8,17 @@ namespace Fishy.Chat
     /// <summary>
     /// HDU-8 — Abre el módulo de chat de una zona.
     ///
-    /// Úsalo de dos formas:
+    /// Úsalo de tres formas:
+    ///  • Con la tecla de interacción (E por defecto): pon un <c>Collider2D</c> en
+    ///    este mismo GameObject (no hace falta que sea trigger; el que dispara la
+    ///    detección es el de <c>InteractionDetector</c>, en un hijo de Otto). Es el
+    ///    mismo mecanismo que usa <see cref="NPC"/> para los NPCs neutros, así que un
+    ///    NPC sospechoso se interactúa igual: acercarse y pulsar E.
     ///  • Desde un Button de UI: enlaza <see cref="OpenChat"/> en su OnClick.
-    ///  • Al acercarse: marca <see cref="openOnTriggerEnter"/> y pon un Collider2D
-    ///    (Is Trigger); cuando Otto (tag Player) entra, se abre el chat.
+    ///  • Al acercarse sin pulsar nada: marca <see cref="openOnTriggerEnter"/> y pon
+    ///    un Collider2D (Is Trigger); cuando Otto (tag Player) entra, se abre solo.
     /// </summary>
-    public class ChatModuleLauncher : MonoBehaviour
+    public class ChatModuleLauncher : MonoBehaviour, IInteractable
     {
         public enum Source { ZonaDesconocidosPorDefecto, ConversacionesAsignadas, BancoPorNpcId }
 
@@ -54,6 +59,14 @@ namespace Fishy.Chat
         /// GameObject en particular.
         /// </summary>
         public event Action<float> OnSesionFinalizada;
+
+        // ── IInteractable (tecla E) ──────────────────────────────────────────
+        // Mismo criterio que OnTriggerEnter2D: si ya se habló y no es repetible, no
+        // hay nada que abrir. InteractionDetector usa esto también para decidir si
+        // enciende el cartelito de "E" sobre el NPC.
+        public bool CanInteract() => repetible || !alreadyOpened;
+
+        public void Interact() => OpenChat();
 
         /// <summary>Abre el módulo de chat (enlazable a un Button.OnClick).</summary>
         public void OpenChat()

@@ -8,10 +8,11 @@ con caminar/correr/saltar, zonas bloqueadas oscurecidas y mensaje emergente.
 | Script | Rol |
 |--------|-----|
 | `OttoController.cs` | Movimiento 4 direcciones (WASD/flechas + botones en pantalla), caminar/correr/saltar, parada inmediata al soltar. |
-| `BlockedZone.cs` | Zona/límite bloqueado: collider que detiene a Otto, oscurecido visual y mensaje emergente. |
+| `BlockedZone.cs` | Zona/límite bloqueado: collider que detiene a Otto, oscurecido visual y mensaje emergente. Se desbloquea con `Unlock()` (con cinemática: cámara + cartel) o `UnlockInmediato()` (silencioso, sin cámara ni cartel). |
+| `ZoneUnlockCinematic.cs` | Cinemática del desbloqueo: paneo/zoom de cámara hacia la zona, desvanece el oscurecido y muestra el cartel «¡Nueva zona desbloqueada!»; la dispara `BlockedZone.Unlock()`. |
 | `ZonePopupUI.cs` | Cartel emergente «Esta zona aún está cerrada…». Se autogenera si no se monta en la escena. |
 | `OttoOnScreenButton.cs` | Botón direccional/correr/saltar para táctil. |
-| `WorldZoneManager.cs` | Desbloquea zonas según misiones / progreso de la partida. |
+| `WorldZoneManager.cs` | Desbloquea zonas según misiones / progreso de la partida (desbloqueo silencioso, sin cinemática). |
 
 ## Montaje rápido de la escena
 

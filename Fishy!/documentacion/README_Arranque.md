@@ -25,7 +25,7 @@ montar UI a mano (puedes rediseñarlas luego y arrastrar tus propias referencias
 
 Menú **Fishy → Configurar arranque (Boot + Juego)**:
 - Crea `Assets/Scenes/Boot.unity` con un `Bootstrap` (AuthScreen + LoadingScreen).
-- Registra en Build Settings `Boot` (índice 0) y la escena del juego (`SampleScene`).
+- Registra en Build Settings `Boot` (índice 0) y la escena del juego (`MainScene`).
 
 Luego abre la escena **Boot** y pulsa **Play**: tras la carga, se cambia solo a la
 escena del juego. (En el Editor, Play usa la escena ABIERTA; por eso hay que abrir
@@ -38,7 +38,7 @@ Boot. En una build, arranca sola desde el índice 0.)
    - Crea un GameObject vacío llamado `Bootstrap`.
    - Añádele los componentes **`AuthScreen`** y **`LoadingScreen`**.
    - En `AuthScreen`:
-     - `Game Scene Name` = nombre de tu escena de juego (ej. `SampleScene`).
+     - `Game Scene Name` = nombre de tu escena de juego (por defecto `MainScene`).
      - `Crear Partida Al Ingresar` = ✔ (recomendado: activa el paso de elegir
        perfil de menor y prepara su partida para HDU-2 / HDU-8). Si lo desactivas,
        se entra al juego **sin partida** y nada se registra en el backend.
@@ -46,7 +46,7 @@ Boot. En una build, arranca sola desde el índice 0.)
 
 2. **Build Settings** (¡importante!)
    - File → Build Settings → **Add Open Scenes**.
-   - Agrega **`Boot`** (primera, índice 0) y tu escena de juego (`SampleScene`).
+   - Agrega **`Boot`** (primera, índice 0) y tu escena de juego (`MainScene`).
    - `LoadSceneAsync` sólo puede cargar escenas que estén en esta lista.
 
 3. **Backend** (opcional)

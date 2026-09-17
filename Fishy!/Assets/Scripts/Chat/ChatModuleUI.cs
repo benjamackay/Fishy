@@ -670,11 +670,16 @@ namespace Fishy.Chat
             Stretch(moodPanel.GetComponent<RectTransform>());
             moodPanel.GetComponent<Image>().color = ChatCol.BackdropTelefono;
 
+            // Arriba y no centrada: centrada tapaba la cola de la conversación (el
+            // último mensaje, justo debajo de donde el niño/a estaba leyendo) al
+            // aparecer. Ancladas las dos al borde de arriba, queda libre la parte
+            // baja de la pantalla, donde vive esa cola.
             var card = new GameObject("Card", typeof(RectTransform), typeof(Image));
             card.transform.SetParent(moodPanel.transform, false);
             var cardRT = card.GetComponent<RectTransform>();
-            cardRT.anchorMin = new Vector2(0.5f, 0.5f); cardRT.anchorMax = new Vector2(0.5f, 0.5f);
-            cardRT.pivot = new Vector2(0.5f, 0.5f);
+            cardRT.anchorMin = new Vector2(0.5f, 1f); cardRT.anchorMax = new Vector2(0.5f, 1f);
+            cardRT.pivot = new Vector2(0.5f, 1f);
+            cardRT.anchoredPosition = new Vector2(0f, -60f);
             cardRT.sizeDelta = ChatMed.CardAnimo;
             FishyUIKit.FondoRedondeado(card.GetComponent<Image>(), ChatCol.Card,
                 radio: ChatMed.RadioEsquina);

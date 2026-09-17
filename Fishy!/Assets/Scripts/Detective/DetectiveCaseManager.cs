@@ -19,6 +19,14 @@ namespace Fishy.Detective
         private DetectiveCase _caso;
         private HashSet<string> _marcados = new HashSet<string>();
 
+        /// <summary>
+        /// Si el último <see cref="CalcularResultado"/> llegó al umbral de aprobación.
+        /// Empieza en true a propósito: si se cierra el modo Detective sin haber
+        /// confirmado ninguna respuesta —el jugador se arrepiente y sale— no hay
+        /// resultado reprobado que justifique bloquear el reintento más adelante.
+        /// </summary>
+        public bool UltimoAprobado { get; private set; } = true;
+
         public void CargarCaso(DetectiveCase caso)
         {
             _caso = caso;
@@ -71,6 +79,8 @@ namespace Fishy.Detective
                 porcentaje      = porcentaje,
                 noIdentificados = noIdentificados
             };
+
+            UltimoAprobado = !resultado.DebeOfrecerRepetir;
 
             OtorgarRecompensaSiCorresponde(porcentaje);
             ReportarProgreso(resultado);

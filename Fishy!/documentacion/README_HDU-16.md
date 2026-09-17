@@ -79,7 +79,10 @@ se puede crear solo es la geometría del mapa:
 2. **Un `PuntoDeAparicion` por zona**, marcado `porDefecto`. Es a dónde apunta la
    flecha. Si falta, apunta al centro del polígono, que en una zona con forma de
    L puede caer en el agua.
-3. **`orden` y `zonaObjetivo`** en las fichas de `Resources/Misiones/`.
+3. **`orden` y `zonaObjetivo`**, en la ficha (si la misión tiene una en
+   `Resources/Misiones/`) o en `orden`/`zona_objetivo` del catálogo
+   (`Resources/misiones.json` o la base) si no la tiene — ver
+   `README_CATALOGO_MISIONES.md`. Si existen los dos, manda la ficha.
 
 ## Por qué la flecha orbita alrededor de Otto
 
@@ -92,11 +95,6 @@ sigue de servicio: lo que falta hacer ahí lo cuenta el cartel.
 
 ## Deuda conocida que toca esta HDU
 
-- **`DesafioData 1.asset` y `DesafioData 2.asset` comparten el id
-  `MISION_NPC_02`.** `CatalogoDesafios` descarta el segundo con un `LogError`, y
-  el `Neutral_NPC (2)` que lo entrega pierde sus objetivos en silencio. Mientras
-  siga así, "cuál es la siguiente misión" se calcula sobre una misión menos de
-  las que hay. Se dejó a propósito para no mover ids que ya están en la base.
 - **La zona ya se guarda, pero todavía no se lee al volver.** Existe la columna
   `zona_actual` en `PersonajeJugador` (migración 0012) y `PersonajeBackendSync`
   la sube junto a la posición. Lo que falta para reabrir el juego con la flecha

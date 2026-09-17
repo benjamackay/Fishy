@@ -163,14 +163,25 @@ namespace Fishy.Detective
         {
             controller?.EnableMovement();
             _enCurso = false;
-            MarcarCompletado();
 
+            // Sólo se bloquea el reintento si aprobó. Si cerró habiendo reprobado —sin
+            // pulsar "Repetir"— el caso queda SIN marcar completado, así que la próxima
+            // vez que se acerque el NPC se activa de nuevo, sin necesidad de marcar
+            // 'repetible' (que además dejaría reabrir un caso YA aprobado, que es
+            // justo lo que no se quiere).
+            if (caseManager != null && caseManager.UltimoAprobado)
+                MarcarCompletado();
+
+            // Cuenta como intento aunque no haya aprobado: el objetivo de misión
+            // 'completar_caso_detective' no exige superar el umbral (ver
+            // documentacion/README_CATALOGO_MISIONES.md), sólo haber jugado el caso.
             if (desafioAsociado != null)
                 MissionManager.Instance?.CompletarDesafio(desafioAsociado);
 
             onCasoResuelto?.Invoke();
 
-            Debug.Log("[Detective] Modo detective terminado.");
+            Debug.Log("[Detective] Modo detective terminado" +
+                      (caseManager != null && !caseManager.UltimoAprobado ? " (reprobado, se puede reintentar)." : "."));
         }
 
         /// <summary>Se relee PlayerPrefs en vez de confiar solo en lo que se leyó en

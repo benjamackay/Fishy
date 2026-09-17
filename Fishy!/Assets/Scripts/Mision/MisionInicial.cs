@@ -31,7 +31,7 @@ using UnityEngine;
 ///     terminó la semana pasada.
 ///
 /// Montaje: un GameObject vacío en la escena del mundo con este componente. Ver
-/// README_CATALOGO_MISIONES.md.
+/// documentacion/README_CATALOGO_MISIONES.md.
 /// </summary>
 [DisallowMultipleComponent]
 public class MisionInicial : MonoBehaviour

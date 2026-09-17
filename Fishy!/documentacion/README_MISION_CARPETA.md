@@ -27,7 +27,7 @@ convivan en un mismo sitio: la raíz no tiene asmdef, así que sus scripts caen 
 
 Si alguien intenta juntarlas en un solo ensamblado se va a encontrar con esto:
 
-**Subir la raíz a `Fishy.Mision` — imposible.** Los 17 archivos de la raíz
+**Subir la raíz a `Fishy.Mision` — imposible.** Los archivos de la raíz
 dependen de tipos de Assembly-CSharp: `NPC`, `ItemData`, `PhoneChatLauncher`,
 `ZonaActual`, `CatalogoItems`, `DetectiveLauncher`, `OttoController`… y **Unity
 no permite que un ensamblado con asmdef referencie a Assembly-CSharp**, sólo al
