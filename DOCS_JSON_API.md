@@ -1,5 +1,11 @@
 # Documentación JSON — Comunicación con la Base de Datos
 
+El contrato nuevo del portal de grupos, invitaciones por niño y reportes se
+documenta en [Backend/INVITACIONES.md](Backend/INVITACIONES.md). El perfil
+autenticado incluye ahora `rol` (`padre` o `profesor`, solo lectura) para
+distinguir los recorridos del portal. `is_admin` ya no se expone: solo da acceso
+al admin de Django. Los profesores reciben 403 en `jugadores/` y sus subrutas.
+
 > ⚠️ **Actualizado a la Fase 2 (control parental, 2026-08-12).** El contrato de
 > la API **cambió**: quien inicia sesión es un **adulto responsable**, que
 > gestiona uno o más **perfiles de menores**, y la partida cuelga del perfil, no

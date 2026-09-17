@@ -76,6 +76,13 @@ class PersonajeTests(BaseAPI):
 
     # ── Guardar y recuperar ──────────────────────────────────────────────────
 
+    def test_zona_actual_de_dev_se_crea_y_se_conserva_al_actualizar_posicion(self):
+        self.assertEqual(self.get(self.ruta, self.token)["zona_actual"], "")
+        self.patch(self.ruta, {"zona_actual": "zona_2"}, self.token)
+        self.patch(self.ruta, {"pos_x": 12.5, "pos_y": -3.25}, self.token)
+        self.assertEqual(self.get(self.ruta, self.token)["zona_actual"], "zona_2")
+        self.assertEqual(PersonajeJugador.objects.get(partida=self.partida).zona_actual, "zona_2")
+
     def test_guardar_y_recuperar_la_posicion(self):
         self.patch(self.ruta, {"escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25}, self.token)
 

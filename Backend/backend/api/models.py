@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+import uuid
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -32,13 +33,25 @@ class AdultoResponsableManager(BaseUserManager):
 
 class AdultoResponsable(AbstractBaseUser):
     """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
+    ROL_PADRE    = "padre"
+    ROL_PROFESOR = "profesor"
+    ROLES = [(ROL_PADRE, "Padre o madre"), (ROL_PROFESOR, "Profesor")]
+
     nombre           = models.CharField(max_length=150, unique=True)
     apellido         = models.CharField(max_length=150, blank=True)
     email            = models.EmailField(unique=True)
     edad             = models.PositiveSmallIntegerField(null=True, blank=True)
     fecha_nacimiento = models.DateField(null=True, blank=True)
     fecha_creacion   = models.DateTimeField(auto_now_add=True)
+    # Solo privilegio técnico: entrar a /admin/ de Django. NO significa profesor.
     is_admin         = models.BooleanField(default=False)
+    # Recorrido en el portal web. Lo asigna el equipo desde /admin/; el registro
+    # no lo acepta. `db_default` deja el valor en la propia base: Supabase es
+    # compartida con dev, cuyo backend no conoce esta columna y la omite al
+    # insertar (el mismo problema que tuvo `zona_actual`).
+    rol              = models.CharField(
+        max_length=10, choices=ROLES, default=ROL_PADRE, db_default=ROL_PADRE,
+    )
 
     objects = AdultoResponsableManager()
 
@@ -54,6 +67,9 @@ class AdultoResponsable(AbstractBaseUser):
 
     @property
     def is_staff(self): return self.is_admin
+
+    @property
+    def es_profesor(self): return self.rol == self.ROL_PROFESOR
 
     class Meta:
         verbose_name = "Adulto Responsable"
@@ -861,6 +877,59 @@ class ObjetoRecogido(models.Model):
                 fields=["partida", "objeto_id"], name="objeto_unico_por_partida"
             )
         ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GRUPOS E INVITACIONES DEL PORTAL WEB
+#
+# Un profesor (`rol=profesor`) crea cursos e invita a una familia por un niño
+# concreto. La unidad del curso es un `UsuarioJugador`, nunca todos los hijos del
+# adulto. Se crean sobre `0013_adulto_rol` (migración `0014`); son tablas nuevas,
+# así que el backend de dev, que no las conoce, no se ve afectado.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class GrupoTutor(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tutor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="grupos")
+    nombre = models.CharField(max_length=80)
+    descripcion = models.CharField(max_length=280, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
+
+
+class MiembroGrupo(models.Model):
+    """La unidad del curso es un perfil infantil concreto, nunca todos los hijos del adulto."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="miembros")
+    jugador = models.ForeignKey(UsuarioJugador, on_delete=models.CASCADE, related_name="grupos")
+    nombre_invitado = models.CharField(max_length=150)
+    fecha_ingreso = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["grupo", "jugador"], name="miembro_unico_por_grupo_jugador")]
+
+
+class InvitacionGrupo(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="invitaciones")
+    email = models.EmailField()
+    nombre_nino = models.CharField(max_length=150)
+    nombre_clave = models.CharField(max_length=450)
+    # Solo se persiste el hash. El secreto viaja únicamente en el correo.
+    token_hash = models.CharField(max_length=64, unique=True)
+    estado = models.CharField(max_length=12, default="pendiente", choices=[("pendiente", "Pendiente"), ("aceptada", "Aceptada"), ("cancelada", "Cancelada")])
+    estado_envio = models.CharField(max_length=12, default="enviando", choices=[("enviando", "Enviando"), ("enviado", "Enviado"), ("fallido", "Fallido")])
+    miembro = models.ForeignKey(MiembroGrupo, on_delete=models.SET_NULL, null=True, blank=True, related_name="invitaciones")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    ultimo_intento = models.DateTimeField()
+    enviada_en = models.DateTimeField(null=True, blank=True)
+    vence_en = models.DateTimeField()
+    aceptada_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["grupo", "email", "nombre_clave"], condition=models.Q(estado="pendiente"), name="invitacion_pendiente_unica_por_nino")]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -9,7 +9,53 @@ from .models import (
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
     MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido, NpcProgreso,
+    GrupoTutor, MiembroGrupo, InvitacionGrupo,
 )
+
+
+class GrupoSoloLecturaAdmin(admin.ModelAdmin):
+    """Inspección para el equipo técnico; altas y cambios pasan por las reglas de invitación.
+
+    Muestra todos los grupos: quien entra aquí tiene `is_admin`, que ya no es
+    profesor, así que filtrar por `tutor=request.user` dejaría la lista vacía.
+    El token de invitación no se muestra, ni siquiera su hash.
+    """
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(GrupoTutor)
+class GrupoTutorAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("nombre", "tutor", "fecha_creacion")
+    search_fields = ("nombre", "tutor__nombre")
+    fields = ("id", "nombre", "descripcion", "tutor", "fecha_creacion")
+    readonly_fields = fields
+    list_select_related = ("tutor",)
+
+
+@admin.register(MiembroGrupo)
+class MiembroGrupoAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("nombre_invitado", "grupo", "fecha_ingreso")
+    search_fields = ("nombre_invitado", "grupo__nombre")
+    fields = ("id", "grupo", "jugador", "nombre_invitado", "fecha_ingreso")
+    readonly_fields = fields
+    list_select_related = ("grupo",)
+
+
+@admin.register(InvitacionGrupo)
+class InvitacionGrupoAdmin(GrupoSoloLecturaAdmin):
+    list_display = ("nombre_nino", "grupo", "estado", "estado_envio", "vence_en")
+    list_filter = ("estado", "estado_envio")
+    search_fields = ("nombre_nino", "grupo__nombre")
+    fields = ("id", "grupo", "nombre_nino", "email", "estado", "estado_envio", "vence_en", "enviada_en", "aceptada_en")
+    readonly_fields = fields
+    list_select_related = ("grupo",)
 
 
 class UsuarioJugadorInline(admin.TabularInline):
@@ -19,19 +65,24 @@ class UsuarioJugadorInline(admin.TabularInline):
 
 @admin.register(AdultoResponsable)
 class AdultoResponsableAdmin(BaseUserAdmin):
-    list_display  = ("nombre", "apellido", "email", "is_admin", "fecha_creacion")
-    list_filter   = ("is_admin",)
+    list_display  = ("nombre", "apellido", "email", "rol", "is_admin", "fecha_creacion")
+    list_filter   = ("rol", "is_admin")
     search_fields = ("nombre", "apellido", "email")
     ordering      = ("nombre",)
     filter_horizontal = ()
     inlines = (UsuarioJugadorInline,)
+    # `rol` y `is_admin` van separados a propósito: marcar a alguien como
+    # profesor NO le da acceso a este admin, que ve los datos de todos los niños.
     fieldsets = (
         (None,          {"fields": ("nombre", "password")}),
         ("Datos personales", {"fields": ("apellido", "email", "edad", "fecha_nacimiento")}),
-        ("Permisos",    {"fields": ("is_admin",)}),
+        ("Portal web",  {"fields": ("rol",),
+                         "description": "Profesor: gestiona cursos y no tiene perfiles de menores."}),
+        ("Permisos técnicos", {"fields": ("is_admin",),
+                               "description": "Da acceso a este administrador de Django. Solo para el equipo."}),
     )
     add_fieldsets = (
-        (None, {"fields": ("nombre", "email", "password1", "password2")}),
+        (None, {"fields": ("nombre", "email", "rol", "password1", "password2")}),
     )
 
 

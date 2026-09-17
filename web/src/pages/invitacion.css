@@ -1,0 +1,19 @@
+.invitation-list { margin-top: 24px; }
+.invitation-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.invitation-card { width: 100%; max-width: 620px; margin: 0 auto; }
+.invitation-card > .brand { width: 120px; margin-bottom: 24px; }
+.invitation-summary { margin: 24px 0; padding: 20px; border: 1px solid var(--linea); border-radius: 12px; background: var(--fondo); }
+.invitation-summary dt { color: var(--muted); font-size: .8125rem; margin-bottom: 4px; }
+.invitation-summary dd { margin: 0 0 16px; font-weight: 600; overflow-wrap: anywhere; }
+.invitation-summary dd:last-child { margin-bottom: 0; }
+.invitation-confirm { display: flex; align-items: flex-start; gap: 12px; margin: 24px 0; line-height: 1.6; }
+.invitation-confirm input { flex: 0 0 20px; width: 20px; height: 20px; margin-top: 3px; accent-color: var(--cafe-oscuro); }
+.invitation-card select { width: 100%; min-height: 48px; }
+.invitation-card .aviso { overflow-wrap: anywhere; }
+.invitation-card .pila { flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .invitation-list .member { align-items: flex-start; flex-wrap: wrap; }
+  .invitation-actions { width: 100%; }
+  .invitation-actions .boton { flex: 1; }
+  .invitation-card { padding: 22px; }
+}
