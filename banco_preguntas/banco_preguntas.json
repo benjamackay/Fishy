@@ -2054,7 +2054,7 @@
           "id": "HDU4_NPC06B_Q01_R1",
           "texto": "Rechazar el salto y descifrar el cofre con las pistas seguras que ya reuní.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Lobo Marino reconoce: 'Tienes razón... la valentía era saber decir que no.' Álbum: desbloquea la 'Medalla Dorada de Gran Detective Digital'. Otto abre el cofre y recupera la brújula dorada.",
+          "consecuencia_narrativa": "Lobo Marino reconoce: 'Tienes razón... la valentía era saber decir que no.' Otto abre el cofre y recupera la brújula dorada.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU4_NPC06B_FIN_SEGURO"
         },
