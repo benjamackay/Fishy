@@ -651,6 +651,56 @@ adulto no puede retroceder.
 > (`MISION_EXPLORACION_01`, `MISION_SEC_*`). Se guarda igual y queda el aviso en el
 > log del servidor y la columna del admin, en vez de responder 404 y perder el dato.
 
+**POST `/partidas/{partida_id}/chats/completo/`** — Una conversación entera de una vez (A.3)
+
+```json
+// Request
+{
+  "npc":  { "nombre": "Alex", "area": "zona_2", "tipo": "enemigo", "confianza": 0 },
+  "chat": { "categoria_riesgo": "desconocidos" },
+  "mensajes": [
+    { "tipo": "start",   "respuesta": "Hola!" },
+    { "tipo": "request", "respuesta": "¿Me pasas tu dirección?",
+      "pregunta_banco_id": "HDU2_NPC01_F2_Q01",
+      "posibles_respuestas": [
+        { "texto": "Claro", "orden": 0, "calidad_respuesta": "mala" },
+        { "texto": "No",    "orden": 1, "calidad_respuesta": "buena" }
+      ] },
+    { "tipo": "chain", "respuesta": "No te la voy a dar",
+      "calidad_respuesta": "buena", "opcion_banco_id": "HDU2_NPC01_F2_Q01_R2" }
+  ],
+  "finalizar": true
+}
+
+// Response 201
+{ "npc": { ... }, "chat": { ... }, "mensajes": [ ... ] }
+```
+
+Reemplaza a la cadena `RegistrarNPC` → `IniciarChat` → N × `RegistrarMensaje` →
+`FinalizarChat`, que es obligatoriamente en serie: ~9 peticiones de ~700 ms son
+unos **6 s por conversación**, y hay 6 lanzadores de chat en `MainScene`. Con una
+sola son **~0,7 s**.
+
+Tan importante como la velocidad es que sea **atómico**. Con la cadena larga, si
+el juego se cierra a medio camino queda una conversación partida en la base —un
+chat sin sus mensajes, o con la mitad— y el reporte del adulto la cuenta igual.
+Acá entra entera o no entra nada.
+
+| Campo | Notas |
+|---|---|
+| `npc` | Acepta `npc_id` en vez de los datos, para reusar un NPC que ya está en la partida |
+| `mensajes` | Lista, puede ir vacía. Cada elemento es el mismo cuerpo de `registrar_mensaje` |
+| `finalizar` | Por omisión `true`: agrega el mensaje `end` que cierra el chat |
+| `respuesta_final` | Texto del mensaje `end`, opcional |
+
+Si un mensaje viene mal, responde 400 diciendo **cuál** (`{"mensajes": {"1": {...}}}`)
+y no escribe nada. Las filas que crea son exactamente las mismas que crea la
+cadena larga —hay una prueba que las compara campo por campo—, así que el riesgo
+por zona y el resto de los reportes no cambian en nada.
+
+Del lado de Unity el cambio es un método, `ChatBackendLogger.Subir()`: lo que se
+graba y cuándo se encola no se toca.
+
 **GET / POST `/partidas/{partida_id}/zonas/`** — Progreso de zonas (HDU-3 CA5, HDU-4 CA5)
 
 ```json

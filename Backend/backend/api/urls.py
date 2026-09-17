@@ -52,6 +52,7 @@ urlpatterns = [
     path("npcs/<int:npc_id>/", views.npc_actualizar, name="npc_actualizar"),
 
     # Chat (HDU-8)
+    path("partidas/<int:partida_id>/chats/completo/", views.chat_completo, name="chat_completo"),
     path("chats/", views.iniciar_chat, name="iniciar_chat"),
     path("chats/<int:chat_id>/mensajes/", views.mensajes_chat, name="mensajes_chat"),
     path("chats/<int:chat_id>/mensajes/registrar/", views.registrar_mensaje, name="registrar_mensaje"),

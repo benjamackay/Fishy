@@ -300,6 +300,115 @@ def registrar_mensaje(request, chat_id):
     return Response(MensajeSerializer(mensaje).data, status=status.HTTP_201_CREATED)
 
 
+@api_view(["POST"])
+def chat_completo(request, partida_id):
+    """
+    POST /api/partidas/{partida_id}/chats/completo/ — una conversación entera de
+    una sola vez (A.3 de REQUISITOS_BD).
+
+    Body: {
+      "npc":  { "nombre": "Alex", "area": "zona_2", "tipo": "enemigo", "confianza": 0 },
+      "chat": { "categoria_riesgo": "desconocidos" },
+      "mensajes": [ { ...igual que registrar_mensaje... } ],
+      "finalizar": true
+    }
+
+    Reemplaza a la cadena `RegistrarNPC` -> `IniciarChat` -> N x `RegistrarMensaje`
+    -> `FinalizarChat`, que es obligatoriamente en serie: ~9 peticiones de ~700 ms
+    son unos 6 s por conversación, y hay 6 lanzadores de chat en MainScene. Con
+    una sola son ~0,7 s.
+
+    Lo que importa tanto como la velocidad es que sea **atómico**: hoy, si el
+    juego se cierra a media cadena, queda una conversación partida en la base —un
+    chat sin sus mensajes, o con la mitad— y eso es peor que no tenerla, porque
+    el reporte del adulto la cuenta igual. Acá, o entra entera o no entra nada.
+
+    `npc` acepta también `npc_id` para reusar un NPC que ya existe en la partida,
+    que es el caso de volver a hablar con el mismo personaje.
+
+    Las filas que se crean son exactamente las mismas que crea la cadena larga,
+    así que el riesgo por zona y el resto de los reportes no cambian en nada.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    datos_npc = request.data.get("npc") or {}
+    mensajes_entrada = request.data.get("mensajes")
+    if not isinstance(mensajes_entrada, list):
+        return Response(
+            {"mensajes": "Tiene que ser una lista, aunque venga vacía."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Se valida TODO antes de escribir nada: con la transacción de por medio, un
+    # error a mitad de camino deja la base intacta, pero el mensaje de error es
+    # mucho más útil si dice qué mensaje de la lista viene mal.
+    serializers_mensajes = []
+    for i, m in enumerate(mensajes_entrada):
+        s = MensajeSerializer(data=m)
+        if not s.is_valid():
+            return Response(
+                {"mensajes": {str(i): s.errors}}, status=status.HTTP_400_BAD_REQUEST
+            )
+        serializers_mensajes.append(s)
+
+    with transaction.atomic():
+        npc_id = datos_npc.get("npc_id")
+        if npc_id:
+            npc = get_object_or_404(NPC, pk=npc_id, partida=partida)
+        else:
+            s_npc = NPCSerializer(data=datos_npc)
+            if not s_npc.is_valid():
+                return Response(
+                    {"npc": s_npc.errors}, status=status.HTTP_400_BAD_REQUEST
+                )
+            npc = s_npc.save(partida=partida)
+
+        chat = Chat.objects.create(
+            partida=partida,
+            npc=npc,
+            categoria_riesgo=(request.data.get("chat") or {}).get("categoria_riesgo", ""),
+        )
+
+        creados = []
+        for s, m in zip(serializers_mensajes, mensajes_entrada):
+            mensaje = s.save(
+                chat=chat,
+                pregunta_banco_id=m.get("pregunta_banco_id") or None,
+                opcion_banco_id=m.get("opcion_banco_id") or None,
+            )
+            for j, opcion in enumerate(m.get("posibles_respuestas") or []):
+                PosibleRespuesta.objects.create(
+                    mensaje=mensaje,
+                    texto=opcion.get("texto", ""),
+                    orden=opcion.get("orden", j),
+                    calidad_respuesta=opcion.get("calidad_respuesta", ""),
+                )
+            creados.append(mensaje)
+
+        # `finalizar` por omisión es True: el juego manda la conversación cuando ya
+        # terminó. Un END de más dejaría el chat cerrado dos veces; uno de menos,
+        # abierto para siempre.
+        if request.data.get("finalizar", True) and chat.fecha_termino is None:
+            creados.append(Mensaje.objects.create(
+                chat=chat,
+                tipo=Mensaje.Tipo.END,
+                respuesta=request.data.get("respuesta_final", ""),
+                calidad_respuesta="",
+            ))
+
+    chat.refresh_from_db()
+    return Response(
+        {
+            "npc": NPCSerializer(npc).data,
+            "chat": ChatSerializer(chat).data,
+            "mensajes": MensajeSerializer(creados, many=True).data,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
 # ── Banco de Preguntas (HDU-2 / HDU-8) ───────────────────────────────────────
 
 def _filtros_banco(qs, params):
