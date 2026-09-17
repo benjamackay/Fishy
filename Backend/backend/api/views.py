@@ -17,6 +17,7 @@ from .models import (
     CasoDetective, CasoDetectiveProgreso,
     DialogoNPC, Mision, MisionProgreso, ZonaProgreso, ItemInventario,
     PersonajeJugador, ObjetoRecogido, NpcProgreso,
+    ObjetivoMision, ObjetivoProgreso,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -27,6 +28,7 @@ from .serializers import (
     DialogoNPCSerializer, MisionProgresoSerializer, ZonaProgresoSerializer,
     ItemInventarioSerializer, PersonajeJugadorSerializer,
     ObjetoRecogidoSerializer, NpcProgresoSerializer,
+    MisionCatalogoSerializer, ObjetivoProgresoSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -622,6 +624,104 @@ def oportunidades_mejora(request, partida_id):
         ],
     })
 
+
+# ── Catalogo de misiones (B.1/B.2 de REQUISITOS_BD) ───────────────────────────
+#
+# Sin sesion ni partida a proposito: es contenido, igual para todos, y Unity lo
+# pide al arrancar (`MisionCatalogoSync`) antes de que nadie haya entrado. Mismo
+# criterio que el banco de preguntas.
+#
+# Van los dos endpoints: el listado es el unico modo de saber QUE misiones
+# existen —la lista de ids no esta en ninguna otra parte fuera del archivo
+# local—, y el detalle sirve para pedir una sola cuando ya se sabe cual.
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def misiones_catalogo(request):
+    """
+    GET /api/misiones/ — el catalogo completo, como ARREGLO en la raiz.
+
+    Es un arreglo y no `{version, misiones}` porque `ApiManager.ObtenerCatalogoMisiones`
+    espera `Send<List<MisionRegistro>>`. Filtro opcional: ?zona=desconocidos
+    """
+    qs = Mision.objects.prefetch_related("objetivos").all()
+    zona = request.query_params.get("zona")
+    if zona:
+        qs = qs.filter(zona=zona)
+    return Response(MisionCatalogoSerializer(qs.order_by("orden", "mision_id"), many=True).data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def mision_detalle(request, mision_id):
+    """GET /api/misiones/{mision_id}/ — una sola mision, con sus objetivos."""
+    mision = get_object_or_404(
+        Mision.objects.prefetch_related("objetivos"), mision_id=mision_id
+    )
+    return Response(MisionCatalogoSerializer(mision).data)
+
+
+# ── Avance por objetivo (B.3 de REQUISITOS_BD) ────────────────────────────────
+
+@api_view(["GET", "POST"])
+def objetivos_partida(request, partida_id):
+    """
+    GET  — los objetivos con avance guardado de esta partida.
+    POST — marca uno. Body: { "mision_id": "...", "orden": 1, "cumplido": true }
+
+    Camino de ida e idempotente, igual que las misiones y las zonas: repetir el
+    mismo `cumplido: true` no duplica la fila ni falla, y un `cumplido: false`
+    sobre uno ya cumplido se ignora. La cola de cambios de Unity reintenta y no
+    garantiza el orden de llegada, asi que un objetivo que retrocede seria un
+    dato falso en el reporte del adulto.
+
+    Un objetivo que no esta en el catalogo se guarda igual y se avisa por log:
+    el avance del nino no depende de que el catalogo este al dia.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        mision_id = (request.data.get("mision_id") or "").strip()
+        if not mision_id:
+            return Response(
+                {"mision_id": "Este campo es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        orden = request.data.get("orden")
+        try:
+            orden = int(orden)
+        except (TypeError, ValueError):
+            return Response(
+                {"orden": "Este campo es obligatorio y tiene que ser un numero."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cumplido = bool(request.data.get("cumplido", True))
+
+        if not ObjetivoMision.objects.filter(
+            mision__mision_id=mision_id, orden=orden
+        ).exists():
+            logger.warning(
+                "ObjetivoProgreso: (%s, %s) no existe en el catalogo. Se guarda igual, "
+                "pero el catalogo de Unity y el de la base no estan alineados.",
+                mision_id, orden,
+            )
+
+        progreso, _ = ObjetivoProgreso.objects.get_or_create(
+            partida=partida, mision_id=mision_id, orden=orden,
+        )
+        # Camino de ida: solo se avanza a cumplido, nunca se vuelve atras.
+        if cumplido and not progreso.cumplido:
+            progreso.cumplido = True
+            progreso.save(update_fields=["cumplido"])
+
+        return Response(ObjetivoProgresoSerializer(progreso).data)
+
+    qs = ObjetivoProgreso.objects.filter(partida=partida)
+    return Response(ObjetivoProgresoSerializer(qs, many=True).data)
 
 # ── Modo Detective (HDU-10) ───────────────────────────────────────────────────
 

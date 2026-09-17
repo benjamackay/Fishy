@@ -5,6 +5,7 @@ from .models import (
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     DialogoNPC, MisionProgreso, ZonaProgreso, ItemInventario,
     PersonajeJugador, ObjetoRecogido, NpcProgreso,
+    Mision, ObjetivoMision, ObjetivoProgreso,
 )
 
 
@@ -172,6 +173,51 @@ class CasoDetectiveProgresoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "partida", "caso", "intentos", "fecha_inicio"]
 
+
+class ObjetivoMisionSerializer(serializers.ModelSerializer):
+    """Un objetivo del catalogo, tal como lo lee `ObjetivoRegistro` de Unity.
+
+    Todos los campos salen siempre, tambien los que no aplican al tipo: van
+    vacios (`""` / `0`) y nunca ausentes. `JsonUtility` no distingue un campo que
+    falta de uno vacio, y un contrato con campos que aparecen y desaparecen es
+    peor de depurar que uno con ruido."""
+
+    class Meta:
+        model = ObjetivoMision
+        fields = [
+            "orden", "tipo", "descripcion",
+            "item_id", "cantidad", "dialogo_id", "escenario_ids", "zona_id", "caso_id",
+        ]
+        read_only_fields = fields
+
+
+class MisionCatalogoSerializer(serializers.ModelSerializer):
+    """El catalogo, no el progreso: que misiones existen y que pide cada una.
+
+    `titulo` es un alias de `nombre`. La tabla lo llama `nombre` desde el banco y
+    el archivo de Unity lo llama `titulo`; `MisionRegistro` acepta los dos y se
+    queda con el que venga, asi que se mandan ambos y ninguna mision aparece sin
+    titulo por una diferencia de nombre."""
+    titulo    = serializers.CharField(source="nombre", read_only=True)
+    objetivos = ObjetivoMisionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Mision
+        fields = [
+            "mision_id", "titulo", "nombre", "tipo", "zona", "zona_objetivo",
+            "orden", "descripcion", "objetivos",
+            "desbloquea_mision", "recompensa_item_id", "recompensa_cantidad",
+        ]
+        read_only_fields = fields
+
+
+class ObjetivoProgresoSerializer(serializers.ModelSerializer):
+    """Avance de un objetivo dentro de una partida. Ver ObjetivoProgreso."""
+
+    class Meta:
+        model = ObjetivoProgreso
+        fields = ["mision_id", "orden", "cumplido", "fecha"]
+        read_only_fields = ["fecha"]
 
 class MisionProgresoSerializer(serializers.ModelSerializer):
     """Progreso de una mision dentro de una partida.

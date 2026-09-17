@@ -24,6 +24,7 @@ from api.models import (
 from api.tests.test_catalogo_album import crear_partida
 
 RUTA_BANCO = settings.BASE_DIR.parent.parent / "banco_preguntas" / "banco_preguntas.json"
+RUTA_MISIONES = settings.BASE_DIR.parent.parent / "Fishy!" / "Assets" / "Resources" / "misiones.json"
 
 
 def cargar(**kwargs):
@@ -66,10 +67,31 @@ class CargaCompletaTests(TestCase):
 
     def test_las_misiones_conservan_el_id_del_banco(self):
         """El MissionManager de Unity guarda el estado por `desafioId`. Si el id
-        de la base no es el del banco, el juego no puede reportar qué completó."""
+        de la base no es el del banco, el juego no puede reportar qué completó.
+
+        Desde que el cargador también lee `misiones.json`, la base tiene MÁS
+        misiones que el banco (las que solo existen en el archivo). Lo que no
+        puede pasar es que una del banco se pierda o cambie de id."""
         del_banco = {d["mision_desbloquea"] for d in self.banco["dialogos_npc_neutros"]
                      if d.get("mision_desbloquea")}
-        self.assertEqual(set(Mision.objects.values_list("mision_id", flat=True)), del_banco)
+        en_la_base = set(Mision.objects.values_list("mision_id", flat=True))
+        self.assertTrue(
+            del_banco <= en_la_base,
+            f"el banco tiene misiones que no llegaron a la base: {del_banco - en_la_base}",
+        )
+
+    def test_las_misiones_que_solo_estan_en_el_archivo_tambien_llegan(self):
+        """Las 3 que el banco no conoce (MISION_NPC_03, MISION_NPC_04,
+        MISION_PANTANO_CRIATURAS) existen solo en `misiones.json`: si el cargador
+        no lo lee, el catálogo queda incompleto y nadie se entera."""
+        del_archivo = {m["mision_id"] for m in
+                       json.loads(RUTA_MISIONES.read_text(encoding="utf-8"))["misiones"]}
+        en_la_base = set(Mision.objects.values_list("mision_id", flat=True))
+        self.assertTrue(
+            del_archivo <= en_la_base,
+            f"faltan misiones del archivo: {del_archivo - en_la_base}",
+        )
+
 
     def test_extrae_todas_las_recompensas_de_album(self):
         self.assertEqual(RecompensaAlbum.objects.count(), 14)

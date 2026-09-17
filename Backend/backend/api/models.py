@@ -566,6 +566,45 @@ class Mision(models.Model):
     tipo      = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.SECUNDARIA)
     zona      = models.CharField(max_length=50, blank=True)
 
+    # ── Lo que solo existe en misiones.json ──────────────────────────────────
+    # El banco de preguntas solo sabe el id y el nombre de 9 misiones. El orden,
+    # la zona de destino, los objetivos y 3 misiones mas viven unicamente en
+    # `Fishy!/Assets/Resources/misiones.json`, que es de donde los trae
+    # `cargar_banco`. Todos opcionales: una mision que no los use queda igual que
+    # antes, y un build viejo del juego no se rompe.
+    #
+    # Van con `db_default` ademas del `default` por la base compartida: sin un
+    # DEFAULT en la propia base, el `cargar_banco` de una rama que todavia no
+    # conoce estas columnas fallaria por NOT NULL al insertar una mision.
+    zona_objetivo = models.CharField(
+        max_length=50, blank=True, default="", db_default="",
+        help_text="Zona ESPACIAL de destino (`zona_1`...), no la tematica del banco. Ver ZonaProgreso.",
+    )
+    orden         = models.IntegerField(
+        default=100, db_default=100,
+        help_text="Lugar en la historia; menor va antes. Es una suposicion del archivo, NO el orden narrativo confirmado.",
+    )
+    descripcion   = models.TextField(
+        blank=True, default="", db_default="",
+        help_text="Texto fijo que REEMPLAZA a la lista de objetivos en el panel. Vacio = se listan los objetivos.",
+    )
+    desbloquea_mision = models.CharField(
+        max_length=60, blank=True, default="", db_default="",
+        help_text=(
+            "`mision_id` de la mision que se entrega sola al completar esta. Es texto y no FK "
+            "a proposito: los ids del catalogo no son estables y hay que poder reemplazar una "
+            "mision sin que una FK se lleve nada por delante. Vacio = no encadena."
+        ),
+    )
+    recompensa_item_id = models.CharField(
+        max_length=60, blank=True, default="", db_default="",
+        help_text="ItemData que se entrega al completar. Vacio = sin recompensa automatica.",
+    )
+    recompensa_cantidad = models.IntegerField(
+        default=0, db_default=0,
+        help_text="Unidades de `recompensa_item_id`. 0 o negativo lo trata Unity como 1.",
+    )
+
     def __str__(self):
         return self.mision_id
 
@@ -573,6 +612,54 @@ class Mision(models.Model):
         verbose_name = "Mision"
         verbose_name_plural = "Misiones"
         ordering = ["zona", "mision_id"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OBJETIVO DE MISION  (catalogo — lo que hay que hacer DENTRO de una mision)
+#
+# Cada tipo usa unos campos y deja el resto vacios; se mandan igual y no se
+# omiten, porque `JsonUtility` de Unity no distingue "campo ausente" de "campo
+# vacio" y un contrato con campos que aparecen y desaparecen es peor de depurar.
+#
+# Esto es CONTENIDO, no progreso: cuelga de la mision con CASCADE porque si la
+# mision se reemplaza sus objetivos ya no significan nada. Lo que el nino llevaba
+# hecho vive aparte, en ObjetivoProgreso, que a proposito NO tiene FK.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ObjetivoMision(models.Model):
+    class Tipo(models.TextChoices):
+        RECOGER_OBJETO    = "recoger_objeto",           "Recoger objeto"
+        HABLAR_NPC        = "hablar_npc",               "Hablar con un NPC"
+        CHATEAR_TELEFONO  = "chatear_telefono",         "Chatear por telefono"
+        LLEGAR_ZONA       = "llegar_zona",              "Llegar a una zona"
+        CASO_DETECTIVE    = "completar_caso_detective", "Completar un caso Detective"
+
+    mision = models.ForeignKey(Mision, on_delete=models.CASCADE, related_name="objetivos")
+    orden  = models.IntegerField(help_text="Estable una vez publicado: es la mitad de la clave con la que se guarda el avance.")
+    tipo   = models.CharField(
+        max_length=30, choices=Tipo.choices,
+        help_text="Va en texto y no como indice: el enum de Unity se puede reordenar.",
+    )
+
+    # Segun el tipo. El que no aplica va vacio, nunca ausente.
+    item_id       = models.CharField(max_length=60, blank=True, default="", help_text="recoger_objeto")
+    cantidad      = models.IntegerField(default=1, help_text="recoger_objeto. El avance NO se guarda: se recalcula del inventario.")
+    dialogo_id    = models.CharField(max_length=60, blank=True, default="", help_text="hablar_npc")
+    escenario_ids = models.CharField(max_length=200, blank=True, default="", help_text="chatear_telefono; varios separados por coma")
+    zona_id       = models.CharField(max_length=50, blank=True, default="", help_text="llegar_zona; id ESPACIAL")
+    caso_id       = models.CharField(max_length=60, blank=True, default="", help_text="completar_caso_detective")
+    descripcion   = models.CharField(max_length=200, blank=True, default="", help_text="Texto fijo para el panel; vacio = lo arma Unity")
+
+    def __str__(self):
+        return f"{self.mision.mision_id} #{self.orden} ({self.tipo})"
+
+    class Meta:
+        verbose_name = "Objetivo de Mision"
+        verbose_name_plural = "Objetivos de Mision"
+        ordering = ["mision", "orden"]
+        constraints = [
+            models.UniqueConstraint(fields=["mision", "orden"], name="objetivo_unico_por_mision"),
+        ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -739,6 +826,49 @@ class MisionProgreso(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["partida", "mision_id"], name="mision_unica_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO POR OBJETIVO  (B.3 de REQUISITOS_BD — por partida)
+#
+# Hasta ahora el avance DENTRO de una mision no se guardaba en ningun lado: al
+# cerrar el juego, una mision de 4 objetivos con 3 hechos volvia a 0.
+#
+# La clave es `(mision_id, orden)` en TEXTO y numero, sin FK a ObjetivoMision, y
+# es la decision importante de esta tabla: recargar el catalogo borra y recrea
+# los objetivos, y una FK real se llevaria en cascada lo que el nino llevaba
+# hecho. Mismo criterio que `MisionProgreso.mision_id` y que
+# `RecompensaAlbum.opcion_banco_id`. Si el catalogo nuevo ya no trae ese
+# objetivo, la fila queda huerfana a proposito: se conserva, no se borra.
+#
+# `cumplido` es camino de ida (A.1) y volver a marcarlo es un no-op (A.2): los
+# avisos del juego salen de una cola con reintentos y pueden llegar desordenados
+# o repetidos, asi que un objetivo que retrocede seria un dato falso.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ObjetivoProgreso(models.Model):
+    partida   = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="objetivos"
+    )
+    mision_id = models.CharField(max_length=60, db_index=True)
+    orden     = models.IntegerField()
+    cumplido  = models.BooleanField(default=False)
+    fecha     = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        estado = "cumplido" if self.cumplido else "pendiente"
+        return f"{self.mision_id} #{self.orden} ({estado}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de Objetivo"
+        verbose_name_plural = "Progreso de Objetivos"
+        ordering = ["partida", "mision_id", "orden"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "mision_id", "orden"],
+                name="objetivo_unico_por_partida",
             )
         ]
 

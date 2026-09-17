@@ -39,6 +39,7 @@ urlpatterns = [
 
     # Progreso por partida (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)
     path("partidas/<int:partida_id>/misiones/", views.misiones_partida, name="misiones_partida"),
+    path("partidas/<int:partida_id>/objetivos/", views.objetivos_partida, name="objetivos_partida"),
     path("partidas/<int:partida_id>/zonas/", views.zonas_partida, name="zonas_partida"),
 
     # Inventario por partida (HDU-15)
@@ -57,6 +58,10 @@ urlpatterns = [
     path("chats/<int:chat_id>/finalizar/", views.finalizar_chat, name="finalizar_chat"),
 
     # Banco de Preguntas (HDU-2 y HDU-8)
+    # Catalogo de misiones: contenido, sin sesion (B.2).
+    path("misiones/", views.misiones_catalogo, name="misiones_catalogo"),
+    path("misiones/<str:mision_id>/", views.mision_detalle, name="mision_detalle"),
+
     path("banco/zonas/", views.zonas_banco, name="zonas_banco"),
     path("banco/zonas/<str:zona>/preguntas/", views.preguntas_zona, name="preguntas_zona"),
     path("banco/preguntas/", views.preguntas_banco, name="preguntas_banco"),

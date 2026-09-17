@@ -525,6 +525,91 @@ mejorable—, y mezclarlas le quitaría sentido a la lista.
 > Etiquetarle la pantalla con sus errores lo señala y rompe el tono del juego,
 > que corrige por consecuencia narrativa (el NPC reacciona, Otto cambia de ánimo).
 
+**GET `/misiones/`** — Catálogo de misiones (B.1/B.2 de REQUISITOS_BD)
+
+**No pide sesión ni partida**: es contenido, igual para todos, y Unity lo pide al
+arrancar (`MisionCatalogoSync`) antes de que nadie haya entrado. Filtro opcional
+`?zona=desconocidos`.
+
+La raíz es un **arreglo**, no `{version, misiones}` como el archivo:
+`ApiManager.ObtenerCatalogoMisiones` espera `Send<List<MisionRegistro>>`.
+
+```json
+[
+  {
+    "mision_id": "MISION_NPC_03",
+    "titulo": "Habla con dos NPCs de chat y resuelve un caso de detective",
+    "nombre": "Habla con dos NPCs de chat y resuelve un caso de detective",
+    "tipo": "secundaria",
+    "zona": "desconocidos",
+    "zona_objetivo": "zona_1",
+    "orden": 15,
+    "descripcion": "",
+    "desbloquea_mision": "",
+    "recompensa_item_id": "",
+    "recompensa_cantidad": 0,
+    "objetivos": [
+      { "orden": 1, "tipo": "chatear_telefono", "descripcion": "",
+        "item_id": "", "cantidad": 1, "dialogo_id": "",
+        "escenario_ids": "M1_CHAT01", "zona_id": "", "caso_id": "" },
+      { "orden": 3, "tipo": "completar_caso_detective", "descripcion": "",
+        "item_id": "", "cantidad": 1, "dialogo_id": "",
+        "escenario_ids": "", "zona_id": "", "caso_id": "DC_CASO_01" }
+    ]
+  }
+]
+```
+
+| Campo | Significado |
+|---|---|
+| `titulo` / `nombre` | El mismo valor con los dos nombres. La tabla lo llama `nombre` y el archivo de Unity `titulo`; `MisionRegistro` acepta cualquiera |
+| `zona` | Zona **temática** del banco (`desconocidos`…): de qué trata |
+| `zona_objetivo` | Zona **espacial** de destino (`zona_1`…): hacia dónde apunta el indicador |
+| `orden` | Lugar en la historia, menor primero. Es una suposición del archivo, **no** el orden narrativo confirmado |
+| `descripcion` | Si no está vacía, **reemplaza** a la lista de objetivos en el panel |
+| `desbloquea_mision` | Id de la que se entrega sola al completar ésta. Vacío = no encadena |
+| `objetivos` | Siempre presente; `[]` explícito si no tiene |
+
+Los cinco tipos de objetivo: `recoger_objeto` · `hablar_npc` · `chatear_telefono` ·
+`llegar_zona` · `completar_caso_detective`. **Los campos que no aplican a un tipo
+van vacíos (`""` / `0`), nunca ausentes**: `JsonUtility` no distingue un campo que
+falta de uno vacío. En `recoger_objeto` la `cantidad` es la meta, no el avance —
+eso se recalcula del inventario, que ya persiste aparte.
+
+**GET `/misiones/{mision_id}/`** — Una sola misión
+
+Mismo objeto, sin el arreglo. 404 si el id no existe. Existe junto al listado
+porque el listado es la única forma de saber **qué** misiones hay: esa lista de
+ids no está en ninguna otra parte fuera del archivo local.
+
+**GET / POST `/partidas/{partida_id}/objetivos/`** — Avance por objetivo (B.3)
+
+```json
+// POST Request
+{ "mision_id": "MISION_NPC_03", "orden": 1, "cumplido": true }
+
+// Response
+{
+  "mision_id": "MISION_NPC_03",
+  "orden": 1,
+  "cumplido": true,
+  "fecha": "2026-09-17T18:40:02.114Z"
+}
+```
+
+Antes de esto, el avance **dentro** de una misión no se guardaba: una misión de 4
+objetivos con 3 hechos volvía a 0 al cerrar el juego.
+
+La clave es `(mision_id, orden)`, en texto y número, **sin FK al catálogo**:
+recargar el banco borra y recrea los objetivos, y una FK real se llevaría en
+cascada lo que el niño llevaba hecho. Si el catálogo nuevo ya no trae ese
+objetivo, la fila queda huérfana a propósito.
+
+Mismo contrato que las misiones y las zonas: **camino de ida** (un `cumplido:
+false` sobre uno ya cumplido se ignora) e **idempotente** (repetir el mismo aviso
+no duplica ni falla). Un objetivo que no está en el catálogo se guarda igual y
+queda el aviso en el log.
+
 **GET / POST `/partidas/{partida_id}/misiones/`** — Progreso de misiones (HDU-1 CA4 y CA5)
 
 ```json

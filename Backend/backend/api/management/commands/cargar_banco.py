@@ -36,10 +36,12 @@ from api.models import (
     OpcionBanco,
     PreguntaBanco,
     RecompensaAlbum,
+    ObjetivoMision,
 )
 
 # Ruta por defecto: 2 niveles arriba de BASE_DIR (backend/) → raíz del repo Fishy/
 RUTA_DEFAULT = settings.BASE_DIR.parent.parent / "banco_preguntas" / "banco_preguntas.json"
+RUTA_MISIONES_DEFAULT = settings.BASE_DIR.parent.parent / "Fishy!" / "Assets" / "Resources" / "misiones.json"
 
 # Claves del JSON que este cargador entiende. Cualquier otra se avisa por consola:
 # el modo de falla que costó caro fue justamente ignorar bloques en silencio.
@@ -107,6 +109,24 @@ class Command(BaseCommand):
             action="store_true",
             help="Elimina todas las preguntas existentes antes de cargar",
         )
+        parser.add_argument(
+            "--borrar-misiones",
+            action="store_true",
+            help=(
+                "Borra las misiones y el album ANTES de cargar. Se lleva en cascada el "
+                "album que los ninos ya obtuvieron: usar solo a proposito."
+            ),
+        )
+        parser.add_argument(
+            "--archivo-misiones",
+            default=str(RUTA_MISIONES_DEFAULT),
+            help=f"Ruta al catalogo de misiones (default: {RUTA_MISIONES_DEFAULT})",
+        )
+        parser.add_argument(
+            "--sin-misiones",
+            action="store_true",
+            help="No leer el catalogo de misiones; solo el banco de preguntas",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -127,15 +147,31 @@ class Command(BaseCommand):
 
         if options["limpiar"]:
             deleted, _ = PreguntaBanco.objects.all().delete()
-            self.stdout.write(self.style.WARNING(f"Se eliminaron {deleted} preguntas existentes."))
-            # Ojo: borrar las recompensas se lleva en cascada el álbum que los
-            # niños ya obtuvieron (RecompensaObtenida). Por eso va avisado.
-            borradas_r, _ = RecompensaAlbum.objects.all().delete()
             borrados_d, _ = DialogoNPC.objects.all().delete()
+            self.stdout.write(self.style.WARNING(
+                f"Se eliminaron {deleted} preguntas y {borrados_d} diálogos existentes."
+            ))
+            # B.5: `--limpiar` ya NO se lleva las misiones ni el álbum. Borrar
+            # `Mision` arrastra en cascada `RecompensaAlbum`, y con ella el
+            # `RecompensaObtenida` de los niños — o sea el álbum que ya se
+            # ganaron. Ambas tablas se actualizan con update_or_create más abajo,
+            # así que el borrado no aportaba nada y sí podía costar caro.
+            #
+            # Lo que el catálogo nuevo ya no traiga se CONSERVA a propósito: una
+            # incompatibilidad se arregla a mano, caso a caso, y es preferible a
+            # perder progreso en silencio.
+            self.stdout.write(self.style.WARNING(
+                "  Las misiones y el álbum NO se borran: se actualizan. "
+                "Para borrarlos de verdad, --borrar-misiones (se lleva el álbum "
+                "ya obtenido por los niños)."
+            ))
+
+        if options["borrar_misiones"]:
+            borradas_r, _ = RecompensaAlbum.objects.all().delete()
             borradas_m, _ = Mision.objects.all().delete()
             self.stdout.write(self.style.WARNING(
-                f"Se eliminaron {borradas_r} recompensas, {borrados_d} diálogos y "
-                f"{borradas_m} misiones — junto con el progreso de álbum asociado."
+                f"Se eliminaron {borradas_r} recompensas y {borradas_m} misiones "
+                f"— junto con el progreso de álbum asociado."
             ))
 
         recompensas = []  # (recompensa_id, nombre, tip, mision_obj, opcion_banco_id)
@@ -257,6 +293,85 @@ class Command(BaseCommand):
                     )
                 recompensas.append((f"ALB_{mision_id}", nombre, tip, mision_obj, ""))
 
+        # ── Catálogo de misiones (B.1 de REQUISITOS_BD) ─────────────────────
+        # El banco solo sabe el id y el nombre de 9 misiones. El `orden`, la
+        # `zona_objetivo`, los objetivos y 3 misiones más existen SOLO en
+        # `misiones.json`, que es la única copia de ese contenido.
+        #
+        # Va después de los diálogos a propósito: aquellos crean la misión y la
+        # enlazan, y esto le agrega encima lo que el banco no sabe. Una misión
+        # que está en el archivo y no en el banco se crea igual.
+        misiones_del_archivo = objetivos_total = 0
+        if not options["sin_misiones"]:
+            ruta_m = Path(options["archivo_misiones"])
+            if not ruta_m.exists():
+                raise CommandError(
+                    f"No encontré el catálogo de misiones: {ruta_m}\n"
+                    f"  Si es a propósito, pasa --sin-misiones."
+                )
+            with open(ruta_m, encoding="utf-8") as f:
+                data_m = json.load(f)
+
+            tipos_validos = ", ".join(ObjetivoMision.Tipo.values)
+            for m in data_m.get("misiones", []):
+                mid = (m.get("mision_id") or "").strip()
+                if not mid:
+                    raise CommandError(
+                        "El catálogo de misiones trae una entrada sin `mision_id`: "
+                        + json.dumps(m, ensure_ascii=False)[:200]
+                    )
+
+                # `titulo` o `nombre`, los dos valen: el archivo de Unity usa el
+                # primero y la tabla el segundo (B.2).
+                titulo = (m.get("titulo") or m.get("nombre") or "").strip()
+                campos = {
+                    "tipo":                m.get("tipo") or Mision.Tipo.SECUNDARIA,
+                    "zona":                m.get("zona", ""),
+                    "zona_objetivo":       m.get("zona_objetivo", ""),
+                    "orden":               m.get("orden", 100),
+                    "descripcion":         m.get("descripcion", ""),
+                    "desbloquea_mision":   m.get("desbloquea_mision", ""),
+                    "recompensa_item_id":  m.get("recompensa_item_id", ""),
+                    "recompensa_cantidad": m.get("recompensa_cantidad", 0),
+                }
+                # El nombre del banco manda si el archivo no trae título: la
+                # misión de exploración no tiene nombre en el banco.
+                if titulo:
+                    campos["nombre"] = titulo
+
+                mision_obj, _ = Mision.objects.update_or_create(
+                    mision_id=mid, defaults=campos,
+                )
+                misiones_del_archivo += 1
+
+                # Los objetivos se resincronizan enteros: son contenido y su
+                # identidad es `(mision, orden)`. El avance del niño NO cuelga de
+                # acá (ObjetivoProgreso guarda el id en texto), así que borrarlos
+                # y recrearlos no le quita nada a nadie.
+                mision_obj.objetivos.all().delete()
+                for o in m.get("objetivos") or []:
+                    tipo_obj = (o.get("tipo") or "").strip()
+                    if tipo_obj not in ObjetivoMision.Tipo.values:
+                        raise CommandError(
+                            f"misión {mid}: el objetivo #{o.get('orden')} tiene el tipo "
+                            f"'{tipo_obj}', que no es ninguno de los cinco conocidos "
+                            f"({tipos_validos}).\n"
+                            f"  Si es un tipo nuevo, hay que agregarlo al modelo y a Unity."
+                        )
+                    ObjetivoMision.objects.create(
+                        mision=mision_obj,
+                        orden=o.get("orden", 0),
+                        tipo=tipo_obj,
+                        item_id=o.get("item_id", ""),
+                        cantidad=o.get("cantidad", 1),
+                        dialogo_id=o.get("dialogo_id", ""),
+                        escenario_ids=o.get("escenario_ids", ""),
+                        zona_id=o.get("zona_id", ""),
+                        caso_id=o.get("caso_id", ""),
+                        descripcion=o.get("descripcion", ""),
+                    )
+                    objetivos_total += 1
+
         # ── Recompensas de álbum ────────────────────────────────────────────
         # Van con update_or_create sobre el recompensa_id (derivado del origen,
         # que es estable) y no con delete+create: así conservan su PK y el
@@ -289,3 +404,8 @@ class Command(BaseCommand):
             f"Álbum: {recompensas_creadas} recompensas creadas, "
             f"{recompensas_actualizadas} actualizadas."
         ))
+        if not options["sin_misiones"]:
+            self.stdout.write(self.style.SUCCESS(
+                f"Catálogo de misiones: {misiones_del_archivo} misiones del archivo, "
+                f"{objetivos_total} objetivos."
+            ))

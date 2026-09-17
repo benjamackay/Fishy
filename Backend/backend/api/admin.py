@@ -9,6 +9,7 @@ from .models import (
     CasoDetective, MensajeDetective, CasoDetectiveProgreso,
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
     MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido, NpcProgreso,
+    ObjetivoMision, ObjetivoProgreso,
     GrupoTutor, MiembroGrupo, InvitacionGrupo,
 )
 
@@ -390,12 +391,20 @@ class RecompensaAlbumInline(admin.TabularInline):
         return False
 
 
+class ObjetivoMisionInline(admin.TabularInline):
+    """Los objetivos se ven dentro de su mision: sueltos no dicen nada."""
+    model = ObjetivoMision
+    extra = 0
+    fields = ("orden", "tipo", "descripcion", "item_id", "cantidad",
+              "dialogo_id", "escenario_ids", "zona_id", "caso_id")
+
+
 @admin.register(Mision)
 class MisionAdmin(SoloLecturaAdmin):
     list_display  = ("mision_id", "nombre", "tipo", "zona")
     list_filter   = ("tipo", "zona")
     search_fields = ("mision_id", "nombre")
-    inlines = (RecompensaAlbumInline,)
+    inlines = (ObjetivoMisionInline, RecompensaAlbumInline)
 
 
 @admin.register(DialogoNPC)
@@ -544,3 +553,23 @@ class NpcProgresoAdmin(admin.ModelAdmin):
         # En palabras y no un booleano: "a salvo / captura" es como lo nombra el
         # juego, y el adulto que mira esta tabla no conoce el campo `exito`.
         return "a salvo" if obj.exito else "captura"
+
+
+
+@admin.register(ObjetivoMision)
+class ObjetivoMisionAdmin(SoloLecturaAdmin):
+    """Catalogo: lo carga `cargar_banco` desde misiones.json, no se edita a mano."""
+    list_display  = ("mision", "orden", "tipo", "descripcion")
+    list_filter   = ("tipo", "mision__zona")
+    search_fields = ("mision__mision_id", "descripcion", "item_id", "dialogo_id",
+                     "escenario_ids", "caso_id")
+
+
+@admin.register(ObjetivoProgreso)
+class ObjetivoProgresoAdmin(admin.ModelAdmin):
+    """Progreso: es lo que un adulto puede querer mirar para entender por donde
+    va un nino dentro de una mision."""
+    list_display  = ("partida", "mision_id", "orden", "cumplido", "fecha")
+    list_filter   = ("cumplido",)
+    search_fields = ("mision_id",)
+    readonly_fields = ("fecha",)
