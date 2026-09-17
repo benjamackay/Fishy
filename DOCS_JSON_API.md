@@ -338,6 +338,11 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
   "permiso_player_text": "Oye, ¿me puedes ayudar? Recibí mensajes raros...",
   "permiso_npc_nombre": "Otto",
   "permiso_npc_response": "Claro, muéstramelos.",
+  "recompensa_item_id": "PIN_VIGIA_SILENCIOSO",
+  "recompensa_nombre": "Pin del Vigía Silencioso",
+  "recompensa_accesorio_hdu06": "Gorro de detective con visera",
+  "recompensa_umbral_aciertos": 0.5,
+  "recompensa_no_duplica_al_repetir": true,
   "mensajes": [
     {
       "id": 1,
@@ -353,6 +358,12 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
   ]
 }
 ```
+
+Los cinco campos `recompensa_*` son el pin que entrega el caso al superar el umbral
+(HDU-11). Vienen del bloque `recompensa` de `detective_cases.json`. Si llegan vacíos,
+el caso no entrega nada y Unity cae a su catálogo local
+(`CatalogoRecompensasDetective`); si traen contenido, mandan ellos. `umbral_aciertos`
+es una fracción de 0 a 1, no un porcentaje.
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `mensajes` | lista de `MensajeDetectiveDto` | Ya vienen ordenados por `orden` |

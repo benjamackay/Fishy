@@ -459,6 +459,22 @@ class CasoDetective(models.Model):
     permiso_npc_nombre   = models.CharField(max_length=60)
     permiso_npc_response = models.TextField()
 
+    # Recompensa del caso (HDU-11). Cinco campos planos, mismo criterio que el
+    # bloque de permiso de arriba: es un solo grupo de datos por caso, no una
+    # tabla aparte. Es independiente de RecompensaAlbum, que es el catalogo del
+    # album (HDU-12): este pin va directo al inventario del jugador, que ya es
+    # generico por `item_id` de texto. Vacio = el caso no entrega nada, y Unity
+    # cae solo a su catalogo local (CatalogoRecompensasDetective).
+    # Van con `db_default` ademas del `default`: Supabase es compartida con las
+    # ramas que todavia no conocen estas columnas, y sin un DEFAULT en la propia
+    # base su `cargar_detective` fallaria por NOT NULL. Mismo criterio que `rol`
+    # en la 0013 y que `zona_actual`.
+    recompensa_item_id               = models.CharField(max_length=60, blank=True, default="", db_default="")
+    recompensa_nombre                = models.CharField(max_length=150, blank=True, default="", db_default="")
+    recompensa_accesorio_hdu06       = models.CharField(max_length=150, blank=True, default="", db_default="")
+    recompensa_umbral_aciertos       = models.FloatField(default=0.5, db_default=0.5)
+    recompensa_no_duplica_al_repetir = models.BooleanField(default=True, db_default=True)
+
     def __str__(self):
         return self.caso_id
 

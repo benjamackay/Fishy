@@ -55,6 +55,10 @@ class Command(BaseCommand):
 
         for c in casos:
             permiso = c.get("permiso") or {}
+            # HDU-11: el pin que entrega el caso. Un caso sin bloque `recompensa`
+            # queda con los campos vacios, que es justo lo que Unity lee como "no
+            # hay recompensa del backend" para caer a su catalogo local.
+            recompensa = c.get("recompensa") or {}
             defaults = {
                 "titulo":               c.get("titulo", ""),
                 "zona":                 c.get("zona", ""),
@@ -62,6 +66,11 @@ class Command(BaseCommand):
                 "permiso_player_text":  permiso.get("player_text", ""),
                 "permiso_npc_nombre":   permiso.get("npc_nombre", ""),
                 "permiso_npc_response": permiso.get("npc_response", ""),
+                "recompensa_item_id":               recompensa.get("item_id", ""),
+                "recompensa_nombre":                recompensa.get("nombre", ""),
+                "recompensa_accesorio_hdu06":       recompensa.get("accesorio_hdu06", ""),
+                "recompensa_umbral_aciertos":       recompensa.get("umbral_aciertos", 0.5),
+                "recompensa_no_duplica_al_repetir": recompensa.get("no_duplica_al_repetir", True),
             }
 
             caso_obj, created = CasoDetective.objects.update_or_create(

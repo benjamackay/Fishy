@@ -338,7 +338,7 @@
       }
     }
   ],
-  "nota_recompensas": "HDU-11 CA1/CA2: cada caso entrega un ítem único al superar el umbral de aciertos. OJO: hoy cargar_detective NO lee el bloque `recompensa` y CasoDetective no tiene campo para guardarlo, así que este contenido todavía no llega a la base de datos. Falta un campo en el modelo, su migración y una línea en el cargador.",
+  "nota_recompensas": "HDU-11 CA1/CA2: cada caso entrega un ítem único al superar el umbral de aciertos. Desde la migración 0015 este bloque SÍ llega a la base: CasoDetective tiene los cinco campos recompensa_*, cargar_detective los lee de acá y la API los expone. Un caso sin este bloque queda con los campos vacíos y Unity cae a su catálogo local.",
   "mensajes_sistema": {
     "repetir_caso_ya_superado": "Ya tienes esta pista en tu álbum, ¡pero bien hecho repasando el caso!",
     "sin_alcanzar_umbral": "Casi lo tienes. ¿Quieres revisar el caso otra vez o ver las pistas explicadas?",

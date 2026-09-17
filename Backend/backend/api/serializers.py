@@ -135,6 +135,8 @@ class CasoDetectiveSerializer(serializers.ModelSerializer):
         fields = [
             "id", "caso_id", "titulo", "zona", "etiquetas_ml",
             "permiso_player_text", "permiso_npc_nombre", "permiso_npc_response",
+            "recompensa_item_id", "recompensa_nombre", "recompensa_accesorio_hdu06",
+            "recompensa_umbral_aciertos", "recompensa_no_duplica_al_repetir",
             "mensajes",
         ]
 
