@@ -121,7 +121,7 @@ def cuenta_de_prueba(base):
                             {"usuario_jugador_id": jugador["id"]}, token)
     if codigo not in (200, 201):
         sys.exit(f"no pude crear la partida de prueba: {codigo} {partida}")
-    return token, partida["id"]
+    return token, jugador["id"], partida["id"]
 
 
 # ── Las pruebas ──────────────────────────────────────────────────────────────
@@ -243,6 +243,45 @@ def probar_chat_completo(base, token, partida_id):
               "y no deja nada a medias: no se creó ni el NPC")
 
 
+def probar_zona_en_lista_de_partidas(base, token, jugador_id, partida_id):
+    """La lista de partidas trae la zona de cada una, que es lo que pinta las
+    tarjetas de "Ingresar" sin pedir `/personaje/` una vez por partida."""
+    print("\n-- C.1 · zona_actual en la lista de partidas --")
+    ruta = f"{base}/jugadores/{jugador_id}/partidas/"
+
+    codigo, partidas = pedir(ruta, token=token)
+    comprobar(codigo == 200, f"GET {ruta} responde 200 (dio {codigo})")
+    if codigo != 200:
+        return
+
+    esta = next((p for p in partidas if p["id"] == partida_id), None)
+    comprobar(esta is not None, "la partida recién creada aparece en la lista")
+    if esta is None:
+        return
+
+    # Recien creada: POST /partidas/ no crea la fila de PersonajeJugador, asi que
+    # el campo tiene que venir igual y vacio. Este es el caso que rompia.
+    comprobar("zona_actual" in esta, "el campo `zona_actual` viene en la respuesta")
+    comprobar(esta.get("zona_actual") == "",
+              f'sin fila de personaje la zona viene "" (vino {esta.get("zona_actual")!r})')
+
+    # Ahora se guarda una zona por donde lo hace Unity y tiene que verse en la lista.
+    codigo, _ = pedir(f"{base}/partidas/{partida_id}/personaje/", "PATCH",
+                      {"zona_actual": "zona_2", "pos_x": 12.5, "pos_y": -3.25}, token)
+    comprobar(codigo == 200, f"PATCH /personaje/ guarda la zona (dio {codigo})")
+
+    _, partidas = pedir(ruta, token=token)
+    esta = next((p for p in partidas if p["id"] == partida_id), None)
+    comprobar(esta and esta.get("zona_actual") == "zona_2",
+              f'la lista ahora trae "zona_2" (vino {esta.get("zona_actual")!r})')
+
+    # Y tiene que coincidir con lo que responde el endpoint viejo, que es justo
+    # el que esto viene a ahorrarse.
+    _, personaje = pedir(f"{base}/partidas/{partida_id}/personaje/", token=token)
+    comprobar(personaje.get("zona_actual") == esta.get("zona_actual"),
+              "coincide con GET /partidas/<id>/personaje/")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--url", default=None,
@@ -252,7 +291,7 @@ def main():
     args = ap.parse_args()
 
     print("=" * 78)
-    print("  Endpoints nuevos · REQUISITOS_BD partes A.3, B.2 y B.3")
+    print("  Endpoints nuevos · REQUISITOS_BD partes A.3, B.2 y B.3 + zona en la lista")
     print("=" * 78)
 
     proc = None
@@ -266,10 +305,11 @@ def main():
         print(f"Servidor local en {base} (SQLite, no toca Supabase)")
 
     try:
-        token, partida_id = cuenta_de_prueba(base)
+        token, jugador_id, partida_id = cuenta_de_prueba(base)
         probar_catalogo(base)
         probar_objetivos(base, token, partida_id)
         probar_chat_completo(base, token, partida_id)
+        probar_zona_en_lista_de_partidas(base, token, jugador_id, partida_id)
     finally:
         if proc:
             proc.terminate()

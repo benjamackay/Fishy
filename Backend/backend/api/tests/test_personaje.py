@@ -14,7 +14,9 @@ Lo que se cuida acá:
     temática del banco que guarda `ZonaProgreso.zona` (`desconocidos`). Se llaman
     igual y no son lo mismo.
 """
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 
 from api.models import AdultoResponsable, NivelRiesgo, Partida, PersonajeJugador, UsuarioJugador
 
@@ -182,3 +184,75 @@ class PersonajeTests(BaseAPI):
         """Postgres corta en varchar(80). Como pasa por serializer, DRF valida el
         largo solo — a diferencia del inventario, que escribe con el ORM directo."""
         self.patch(self.ruta, {"escena": "X" * 100}, self.token, espera=400)
+
+
+class ZonaActualEnLaListaDePartidasTests(BaseAPI):
+    """`GET /api/jugadores/<id>/partidas/` trae la zona de cada partida.
+
+    Antes había que pedir `/partidas/<id>/personaje/` una por una para pintar la
+    lista de "Ingresar", que es justo lo que este campo evita.
+    """
+
+    def setUp(self):
+        self.adulto, self.token = self._adulto("lista-zona@test.local", "AdultoListaZona")
+        self.partida = self._partida(self.adulto)
+        self.jugador = self.partida.usuario_jugador
+        self.ruta = f"/api/jugadores/{self.jugador.pk}/partidas/"
+
+    def test_una_partida_sin_fila_de_personaje_trae_la_zona_vacia(self):
+        """`POST /partidas/` no crea PersonajeJugador, así que una partida recién
+        creada no tiene fila. El campo tiene que salir igual, y vacío — no null:
+        es lo mismo que responde `/personaje/` cuando la zona no se ha guardado."""
+        self.assertFalse(PersonajeJugador.objects.filter(partida=self.partida).exists())
+
+        datos = self.get(self.ruta, self.token)
+
+        self.assertEqual(datos[0]["zona_actual"], "")
+        # Leerla no debe crear la fila: de eso se encarga /personaje/.
+        self.assertFalse(PersonajeJugador.objects.filter(partida=self.partida).exists())
+
+    def test_la_zona_guardada_viaja_en_la_lista(self):
+        self.patch(
+            f"/api/partidas/{self.partida.pk}/personaje/", {"zona_actual": "zona_2"}, self.token
+        )
+        self.assertEqual(self.get(self.ruta, self.token)[0]["zona_actual"], "zona_2")
+
+    def test_cada_partida_trae_la_suya(self):
+        otra = Partida.objects.create(
+            usuario_jugador=self.jugador, nivel_riesgo=self.partida.nivel_riesgo
+        )
+        PersonajeJugador.objects.create(partida=self.partida, zona_actual="zona_1")
+        PersonajeJugador.objects.create(partida=otra, zona_actual="zona_3")
+
+        por_id = {p["id"]: p["zona_actual"] for p in self.get(self.ruta, self.token)}
+
+        self.assertEqual(por_id[self.partida.pk], "zona_1")
+        self.assertEqual(por_id[otra.pk], "zona_3")
+
+    def test_no_dispara_una_consulta_por_partida(self):
+        """Sin el select_related("personaje") de la vista, el campo costaría una
+        consulta por partida. Se compara 1 partida contra 4: el total no se mueve."""
+        with CaptureQueriesContext(connection) as una:
+            self.get(self.ruta, self.token)
+
+        for _ in range(3):
+            PersonajeJugador.objects.create(
+                partida=Partida.objects.create(
+                    usuario_jugador=self.jugador, nivel_riesgo=self.partida.nivel_riesgo
+                ),
+                zona_actual="zona_2",
+            )
+
+        with CaptureQueriesContext(connection) as cuatro:
+            self.assertEqual(len(self.get(self.ruta, self.token)), 4)
+
+        self.assertEqual(len(cuatro), len(una), "la lista de partidas tiene un N+1")
+
+    def test_el_patch_de_la_partida_sigue_trayendo_el_campo(self):
+        """`PartidaSerializer` lo comparten la lista, el POST y este PATCH, así que
+        el campo nuevo tiene que venir en los tres y con el mismo vacío, sin fila
+        de personaje. Con `source=` + `default=""` acá salía null."""
+        datos = self.patch(f"/api/partidas/{self.partida.pk}/", {"progreso": 5}, self.token)
+
+        self.assertIn("zona_actual", datos)
+        self.assertEqual(datos["zona_actual"], "")

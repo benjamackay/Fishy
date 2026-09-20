@@ -243,7 +243,7 @@ todavía no sabe pedir.
 | GET | `/api/auth/perfil/` | Datos de la cuenta autenticada |
 | GET/POST | `/api/jugadores/` | Perfiles de menores del adulto autenticado |
 | GET/PATCH/DELETE | `/api/jugadores/<id>/` | Detalle de un perfil de menor |
-| GET | `/api/jugadores/<id>/partidas/` | Partidas de un perfil (para retomar el avance) |
+| GET | `/api/jugadores/<id>/partidas/` | Partidas de un perfil (para retomar el avance). Cada una trae su `zona_actual` |
 | POST | `/api/partidas/` | Crear partida (requiere `usuario_jugador_id`) |
 | POST | `/api/chats/` | Iniciar chat |
 | GET | `/api/banco/preguntas/` | Banco de preguntas (filtros por query params) |

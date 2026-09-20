@@ -163,6 +163,10 @@ el nombre no se puede repetir dentro de la misma cuenta.
 Es lo que permite **retomar el avance**: cada menor conserva su propia partida
 entre sesiones, independiente de la de sus hermanos.
 
+Cada partida trae su `zona_actual`, así que la pantalla de "Ingresar" se pinta con
+**una sola petición**: no hace falta pedir `GET /partidas/{id}/personaje/` una vez
+por partida solo para saber dónde quedó cada una.
+
 ```
 elegir perfil ──▶ GET /jugadores/{id}/partidas/
                         │
@@ -228,6 +232,7 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
   "usuario_jugador": 1,
   "progreso": 45.5,
   "nivel_riesgo": 2,
+  "zona_actual": "zona_2",
   "fecha_inicio": "2025-01-01T12:00:00Z",
   "fecha_update": "2025-01-01T12:30:00Z"
 }
@@ -237,6 +242,11 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
 | `usuario_jugador` | int | id del perfil de menor dueño de la partida (antes era `usuario`) |
 | `progreso` | float | Porcentaje de avance (0–100) |
 | `nivel_riesgo` | int? | ID de nivel de riesgo (opcional) |
+| `zona_actual` | string | Región del mapa donde quedó Otto (`zona_2`), **solo lectura**. Viene `""` si la partida todavía no tiene posición guardada. Para escribirla se usa `PATCH /partidas/{id}/personaje/` |
+
+> `zona_actual` es la **región del mapa** (el `zoneId` de la `BlockedZone` de Unity),
+> y no la temática del banco que usa `ZonaProgreso.zona` (`desconocidos`,
+> `ciberacoso`). Se llaman igual y no son lo mismo.
 
 ### NpcDto — Personaje no jugador
 ```json

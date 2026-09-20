@@ -128,7 +128,9 @@ def partidas_jugador(request, jugador_id):
     if rechazo is not None:
         return rechazo
     jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
-    partidas = jugador.partidas.order_by("-fecha_update")
+    # select_related trae el personaje en el mismo JOIN: sin esto, el `zona_actual`
+    # del serializer dispara una consulta por partida.
+    partidas = jugador.partidas.select_related("personaje").order_by("-fecha_update")
     return Response(PartidaSerializer(partidas, many=True).data)
 
 

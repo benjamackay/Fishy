@@ -52,10 +52,39 @@ class NivelRiesgoSerializer(serializers.ModelSerializer):
 
 
 class PartidaSerializer(serializers.ModelSerializer):
+    """`zona_actual` viene de `PersonajeJugador`, el uno-a-uno de la partida, para
+    que la lista de partidas se pueda pintar sin pedir `/personaje/` una por una.
+
+    Una partida recien creada todavia no tiene fila de personaje: la crea
+    `GET/PATCH /partidas/<id>/personaje/` con get_or_create, no `POST /partidas/`.
+    Asi que el campo tiene que resolver ese caso, y aca devuelve la **cadena vacia**,
+    no null, porque es lo mismo que ya responde `PersonajeJugadorSerializer` cuando
+    la zona no se ha guardado -y lo que el propio modelo documenta: en `zona_actual`
+    el vacio significa "no se guardo". El cliente no deberia tener que distinguir dos
+    formas de decir lo mismo segun por que endpoint entro.
+
+    Es un `SerializerMethodField` y no un `CharField(source="personaje.zona_actual",
+    default="")` por eso mismo: el `source` no revienta, pero el `get_attribute` de
+    DRF atrapa el ObjectDoesNotExist del uno-a-uno inverso y devuelve None *antes* de
+    mirar el `default`, asi que ese `default=""` es letra muerta y la respuesta sale
+    con null igual. Verificado contra la version de DRF del venv.
+    """
+    zona_actual = serializers.SerializerMethodField()
+
     class Meta:
         model = Partida
-        fields = ["id", "usuario_jugador", "nivel_riesgo", "progreso", "fecha_inicio", "fecha_update"]
+        fields = [
+            "id", "usuario_jugador", "nivel_riesgo", "progreso",
+            "zona_actual", "fecha_inicio", "fecha_update",
+        ]
         read_only_fields = ["id", "usuario_jugador", "fecha_inicio", "fecha_update"]
+
+    def get_zona_actual(self, obj):
+        # getattr con default funciona porque el RelatedObjectDoesNotExist del
+        # uno-a-uno inverso hereda de AttributeError. Si la vista hizo
+        # select_related("personaje"), esto no dispara consulta.
+        personaje = getattr(obj, "personaje", None)
+        return personaje.zona_actual if personaje is not None else ""
 
 
 class NPCSerializer(serializers.ModelSerializer):
