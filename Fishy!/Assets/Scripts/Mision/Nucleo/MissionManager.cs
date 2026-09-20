@@ -83,6 +83,14 @@ namespace Fishy.Mision
         /// </summary>
         public DesafioRuntime Activa { get; private set; }
 
+        /// <summary>
+        /// Se juega otra partida: todo lo que alguien guardara en memoria sobre "las
+        /// misiones que sigo" es del perfil anterior. Estático porque quien escucha (el
+        /// rastreador de objetivos) vive en otro assembly y puede crearse antes o después
+        /// que este manager. Se dispara DESPUÉS de vaciar el estado de este manager.
+        /// </summary>
+        public static event Action OnPartidaCambiada;
+
         /// <summary>Hay algo que hacer ahora mismo. En false toca el mensaje de "sin
         /// nuevas misiones".</summary>
         public bool HayMisionActiva => Activa != null;
@@ -157,6 +165,7 @@ namespace Fishy.Mision
             contextoPersistencia = nuevoContexto;
             persistirLocalmente = true;
             RecalcularActiva();
+            OnPartidaCambiada?.Invoke();
             onPanelActualizado?.Invoke();
 
             Debug.Log($"[MissionManager] Progreso asociado a la partida {partidaId}.");
@@ -216,16 +225,6 @@ namespace Fishy.Mision
         }
 
         /// <summary>
-        /// Aplica el progreso que vino del backend: los ids que ya estaban completados
-        /// en esta partida, jugara donde jugara el niño/a.
-        ///
-        /// Se llama antes de que las fichas se registren (los objetos y NPCs de la
-        /// escena lo hacen al interactuar), así que además de corregir lo que ya está
-        /// en memoria se guarda la lista para que un desafío que se registre después
-        /// nazca completado. Es lo que PlayerPrefs no puede dar: si el niño empezó en
-        /// el PC de la feria y sigue en otro, PlayerPrefs viene vacío.
-        /// </summary>
-        /// <summary>
         /// Repuebla el panel con las misiones que esta partida ya conocía, sacando cada
         /// ficha del <see cref="CatalogoDesafios"/>.
         ///
@@ -269,6 +268,16 @@ namespace Fishy.Mision
                       (sinFicha > 0 ? $", {sinFicha} sin ficha." : "."));
         }
 
+        /// <summary>
+        /// Aplica el progreso que vino del backend: los ids que ya estaban completados
+        /// en esta partida, jugara donde jugara el niño/a.
+        ///
+        /// Se llama antes de que las fichas se registren (los objetos y NPCs de la
+        /// escena lo hacen al interactuar), así que además de corregir lo que ya está
+        /// en memoria se guarda la lista para que un desafío que se registre después
+        /// nazca completado. Es lo que PlayerPrefs no puede dar: si el niño empezó en
+        /// el PC de la feria y sigue en otro, PlayerPrefs viene vacío.
+        /// </summary>
         public void PrecargarCompletados(IEnumerable<string> idsCompletados)
         {
             if (idsCompletados == null) return;

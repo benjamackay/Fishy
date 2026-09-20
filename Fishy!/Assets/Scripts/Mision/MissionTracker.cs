@@ -38,6 +38,10 @@ public class MissionTracker : MonoBehaviour
     }
 
     private readonly List<Seguimiento> seguimientos = new List<Seguimiento>();
+
+    /// <summary>Sube cada vez que se reinicia el rastreador. Los listeners que quedaron
+    /// enganchados a un evento de un seguimiento viejo lo comparan y se callan.</summary>
+    private int _generacion;
     private bool suscritoAlInventario;
 
     /// <summary>Objetivos cuyo evento ya está enganchado, para no engancharlo dos veces
@@ -108,6 +112,21 @@ public class MissionTracker : MonoBehaviour
         // el inventario: el evento es estático, así que no hace falta que ZonaActual
         // exista todavía cuando el rastreador arranca.
         ZonaActual.OnZonaCambiada += AlCambiarDeZona;
+        MissionManager.OnPartidaCambiada += Reiniciar;
+    }
+
+    /// <summary>
+    /// Olvida lo que se estaba siguiendo. Es DontDestroyOnLoad, así que sin esto el
+    /// perfil siguiente en el mismo PC heredaría los objetivos cumplidos del anterior:
+    /// <see cref="Seguir"/> corta si la misión ya está en la lista, y con ella se
+    /// quedaba el "cumplido" de otro niño/a.
+    /// </summary>
+    public void Reiniciar()
+    {
+        _generacion++;
+        seguimientos.Clear();
+        _suscritos.Clear();
+        OnProgresoCambiado?.Invoke();
     }
 
     private void OnDestroy()
@@ -116,6 +135,7 @@ public class MissionTracker : MonoBehaviour
             InventoryManager.instance.OnInventoryChanged -= RevisarTodo;
 
         ZonaActual.OnZonaCambiada -= AlCambiarDeZona;
+        MissionManager.OnPartidaCambiada -= Reiniciar;
     }
 
     private void AlCambiarDeZona(string anterior, string nueva) => RevisarTodo();
@@ -247,9 +267,11 @@ public class MissionTracker : MonoBehaviour
             }
 
             ObjetivoMision capturado = objetivo;   // sin esto la lambda vería el último del bucle
+            int generacion = _generacion;
             DesafioData desafioDelObjetivo = seguimiento.desafio;
             evento.AddListener(() =>
             {
+                if (generacion != _generacion) return;   // de una partida anterior
                 if (capturado.cumplido) return;
                 capturado.cumplido = true;
                 if (verboseLogs)

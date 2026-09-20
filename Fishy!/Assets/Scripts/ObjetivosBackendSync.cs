@@ -30,19 +30,44 @@ namespace Fishy.Net
         private static readonly Dictionary<string, HashSet<int>> Cumplidos =
             new Dictionary<string, HashSet<int>>();
 
+        /// <summary>Tras un fallo se espera esto antes de reintentar: un servidor sin el
+        /// endpoint no debe recibir (ni loguear) una petición por segundo.</summary>
+        private const float EsperaTrasFallo = 20f;
+
+        /// <summary>De qué partida son los datos de <see cref="Cumplidos"/>. Sin esto, tras
+        /// cambiar de perfil se verían los objetivos del anterior hasta el siguiente tic.</summary>
+        private static int? _partidaDeLosDatos;
+
         private int? _partidaDescargada;
+        private float _noAntesDe;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void LimpiarEstadoEstatico()
+        {
+            Cumplidos.Clear();
+            _partidaDeLosDatos = null;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
         {
-            if (FindFirstObjectByType<ObjetivosBackendSync>() != null) return;
+            if (FindAnyObjectByType<ObjetivosBackendSync>() != null) return;
             DontDestroyOnLoad(new GameObject("ObjetivosBackendSync").AddComponent<ObjetivosBackendSync>());
         }
 
         /// <summary>¿Este objetivo ya figura cumplido? Lo consulta el rastreador al empezar a seguir una misión.</summary>
         public static bool YaCumplido(string misionId, int orden)
             => !string.IsNullOrEmpty(misionId) &&
+               _partidaDeLosDatos != null && _partidaDeLosDatos == ApiManager.Instance?.PartidaId &&
                Cumplidos.TryGetValue(misionId, out var ordenes) && ordenes.Contains(orden);
+
+        /// <summary>Deja los datos en memoria como de esta partida, descartando los de otra.</summary>
+        private static void AtarA(int partida)
+        {
+            if (_partidaDeLosDatos == partida) return;
+            Cumplidos.Clear();
+            _partidaDeLosDatos = partida;
+        }
 
         private void OnEnable()  => MissionTracker.OnObjetivoCumplido += AlCumplirObjetivo;
         private void OnDisable() => MissionTracker.OnObjetivoCumplido -= AlCumplirObjetivo;
@@ -56,19 +81,21 @@ namespace Fishy.Net
             {
                 var api = ApiManager.Instance;
                 if (api != null && api.PartidaId != null && api.IsLoggedIn && !api.IsLocalMode &&
-                    _partidaDescargada != api.PartidaId)
+                    _partidaDescargada != api.PartidaId && Time.realtimeSinceStartup >= _noAntesDe)
                 {
                     int partida = api.PartidaId.Value;
                     _partidaDescargada = partida;
-                    // Otra partida, otro avance.
-                    Cumplidos.Clear();
+                    AtarA(partida);
                     api.ObtenerProgresoObjetivos(partida,
                         onSuccess: lista => Aplicar(partida, lista),
                         onError: e =>
                         {
                             Debug.LogWarning($"[ObjetivosBackendSync] No se pudo bajar el avance por objetivo: {e}");
-                            // Se reintenta en el siguiente tic.
-                            if (_partidaDescargada == partida) _partidaDescargada = null;
+                            if (_partidaDescargada == partida)
+                            {
+                                _partidaDescargada = null;
+                                _noAntesDe = Time.realtimeSinceStartup + EsperaTrasFallo;
+                            }
                         });
                 }
                 yield return espera;
@@ -78,6 +105,7 @@ namespace Fishy.Net
         private void Aplicar(int partida, List<ObjetivoProgresoDto> lista)
         {
             if (ApiManager.Instance == null || ApiManager.Instance.PartidaId != partida || lista == null) return;
+            AtarA(partida);
 
             foreach (var o in lista)
             {
@@ -105,6 +133,7 @@ namespace Fishy.Net
 
             string misionId = desafio.desafioId;
             int orden = objetivo.ordenCatalogo;
+            AtarA(api.PartidaId.Value);
 
             // Camino de ida: si ya figura cumplido no hay nada que mandar.
             if (!Agregar(misionId, orden)) return;

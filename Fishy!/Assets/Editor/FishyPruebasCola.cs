@@ -64,6 +64,7 @@ namespace Fishy.EditorTools
             ProbarZonaFusionaPorOr(log);
             ProbarProgresoFusionaPorMaximo(log);
             ProbarReencolarConservaLaPosicion(log);
+            ProbarFalloViejoNoPisaAlNuevo(log);
             ProbarOlvidar(log);
 
             // ── El vaciado ──
@@ -167,6 +168,44 @@ namespace Fishy.EditorTools
             Comprobar(log, "Reencolar una clave no la adelanta en la fila",
                 claves.Count == 2 && claves[0] == "personaje" && claves[1] == "objeto:CARACOL",
                 string.Join(" → ", claves));
+        }
+
+        private static void ProbarFalloViejoNoPisaAlNuevo(StringBuilder log)
+        {
+            // Un envío que falla vuelve a la cola. Si mientras tanto entró uno más nuevo con
+            // la misma clave, el viejo no puede pisarlo: el "completada" nuevo se perdería.
+            Vaciar();
+            var almacen = ColaDeCambios.AlmacenParaPruebas;
+
+            ColaDeCambios.EncolarAppend("mision:X", Bien(), "disponible");
+            var viejo = almacen.Tomar("mision:X");
+            ColaDeCambios.EncolarAppend("mision:X", Bien(), "completada");
+            almacen.Reencolar(viejo);
+
+            Comprobar(log, "Un fallo viejo no pisa al cambio más nuevo de su clave",
+                ColaDeCambios.Pendientes == 1 && Primero().Descripcion == "completada",
+                $"{ColaDeCambios.Pendientes} pendientes, descripción = {(ColaDeCambios.Pendientes > 0 ? Primero().Descripcion : "-")}");
+
+            // Con fusión (zona por OR) se combinan: un "desbloqueada" que falló no puede
+            // borrar un "completada" que entró después.
+            Vaciar();
+            ColaDeCambios.EncolarZona("desconocidos", false);
+            var zonaVieja = almacen.Tomar("zona:desconocidos");
+            ColaDeCambios.EncolarZona("desconocidos", true);
+            almacen.Reencolar(zonaVieja);
+
+            Comprobar(log, "Una zona 'desbloqueada' que falló no borra la 'completada' posterior",
+                ColaDeCambios.Pendientes == 1 && Primero().Valor is bool b && b,
+                $"valor = {(ColaDeCambios.Pendientes > 0 ? Primero().Valor : null)}");
+
+            // Tomar saca lo que hay AHORA, no una copia vieja.
+            Vaciar();
+            ColaDeCambios.EncolarAppend("detective:C", Bien(), "v1");
+            ColaDeCambios.EncolarAppend("detective:C", Bien(), "v2");
+            var tomado = almacen.Tomar("detective:C");
+            Comprobar(log, "Tomar devuelve la versión más reciente y deja la cola vacía",
+                tomado != null && tomado.Descripcion == "v2" && ColaDeCambios.Pendientes == 0,
+                $"tomado = {tomado?.Descripcion}, {ColaDeCambios.Pendientes} pendientes");
         }
 
         private static void ProbarOlvidar(StringBuilder log)

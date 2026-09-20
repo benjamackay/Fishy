@@ -56,6 +56,10 @@ namespace Fishy.Net
 
         private bool avisoDeSinPartidaDado;
 
+        /// <summary>Tras fallar la bajada se espera esto antes de reintentar.</summary>
+        private const float EsperaTrasFallo = 5f;
+        private float _noAntesDe;
+
         /// <summary>
         /// El progreso de misiones que venía del servidor ya está aplicado al juego.
         ///
@@ -170,7 +174,8 @@ namespace Fishy.Net
                     // cada tic hasta lograrlo: si el juego arrancó en modo local y la
                     // conexión vuelve (ReintentarConexion), aquí es donde se recupera.
                     bool hayServidor = !api.IsLocalMode && api.IsLoggedIn;
-                    if (hayServidor && partidaDescargada != partidaId)
+                    if (hayServidor && partidaDescargada != partidaId &&
+                        Time.realtimeSinceStartup >= _noAntesDe)
                     {
                         partidaDescargada = partidaId;
                         // Otra partida, otro progreso: la senal vuelve a cero o quien
@@ -215,11 +220,31 @@ namespace Fishy.Net
 
             api.ObtenerProgresoMisiones(
                 onSuccess: AplicarMisiones,
-                onError: e => Debug.LogWarning($"[MisionBackendSync] No se pudo bajar el progreso de misiones: {e}"));
+                onError: e =>
+                {
+                    Debug.LogWarning($"[MisionBackendSync] No se pudo bajar el progreso de misiones: {e}");
+                    ReintentarBajada();
+                });
 
             api.ObtenerProgresoZonas(
                 onSuccess: AplicarZonas,
-                onError: e => Debug.LogWarning($"[MisionBackendSync] No se pudo bajar el progreso de zonas: {e}"));
+                onError: e =>
+                {
+                    Debug.LogWarning($"[MisionBackendSync] No se pudo bajar el progreso de zonas: {e}");
+                    ReintentarBajada();
+                });
+        }
+
+        /// <summary>
+        /// Deja la partida como "sin bajar" para que el bucle lo intente de nuevo. Su
+        /// comentario prometía reintentar, pero la partida se marcaba como bajada antes de
+        /// saber si funcionó: un fallo de red al entrar dejaba misiones y zonas sin
+        /// restaurar toda la sesión.
+        /// </summary>
+        private void ReintentarBajada()
+        {
+            partidaDescargada = null;
+            _noAntesDe = Time.realtimeSinceStartup + EsperaTrasFallo;
         }
 
         private void AplicarMisiones(List<MisionProgresoDto> progreso)
