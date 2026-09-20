@@ -1,188 +1,143 @@
-# Requisitos de datos para Óscar — Fishy!
+# Requisitos de datos — Fishy!
 
-Consolida en un solo documento lo que antes vivía repartido en
-`REQUISITOS_BD_MISIONES.md`, sus respuestas (`RespuestasRequisitosBD_Misiones.txt`,
-Óscar, 2026-09-11) y `Backend/PENDIENTE_HDU11_RECOMPENSAS_DETECTIVE.md`. Esos tres
-archivos quedan retirados; este es el único que hay que mantener al día de ahora
-en adelante.
+Estado al **2026-09-20**. Este documento nació como la lista de pedidos para Óscar
+(guardado, misiones, recompensas). Óscar ya los implementó en `dev` (commits
+`cf3f435`, `f016f27`, `39e24a4`) y Unity ya los consume, así que ahora es el
+**registro de lo que se construyó** más lo poco que sigue abierto.
 
-Tres partes, independientes entre sí salvo por el contrato común de la parte A:
+Reemplaza a `REQUISITOS_BD_MISIONES.md`, `RespuestasRequisitosBD_Misiones.txt`
+(Óscar, 2026-09-11) y `Backend/PENDIENTE_HDU11_RECOMPENSAS_DETECTIVE.md`.
 
-- **A. Guardado** — el contrato que ya cumplen todos los endpoints de progreso, y
-  lo único pendiente ahí (un endpoint de chat atómico).
-- **B. Misiones** — catálogo, avance por objetivo, y las decisiones que ya tomamos
-  el 2026-09-11.
-- **C. Recompensas del Modo Detective (HDU-11)** — el contenido ya existe, falta
-  exponerlo.
+## Resumen
+
+| Pedido | Backend | Unity |
+|---|---|---|
+| A.3 Conversación completa atómica | Hecho: `POST /partidas/{id}/chats/completo/` | Hecho: `ChatBackendLogger.Subir` lo usa; si el servidor no lo tiene (404) cae a la cadena antigua |
+| B.1/B.2 Catálogo de misiones | Hecho: `GET /misiones/` y `/misiones/{id}/`, tablas `Mision` + `ObjetivoMision`, migración 0016 | Hecho: `MisionCatalogoSync` lo baja al arrancar, con `misiones.json` como respaldo |
+| B.3 Avance por objetivo | Hecho: `GET/POST /partidas/{id}/objetivos/`, tabla `ObjetivoProgreso` | Hecho: `ObjetivosBackendSync` (ver B.3) |
+| B.5 Recargar el banco sin borrar el álbum | Hecho: `--limpiar` ya no toca misiones ni álbum; `--borrar-misiones` es explícito | — |
+| C. Recompensas Detective (HDU-11) | Hecho: 5 campos `recompensa_*` en `CasoDetective`, migración 0015 | Sin cambios: ya prefería el dato del backend sobre el catálogo local |
+
+Migraciones nuevas en `dev`: `0013_adulto_rol`, `0014_grupos_invitaciones`
+(portal web, no afectan al juego), `0015_recompensa_caso_detective`,
+`0016_catalogo_misiones_y_objetivos`. Todas con `db_default`, porque la base de
+Supabase es compartida con ramas que todavía no conocen las columnas nuevas.
+
+## Lo que sigue abierto
+
+1. **Confirmar que la base compartida tiene aplicadas la 0015 y la 0016** y que se
+   corrieron `cargar_banco` y `cargar_detective` después. Las migraciones existen
+   en el repo, pero que estén aplicadas en Supabase no se puede ver desde el código.
+   Sin la 0016, `GET /misiones/` falla y Unity cae al `misiones.json` local; sin la
+   0015, los casos Detective siguen usando el catálogo local de recompensas.
+2. **`cargar_banco` lee `Fishy!/Assets/Resources/misiones.json`** por defecto
+   (`--archivo-misiones` para otra ruta, `--sin-misiones` para omitirlo). Un servidor
+   desplegado sin la carpeta de Unity falla con `CommandError`, a propósito, y hay
+   que pasar una de las dos opciones.
+3. **Ninguna misión del catálogo usa aún `desbloquea_mision` ni
+   `recompensa_item_id`.** Los campos existen y viajan; falta decidir contenido.
+4. **`orden` sigue siendo una suposición** del archivo (progresión de zonas), no el
+   orden narrativo confirmado.
+5. **Ids inestables:** `MISION_NPC_03`, `MISION_NPC_04` y `MISION_PANTANO_CRIATURAS`
+   pueden cambiar. Por eso `desbloquea_mision` y `ObjetivoProgreso.mision_id` son
+   texto y no FK: reemplazar una misión no se lleva el progreso de nadie.
+6. **HDU-12 completa** (álbum de evidencias agrupado por caso) sigue fuera de
+   alcance; lo que hay es el álbum mínimo como ítem de mochila.
 
 ---
 
-## A. Guardado — el contrato que asumen B y C
+## A. Guardado — el contrato
 
-El juego no sube nada en el momento en que ocurre: acumula cambios en una cola en
-memoria (`ColaDeCambios`) y los manda todos juntos en dos momentos — al cambiar de
-zona y al cerrar el juego. Ver `Fishy!/documentacion/README_GUARDADO.md` para el
-detalle completo; acá solo lo que le toca a la base.
+El juego acumula cambios en una cola en memoria (`ColaDeCambios`) y los manda al
+cambiar de zona y al cerrar. Detalle en `Fishy!/documentacion/README_GUARDADO.md`.
+Lo que le toca a la base:
 
-### A.1 Todo lo que marca progreso es un camino de ida
-
-Completar una misión, desbloquear una zona y (con B.3) cumplir un objetivo son los
-tres casos de hoy, y los tres funcionan igual: una vez que el estado pasa a
-"completado/desbloqueado/cumplido", no vuelve atrás. Cualquier endpoint nuevo de
-progreso tiene que respetar esto — no por elegancia, sino porque los avisos del
-juego no llegan en orden garantizado (una petición puede reintentarse y llegar
-después de una más nueva), y un registro que retrocede es un dato falso en el
-reporte que ve el adulto responsable.
-
-### A.2 Todo lo que marca progreso tiene que tolerar recibir el mismo valor dos veces
-
-La cola reintenta hasta 3 veces un cambio que falló, y en un cierre de sesión
-puede quedar una petición **sin respuesta** — salió, venció el plazo, nadie sabe
-si llegó al servidor — que **no se reencola** (para no arriesgarse a duplicar).
-En la práctica esto significa que un endpoint como "marcar misión completada" o
-"marcar objetivo cumplido" tiene que ser un no-op seguro la segunda vez que
-recibe el mismo `completado: true`, no un error ni una fila duplicada. Ya es así
-en `MisionProgreso`/`ZonaProgreso` (con `UniqueConstraint` por partida); el mismo
-criterio aplica a todo endpoint nuevo de B.3.
-
-### A.3 Pendiente concreto: un endpoint de conversación completa
-
-Hoy subir una conversación de chat es una cadena obligatoriamente en serie:
-`RegistrarNPC` → `IniciarChat` → N × `RegistrarMensaje` → `FinalizarChat`. Son
-~9 peticiones × ~700 ms ≈ 6 s por conversación, y hay 6 lanzadores de chat en
-`MainScene` (4 `PhoneChatLauncher` + 2 `ChatModuleLauncher`). Con un POST único
-serían ~0,7 s, y además atómico — o entra la conversación entera o no entra nada,
-que es justo lo que se quiere (hoy, si el juego se cierra a media cadena, queda
-una conversación a medias en la base).
+- **A.1 Camino de ida.** Completar una misión, desbloquear una zona y cumplir un
+  objetivo no retroceden. Los avisos pueden llegar desordenados o repetidos; un
+  registro que retrocede es un dato falso en el reporte del adulto.
+- **A.2 Idempotencia.** La cola reintenta hasta 3 veces, y en un cierre puede quedar
+  una petición sin respuesta que no se reencola. Marcar lo mismo dos veces tiene que
+  ser un no-op, no un error ni una fila duplicada (`UniqueConstraint` por partida).
+- **A.3 Conversación completa.** Antes: `RegistrarNPC` → `IniciarChat` → N ×
+  `RegistrarMensaje` → `FinalizarChat`, ~9 peticiones en serie (~6 s) y con riesgo
+  de dejar una conversación partida. Ahora un solo POST atómico:
 
 ```
 POST /api/partidas/{partida_id}/chats/completo/
 {
   "npc":  { "nombre": "Alex", "area": "zona_2", "tipo": "enemigo", "confianza": 0 },
   "chat": { "categoria_riesgo": "desconocidos" },
-  "mensajes": [
-    { "tipo": "start",   "respuesta": "...", "pregunta_banco_id": "..." },
-    { "tipo": "request", "respuesta": "...", "pregunta_banco_id": "...",
-      "posibles_respuestas": [ ... ] },
-    { "tipo": "chain",   "respuesta": "...", "calidad_respuesta": "segura",
-      "opcion_banco_id": "..." }
-  ],
-  "finalizar": true
+  "mensajes": [ { "tipo": "start|request|chain", "respuesta": "...",
+                  "calidad_respuesta": "...", "pregunta_banco_id": "...",
+                  "opcion_banco_id": "...", "posibles_respuestas": [ ... ] } ],
+  "finalizar": true,
+  "respuesta_final": "..."
 }
 ```
 
-Crea `api_npc` + `api_chat` + los `api_mensaje` + `api_posiblerespuesta` en un
-`transaction.atomic` y devuelve los ids. Puede reusar los serializers que ya
-existen; el cálculo de riesgo por zona no cambia porque las filas quedan igual.
-Del lado de Unity el cambio es un método (`ChatBackendLogger.Subir()`); lo que se
-graba y cuándo se encola no se toca. No bloquea nada — es una mejora, no un
-requisito para que el guardado funcione.
+Acepta `npc.npc_id` para reusar un NPC ya existente en la partida. Las filas que
+crea son las mismas que la cadena larga, así que el riesgo por zona no cambia.
+Unity no deja `NpcId`/`ChatId` puestos tras usarlo: la conversación ya llega cerrada.
 
 ---
 
 ## B. Misiones
 
-### B.1 De dónde sale el contenido
+### B.1 Origen del contenido
 
-**Confirmado (Óscar, 2026-09-11):** `cargar_banco` lee
-`Fishy!/Assets/Resources/misiones.json` para llenar la tabla `Mision` — es la
-única copia del contenido, porque el banco de preguntas solo trae `mision_id` +
-`nombre` de 9 misiones; el `orden`, la `zona_objetivo`, los objetivos y 3
-misiones más (`MISION_NPC_03`, `MISION_NPC_04`, `MISION_PANTANO_CRIATURAS`)
-existen solo en ese archivo.
+`cargar_banco` llena `Mision` desde el banco de preguntas (id y nombre de 9
+misiones) y luego le agrega encima lo que solo existe en `misiones.json`: `orden`,
+`zona_objetivo`, `descripcion`, objetivos, `desbloquea_mision`,
+`recompensa_item_id`/`recompensa_cantidad` y 3 misiones más. Una misión que está en
+el archivo y no en el banco se crea igual. `MISION_NPC_01` y `MISION_NPC_02` se
+guardan aunque hoy no se usen.
 
-- **Formato**: tomar la última versión de `dev`. Es poco probable que cambie
-  mucho más a partir de ahí.
-- **Estabilidad de ids**: los de `MISION_NPC_03`, `MISION_NPC_04` y
-  `MISION_PANTANO_CRIATURAS` **no son estables**. Hace falta una forma fácil de
-  borrar/reemplazar una misión cuando el contenido cambie — no asumir que un
-  `mision_id` es para siempre al diseñar las FKs o la recarga.
-- **`MISION_NPC_01`/`MISION_NPC_02`**: se guardan en la base igual, aunque hoy no
-  se usen. "No hace falta arreglar lo que no está roto, aún si no se ocupa."
-- **`orden`**: sigue siendo una suposición del archivo (progresión de zonas), NO
-  el orden narrativo confirmado. No tratarlo como definitivo.
-- **Catálogo actual**: 12 misiones (ver anexo). Dos campos opcionales nuevos,
-  agregados esta semana solo del lado de Unity y sin persistir en ningún lado
-  todavía — **ninguna misión los usa hoy, pero conviene que la tabla los
-  contemple si el catálogo termina viviendo en la base**:
-  - `desbloquea_mision` — id de la misión que se entrega sola al completar ésta.
-  - `recompensa_item_id` + `recompensa_cantidad` — ítem que se entrega solo al
-    completar ésta.
-  Mismo criterio que `zona_objetivo`/`orden`: opcionales, vacío = no aplica. Ver
-  `Fishy!/documentacion/README_CATALOGO_MISIONES.md`, sección "Conexión
-  automática".
+Los objetivos se resincronizan enteros en cada carga (son contenido); el avance del
+niño no cuelga de ellos, ver B.3.
 
-### B.2 La respuesta de `GET /misiones/`
+### B.2 Contrato de `GET /misiones/`
 
-- **Formato de la raíz**: un arreglo (`Send<List<MisionRegistro>>` en
-  `ApiManager.cs`), no el objeto `{version, misiones}` del archivo.
-- **⚠️ Punto a resolver, no decidido todavía**: Óscar prefiere que cada request
-  traiga **una sola misión por id**, no el listado completo. Eso solo no
-  alcanza: Unity necesita poder descubrir **qué misiones existen** antes de
-  poder pedirlas una por una, y hoy la única fuente de esa lista de ids es el
-  propio archivo local. Lo más probable es que hagan falta **los dos**: un
-  `GET /misiones/` que liste (puede ser liviano — ids y poco más) y un
-  `GET /misiones/{id}/` para el detalle completo. Falta confirmar con Óscar cuál
-  cubre cada necesidad antes de que alguien lo implemente.
-- **Sesión y partida**: para leer el catálogo, da igual el inicio de sesión y la
-  partida (se puede pedir "en frío"). Para guardar progreso (B.3), sí hace falta
-  la partida asociada.
-- **Título**: seguir lo que diga el archivo — acepta `titulo` o `nombre`, los dos.
-- **Misión sin objetivos**: mandar `objetivos: []` explícito, no omitir el campo.
-- **Campos de un objetivo que no aplican a su tipo**: mandarlos vacíos (`""` / `0`),
-  no omitirlos.
+- Raíz: **arreglo**, no `{version, misiones}` (Unity lo lee como `List<MisionRegistro>`).
+- Sin sesión ni partida: es contenido, se puede pedir "en frío". Filtro `?zona=`.
+- `GET /misiones/{id}/` devuelve una sola, con sus objetivos.
+- `titulo` y `nombre` viajan los dos (alias).
+- Misión sin objetivos: `objetivos: []`. Campos de un objetivo que no aplican a su
+  tipo: vacíos (`""` / `0`), nunca ausentes.
 
-### B.3 Avance por objetivo (nuevo — hoy no existe)
+### B.3 Avance por objetivo
 
-Hoy el avance **dentro** de una misión no se guarda en ningún lado; ver el
-detalle de qué se pierde y por qué en `documentacion/README_HDU-16.md` y
-`README_CATALOGO_MISIONES.md`.
+```
+GET / POST /api/partidas/{id}/objetivos/
+{ "mision_id": "...", "orden": 1, "cumplido": true }
+```
 
-- **Quién lo conecta**: Óscar construye los endpoints; el equipo de Unity conecta
-  `MissionTracker`/`ObjetivoMision` del lado del juego.
-- **Identificador**: `(mision_id, orden)`. Se asume que el `orden` de un objetivo
-  ya publicado es estable (no cambia al editar la misión).
-- **Endpoint acordado**:
-  ```
-  GET / POST /partidas/{id}/objetivos/
-  { "mision_id": "...", "orden": 1, "cumplido": true }
-  ```
-  Mismo contrato que A.1/A.2: camino de ida, no-op seguro ante el mismo valor
-  repetido.
-- **"Recoger objeto"**: NO guardar la cantidad — se recalcula del inventario, que
-  ya persiste aparte.
-- **"Llegar a zona"**: al restaurar la partida, dar el objetivo por cumplido
-  aunque Otto ya no esté físicamente en esa zona.
+Clave `(partida, mision_id, orden)`, sin FK a `ObjetivoMision`. Un objetivo que ya
+no está en el catálogo se guarda igual (y se avisa por log).
 
-### B.4 El quinto tipo de objetivo
+Cómo lo usa Unity (`ObjetivosBackendSync`):
 
-`completar_caso_detective` (`caso_id`) no estaba en la propuesta original pero sí
-en `misiones.json` y en `README_CATALOGO_MISIONES.md`. Se incluye como quinto
-tipo, siguiendo lo que ya trae el archivo. El orden del enum `TipoObjetivo` del
-lado de Unity es un problema de Unity, no de la base — y, en palabras de Óscar,
-"idealmente no deberíamos cablear nada de objetivos en el Inspector, las
-misiones se deberían recibir de la BD": el cableado a mano en la escena es el
-respaldo, no el objetivo final.
+- **Se sincronizan** `hablar_npc`, `chatear_telefono`, `llegar_zona` y
+  `completar_caso_detective`, solo los que vienen del catálogo (`orden` > 0).
+- **No se sincroniza `recoger_objeto`:** se recalcula de la mochila, que ya se
+  guarda aparte. Guardarlo sería una segunda fuente de verdad.
+- Al entrar a la partida baja el avance y marca esos objetivos como cumplidos en
+  `MissionTracker`, también si la misión se entrega después de bajarlo. Un objetivo
+  `llegar_zona` guardado se da por cumplido aunque Otto ya no esté en esa zona.
+
+### B.4 Cinco tipos de objetivo
+
+`recoger_objeto`, `hablar_npc`, `chatear_telefono`, `llegar_zona`,
+`completar_caso_detective`. El tipo viaja en texto porque el enum de Unity se puede
+reordenar. `cargar_banco` falla si el archivo trae un tipo desconocido.
 
 ### B.5 Recargar el banco
 
-`cargar_banco` hace hoy `Mision.objects.all().delete()`
-(`cargar_banco.py:135`), y eso borra en cascada `RecompensaAlbum` y con ello el
-`RecompensaObtenida` de los niños (`models.py:596` y `641`). **Cambiar a un
-update en vez de un delete-all.** Confirmado que no hay nada que dependa del
-borrado completo; el criterio para lo que quede huérfano (progreso de una
-misión que el catálogo nuevo ya no trae) es **conservarlo, no borrarlo** — los
-errores de incompatibilidad que eso produzca se arreglan a mano, caso a caso.
+`--limpiar` borra preguntas y diálogos, pero **ya no borra misiones ni álbum**
+(borrar `Mision` arrastra `RecompensaAlbum` y con ella el álbum que los niños ya
+ganaron). `--borrar-misiones` lo hace a propósito. Lo que el catálogo nuevo ya no
+traiga se conserva.
 
-### B.6 Migración
-
-Se agrega como una migración nueva sobre la 0012 (`0012_personaje_zona_actual.py`
-es la última hoy). Campos opcionales, así que builds viejos del juego no se
-rompen. Sin migraciones en conflicto conocidas del lado de Unity/equipo de
-misiones. Si algo lee `api_mision` directamente y se rompe con columnas nuevas,
-es responsabilidad de quien la agregue arreglarlo.
-
-### Anexo — las 12 misiones del catálogo hoy
+### Anexo — las 12 misiones del catálogo
 
 | zona | mision_id | orden | objetivos | zona_objetivo |
 |---|---|---|---|---|
@@ -199,134 +154,24 @@ es responsabilidad de quien la agregue arreglarlo.
 | reto_viral | `MISION_SEC_TABLA_PINGUINO` | 80 | 0 | zona_3 |
 | reto_viral | `MISION_SEC_SILBATO_LOBOMARINO` | 90 | 0 | zona_3 |
 
-Ninguna trae todavía `desbloquea_mision` ni `recompensa_item_id` (B.1). Sacado
-de `Fishy!/Assets/Resources/misiones.json`, 2026-09-16 — puede haber cambiado
-para cuando esto se implemente; no lo tomes como definitivo, lee el archivo.
+Sacado de `Fishy!/Assets/Resources/misiones.json` (verificado contra `GET /misiones/`
+con la base cargada, 2026-09-20). Ante la duda, lee el archivo.
 
 ---
 
 ## C. Recompensas del Modo Detective (HDU-11)
 
-**Alcance:** exponer en la API el bloque `recompensa` que
-`banco_preguntas/detective_cases.json` ya trae por caso. **No bloquea el
-juego** — Unity ya funciona sin esto, con un respaldo local — pero **si se
-implementa, Unity ya está listo para usarlo sin ningún cambio adicional**.
+`CasoDetective` tiene cinco campos planos (migración 0015): `recompensa_item_id`,
+`recompensa_nombre`, `recompensa_accesorio_hdu06`, `recompensa_umbral_aciertos`
+(0.5 por defecto) y `recompensa_no_duplica_al_repetir` (true). `cargar_detective`
+los lee del bloque `recompensa` de `banco_preguntas/detective_cases.json` y
+`CasoDetectiveSerializer` los expone.
 
-### C.1 Contexto
+En Unity, `DetectiveCaseManager.OtorgarRecompensaSiCorresponde` usa primero la
+recompensa que trae el caso (`DetectiveCase.TieneRecompensa`) y solo si viene vacía
+cae a `CatalogoRecompensasDetective` (`Resources/detective_recompensas.json`). Un
+caso sin bloque `recompensa` queda con los campos vacíos y usa el catálogo local.
 
-HDU-11 se implementó esta sesión **solo en Unity**: al resolver un caso
-Detective con acierto ≥ umbral, el juego agrega un ítem "pin" al inventario
-(`InventoryManager`), sin duplicar si ya lo tiene, y muestra un popup temporal.
-También adelantó una versión mínima de HDU-12 (álbum de evidencias): un ítem
-"Álbum de Evidencias" que aparece junto con el primer pin y, al tocarlo, lista
-los pines obtenidos.
-
-Unity resuelve qué pin corresponde a cada caso con un **fallback en dos
-pasos**: primero mira si el caso que acaba de cargar ya trae su propia
-recompensa (eso vendría del backend, si se implementa lo de abajo); si no trae
-nada ahí — la situación de hoy — cae a un catálogo local
-(`Fishy!/Assets/Scripts/Detective/CatalogoRecompensasDetective.cs`) que lee
-`Fishy!/Assets/Resources/detective_recompensas.json`, una copia en formato
-Unity del bloque `recompensa` que `detective_cases.json` ya trae por caso:
-
-```json
-"DC_CASO_01": {
-  "recompensa": {
-    "item_id": "PIN_VIGIA_SILENCIOSO",
-    "nombre": "Pin del Vigía Silencioso",
-    "accesorio_hdu06": "Gorro de detective con visera",
-    "umbral_aciertos": 0.5,
-    "no_duplica_al_repetir": true
-  }
-}
-```
-
-**El backend real (`cargar_detective.py`, modelo `CasoDetective`, su
-serializer) sigue sin leer ni exponer `recompensa` hoy.**
-
-### C.2 Qué falta (si se decide hacerlo)
-
-**1. Modelo — `backend/api/models.py`, clase `CasoDetective`**
-
-Agregar 5 campos planos, mismo criterio que `permiso_player_text` /
-`permiso_npc_nombre` / `permiso_npc_response` que ya tiene el modelo (un solo
-grupo de datos por caso, no una tabla aparte):
-
-```python
-recompensa_item_id               = models.CharField(max_length=60, blank=True, default="")
-recompensa_nombre                = models.CharField(max_length=150, blank=True, default="")
-recompensa_accesorio_hdu06       = models.CharField(max_length=150, blank=True, default="")
-recompensa_umbral_aciertos       = models.FloatField(default=0.5)
-recompensa_no_duplica_al_repetir = models.BooleanField(default=True)
-```
-
-Independiente de `RecompensaAlbum` (la tabla que ya existe para las
-recompensas de Misión) — no hace falta tocar esa tabla ni su
-`CheckConstraint`. El pin de HDU-11 va directo al inventario del jugador, que
-ya es genérico por `item_id` de texto.
-
-**2. Migración** — puede ir junto con la de B.6, o aparte.
-
-**3. `cargar_detective.py`** — leer el bloque `recompensa` igual que ya se lee
-`permiso`, y agregarlo a `defaults`:
-
-```python
-permiso = c.get("permiso") or {}
-recompensa = c.get("recompensa") or {}
-defaults = {
-    "titulo":               c.get("titulo", ""),
-    "zona":                 c.get("zona", ""),
-    "etiquetas_ml":         c.get("etiquetas_ml", []),
-    "permiso_player_text":  permiso.get("player_text", ""),
-    "permiso_npc_nombre":   permiso.get("npc_nombre", ""),
-    "permiso_npc_response": permiso.get("npc_response", ""),
-    "recompensa_item_id":               recompensa.get("item_id", ""),
-    "recompensa_nombre":                recompensa.get("nombre", ""),
-    "recompensa_accesorio_hdu06":       recompensa.get("accesorio_hdu06", ""),
-    "recompensa_umbral_aciertos":       recompensa.get("umbral_aciertos", 0.5),
-    "recompensa_no_duplica_al_repetir": recompensa.get("no_duplica_al_repetir", True),
-}
-```
-
-**4. `CasoDetectiveSerializer`** — agregar los 5 campos a `fields`:
-
-```python
-fields = [
-    "id", "caso_id", "titulo", "zona", "etiquetas_ml",
-    "permiso_player_text", "permiso_npc_nombre", "permiso_npc_response",
-    "recompensa_item_id", "recompensa_nombre", "recompensa_accesorio_hdu06",
-    "recompensa_umbral_aciertos", "recompensa_no_duplica_al_repetir",
-    "mensajes",
-]
-```
-
-**5. Recargar y verificar**: `python manage.py cargar_detective --limpiar` y
-confirmar que el endpoint de casos Detective trae los 5 campos `recompensa_*`
-no vacíos.
-
-### C.3 Cómo lo va a usar Unity en cuanto exista
-
-`DetectiveCaseManager.OtorgarRecompensaSiCorresponde` prueba primero si el
-caso recién cargado ya trae su propia recompensa
-(`DetectiveCase.TieneRecompensa`); si sí, usa esos 5 valores del backend sin
-tocar el catálogo local. Solo si vienen vacíos cae al catálogo local. Es el
-mismo patrón try-backend-then-local que ya usa el resto del juego (banco de
-preguntas, casos Detective, catálogo de misiones). **Implementarlo no requiere
-ningún cambio en Unity**: en cuanto el serializer mande los 5 campos, dejan de
-estar vacíos y pasan a ser la fuente de verdad automáticamente.
-
-### C.4 Sobre el álbum mínimo (adelanto de HDU-12)
-
-No requiere ningún cambio de backend: es un ítem más de inventario
-(`ITEM_ALBUM_EVIDENCIAS`), y la mochila completa ya sube al guardar (ver A). La
-HDU-12 completa (agrupar evidencias por caso, registrar cada señal de riesgo
-identificada) es una historia aparte, no cubierta acá.
-
-### C.5 Fuera de alcance (a propósito)
-
-- No se toca `RecompensaAlbum` ni se crea álbum server-side: HDU-12 completa
-  queda para más adelante.
-- No hay endpoint para "reclamar" el pin: Unity lo agrega directamente al
-  inventario del jugador por el mecanismo normal de guardado de mochila (A). El
-  backend no necesita "saber" que un ítem vino de una recompensa Detective — es
-  solo otro ítem en la mochila.
+El álbum mínimo (`ITEM_ALBUM_EVIDENCIAS`, adelanto de HDU-12) es un ítem más de
+mochila y no necesita backend. No hay endpoint para "reclamar" el pin: entra por el
+guardado normal de la mochila.

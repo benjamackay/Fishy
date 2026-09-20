@@ -284,6 +284,8 @@ está en memoria (`Ninguno` · `Archivo` · `Base`).
   como el orden narrativo.
 - **El título de `MISION_EXPLORACION_01` es un relleno**, porque en el banco esa
   misión no tiene nombre.
-- **El endpoint `GET /misiones/` todavía no existe.** Está especificado en
-  `REQUISITOS_BD.md`; hasta que exista, el juego corre con el respaldo y
-  lo dice en consola.
+- **`GET /misiones/` ya existe** en `dev` (migración 0016, ver `REQUISITOS_BD.md`).
+  Si la base compartida todavía no la tiene aplicada, o no hay sesión, el juego corre
+  con este archivo de respaldo y lo dice en consola.
+- **El avance por objetivo sí se guarda** (`ObjetivosBackendSync`), salvo
+  `recoger_objeto`, que se recalcula de la mochila.
