@@ -1941,6 +1941,16 @@ namespace Fishy.Net
         public float progreso;
         public string fecha_inicio;
         public string fecha_update;
+        /// <summary>
+        /// Zona donde quedo Otto (`zona_1`, `zona_2`...), para poder decir de que
+        /// partida se trata sin pedir el personaje de cada una.
+        ///
+        /// La manda el backend dentro de la lista de partidas. Hasta que ese cambio
+        /// este desplegado llega null, y la tarjeta ya lo contempla: tambien llega
+        /// vacia en toda partida recien creada, porque la fila de PersonajeJugador
+        /// nace recien en el primer guardado de posicion.
+        /// </summary>
+        public string zona_actual;
     }
 
     [Serializable]

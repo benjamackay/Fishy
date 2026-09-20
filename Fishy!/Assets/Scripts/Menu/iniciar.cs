@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using Fishy.Net;
 using Fishy.UI;
-using Newtonsoft.Json.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,7 +11,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Controlador de la pantalla "Ingresar": toma usuario + contrasena, autentica
-/// contra el backend Django y RECIEN AHI carga la escena del menu.
+/// contra el backend Django y muestra los perfiles. Tras elegir perfil y partida, carga el menu.
 ///
 /// Los datos terminan en Supabase, pero por la via que fijo el equipo en
 /// Backend/MIGRACION_SUPABASE.md: "Django adelante, Supabase solo como Postgres".
@@ -37,16 +36,35 @@ public class iniciar : MonoBehaviour
 {
     public enum Modo { Login, Registro }
 
-    [Header("Perfiles de menor")]
-    [Tooltip("Parche hasta que exista la pantalla de seleccion de perfil. Al entrar se " +
-             "crean estos perfiles si la cuenta todavia no los tiene.")]
+    [Header("Pruebas con perfiles automaticos")]
+    [Tooltip("Activado: asegura los perfiles de prueba y elige uno sin pasar por el panel. " +
+             "Desactivado: muestra el panel para elegir entre los perfiles del backend.")]
+    public bool usarPerfilesDePrueba = false;
+    [Tooltip("Estos perfiles se crean en la cuenta del backend si todavia no existen.")]
     public string[] perfiles = { "Perfil 1", "Perfil 2" };
-
-    [Tooltip("Cual de los perfiles de arriba se juega (1 = el primero). Cada perfil tiene " +
-             "su propia partida, asi que cambiarlo devuelve los NPC de Detective sin tocar " +
-             "la base. En un build se puede cambiar sin recompilar: pon un archivo " +
-             "'perfil.txt' junto al .exe con el numero adentro.")]
+    [Tooltip("Perfil de prueba a usar (1 = primero). perfil.txt junto al ejecutable tiene prioridad.")]
     [Min(1)] public int perfilActivo = 1;
+
+    [Header("Panel de perfiles")]
+    [Tooltip("Panel creado en la escena Ingresar. Si falta, se busca dentro del Canvas.")]
+    [SerializeField] private PanelPerfilesUI panelPerfiles;
+    [SerializeField] private Button botonAceptarPerfil;
+
+    [Header("Panel de crear perfil")]
+    [Tooltip("Duplicado del cartel del login con el formulario de perfil nuevo. " +
+             "Si falta, el boton 'Crear perfil' avisa en consola y no hace nada.")]
+    [SerializeField] private PanelCrearPerfilUI panelCrearPerfil;
+
+    [Header("Panel de partidas")]
+    [Tooltip("Panel creado en la escena Ingresar. Si falta, se busca dentro del Canvas. " +
+             "Sin el, la eleccion de partida cae al cartel del login, que sigue funcionando.")]
+    [SerializeField] private PanelPartidasUI panelPartidas;
+
+    private bool esperandoPartidas;
+    private int solicitudPartida;
+    private float tamanoTituloOriginal;
+    private bool autoSizeTituloOriginal;
+    private TextWrappingModes ajusteTituloOriginal;
 
     [Header("Continuar partida")]
     [Tooltip("Cuantas sesiones se ofrecen para continuar. El backend las manda de la mas " +
@@ -98,7 +116,7 @@ public class iniciar : MonoBehaviour
     private bool ocupado;
     private bool backendListo;
 
-    /// <summary>Perfil de menor con el que se va a jugar, ya resuelto por AbrirPartida.</summary>
+    /// <summary>Perfil de menor con el que se va a jugar, elegido desde el panel de perfiles.</summary>
     private UsuarioJugadorDto perfilElegido;
     /// <summary>Guarda contra el doble toque en la lista de partidas: sin el, dos toques
     /// seguidos en "Empezar una partida nueva" crean dos partidas.</summary>
@@ -112,6 +130,12 @@ public class iniciar : MonoBehaviour
         AsegurarApiManager();
         Cablear();
         GuardarLayout();
+        if (tituloLabel != null)
+        {
+            tamanoTituloOriginal = tituloLabel.fontSize;
+            autoSizeTituloOriginal = tituloLabel.enableAutoSizing;
+            ajusteTituloOriginal = tituloLabel.textWrappingMode;
+        }
 
         AplicarPlaceholder(usuarioInput, "Usuario");
 
@@ -133,13 +157,46 @@ public class iniciar : MonoBehaviour
         if (passwordInput != null) passwordInput.onSubmit.AddListener(_ => Enviar());
 
         AplicarModo();
+        if (panelPerfiles != null)
+        {
+            panelPerfiles.gameObject.SetActive(false);
+            panelPerfiles.Configurar(crearPerfil: MostrarCrearPerfil);
+        }
+        if (botonAceptarPerfil != null)
+            botonAceptarPerfil.onClick.AddListener(AceptarPerfil);
+
+        if (panelCrearPerfil != null)
+        {
+            panelCrearPerfil.gameObject.SetActive(false);
+            panelCrearPerfil.Configurar(
+                crear: PerfilCreado,
+                cancelar: MostrarPerfiles);
+        }
+
+        // El panel monta la lista y deja elegir; entrar al juego lo sigue haciendo
+        // esta clase, que es la unica que sabe atar el progreso y cargar la escena.
+        if (panelPartidas != null)
+        {
+            panelPartidas.gameObject.SetActive(false);
+            panelPartidas.Configurar(
+                jugar: ContinuarPartida,
+                crearNueva: CrearPartidaNueva,
+                volver: MostrarPerfiles);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        ++solicitudPartida;
+        if (botonAceptarPerfil != null)
+            botonAceptarPerfil.onClick.RemoveListener(AceptarPerfil);
     }
 
     private void Start()
     {
         // ApiManager sobrevive entre escenas: si ya hay sesion no volvemos a pedir
         // credenciales (p. ej. al volver del menu).
-        if (ApiManager.Instance.IsLoggedIn) { Continuar(); return; }
+        if (ApiManager.Instance.IsLoggedIn) { OnAuthOk(); return; }
         VerificarBackend();
     }
 
@@ -223,73 +280,312 @@ public class iniciar : MonoBehaviour
 
     private void OnAuthOk()
     {
-        // No se libera `ocupado`: la pantalla se descarga al cambiar de escena.
-        //
-        // Autenticarse deja al ADULTO logueado, pero el avance del juego cuelga de
-        // la partida, y la partida cuelga del perfil del menor. Sin ese paso
-        // PartidaId queda en null y nada se guarda: ni el Modo Detective, ni los
-        // mensajes del chat, ni el riesgo por zona, todos salen en silencio por su
-        // guarda de "sin partida". Por eso aca se asegura perfil + partida antes de
-        // entrar al juego.
-        SetEstado("Preparando perfil...", colorInfo);
-        AsegurarPerfil(0, null);
+        if (usarPerfilesDePrueba)
+        {
+            SetOcupado(true);
+            SetEstado("Preparando perfiles de prueba...", colorInfo);
+            AsegurarPerfil(0, null);
+            return;
+        }
+        MostrarPerfiles();
     }
 
-    /// <summary>Crea los perfiles de <see cref="perfiles"/> que la cuenta no tenga,
-    /// uno a uno (el backend rechaza nombres repetidos dentro de la misma cuenta), y
-    /// al terminar abre la partida del perfil activo.</summary>
+    // Se conserva el atajo original para probar el progreso separado por perfil.
+    // Solo se ejecuta cuando el modo de pruebas esta activado en el Inspector.
     private void AsegurarPerfil(int indice, List<UsuarioJugadorDto> existentes)
     {
-        if (existentes == null)
+        if (perfiles == null || perfiles.Length == 0 || perfiles.Any(string.IsNullOrWhiteSpace))
         {
-            ApiManager.Instance.ListarJugadores(
-                onSuccess: lista => AsegurarPerfil(0, lista ?? new List<UsuarioJugadorDto>()),
-                onError:   e => EntrarSinPartida($"no se pudieron listar los perfiles ({e})"));
+            MostrarErrorPartida("Configura los nombres de los perfiles de prueba.");
             return;
         }
 
-        if (indice >= perfiles.Length) { AbrirPartida(existentes); return; }
+        ApiManager api = ApiManager.Instance;
+        if (api == null || !api.IsLoggedIn || api.IsLocalMode)
+        {
+            MostrarErrorPartida("Se necesita una sesion conectada para probar los perfiles.");
+            return;
+        }
+
+        int actual = solicitudPartida;
+        string sesion = api.Token;
+        if (existentes == null)
+        {
+            api.ListarJugadores(
+                onSuccess: lista =>
+                {
+                    if (!RespuestaPartidaVigente(actual, api, sesion)) return;
+                    if (lista == null || lista.Any(j => j == null || j.id <= 0))
+                    {
+                        MostrarErrorPartida("No se recibio una lista de perfiles valida.");
+                        return;
+                    }
+                    AsegurarPerfil(0, lista);
+                },
+                onError: error =>
+                {
+                    if (RespuestaPartidaVigente(actual, api, sesion))
+                        MostrarErrorPartida(TraducirError(error));
+                });
+            return;
+        }
+
+        if (indice >= perfiles.Length)
+        {
+            int elegido = Mathf.Clamp(LeerPerfilActivo(), 1, perfiles.Length) - 1;
+            UsuarioJugadorDto perfil = existentes.FirstOrDefault(j => j.nombre == perfiles[elegido]);
+            if (perfil == null) { MostrarErrorPartida("No se encontro el perfil de prueba."); return; }
+            AbrirPartida(perfil);
+            return;
+        }
 
         string nombre = perfiles[indice];
-        if (existentes.Any(j => j.nombre == nombre)) { AsegurarPerfil(indice + 1, existentes); return; }
+        if (existentes.Any(j => j.nombre == nombre))
+        {
+            AsegurarPerfil(indice + 1, existentes);
+            return;
+        }
 
-        ApiManager.Instance.CrearJugador(nombre, null,
+        api.CrearJugador(nombre, null,
             onSuccess: creado =>
             {
-                Debug.Log($"[Ingresar] Perfil de menor creado: '{nombre}' (id {creado.id}).");
+                if (!RespuestaPartidaVigente(actual, api, sesion)) return;
+                if (creado == null || creado.id <= 0)
+                {
+                    MostrarErrorPartida("No se recibio un perfil de prueba valido.");
+                    return;
+                }
                 existentes.Add(creado);
                 AsegurarPerfil(indice + 1, existentes);
             },
-            onError: e => EntrarSinPartida($"no se pudo crear el perfil '{nombre}' ({e})"));
+            onError: error =>
+            {
+                if (RespuestaPartidaVigente(actual, api, sesion))
+                    MostrarErrorPartida(TraducirError(error));
+            });
     }
 
-    /// <summary>Busca las partidas del perfil activo. Si tiene alguna, deja elegir cual
-    /// continuar (HDU-15); si no tiene ninguna, le crea una y entra directo.</summary>
-    private void AbrirPartida(List<UsuarioJugadorDto> existentes)
+    private int LeerPerfilActivo()
     {
-        int indice = Mathf.Clamp(LeerPerfilActivo(), 1, perfiles.Length) - 1;
-        string nombre = perfiles[indice];
+        try
+        {
+            string ruta = Path.Combine(Application.dataPath, "..", "perfil.txt");
+            if (File.Exists(ruta) && int.TryParse(File.ReadAllText(ruta).Trim(), out int numero))
+                return numero;
+        }
+        catch (Exception error)
+        {
+            Debug.LogWarning($"[Ingresar] No se pudo leer perfil.txt: {error.Message}");
+        }
+        return perfilActivo;
+    }
 
-        var elegido = existentes.FirstOrDefault(j => j.nombre == nombre)
-                   ?? existentes.FirstOrDefault();
-        if (elegido == null) { EntrarSinPartida("la cuenta no tiene ningun perfil"); return; }
+    public void MostrarPerfiles()
+    {
+        if (panelPerfiles == null || !panelPerfiles.enabled || cartel == null ||
+            botonAceptarPerfil == null)
+        {
+            SetOcupado(false);
+            SetEstado("Falta configurar el panel de perfiles en el Inspector.", colorError);
+            return;
+        }
 
+        ++solicitudPartida;
+        esperandoPartidas = false;
+        seleccionando = false;
+        perfilElegido = null;
+        LimpiarBotonesPartida();
+        SetOcupado(true);
+        // Login tambien contiene el fondo de pantalla. Solo ocultamos su cartel.
+        cartel.gameObject.SetActive(false);
+        if (estadoLabel != null) estadoLabel.gameObject.SetActive(false);
+        if (panelPartidas != null) panelPartidas.gameObject.SetActive(false);
+        if (panelCrearPerfil != null) panelCrearPerfil.gameObject.SetActive(false);
+        panelPerfiles.Mostrar();
+    }
+
+    /// <summary>Abre el formulario de perfil nuevo. Lo pide el boton "Crear perfil"
+    /// del panel de perfiles, que no conoce a este panel a proposito.</summary>
+    public void MostrarCrearPerfil()
+    {
+        if (panelCrearPerfil == null)
+        {
+            Debug.LogError("[Ingresar] Falta el panel de crear perfil en el Inspector.", this);
+            return;
+        }
+
+        if (panelPerfiles != null) panelPerfiles.gameObject.SetActive(false);
+        panelCrearPerfil.Mostrar();
+    }
+
+    /// <summary>
+    /// El perfil ya existe en el servidor. Se vuelve a la lista en vez de entrar
+    /// directo con el recien creado: al adulto que esta dando de alta a dos hijos
+    /// seguidos le sirve ver la lista, y el niño que va a jugar tiene que elegir
+    /// igualmente. Recargar ademas confirma contra el backend que quedo guardado.
+    /// </summary>
+    private void PerfilCreado(UsuarioJugadorDto perfil)
+    {
+        if (perfil != null)
+            Debug.Log($"[Ingresar] Perfil '{perfil.nombre}' creado (id {perfil.id}).");
+
+        MostrarPerfiles();
+    }
+
+    public void AceptarPerfil()
+    {
+        if (esperandoPartidas || seleccionando || panelPerfiles == null ||
+            !panelPerfiles.isActiveAndEnabled) return;
+
+        UsuarioJugadorDto elegido = panelPerfiles.PerfilSeleccionado;
+        ApiManager api = ApiManager.Instance;
+        if (elegido == null || api == null || !api.IsLoggedIn || api.IsLocalMode) return;
+
+        AbrirPartida(elegido);
+    }
+
+    private void AbrirPartida(UsuarioJugadorDto elegido)
+    {
+        // Camino nuevo: el panel pide la lista y deja elegir. El cartel de abajo se
+        // conserva como respaldo para cuando el panel no esta montado en la escena,
+        // que es tambien el caso del atajo de perfiles de prueba.
+        if (panelPartidas != null)
+        {
+            ++solicitudPartida;
+            esperandoPartidas = false;
+            seleccionando = false;
+            perfilElegido = elegido;
+            LimpiarBotonesPartida();
+            if (panelPerfiles != null) panelPerfiles.gameObject.SetActive(false);
+            if (cartel != null) cartel.gameObject.SetActive(false);
+            if (estadoLabel != null) estadoLabel.gameObject.SetActive(false);
+            ApiManager.Instance.SeleccionarJugador(elegido.id);
+            panelPartidas.Mostrar(elegido);
+            return;
+        }
+
+        if (!PrepararCartelPartidas()) return;
+        ApiManager api = ApiManager.Instance;
         perfilElegido = elegido;
+        esperandoPartidas = true;
+        int actual = ++solicitudPartida;
+        string sesion = api.Token;
 
-        // Fijar el perfil ANTES de pedir sus partidas: ApiManager descarta el estado de
-        // sesion al cambiar de menor, y hacerlo despues borraria la partida adoptada.
-        ApiManager.Instance.SeleccionarJugador(elegido.id);
+        if (panelPerfiles != null) panelPerfiles.gameObject.SetActive(false);
+        if (tituloLabel != null) tituloLabel.text = "Preparando tu aventura";
         SetEstado("Buscando tus partidas...", colorInfo);
 
-        ApiManager.Instance.ObtenerPartidasJugador(elegido.id,
+        api.SeleccionarJugador(elegido.id);
+        api.ObtenerPartidasJugador(elegido.id,
             onSuccess: partidas =>
             {
-                // Sin partidas guardadas NO se ofrece continuar: se crea una y se entra.
-                // Ensenarle una lista vacia seria pedirle que elija entre nada.
-                if (partidas == null || partidas.Count == 0) { CrearPartidaNueva(); return; }
+                if (!RespuestaPartidaVigente(actual, api, sesion)) return;
+                esperandoPartidas = false;
+                if (partidas == null)
+                {
+                    MostrarErrorPartida("El servidor no devolvio una lista de partidas valida.");
+                    return;
+                }
+                if (partidas.Count == 0) { CrearPartidaNueva(); return; }
                 MostrarSelectorDePartidas(partidas);
             },
-            onError: e => EntrarSinPartida($"no se pudieron listar las partidas ({e})"));
+            onError: error =>
+            {
+                if (!RespuestaPartidaVigente(actual, api, sesion)) return;
+                MostrarErrorPartida(TraducirError(error));
+            });
+    }
+
+    private bool RespuestaPartidaVigente(int numero, ApiManager api, string sesion)
+    {
+        return this != null && isActiveAndEnabled && numero == solicitudPartida &&
+            api != null && api == ApiManager.Instance && api.IsLoggedIn && api.Token == sesion;
+    }
+
+    private bool PrepararCartelPartidas()
+    {
+        if (cartel == null)
+        {
+            esperandoPartidas = false;
+            seleccionando = false;
+            SetOcupado(false);
+            const string mensaje = "No se encontro Cartel. Revisa Login > Cartel y el campo Usuario Input de iniciar.";
+            Debug.LogError("[Ingresar] " + mensaje, this);
+            SetEstado(mensaje, colorError);
+            return false;
+        }
+        LimpiarBotonesPartida();
+        // El cartel y el panel ocupan el mismo sitio: si el panel se queda puesto,
+        // el error queda debajo y el nino ve una lista que ya no responde.
+        if (panelPartidas != null) panelPartidas.gameObject.SetActive(false);
+        cartel.gameObject.SetActive(true);
+        cartel.sizeDelta = cartelSizeOriginal;
+        cartel.anchoredPosition = cartelPosOriginal;
+        Mover(tituloLabel, 0f);
+        foreach (Component c in new Component[] { usuarioInput, passwordInput, emailInput,
+                                                  ingresarButton, registerButton, cuentaLabel })
+            if (c != null) c.gameObject.SetActive(false);
+        if (estadoLabel != null) estadoLabel.gameObject.SetActive(true);
+        ReubicarEstado();
+        return true;
+    }
+
+    private string TextoVolver => usarPerfilesDePrueba ? "Volver al login" : "Volver a perfiles";
+
+    private void VolverDesdePartidas()
+    {
+        if (!usarPerfilesDePrueba)
+        {
+            MostrarPerfiles();
+            return;
+        }
+
+        // El atajo de pruebas no depende de que PanelPerfiles este montado.
+        // Volver al formulario no cierra la sesion ni borra progreso.
+        ++solicitudPartida;
+        esperandoPartidas = false;
+        seleccionando = false;
+        perfilElegido = null;
+        LimpiarBotonesPartida();
+        if (panelPerfiles != null) panelPerfiles.gameObject.SetActive(false);
+        if (cartel != null) cartel.gameObject.SetActive(true);
+        if (estadoLabel != null) estadoLabel.gameObject.SetActive(true);
+        foreach (Component c in new Component[] { tituloLabel, usuarioInput, passwordInput,
+                                                  ingresarButton, registerButton, cuentaLabel })
+            if (c != null) c.gameObject.SetActive(true);
+        if (tituloLabel != null)
+        {
+            tituloLabel.enableAutoSizing = autoSizeTituloOriginal;
+            tituloLabel.fontSize = tamanoTituloOriginal;
+            tituloLabel.textWrappingMode = ajusteTituloOriginal;
+        }
+        if (passwordInput != null) passwordInput.text = string.Empty;
+        modo = Modo.Login;
+        AplicarModo();
+        VerificarBackend();
+    }
+
+    private void LimpiarBotonesPartida()
+    {
+        foreach (Button boton in botonesPartida)
+        {
+            if (boton == null) continue;
+            boton.gameObject.SetActive(false);
+            Destroy(boton.gameObject);
+        }
+        botonesPartida.Clear();
+    }
+
+    private void MostrarErrorPartida(string mensaje)
+    {
+        esperandoPartidas = false;
+        seleccionando = false;
+        if (!PrepararCartelPartidas()) return;
+        if (tituloLabel != null) tituloLabel.text = "No se pudo continuar";
+        SetEstado(mensaje, colorError);
+        Button volver = CrearBotonPartida(TextoVolver, Paleta.MarronSuave,
+            new Vector2(0f, -50f));
+        volver.onClick.AddListener(VolverDesdePartidas);
     }
 
     // -- Seleccion de partida (HDU-15) -----------------------------------------
@@ -313,7 +609,7 @@ public class iniciar : MonoBehaviour
         }
 
         int cuantas = Mathf.Min(partidas.Count, Mathf.Max(1, maxPartidasEnLista));
-        int filas = cuantas + 1;   // + "empezar una partida nueva"
+        int filas = cuantas + 2;   // nueva partida y volver a perfiles
 
         // El titulo en UNA linea: "¿Seguimos tu aventura?" no cabe a 55 en los 403 px del
         // diseno, y la segunda linea ("aventura?") quedaba escondida detras del primer
@@ -364,6 +660,10 @@ public class iniciar : MonoBehaviour
         var nueva = CrearBotonPartida("Empezar una partida nueva", Paleta.Madera,
             new Vector2(0f, primera - cuantas * paso));
         nueva.onClick.AddListener(CrearPartidaNueva);
+
+        var volver = CrearBotonPartida(TextoVolver, Paleta.MarronSuave,
+            new Vector2(0f, primera - (cuantas + 1) * paso));
+        volver.onClick.AddListener(VolverDesdePartidas);
 
         ReubicarEstado();
         SetEstado(partidas.Count > cuantas
@@ -418,6 +718,14 @@ public class iniciar : MonoBehaviour
         {
             seleccionando = false;
             SetBotonesPartidaActivos(true);
+            // Viniendo del panel no hay botones de cartel que reactivar ni etiqueta de
+            // estado a la vista: hay que devolverle el mando al panel o la lista queda
+            // muerta, con todo apagado y sin explicacion.
+            if (panelPartidas != null && panelPartidas.isActiveAndEnabled)
+            {
+                panelPartidas.Liberar("Esa partida no se pudo abrir. Prueba con otra.");
+                return;
+            }
             SetEstado("Esa partida no se pudo abrir. Prueba con otra.", colorError);
             return;
         }
@@ -426,22 +734,41 @@ public class iniciar : MonoBehaviour
     }
 
     /// <summary>Empieza de cero. Lo llama el boton "Empezar una partida nueva" y tambien
-    /// AbrirPartida cuando el perfil todavia no tiene ninguna partida.</summary>
+    /// AceptarPerfil cuando el perfil todavia no tiene ninguna partida.</summary>
     private void CrearPartidaNueva()
     {
-        if (seleccionando) return;
-        if (perfilElegido == null) { EntrarSinPartida("no se resolvio el perfil de menor"); return; }
+        if (seleccionando || esperandoPartidas) return;
+        if (perfilElegido == null) { MostrarErrorPartida("Elige un perfil para continuar."); return; }
+
+        ApiManager api = ApiManager.Instance;
+        if (api == null || !api.IsLoggedIn || api.IsLocalMode)
+        {
+            MostrarErrorPartida("No hay una sesion conectada al servidor.");
+            return;
+        }
 
         seleccionando = true;
+        int actual = ++solicitudPartida;
+        string sesion = api.Token;
         SetBotonesPartidaActivos(false);
         SetEstado("Preparando una partida nueva...", colorInfo);
 
-        ApiManager.Instance.CrearPartida(perfilElegido.id, 0f, null,
-            onSuccess: partida => EntrarConPartida(partida, "creada"),
-            // EntrarSinPartida entra igual al juego, asi que no hace falta devolver los
-            // botones: la escena se descarga detras. Dejar al nino/a atrapado aqui seria
-            // peor que entrar sin guardado, que es el criterio del resto de la pantalla.
-            onError: e => EntrarSinPartida($"no se pudo crear la partida ({e})"));
+        api.CrearPartida(perfilElegido.id, 0f, null,
+            onSuccess: partida =>
+            {
+                if (!RespuestaPartidaVigente(actual, api, sesion)) return;
+                if (partida == null || partida.id <= 0)
+                {
+                    MostrarErrorPartida("No se recibio una partida valida del servidor.");
+                    return;
+                }
+                EntrarConPartida(partida, "creada");
+            },
+            onError: error =>
+            {
+                if (!RespuestaPartidaVigente(actual, api, sesion)) return;
+                MostrarErrorPartida(TraducirError(error));
+            });
     }
 
     private void EntrarConPartida(PartidaDto partida, string verbo)
@@ -463,35 +790,7 @@ public class iniciar : MonoBehaviour
             if (boton != null) boton.interactable = valor;
     }
 
-    /// <summary>Numero de perfil a jugar. Un 'perfil.txt' junto al ejecutable le gana
-    /// al valor del inspector, para poder cambiar de perfil en un build ya compilado.</summary>
-    private int LeerPerfilActivo()
-    {
-        try
-        {
-            string ruta = Path.Combine(Application.dataPath, "..", "perfil.txt");
-            if (File.Exists(ruta) && int.TryParse(File.ReadAllText(ruta).Trim(), out int n))
-            {
-                Debug.Log($"[Ingresar] perfil.txt indica el perfil {n}.");
-                return n;
-            }
-        }
-        catch (Exception e)
-        {
-            Debug.LogWarning($"[Ingresar] No se pudo leer perfil.txt: {e.Message}");
-        }
-        return perfilActivo;
-    }
 
-    /// <summary>Ultimo recurso: entrar igual, pero dejando claro que no se guarda nada.
-    /// Dejar al jugador atrapado en el login por esto seria peor.</summary>
-    private void EntrarSinPartida(string motivo)
-    {
-        Debug.LogWarning($"[Ingresar] Se entra SIN partida activa: {motivo}. " +
-                          "El avance no se va a guardar en el backend.");
-        SetEstado("Entrando (el avance no se guardara)...", colorError);
-        Continuar();
-    }
 
     private void OnAuthError(string error)
     {
@@ -509,8 +808,7 @@ public class iniciar : MonoBehaviour
 
         Debug.LogError($"[Ingresar] La escena '{escenaDestino}' no esta en Build Settings. " +
                        "El login fue correcto, pero no es seguro continuar sin una escena valida.");
-        SetOcupado(false);
-        SetEstado($"No se encontro la escena '{escenaDestino}'. Revisa Build Settings.", colorError);
+        MostrarErrorPartida($"No se encontro la escena '{escenaDestino}'. Revisa Build Settings.");
     }
 
     /// <summary>
@@ -522,22 +820,9 @@ public class iniciar : MonoBehaviour
     {
         if (string.IsNullOrEmpty(error)) return "No se pudo completar la operacion.";
 
-        string detalle = error;
-        try
-        {
-            if (JToken.Parse(error) is JObject obj)
-            {
-                var primero = obj.Properties().FirstOrDefault();
-                if (primero != null)
-                    detalle = primero.Value is JArray arr && arr.Count > 0
-                        ? arr[0].ToString()
-                        : primero.Value.ToString();
-            }
-        }
-        catch
-        {
-            // No era JSON (timeout, DNS, connection refused): se usa el texto crudo.
-        }
+        // Desenvolver el body es igual en todas las pantallas y vive en TextoDeError;
+        // las frases de abajo son las de ESTA pantalla y se quedan aqui.
+        string detalle = TextoDeError.Detalle(error);
 
         // Comparacion en minusculas: el backend responde "Ya existe ..." con Y
         // mayuscula, asi que un Contains("ya existe") tal cual nunca coincidia.
@@ -553,8 +838,7 @@ public class iniciar : MonoBehaviour
         if (comparable.Contains("correo electr") || comparable.Contains("valid email"))
             return "El email no es valido.";
 
-        detalle = detalle.Replace('\n', ' ').Trim();
-        return detalle.Length > 140 ? detalle.Substring(0, 140) + "..." : detalle;
+        return TextoDeError.Recortar(detalle);
     }
 
     // -- Cableado y layout -----------------------------------------------------
@@ -567,19 +851,30 @@ public class iniciar : MonoBehaviour
 
     private void Cablear()
     {
-        var inputs = GetComponentsInChildren<TMP_InputField>(true);
+        if (panelPerfiles == null) panelPerfiles = GetComponentInChildren<PanelPerfilesUI>(true);
+        if (panelPartidas == null) panelPartidas = GetComponentInChildren<PanelPartidasUI>(true);
+        if (panelCrearPerfil == null) panelCrearPerfil = GetComponentInChildren<PanelCrearPerfilUI>(true);
+        if (botonAceptarPerfil == null && panelPerfiles != null)
+            botonAceptarPerfil = panelPerfiles.GetComponentsInChildren<Button>(true)
+                .FirstOrDefault(b => b.name == "BotonAceptar");
+
+        // Ambos paneles tienen un Titulo: buscar dentro de Login evita cambiar
+        // accidentalmente el encabezado "Quien va a jugar".
+        Transform raizLogin = transform.Find("Login");
+        if (raizLogin == null) raizLogin = transform;
+        var inputs = raizLogin.GetComponentsInChildren<TMP_InputField>(true);
         if (passwordInput == null)
             passwordInput = inputs.FirstOrDefault(f => f.name == "Password");
         if (usuarioInput == null)
             usuarioInput = inputs.FirstOrDefault(f => f.name == "Email" || f.name == "Usuario")
                         ?? inputs.FirstOrDefault(f => f != passwordInput);
 
-        var botones = GetComponentsInChildren<Button>(true);
+        var botones = raizLogin.GetComponentsInChildren<Button>(true);
         if (ingresarButton == null) ingresarButton = botones.FirstOrDefault(b => b.name == "Ingresar");
         if (registerButton == null)
             registerButton = botones.FirstOrDefault(b => b.name == "Register" || b.name == "Registrarse");
 
-        var textos = GetComponentsInChildren<TMP_Text>(true);
+        var textos = raizLogin.GetComponentsInChildren<TMP_Text>(true);
         if (tituloLabel == null) tituloLabel = textos.FirstOrDefault(t => t.name == "Titulo");
         if (cuentaLabel == null) cuentaLabel = textos.FirstOrDefault(t => t.name == "Cuenta");
         if (registerLabel == null && registerButton != null)
@@ -658,9 +953,14 @@ public class iniciar : MonoBehaviour
     {
         if (estadoLabel == null || cartel == null) return;
 
+        // El alto VISIBLE, no el del rect: el cartel puede estar escalado para
+        // agrandar la pantalla entera, y la etiqueta cuelga de Login (sin escalar),
+        // asi que con sizeDelta a secas se metia dentro del cartel en vez de debajo.
+        float altoVisible = cartel.sizeDelta.y * cartel.localScale.y;
+
         ((RectTransform)estadoLabel.transform).anchoredPosition = new Vector2(
             cartel.anchoredPosition.x,
-            cartel.anchoredPosition.y - cartel.sizeDelta.y * 0.5f - 26f);
+            cartel.anchoredPosition.y - altoVisible * 0.5f - 26f);
     }
 
     private void Mover(Component objetivo, float dy)
