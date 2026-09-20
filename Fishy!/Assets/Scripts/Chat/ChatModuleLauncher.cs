@@ -66,7 +66,22 @@ namespace Fishy.Chat
         // enciende el cartelito de "E" sobre el NPC.
         public bool CanInteract() => repetible || !alreadyOpened;
 
-        public void Interact() => OpenChat();
+        /// <summary>Frame en que se cerró la última sesión de este launcher.</summary>
+        private int _cerradaEnFrame = -10;
+
+        public void Interact()
+        {
+            // InteractionDetector llama a Interact() sin mirar CanInteract() (el NPC
+            // neutro se protege solo), así que hay que guardarse aquí: sin esto, un NPC no
+            // repetible volvía a abrirse con cada E.
+            if (!CanInteract()) return;
+
+            // La E que pasa el último "Continuar" del chat también la lee el detector en
+            // ese mismo frame; sin este margen reabriría la conversación al cerrarla.
+            if (Time.frameCount - _cerradaEnFrame <= 1) return;
+
+            OpenChat();
+        }
 
         /// <summary>Abre el módulo de chat (enlazable a un Button.OnClick).</summary>
         public void OpenChat()
@@ -91,6 +106,7 @@ namespace Fishy.Chat
         {
             if (ChatModuleController.Instance != null)
                 ChatModuleController.Instance.OnSesionCerrada -= HandleSesionCerrada;
+            _cerradaEnFrame = Time.frameCount;
             OnSesionFinalizada?.Invoke(safePercent);
         }
 
