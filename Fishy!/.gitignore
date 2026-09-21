@@ -112,3 +112,8 @@ InitTestScene*.unity*
 !**.env.example
 # Escenas de recuperación tras crash del Editor (basura local, no va al repo)
 /[Aa]ssets/_Recovery/
+
+# Capturas de diseno que se usan como referencia mientras se arma una pantalla.
+# Son material de trabajo, no del juego: van cambiando por pantalla y no las
+# necesita nadie mas. Nunca se commitean, pero la carpeta se sigue llamando asi.
+/referencias/

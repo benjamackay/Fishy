@@ -34,8 +34,6 @@ using UnityEngine.UI;
 /// </summary>
 public class iniciar : MonoBehaviour
 {
-    public enum Modo { Login, Registro }
-
     [Header("Pruebas con perfiles automaticos")]
     [Tooltip("Activado: asegura los perfiles de prueba y elige uno sin pasar por el panel. " +
              "Desactivado: muestra el panel para elegir entre los perfiles del backend.")]
@@ -54,6 +52,12 @@ public class iniciar : MonoBehaviour
     [Tooltip("Duplicado del cartel del login con el formulario de perfil nuevo. " +
              "Si falta, el boton 'Crear perfil' avisa en consola y no hace nada.")]
     [SerializeField] private PanelCrearPerfilUI panelCrearPerfil;
+
+    [Header("Panel de crear cuenta")]
+    [Tooltip("Cartel propio con el formulario de cuenta nueva. Reemplaza al viejo modo " +
+             "registro, que estiraba el cartel del login. Si falta, 'Registrarse' avisa " +
+             "en consola y no hace nada.")]
+    [SerializeField] private PanelCrearCuentaUI panelCrearCuenta;
 
     [Header("Panel de partidas")]
     [Tooltip("Panel creado en la escena Ingresar. Si falta, se busca dentro del Canvas. " +
@@ -76,40 +80,54 @@ public class iniciar : MonoBehaviour
     [Tooltip("Escena que se carga despues de autenticarse. Debe estar en Build Settings.")]
     public string escenaDestino = "MenuDos";
 
+    [Tooltip("Escena a la que vuelve el boton Volver: la pantalla anterior al login. " +
+             "Debe estar en Build Settings.")]
+    public string escenaAnterior = "MenuUno";
+
     [Header("Referencias (opcionales: si faltan se buscan por nombre en la escena)")]
     public TMP_InputField usuarioInput;
     public TMP_InputField passwordInput;
     public Button ingresarButton;
     public Button registerButton;
+    [Tooltip("Boton 'Volver' del cartel del login. Se busca por nombre (Volver o Cancelar).")]
+    public Button botonVolver;
     public TMP_Text tituloLabel;
     public TMP_Text cuentaLabel;
-    public TMP_Text registerLabel;
+
+    [Tooltip("Etiqueta del mensaje de estado y de error. Si se asigna una de la escena, se usa " +
+             "tal cual y no se le toca la posicion: se asume puesta a mano donde corresponde. " +
+             "Si se deja vacia se crea una en runtime colgando bajo el cartel, como antes.")]
+    public TMP_Text estadoEnEscena;
 
     [Header("Aspecto")]
     public Color colorError = new Color(0.94f, 0.38f, 0.38f);
     public Color colorInfo = new Color(0.85f, 0.85f, 0.85f);
     public Color colorOk = new Color(0.42f, 0.85f, 0.48f);
 
-    /// <summary>Separacion vertical entre campos, tomada del layout de la escena.</summary>
-    private const float AltoFila = 51f;
+    // Las medidas de abajo estan en unidades locales del cartel, que es donde se
+    // montan a mano el campo de email del registro y la lista de partidas.
+    //
+    // Antes el cartel se dibujaba a escala 1.5 y estas cifras eran 1.5 veces mas
+    // chicas: lo que se escribia aqui se veia multiplicado. Al dejar el cartel a su
+    // tamano real (escala 1, 1090x801) ese factor desaparecio y se horneo en los
+    // numeros, que por eso ya no son redondos. Si alguna vuelve a verse a dos tercios
+    // de lo que deberia, lo que paso es que a la pantalla le volvieron a poner escala.
 
     /// <summary>Tamano de cada boton de la lista de partidas. Caben dos lineas de texto:
     /// "Seguir donde quedaste" y la fecha en que se guardo.</summary>
-    private const float AnchoBoton = 380f;
-    private const float AltoBoton = 70f;
-    private const float TamanoTextoBoton = 21f;
+    private const float AnchoBoton = 570f;
+    private const float AltoBoton = 105f;
+    private const float TamanoTextoBoton = 31.5f;
 
     /// <summary>Aire entre dos botones de la lista de partidas, para que no se toquen.</summary>
-    private const float SeparacionBotones = 10f;
+    private const float SeparacionBotones = 15f;
 
     /// <summary>Aire entre el titulo y el primer boton, y entre el ultimo boton y el
     /// borde de abajo del cartel (que tiene marco y sombra).</summary>
-    private const float MargenBajoTitulo = 14f;
-    private const float MargenInferior = 30f;
+    private const float MargenBajoTitulo = 21f;
+    private const float MargenInferior = 45f;
 
-    private Modo modo = Modo.Login;
-    private TMP_InputField emailInput;   // solo existe en modo registro
-    private TMP_Text estadoLabel;        // se crea en runtime: la escena no trae uno
+    private TMP_Text estadoLabel;        // la de la escena, o una creada en runtime
     private RectTransform cartel;
     private Vector2 cartelPosOriginal, cartelSizeOriginal;
     private readonly Dictionary<RectTransform, Vector2> posOriginal = new Dictionary<RectTransform, Vector2>();
@@ -148,15 +166,17 @@ public class iniciar : MonoBehaviour
             passwordInput.ForceLabelUpdate();
         }
 
-        estadoLabel = CrearEtiquetaEstado();
+        // La de la escena manda: esta puesta dentro del cartel, en el sitio del diseno.
+        // La de runtime es el respaldo para las pantallas que todavia no la tienen.
+        estadoLabel = estadoEnEscena != null ? estadoEnEscena : CrearEtiquetaEstado();
 
         // Al boton "Ingresar" NO se le agrega listener: ya llama a MenuDos() por su
         // onClick persistente y se enviaria el formulario dos veces.
-        if (registerButton != null) registerButton.onClick.AddListener(AlternarModo);
+        if (registerButton != null) registerButton.onClick.AddListener(MostrarCrearCuenta);
+        if (botonVolver != null) botonVolver.onClick.AddListener(Volver);
         if (usuarioInput != null) usuarioInput.onSubmit.AddListener(_ => Enviar());
         if (passwordInput != null) passwordInput.onSubmit.AddListener(_ => Enviar());
 
-        AplicarModo();
         if (panelPerfiles != null)
         {
             panelPerfiles.gameObject.SetActive(false);
@@ -171,6 +191,15 @@ public class iniciar : MonoBehaviour
             panelCrearPerfil.Configurar(
                 crear: PerfilCreado,
                 cancelar: MostrarPerfiles);
+        }
+
+        if (panelCrearCuenta != null)
+        {
+            panelCrearCuenta.gameObject.SetActive(false);
+            panelCrearCuenta.Configurar(
+                crear: CuentaCreada,
+                iniciarSesion: VolverAlLogin,
+                volver: Volver);
         }
 
         // El panel monta la lista y deja elegir; entrar al juego lo sigue haciendo
@@ -209,13 +238,25 @@ public class iniciar : MonoBehaviour
     /// </summary>
     public void MenuDos() => Enviar();
 
-    /// <summary>Alterna entre "Iniciar Sesion" y "Crear cuenta". Lo llama el boton "Registrarse".</summary>
-    public void AlternarModo()
+    /// <summary>
+    /// Vuelve a la pantalla anterior al login. Lo llama el boton "Volver" del cartel.
+    ///
+    /// No cierra la sesion a proposito: desde aqui todavia no hay ninguna abierta, y
+    /// si la hubiera (se volvio atras despues de entrar) borrarla obligaria a escribir
+    /// la contrasena otra vez para nada.
+    /// </summary>
+    public void Volver()
     {
         if (ocupado) return;
-        modo = modo == Modo.Login ? Modo.Registro : Modo.Login;
-        AplicarModo();
-        SetEstado(string.Empty, colorInfo);
+
+        if (string.IsNullOrEmpty(escenaAnterior))
+        {
+            Debug.LogWarning("[Ingresar] No hay escena anterior configurada: el boton " +
+                             "Volver no hace nada. Rellena 'Escena Anterior' en el inspector.", this);
+            return;
+        }
+
+        SceneManager.LoadScene(escenaAnterior);
     }
 
     public void Enviar()
@@ -224,40 +265,23 @@ public class iniciar : MonoBehaviour
 
         string usuario = usuarioInput != null ? usuarioInput.text.Trim() : string.Empty;
         string password = passwordInput != null ? passwordInput.text : string.Empty;
-        string email = emailInput != null ? emailInput.text.Trim() : string.Empty;
 
-        if (string.IsNullOrEmpty(usuario)) { SetEstado("Escribi tu usuario.", colorError); return; }
-        if (string.IsNullOrEmpty(password)) { SetEstado("Escribi tu contrasena.", colorError); return; }
-
-        if (modo == Modo.Registro && (string.IsNullOrEmpty(email) || !email.Contains("@")))
-        {
-            SetEstado("Escribi un email valido: el backend lo exige para crear la cuenta.", colorError);
-            return;
-        }
+        if (string.IsNullOrEmpty(usuario)) { SetEstado("Escribe tu usuario.", colorError); return; }
+        if (string.IsNullOrEmpty(password)) { SetEstado("Escribe tu contraseña.", colorError); return; }
 
         // Sin backend NO se entra. En modo local ApiManager guardaria la cuenta en
         // PlayerPrefs y no llegaria nada a Supabase, pero la pantalla pareceria haber
         // funcionado. Preferimos el error explicito y reintentar la conexion.
         if (!backendListo || ApiManager.Instance.IsLocalMode)
         {
-            SetEstado("Sin conexion con el servidor: no se puede guardar. Reintentando...", colorError);
+            SetEstado("Sin conexión con el servidor: no se puede guardar. Reintentando...", colorError);
             VerificarBackend();
             return;
         }
 
         SetOcupado(true);
-
-        if (modo == Modo.Login)
-        {
-            SetEstado("Ingresando...", colorInfo);
-            ApiManager.Instance.Login(usuario, password, OnAuthOk, OnAuthError);
-        }
-        else
-        {
-            SetEstado("Creando cuenta...", colorInfo);
-            ApiManager.Instance.Registro(usuario, email, password,
-                onSuccess: OnAuthOk, onError: OnAuthError);
-        }
+        SetEstado("Ingresando...", colorInfo);
+        ApiManager.Instance.Login(usuario, password, OnAuthOk, OnAuthError);
     }
 
     // -- Backend ---------------------------------------------------------------
@@ -273,7 +297,7 @@ public class iniciar : MonoBehaviour
             backendListo = ok;
             SetOcupado(false);
             SetEstado(ok ? string.Empty
-                         : "Sin conexion con el servidor. Verifica que el backend Django este corriendo.",
+                         : "Sin conexión con el servidor. Verifica que el backend Django esté corriendo.",
                       ok ? colorInfo : colorError);
         });
     }
@@ -303,7 +327,7 @@ public class iniciar : MonoBehaviour
         ApiManager api = ApiManager.Instance;
         if (api == null || !api.IsLoggedIn || api.IsLocalMode)
         {
-            MostrarErrorPartida("Se necesita una sesion conectada para probar los perfiles.");
+            MostrarErrorPartida("Se necesita una sesión conectada para probar los perfiles.");
             return;
         }
 
@@ -317,7 +341,7 @@ public class iniciar : MonoBehaviour
                     if (!RespuestaPartidaVigente(actual, api, sesion)) return;
                     if (lista == null || lista.Any(j => j == null || j.id <= 0))
                     {
-                        MostrarErrorPartida("No se recibio una lista de perfiles valida.");
+                        MostrarErrorPartida("No se recibió una lista de perfiles válida.");
                         return;
                     }
                     AsegurarPerfil(0, lista);
@@ -334,7 +358,7 @@ public class iniciar : MonoBehaviour
         {
             int elegido = Mathf.Clamp(LeerPerfilActivo(), 1, perfiles.Length) - 1;
             UsuarioJugadorDto perfil = existentes.FirstOrDefault(j => j.nombre == perfiles[elegido]);
-            if (perfil == null) { MostrarErrorPartida("No se encontro el perfil de prueba."); return; }
+            if (perfil == null) { MostrarErrorPartida("No se encontró el perfil de prueba."); return; }
             AbrirPartida(perfil);
             return;
         }
@@ -352,7 +376,7 @@ public class iniciar : MonoBehaviour
                 if (!RespuestaPartidaVigente(actual, api, sesion)) return;
                 if (creado == null || creado.id <= 0)
                 {
-                    MostrarErrorPartida("No se recibio un perfil de prueba valido.");
+                    MostrarErrorPartida("No se recibió un perfil de prueba válido.");
                     return;
                 }
                 existentes.Add(creado);
@@ -401,6 +425,7 @@ public class iniciar : MonoBehaviour
         if (estadoLabel != null) estadoLabel.gameObject.SetActive(false);
         if (panelPartidas != null) panelPartidas.gameObject.SetActive(false);
         if (panelCrearPerfil != null) panelCrearPerfil.gameObject.SetActive(false);
+        if (panelCrearCuenta != null) panelCrearCuenta.gameObject.SetActive(false);
         panelPerfiles.Mostrar();
     }
 
@@ -416,6 +441,44 @@ public class iniciar : MonoBehaviour
 
         if (panelPerfiles != null) panelPerfiles.gameObject.SetActive(false);
         panelCrearPerfil.Mostrar();
+    }
+
+    /// <summary>Abre el formulario de cuenta nueva. Lo llama el boton "Registrarse"
+    /// del cartel del login.</summary>
+    public void MostrarCrearCuenta()
+    {
+        if (ocupado) return;
+
+        if (panelCrearCuenta == null)
+        {
+            Debug.LogError("[Ingresar] Falta el panel de crear cuenta en el Inspector.", this);
+            return;
+        }
+
+        // El cartel del login y este panel ocupan el mismo sitio de la pantalla.
+        if (cartel != null) cartel.gameObject.SetActive(false);
+        panelCrearCuenta.Mostrar();
+    }
+
+    /// <summary>
+    /// La cuenta quedo creada y /auth/registro/ ya devolvio token, asi que se sigue
+    /// derecho a los perfiles en vez de mandar al login a escribir lo mismo otra vez.
+    /// </summary>
+    private void CuentaCreada()
+    {
+        if (panelCrearCuenta != null) panelCrearCuenta.gameObject.SetActive(false);
+        if (cartel != null) cartel.gameObject.SetActive(true);
+
+        OnAuthOk();
+    }
+
+    /// <summary>Cierra el formulario de cuenta y devuelve al cartel del login. Lo
+    /// llama el enlace "Iniciar sesión" del panel.</summary>
+    private void VolverAlLogin()
+    {
+        if (panelCrearCuenta != null) panelCrearCuenta.gameObject.SetActive(false);
+        if (cartel != null) cartel.gameObject.SetActive(true);
+        SetEstado(string.Empty, colorInfo);
     }
 
     /// <summary>
@@ -483,7 +546,7 @@ public class iniciar : MonoBehaviour
                 esperandoPartidas = false;
                 if (partidas == null)
                 {
-                    MostrarErrorPartida("El servidor no devolvio una lista de partidas valida.");
+                    MostrarErrorPartida("El servidor no devolvió una lista de partidas válida.");
                     return;
                 }
                 if (partidas.Count == 0) { CrearPartidaNueva(); return; }
@@ -509,7 +572,7 @@ public class iniciar : MonoBehaviour
             esperandoPartidas = false;
             seleccionando = false;
             SetOcupado(false);
-            const string mensaje = "No se encontro Cartel. Revisa Login > Cartel y el campo Usuario Input de iniciar.";
+            const string mensaje = "No se encontró Cartel. Revisa Login > Cartel y el campo Usuario Input de iniciar.";
             Debug.LogError("[Ingresar] " + mensaje, this);
             SetEstado(mensaje, colorError);
             return false;
@@ -522,7 +585,7 @@ public class iniciar : MonoBehaviour
         cartel.sizeDelta = cartelSizeOriginal;
         cartel.anchoredPosition = cartelPosOriginal;
         Mover(tituloLabel, 0f);
-        foreach (Component c in new Component[] { usuarioInput, passwordInput, emailInput,
+        foreach (Component c in new Component[] { usuarioInput, passwordInput,
                                                   ingresarButton, registerButton, cuentaLabel })
             if (c != null) c.gameObject.SetActive(false);
         if (estadoLabel != null) estadoLabel.gameObject.SetActive(true);
@@ -560,8 +623,7 @@ public class iniciar : MonoBehaviour
             tituloLabel.textWrappingMode = ajusteTituloOriginal;
         }
         if (passwordInput != null) passwordInput.text = string.Empty;
-        modo = Modo.Login;
-        AplicarModo();
+        RestaurarCartelLogin();
         VerificarBackend();
     }
 
@@ -590,10 +652,19 @@ public class iniciar : MonoBehaviour
 
     // -- Seleccion de partida (HDU-15) -----------------------------------------
     //
-    // Esta pantalla no tiene panel propio: reaprovecha el cartel del login. Los
-    // botones se CLONAN del boton "Ingresar" para heredar tipografia, colores y
-    // tamano del diseno que hizo el equipo, igual que hace CrearCampoEmail con los
-    // campos de texto.
+    // La lista de verdad la monta PanelPartidas, que tiene su propio cartel. Lo de
+    // aqui abajo es el RESPALDO: solo corre si ese panel no esta en la escena
+    // (ver AbrirPartida), y entonces reaprovecha el cartel del login agrandandolo.
+    //
+    // Lo que si se sigue usando con el panel puesto son las pantallas de ERROR:
+    // MostrarErrorPartida pasa por PrepararCartelPartidas, que enciende el cartel del
+    // login y escribe encima. Eso es lo que mantiene vivos a Mover, posOriginal y
+    // RestaurarCartelLogin; el dia que los errores tengan donde mostrarse sin pedirle
+    // prestado el cartel al login, los tres se pueden borrar.
+    //
+    // Los botones los construye FishyUIKit.Boton, no se clonan del boton "Ingresar":
+    // ese es una imagen con la palabra dibujada y el clon salia sin texto donde
+    // escribir, asi que todas las filas decian "Ingresar".
 
     private void MostrarSelectorDePartidas(List<PartidaDto> partidas)
     {
@@ -633,7 +704,7 @@ public class iniciar : MonoBehaviour
         cartel.sizeDelta = cartelSizeOriginal + new Vector2(0f, crecer);
         cartel.anchoredPosition = cartelPosOriginal - new Vector2(0f, crecer * 0.5f);
 
-        foreach (Component c in new Component[] { usuarioInput, passwordInput, emailInput,
+        foreach (Component c in new Component[] { usuarioInput, passwordInput,
                                                   ingresarButton, registerButton, cuentaLabel })
             if (c != null) c.gameObject.SetActive(false);
 
@@ -667,7 +738,7 @@ public class iniciar : MonoBehaviour
 
         ReubicarEstado();
         SetEstado(partidas.Count > cuantas
-            ? $"Partidas de {perfilElegido.nombre} (las {cuantas} mas recientes)."
+            ? $"Partidas de {perfilElegido.nombre} (las {cuantas} más recientes)."
             : $"Partidas de {perfilElegido.nombre}.", colorInfo);
     }
 
@@ -743,7 +814,7 @@ public class iniciar : MonoBehaviour
         ApiManager api = ApiManager.Instance;
         if (api == null || !api.IsLoggedIn || api.IsLocalMode)
         {
-            MostrarErrorPartida("No hay una sesion conectada al servidor.");
+            MostrarErrorPartida("No hay una sesión conectada al servidor.");
             return;
         }
 
@@ -759,7 +830,7 @@ public class iniciar : MonoBehaviour
                 if (!RespuestaPartidaVigente(actual, api, sesion)) return;
                 if (partida == null || partida.id <= 0)
                 {
-                    MostrarErrorPartida("No se recibio una partida valida del servidor.");
+                    MostrarErrorPartida("No se recibió una partida válida del servidor.");
                     return;
                 }
                 EntrarConPartida(partida, "creada");
@@ -808,7 +879,7 @@ public class iniciar : MonoBehaviour
 
         Debug.LogError($"[Ingresar] La escena '{escenaDestino}' no esta en Build Settings. " +
                        "El login fue correcto, pero no es seguro continuar sin una escena valida.");
-        MostrarErrorPartida($"No se encontro la escena '{escenaDestino}'. Revisa Build Settings.");
+        MostrarErrorPartida($"No se encontró la escena '{escenaDestino}'. Revisa Build Settings.");
     }
 
     /// <summary>
@@ -818,7 +889,7 @@ public class iniciar : MonoBehaviour
     /// </summary>
     private static string TraducirError(string error)
     {
-        if (string.IsNullOrEmpty(error)) return "No se pudo completar la operacion.";
+        if (string.IsNullOrEmpty(error)) return "No se pudo completar la operación.";
 
         // Desenvolver el body es igual en todas las pantallas y vive en TextoDeError;
         // las frases de abajo son las de ESTA pantalla y se quedan aqui.
@@ -832,11 +903,11 @@ public class iniciar : MonoBehaviour
         string comparable = detalle.ToLowerInvariant();
 
         if (comparable.Contains("credenciales") || comparable.Contains("invalid credentials"))
-            return "Usuario o contrasena incorrectos.";
+            return "Usuario o contraseña incorrectos.";
         if (comparable.Contains("ya existe") || comparable.Contains("already exists"))
-            return "Ese usuario o email ya esta registrado.";
+            return "Ese usuario o email ya está registrado.";
         if (comparable.Contains("correo electr") || comparable.Contains("valid email"))
-            return "El email no es valido.";
+            return "El email no es válido.";
 
         return TextoDeError.Recortar(detalle);
     }
@@ -854,6 +925,7 @@ public class iniciar : MonoBehaviour
         if (panelPerfiles == null) panelPerfiles = GetComponentInChildren<PanelPerfilesUI>(true);
         if (panelPartidas == null) panelPartidas = GetComponentInChildren<PanelPartidasUI>(true);
         if (panelCrearPerfil == null) panelCrearPerfil = GetComponentInChildren<PanelCrearPerfilUI>(true);
+        if (panelCrearCuenta == null) panelCrearCuenta = GetComponentInChildren<PanelCrearCuentaUI>(true);
         if (botonAceptarPerfil == null && panelPerfiles != null)
             botonAceptarPerfil = panelPerfiles.GetComponentsInChildren<Button>(true)
                 .FirstOrDefault(b => b.name == "BotonAceptar");
@@ -873,12 +945,15 @@ public class iniciar : MonoBehaviour
         if (ingresarButton == null) ingresarButton = botones.FirstOrDefault(b => b.name == "Ingresar");
         if (registerButton == null)
             registerButton = botones.FirstOrDefault(b => b.name == "Register" || b.name == "Registrarse");
+        // Se busca dentro de Login, asi que no choca con el BotonVolver de PanelPartidas
+        // ni con los botones "Volver a perfiles" que la lista de partidas crea en runtime:
+        // esos nacen despues de Awake, que es cuando corre este metodo.
+        if (botonVolver == null)
+            botonVolver = botones.FirstOrDefault(b => b.name == "Volver" || b.name == "Cancelar");
 
         var textos = raizLogin.GetComponentsInChildren<TMP_Text>(true);
         if (tituloLabel == null) tituloLabel = textos.FirstOrDefault(t => t.name == "Titulo");
         if (cuentaLabel == null) cuentaLabel = textos.FirstOrDefault(t => t.name == "Cuenta");
-        if (registerLabel == null && registerButton != null)
-            registerLabel = registerButton.GetComponentInChildren<TMP_Text>(true);
 
         if (usuarioInput == null || passwordInput == null)
             Debug.LogError("[Ingresar] No se encontraron los campos de usuario/contrasena. " +
@@ -901,47 +976,26 @@ public class iniciar : MonoBehaviour
         }
     }
 
-    private void AplicarModo()
-    {
-        bool registro = modo == Modo.Registro;
-
-        if (registro && emailInput == null) emailInput = CrearCampoEmail();
-        if (emailInput != null) emailInput.gameObject.SetActive(registro);
-
-        AjustarLayout(registro);
-
-        if (tituloLabel != null) tituloLabel.text = registro ? "Crear cuenta" : "Iniciar Sesion";
-        if (cuentaLabel != null) cuentaLabel.text = registro ? "¿Ya tienes cuenta?" : "¿No tienes cuenta?";
-        if (registerLabel != null) registerLabel.text = registro ? "Volver" : "Registrarse";
-    }
-
     /// <summary>
-    /// En modo registro hace falta una fila mas (el email). El cartel crece hacia
-    /// abajo: se agranda AltoFila y se corre medio AltoFila para que el borde de
-    /// arriba no se mueva. Como el centro bajo esa mitad, lo de arriba se compensa
-    /// subiendo y lo de abajo termina bajando la fila completa.
+    /// Devuelve el cartel del login y sus piezas al sitio que tienen en la escena.
+    ///
+    /// Hace falta porque la lista de partidas se monta encima de este mismo cartel y
+    /// lo agranda para que quepan las filas. Al volver de ahi hay que deshacerlo, o el
+    /// login se queda con el cartel estirado y el titulo corrido.
     /// </summary>
-    private void AjustarLayout(bool registro)
+    private void RestaurarCartelLogin()
     {
-        if (cartel == null) return;
-
-        float delta = registro ? AltoFila : 0f;
-        cartel.sizeDelta = cartelSizeOriginal + new Vector2(0f, delta);
-        cartel.anchoredPosition = cartelPosOriginal - new Vector2(0f, delta * 0.5f);
-
-        Mover(tituloLabel, delta * 0.5f);
-        Mover(usuarioInput, delta * 0.5f);
-        Mover(passwordInput, delta * 0.5f);
-        Mover(ingresarButton, -delta * 0.5f);
-        Mover(registerButton, -delta * 0.5f);
-        Mover(cuentaLabel, -delta * 0.5f);
-
-        if (emailInput != null && passwordInput != null)
+        if (cartel != null)
         {
-            var pass = (RectTransform)passwordInput.transform;
-            ((RectTransform)emailInput.transform).anchoredPosition =
-                pass.anchoredPosition - new Vector2(0f, AltoFila);
+            cartel.sizeDelta = cartelSizeOriginal;
+            cartel.anchoredPosition = cartelPosOriginal;
         }
+
+        foreach (Component c in new Component[] { tituloLabel, usuarioInput, passwordInput,
+                                                  ingresarButton, registerButton, cuentaLabel })
+            Mover(c, 0f);
+
+        if (tituloLabel != null) tituloLabel.text = "Iniciar sesión";
 
         ReubicarEstado();
     }
@@ -952,6 +1006,10 @@ public class iniciar : MonoBehaviour
     private void ReubicarEstado()
     {
         if (estadoLabel == null || cartel == null) return;
+
+        // La etiqueta de la escena va DENTRO del cartel, asi que sus coordenadas son
+        // relativas al cartel y no al padre. La cuenta de abajo la mandaria lejos.
+        if (estadoEnEscena != null) return;
 
         // El alto VISIBLE, no el del rect: el cartel puede estar escalado para
         // agrandar la pantalla entera, y la etiqueta cuelga de Login (sin escalar),
@@ -968,25 +1026,6 @@ public class iniciar : MonoBehaviour
         if (objetivo == null) return;
         if (objetivo.transform is RectTransform rt && posOriginal.TryGetValue(rt, out var origen))
             rt.anchoredPosition = origen + new Vector2(0f, dy);
-    }
-
-    /// <summary>
-    /// Clona el campo de usuario para que el de email herede tipografia, colores y
-    /// tamano exactos del que hizo el equipo, en vez de construir uno a mano.
-    /// </summary>
-    private TMP_InputField CrearCampoEmail()
-    {
-        if (usuarioInput == null) return null;
-
-        var campo = Instantiate(usuarioInput, usuarioInput.transform.parent);
-        campo.name = "EmailRegistro";
-        campo.onSubmit = new TMP_InputField.SubmitEvent();
-        campo.onValueChanged = new TMP_InputField.OnChangeEvent();
-        campo.text = string.Empty;
-        campo.contentType = TMP_InputField.ContentType.EmailAddress;
-        campo.onSubmit.AddListener(_ => Enviar());
-        AplicarPlaceholder(campo, "Email");
-        return campo;
     }
 
     private TMP_Text CrearEtiquetaEstado()
@@ -1031,8 +1070,8 @@ public class iniciar : MonoBehaviour
         ocupado = valor;
         if (ingresarButton != null) ingresarButton.interactable = !valor;
         if (registerButton != null) registerButton.interactable = !valor;
+        if (botonVolver != null) botonVolver.interactable = !valor;
         if (usuarioInput != null) usuarioInput.interactable = !valor;
         if (passwordInput != null) passwordInput.interactable = !valor;
-        if (emailInput != null) emailInput.interactable = !valor;
     }
 }

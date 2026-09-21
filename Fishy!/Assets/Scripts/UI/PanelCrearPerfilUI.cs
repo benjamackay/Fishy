@@ -11,40 +11,63 @@ using UnityEngine.UI;
 /// en un duplicado de ese objeto y no en un panel con marco propio.
 ///
 /// Un perfil solo tiene dos campos: el nombre, obligatorio y unico dentro de la
-/// cuenta, y la edad, opcional. El panel no elige por el usuario: si no tocan el
-/// desplegable, el perfil se crea sin edad.
+/// cuenta, y la edad, opcional. El panel no elige por el usuario: si no tocan las
+/// flechas, el perfil se crea sin edad.
 /// </summary>
 public class PanelCrearPerfilUI : MonoBehaviour
 {
     [Header("Campos")]
     [SerializeField] private TMP_InputField campoNombre;
-    [SerializeField] private TMP_Dropdown campoEdad;
+    [SerializeField] private TMP_Text numeroEdad;
     [SerializeField] private TMP_Text mensajeError;
 
     [Header("Botones")]
     [SerializeField] private Button botonCancelar;
     [SerializeField] private Button botonCrear;
 
+    [Header("Flechas de la edad")]
+    [SerializeField] private Button botonEdadMenos;
+    [SerializeField] private Button botonEdadMas;
+
     /// <summary>
-    /// Edad que representa cada opcion del desplegable, en el mismo orden en que
-    /// estan puestas en el Inspector. El primer hueco es null a proposito: es la
-    /// opcion "No opina", y es la que queda elegida si nadie toca el campo.
+    /// El selector de edad es una tira de valores: primero "no opina" y despues las
+    /// edades de <see cref="EdadMinima"/> a <see cref="EdadMaxima"/>. Antes esto era
+    /// un desplegable de 9 a 13.
     ///
-    /// Si algun dia se agregan edades, hay que tocar las dos: la lista del Inspector
-    /// y esta. Por eso, si no coinciden en largo, se avisa en consola en vez de
-    /// guardar una edad equivocada en silencio.
+    /// <see cref="SinEdad"/> vale -1 a proposito, justo debajo de EdadMinima: asi la
+    /// tira entera es un rango continuo y "no opina" es simplemente el primer valor,
+    /// sin un caso aparte que se olvide en alguna rama.
+    ///
+    /// Arranca en "no opina" y no en una edad concreta porque edad es opcional en el
+    /// backend. Si arrancara en un numero, todo perfil que nadie toque quedaria
+    /// guardado con una edad que nadie dijo, y eso no se distingue despues de una
+    /// respuesta de verdad.
     /// </summary>
-    private static readonly int?[] EdadPorOpcion = { null, 9, 10, 11, 12, 13 };
+    private const int SinEdad = -1;
+    private const int EdadMinima = 0;
+    private const int EdadMaxima = 99;
+    private const int EdadInicial = SinEdad;
+
+    /// <summary>Lo que se lee en la caja cuando no hay edad elegida.</summary>
+    private const string TextoSinEdad = "No opina";
 
     private Action<UsuarioJugadorDto> alCrear;
     private Action alCancelar;
     private bool ocupado;
     private int solicitud;
+    private int edad = EdadInicial;
+    private RepetidorDePulsacion repetidorMenos, repetidorMas;
 
     private void Awake()
     {
         if (botonCancelar != null) botonCancelar.onClick.AddListener(PulsarCancelar);
         if (botonCrear != null)    botonCrear.onClick.AddListener(PulsarCrear);
+
+        // Las flechas no van por onClick: con 101 valores hace falta mantener pulsado.
+        // El repetidor ya dispara en el primer toque, asi que lo sustituye en vez de
+        // sumarse a el; con los dos puestos, un clic suelto contaria dos veces.
+        repetidorMenos = Repetidor(botonEdadMenos, BajarEdad);
+        repetidorMas   = Repetidor(botonEdadMas, SubirEdad);
 
         // Enter en el nombre tambien envia: es un formulario de dos campos y obligar
         // a apuntar al boton es innecesario.
@@ -55,6 +78,23 @@ public class PanelCrearPerfilUI : MonoBehaviour
     {
         if (botonCancelar != null) botonCancelar.onClick.RemoveListener(PulsarCancelar);
         if (botonCrear != null)    botonCrear.onClick.RemoveListener(PulsarCrear);
+
+        if (repetidorMenos != null) repetidorMenos.AlRepetir -= BajarEdad;
+        if (repetidorMas != null)   repetidorMas.AlRepetir -= SubirEdad;
+    }
+
+    /// <summary>Deja una flecha lista para repetir mientras se sostiene. El repetidor
+    /// se agrega aqui y no en la escena para que no dependa de acordarse de ponerlo a
+    /// mano en cada flecha.</summary>
+    private static RepetidorDePulsacion Repetidor(Button boton, Action accion)
+    {
+        if (boton == null) return null;
+
+        var repetidor = boton.GetComponent<RepetidorDePulsacion>();
+        if (repetidor == null) repetidor = boton.gameObject.AddComponent<RepetidorDePulsacion>();
+
+        repetidor.AlRepetir += accion;
+        return repetidor;
     }
 
     /// <summary>Le dice al panel a quien avisar. Lo llama <c>iniciar</c> en su Awake.</summary>
@@ -73,7 +113,8 @@ public class PanelCrearPerfilUI : MonoBehaviour
         ocupado = false;
 
         if (campoNombre != null) campoNombre.text = string.Empty;
-        if (campoEdad != null)   campoEdad.value = 0;
+        edad = EdadInicial;
+        PintarEdad();
         LimpiarError();
 
         gameObject.SetActive(true);
@@ -149,20 +190,45 @@ public class PanelCrearPerfilUI : MonoBehaviour
         alCancelar?.Invoke();
     }
 
-    /// <summary>La edad elegida, o null si marcaron "No opina".</summary>
+    private void BajarEdad() => CambiarEdad(-1);
+    private void SubirEdad() => CambiarEdad(+1);
+
+    /// <summary>
+    /// Mueve la edad un paso por la tira, dando la vuelta en los extremos: despues de
+    /// 99 viene otra vez "No opina", y hacia atras desde "No opina" se llega a 99.
+    /// Con 101 valores, toparse con un tope y tener que soltar para volver a empezar
+    /// por el otro lado es mas molesto que la vuelta.
+    ///
+    /// El resto en C# conserva el signo (-1 % 101 da -1), asi que se normaliza a mano
+    /// antes de usarlo como indice.
+    /// </summary>
+    private void CambiarEdad(int paso)
+    {
+        if (ocupado) return;
+
+        int valores = EdadMaxima - SinEdad + 1;
+        int indice = edad - SinEdad + paso;
+
+        edad = SinEdad + ((indice % valores) + valores) % valores;
+        PintarEdad();
+    }
+
+    /// <summary>Escribe el valor en la caja. Las flechas solo se apagan mientras se
+    /// espera al servidor: como la tira da la vuelta, nunca se quedan sin sitio a
+    /// donde ir.</summary>
+    private void PintarEdad()
+    {
+        if (numeroEdad != null)
+            numeroEdad.text = edad == SinEdad ? TextoSinEdad : edad.ToString();
+
+        if (botonEdadMenos != null) botonEdadMenos.interactable = !ocupado;
+        if (botonEdadMas != null)   botonEdadMas.interactable   = !ocupado;
+    }
+
+    /// <summary>La edad elegida, o null si esta en "No opina".</summary>
     private int? EdadElegida()
     {
-        if (campoEdad == null) return null;
-
-        int indice = campoEdad.value;
-        if (indice < 0 || indice >= EdadPorOpcion.Length)
-        {
-            Debug.LogWarning($"[PanelCrearPerfilUI] La opción {indice} del desplegable no " +
-                             "tiene edad asignada. Revisa que las opciones del Inspector " +
-                             "coincidan con EdadPorOpcion. El perfil se crea sin edad.", this);
-            return null;
-        }
-        return EdadPorOpcion[indice];
+        return edad == SinEdad ? (int?)null : edad;
     }
 
     /// <summary>
@@ -206,7 +272,9 @@ public class PanelCrearPerfilUI : MonoBehaviour
         if (botonCrear != null)    botonCrear.interactable = !ocupado;
         if (botonCancelar != null) botonCancelar.interactable = !ocupado;
         if (campoNombre != null)   campoNombre.interactable = !ocupado;
-        if (campoEdad != null)     campoEdad.interactable = !ocupado;
+
+        // Las flechas dependen ademas de en que parte de la tira estamos.
+        PintarEdad();
     }
 
     private bool RespuestaVigente(int numero, ApiManager api, string sesion)

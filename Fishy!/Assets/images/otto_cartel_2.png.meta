@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 303ca1ec8cf3a234abab4b4875a594ae
+guid: efd789e32b707e34d84b9968bef272d7
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -718467977861240272
-    second: otto_cartel_0
+      213: 2744422501254073091
+    second: otto_cartel_2_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: otto_cartel_0
+      name: otto_cartel_2_0
       rect:
         serializedVersion: 2
         x: 55
-        y: 46
+        y: 58
         width: 1690
-        height: 1243
+        height: 1384
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 03a66154e2d7706f0800000000000000
-      internalID: -718467977861240272
+      spriteID: 30b86dc69b5261620800000000000000
+      internalID: 2744422501254073091
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      otto_cartel_0: -718467977861240272
+      otto_cartel_2_0: 2744422501254073091
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
