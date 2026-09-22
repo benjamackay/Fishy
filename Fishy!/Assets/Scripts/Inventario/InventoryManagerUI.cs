@@ -48,6 +48,10 @@ public class InventoryManagerUI : MonoBehaviour
     private InventoryManager suscritoA;
     [HideInInspector] public int minimumVisibleSlots;
 
+    /// <summary>itemId ya avisados por falta de ícono, para no repetir el warning en
+    /// cada refresco: la mochila se repinta entera cada vez que algo cambia.</summary>
+    private readonly HashSet<string> avisadosSinIcono = new HashSet<string>();
+
     private void Awake()
     {
         if (inventoryContainer == null) inventoryContainer = CrearContenedor();
@@ -134,6 +138,20 @@ public class InventoryManagerUI : MonoBehaviour
             {
                 texto.text = $"{nombre} {cantidad}";
             }
+        }
+
+        // Sin ícono Y sin dónde poner el nombre (esta casilla no tiene texto), el
+        // objeto queda en la mochila pero invisible en pantalla: ni dibujo ni letra,
+        // indistinguible de una casilla vacía. Es un fallo silencioso que ya pasó
+        // (el Álbum de Evidencias y varios ítems más no tienen 'Item Icon' asignado
+        // en su asset) y sin este aviso nadie se entera por qué "no aparece".
+        if (!hayIcono && texto == null && item.itemData != null &&
+            avisadosSinIcono.Add(item.itemData.itemId))
+        {
+            Debug.LogWarning(
+                $"[Inventario] '{item.itemData.itemId}' no tiene Item Icon asignado y esta " +
+                "casilla no tiene texto de respaldo: se ve como una casilla vacía. Asígnale " +
+                "un sprite en Resources/Items/{nombre del asset}.asset.", this);
         }
 
         ConfigurarInteraccion(slot, item);
