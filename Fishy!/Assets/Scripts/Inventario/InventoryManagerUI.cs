@@ -73,7 +73,19 @@ public class InventoryManagerUI : MonoBehaviour
     /// <summary>Vuelve a pintar todas las casillas desde la mochila.</summary>
     public void Refresh()
     {
-        List<Item> items = InventoryManager.Instance.inventory;
+        // Los pines de recompensa (HDU-11) no se dibujan acá: siguen en el
+        // inventario de verdad (InventoryManager.AddItem/GetQuantity los sigue
+        // viendo, así que DetectiveCaseManager no repite el pin al rejugar un
+        // caso), pero visualmente sólo aparecen dentro del álbum
+        // (AlbumEvidenciasUI), con su ícono. El álbum en sí SÍ se sigue viendo acá:
+        // es la puerta de entrada para abrirlo.
+        List<Item> items = new List<Item>(InventoryManager.Instance.inventory.Count);
+        foreach (var item in InventoryManager.Instance.inventory)
+        {
+            bool esPin = item.itemData != null && !string.IsNullOrEmpty(item.itemData.itemId) &&
+                         item.itemData.itemId.StartsWith(AlbumEvidenciasUI.PrefijoPin);
+            if (!esPin) items.Add(item);
+        }
 
         // Las casillas se reciclan en vez de destruirse y volverse a crear:
         // Destroy es diferido, así que las viejas seguirían ocupando la grilla

@@ -21,7 +21,10 @@ public class AlbumEvidenciasUI : MonoBehaviour
     /// DetectiveCaseManager (para saber qué ItemData entregar).</summary>
     public const string ItemIdAlbum = "ITEM_ALBUM_EVIDENCIAS";
 
-    private const string PrefijoPin = "PIN_";
+    /// <summary>Prefijo que comparten los 3 pines de recompensa. Público: lo usa
+    /// también <see cref="InventoryManagerUI"/> para que los pines no se dibujen
+    /// en la mochila general — sólo viven aquí, en el álbum.</summary>
+    public const string PrefijoPin = "PIN_";
     private const string MensajeVacio =
         "Todavía no hay evidencias.\nResuelve un caso del Modo Detective para conseguir tu primer pin.";
 
@@ -76,20 +79,15 @@ public class AlbumEvidenciasUI : MonoBehaviour
 
         if (pines.Count == 0)
         {
-            CrearEntrada(MensajeVacio);
+            CrearEntradaTexto(MensajeVacio);
             return;
         }
 
         foreach (var item in pines)
-        {
-            string texto = item.itemData.itemName;
-            if (!string.IsNullOrEmpty(item.itemData.itemDescription))
-                texto += $"\n{item.itemData.itemDescription}";
-            CrearEntrada(texto);
-        }
+            CrearEntradaPin(item);
     }
 
-    private void CrearEntrada(string texto)
+    private void CrearEntradaTexto(string texto)
     {
         var entrada = new GameObject("Entrada", typeof(RectTransform), typeof(LayoutElement));
         entrada.transform.SetParent(_contenedorEntradas, false);
@@ -99,6 +97,49 @@ public class AlbumEvidenciasUI : MonoBehaviour
         tmp.fontSize = 28f;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.TopLeft;
+    }
+
+    /// <summary>Ícono a la izquierda + nombre/descripción a la derecha. Es la única
+    /// forma en la que un pin es visible en el juego (ver InventoryManagerUI, que
+    /// los excluye de la mochila general a propósito).</summary>
+    private void CrearEntradaPin(Item item)
+    {
+        var entrada = new GameObject("Entrada", typeof(RectTransform), typeof(LayoutElement),
+            typeof(HorizontalLayoutGroup));
+        entrada.transform.SetParent(_contenedorEntradas, false);
+
+        var layout = entrada.GetComponent<HorizontalLayoutGroup>();
+        layout.spacing = 16f;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        var iconoGO = new GameObject("Icono", typeof(RectTransform), typeof(Image),
+            typeof(LayoutElement));
+        iconoGO.transform.SetParent(entrada.transform, false);
+        var iconoLE = iconoGO.GetComponent<LayoutElement>();
+        iconoLE.preferredWidth = 72f;
+        iconoLE.preferredHeight = 72f;
+        var iconoImg = iconoGO.GetComponent<Image>();
+        iconoImg.sprite = item.itemData.itemIcon;
+        iconoImg.preserveAspect = true;
+        iconoImg.enabled = item.itemData.itemIcon != null;
+
+        var textoGO = new GameObject("Texto", typeof(RectTransform), typeof(LayoutElement));
+        textoGO.transform.SetParent(entrada.transform, false);
+        textoGO.GetComponent<LayoutElement>().flexibleWidth = 1f;
+
+        string texto = item.itemData.itemName;
+        if (!string.IsNullOrEmpty(item.itemData.itemDescription))
+            texto += $"\n{item.itemData.itemDescription}";
+
+        var tmp = textoGO.AddComponent<TextMeshProUGUI>();
+        tmp.text = texto;
+        tmp.fontSize = 28f;
+        tmp.color = Color.white;
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
     }
 
     // ── Construcción de UI en runtime (mismo criterio que ZonePopupUI) ──────
