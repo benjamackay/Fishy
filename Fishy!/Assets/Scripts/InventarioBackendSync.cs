@@ -44,6 +44,10 @@ namespace Fishy.Net
         /// </summary>
         private string ultimoSubido;
 
+        /// <summary>Tras fallar la bajada se espera esto antes de reintentar.</summary>
+        private const float EsperaTrasFallo = 5f;
+        private float _noAntesDe;
+
         private int? partidaAtendida;
         private bool suscrito;
         private bool avisoDeSinPartidaDado;
@@ -108,7 +112,7 @@ namespace Fishy.Net
                     sinPartidaDesde = Time.realtimeSinceStartup;
                     avisoDeSinPartidaDado = false;
 
-                    if (partidaAtendida != api.PartidaId)
+                    if (partidaAtendida != api.PartidaId && Time.realtimeSinceStartup >= _noAntesDe)
                     {
                         partidaAtendida = api.PartidaId;
                         ultimoSubido = null;
@@ -130,10 +134,14 @@ namespace Fishy.Net
                 onSuccess: Aplicar,
                 onError: e =>
                 {
-                    Debug.LogWarning($"[InventarioBackendSync] No se pudo bajar la mochila: {e}");
-                    // Aunque falle hay que quedar escuchando: lo que el niño/a recoja
-                    // de aquí en adelante igual tiene que subir cuando se pueda.
-                    Suscribir();
+                    // Antes se suscribía igual "para que lo que recoja suba cuando se pueda",
+                    // pero el PUT del servidor REEMPLAZA la mochila: el primer objeto
+                    // recogido subía la mochila local —sin lo guardado— y borraba lo del
+                    // servidor. Sin haberlo leído no se escribe; se reintenta la bajada.
+                    Debug.LogWarning($"[InventarioBackendSync] No se pudo bajar la mochila: {e}. " +
+                                     "No se guardará hasta lograr leerla.");
+                    partidaAtendida = null;
+                    _noAntesDe = Time.realtimeSinceStartup + EsperaTrasFallo;
                 });
         }
 
@@ -225,6 +233,9 @@ namespace Fishy.Net
         {
             var api = ApiManager.Instance;
             if (api == null || api.PartidaId == null) { ok(); return; }
+
+            // Sin haber leído la mochila del servidor, la local no es la verdad.
+            if (!suscrito) { ok(); return; }
 
             var items = LeerMochila();
             string firma = Firma(items);

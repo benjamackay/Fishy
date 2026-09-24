@@ -78,6 +78,11 @@ namespace Fishy.Net
             public object Valor;
             public Func<object, Action<Action, Action<string>>> HacerEnviar;
 
+            /// <summary>Cómo se combinan dos valores de esta clave (viejo, nuevo). Null =
+            /// gana el nuevo. Se guarda aquí para poder fusionar también cuando un envío
+            /// fallido vuelve a la cola y ya hay uno más nuevo esperando.</summary>
+            public Func<object, object, object> Fusion;
+
             public Action<Action, Action<string>> Resolver()
                 => HacerEnviar != null ? HacerEnviar(Valor) : Enviar;
         }
@@ -121,6 +126,38 @@ namespace Fishy.Net
                 if (!_porClave.Remove(clave)) return false;
                 _orden.Remove(clave);
                 return true;
+            }
+
+            /// <summary>
+            /// Saca de la cola lo que HAY AHORA bajo esa clave, o null si ya no está.
+            ///
+            /// El vaciado recorre una copia y puede esperar entre un cambio y otro; en
+            /// ese rato el juego puede haber reencolado la misma clave con datos más
+            /// nuevos. Mandar la copia vieja y quitar la nueva perdía el dato nuevo.
+            /// </summary>
+            public CambioPendiente Tomar(string clave)
+            {
+                if (!_porClave.TryGetValue(clave, out var actual)) return null;
+                Quitar(clave);
+                return actual;
+            }
+
+            /// <summary>
+            /// Devuelve a la cola un cambio que falló. Si mientras tanto entró uno más
+            /// nuevo con la misma clave, el nuevo manda: no se le pisa con el viejo. Si la
+            /// clave fusiona (zona por OR, progreso por máximo) se combinan los dos, para
+            /// que un "desbloqueada" viejo que falló no borre un "completada" más nuevo.
+            /// </summary>
+            public void Reencolar(CambioPendiente fallido)
+            {
+                if (_porClave.TryGetValue(fallido.Clave, out var nuevo))
+                {
+                    nuevo.Intentos = Math.Max(nuevo.Intentos, fallido.Intentos);
+                    if (fallido.Fusion != null)
+                        nuevo.Valor = fallido.Fusion(fallido.Valor, nuevo.Valor);
+                    return;
+                }
+                Poner(fallido);
             }
 
             /// <summary>Copia en orden de llegada. Se itera sobre esto y no sobre el
@@ -348,6 +385,7 @@ namespace Fishy.Net
                 Enviar = enviar,
                 Valor = valor,
                 HacerEnviar = hacerEnviar,
+                Fusion = fusion,
             };
 
             _almacen.Poner(cambio, fusion);
@@ -416,15 +454,31 @@ namespace Fishy.Net
 
             try
             {
-                foreach (var cambio in _almacen.Instantanea())
+                foreach (var previsto in _almacen.Instantanea())
                 {
                     if (Time.realtimeSinceStartup >= limite) break;
+
+                    // Una cadena no puede solaparse con nada: el chat usa NpcId y ChatId
+                    // de ApiManager, que son estado global y se pisarian.
+                    bool esCadena = previsto.Familia == Familia.Cadena;
+                    int hueco = esCadena ? 1 : Mathf.Max(1, paralelismo);
+
+                    while (_enVueloCola >= hueco && Time.realtimeSinceStartup < limite)
+                        yield return null;
+                    if (Time.realtimeSinceStartup >= limite) break;
+
+                    // Se toma lo que hay AHORA bajo esta clave, no la copia de arriba: si
+                    // mientras se esperaba un hueco entró un dato más nuevo, es ese el
+                    // que tiene que salir. Va DESPUÉS de esperar y justo antes de mandar,
+                    // para que un plazo vencido no deje un cambio sacado y perdido.
+                    // Null = ya lo mandó otro camino.
+                    var cambio = _almacen.Tomar(previsto.Clave);
+                    if (cambio == null) continue;
 
                     // El sello: si la cola sobrevivio a un cambio de perfil, esto es lo
                     // unico que evita escribirle el avance de un hermano al otro.
                     if (cambio.Partida.HasValue && cambio.Partida != api.PartidaId)
                     {
-                        _almacen.Quitar(cambio.Clave);
                         _descartados++;
                         Debug.LogWarning(
                             $"[Cola] Descartado '{cambio.Descripcion}' de la partida " +
@@ -432,18 +486,8 @@ namespace Fishy.Net
                         continue;
                     }
 
-                    // Una cadena no puede solaparse con nada: el chat usa NpcId y ChatId
-                    // de ApiManager, que son estado global y se pisarian.
-                    bool esCadena = cambio.Familia == Familia.Cadena;
-                    int hueco = esCadena ? 1 : Mathf.Max(1, paralelismo);
-
-                    while (_enVueloCola >= hueco && Time.realtimeSinceStartup < limite)
-                        yield return null;
-                    if (Time.realtimeSinceStartup >= limite) break;
-
                     api.TopeDeTiempoParaPeticiones = SegundosHasta(limite);
 
-                    _almacen.Quitar(cambio.Clave);
                     _enVueloCola++;
                     _enVueloClaves.Add(cambio.Clave);
                     _intentados++;
@@ -470,7 +514,7 @@ namespace Fishy.Net
                                 return;
                             }
                             c.Intentos++;
-                            _almacen.Poner(c);
+                            _almacen.Reencolar(c);
                         });
 
                     // La cadena se espera entera antes de seguir.

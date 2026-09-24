@@ -19,9 +19,14 @@ namespace Fishy.Phone
     ///  5. Al cerrar: fade → zoom de vuelta → Otto puede moverse de nuevo.
     ///
     /// Necesita un Collider2D marcado como "Is Trigger" en el mismo objeto.
+    ///
+    /// Se abre con la tecla de interacción (E): implementa <see cref="IInteractable"/>,
+    /// así que el <c>InteractionDetector</c> de Otto lo encuentra al entrar en el trigger
+    /// y enciende el cartelito, igual que con un NPC neutro. Si se prefiere el
+    /// comportamiento antiguo —abrirse solo al acercarse— está <see cref="abrirAlAcercarse"/>.
     /// </summary>
     [RequireComponent(typeof(Collider2D))]
-    public class PhoneChatLauncher : MonoBehaviour
+    public class PhoneChatLauncher : MonoBehaviour, IInteractable
     {
 
         // ── Contenido ──────────────────────────────────────────────────────────
@@ -66,6 +71,9 @@ namespace Fishy.Phone
                  "Hay que alejarse y volver a acercarse: la conversación no se " +
                  "reabre sola al cerrarla, o el niño/a quedaría atrapado en ella.")]
         public bool repetible   = false;
+        [Tooltip("Abrir la secuencia apenas Otto entra al trigger, sin pulsar nada. Por defecto " +
+                 "está apagado: se abre con la tecla de interacción (E) estando cerca.")]
+        public bool abrirAlAcercarse = false;
         public string ottoTag   = "Player";
         [Tooltip("Registrar la sesión en el backend (requiere ApiManager con sesión activa).")]
         public bool reportToBackend = false;
@@ -108,8 +116,28 @@ namespace Fishy.Phone
             }
         }
 
+        // ── IInteractable (tecla E) ────────────────────────────────────────────
+        /// <summary>Frame en que terminó la última secuencia.</summary>
+        private int _terminoEnFrame = -10;
+
+        /// <summary>Sin mirar HayContenido(): esto se consulta cada frame y ese método avisa
+        /// por consola cuando falta el escenario.</summary>
+        public bool CanInteract()
+            => !_sequenceRunning && (repetible || !_triggered) && EscenariosPedidos().Count > 0;
+
+        public void Interact()
+        {
+            // El detector llama a Interact() sin mirar CanInteract(). Y la E con la que se
+            // cierra el chat la lee él mismo en ese frame: sin el margen reabriría la
+            // conversación al terminar.
+            if (!CanInteract()) return;
+            if (Time.frameCount - _terminoEnFrame <= 1) return;
+            OpenManual();
+        }
+
         private void OnTriggerEnter2D(Collider2D other)
         {
+            if (!abrirAlAcercarse) return;
             if (!other.CompareTag(ottoTag)) return;
             if (!repetible && _triggered) return;
             if (_sequenceRunning) return;
@@ -142,6 +170,7 @@ namespace Fishy.Phone
 
             onChatClosed?.Invoke();
             _sequenceRunning = false;
+            _terminoEnFrame = Time.frameCount;
         }
 
         private const float EsperaMaximaVariables = 3f;

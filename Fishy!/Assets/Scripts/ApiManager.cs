@@ -584,6 +584,41 @@ namespace Fishy.Net
                 onError: onError));
         }
 
+        /// <summary>
+        /// Sube una conversación ENTERA en una sola petición y atómica
+        /// (<c>POST /partidas/{id}/chats/completo/</c>): o entra completa o no entra
+        /// nada. Reemplaza a la cadena RegistrarNPC → IniciarChat → N × RegistrarMensaje
+        /// → FinalizarChat, que son ~9 peticiones en serie y deja una conversación
+        /// partida si el juego se cierra a mitad.
+        ///
+        /// A propósito NO toca <see cref="NpcId"/> ni <see cref="ChatId"/>: no hay
+        /// estado de "chat abierto" que dejar puesto, la conversación ya llegó cerrada.
+        /// Sin backend (modo local) responde error y quien llama decide qué hacer.
+        /// </summary>
+        public void RegistrarChatCompleto(string nombreNpc, string area, string tipoNpc,
+            string categoriaRiesgo, List<Dictionary<string, object>> mensajes, string respuestaFinal = "",
+            Action<ChatCompletoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: la conversación completa no se sube sin backend.");
+                return;
+            }
+
+            if (!RequireId(PartidaId, "PartidaId", onError)) return;
+
+            var body = new Dictionary<string, object>
+            {
+                { "npc", new { nombre = nombreNpc, area, tipo = tipoNpc, confianza = 0 } },
+                { "chat", new { categoria_riesgo = categoriaRiesgo } },
+                { "mensajes", mensajes ?? new List<Dictionary<string, object>>() },
+                { "finalizar", true },
+                { "respuesta_final", respuestaFinal ?? "" },
+            };
+            StartCoroutine(Send<ChatCompletoDto>("POST", $"/partidas/{PartidaId}/chats/completo/", body,
+                auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  RIESGO POR ZONA                                                        ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
@@ -828,6 +863,52 @@ namespace Fishy.Net
                 estado = completada ? "completada" : "disponible",
             };
             StartCoroutine(Send<MisionProgresoDto>("POST", $"/partidas/{pId}/misiones/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>Objetivos con avance guardado en la partida (<c>GET /partidas/{id}/objetivos/</c>).</summary>
+        public void ObtenerProgresoObjetivos(int? partidaId = null,
+            Action<List<ObjetivoProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el avance por objetivo no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<ObjetivoProgresoDto>>("GET", $"/partidas/{pId}/objetivos/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca un objetivo de una misión como cumplido. Camino de ida e idempotente,
+        /// igual que las misiones: repetirlo no duplica nada y un <c>false</c> sobre
+        /// uno ya cumplido se ignora. <paramref name="orden"/> es el del catálogo
+        /// (<c>ObjetivoRegistro.orden</c>), la mitad de la clave con la que se guarda.
+        /// </summary>
+        public void RegistrarProgresoObjetivo(string misionId, int orden, bool cumplido = true,
+            int? partidaId = null, Action<ObjetivoProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el avance por objetivo no se registra sin backend.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(misionId))
+            {
+                onError?.Invoke("Falta el misionId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new { mision_id = misionId, orden, cumplido };
+            StartCoroutine(Send<ObjetivoProgresoDto>("POST", $"/partidas/{pId}/objetivos/", body, auth: true,
                 onSuccess: onSuccess, onError: onError));
         }
 
@@ -2181,6 +2262,25 @@ namespace Fishy.Net
         public string fecha_completada;
 
         public bool Completada => estado == "completada";
+    }
+
+    /// <summary>Respuesta de <c>chats/completo</c>: lo que quedó guardado.</summary>
+    [Serializable]
+    public class ChatCompletoDto
+    {
+        public NpcDto npc;
+        public ChatDto chat;
+        public List<MensajeDto> mensajes;
+    }
+
+    /// <summary>Avance de un objetivo dentro de una partida (B.3 de REQUISITOS_BD).</summary>
+    [Serializable]
+    public class ObjetivoProgresoDto
+    {
+        public string mision_id;
+        public int orden;
+        public bool cumplido;
+        public string fecha;
     }
 
     /// <summary>Progreso de una zona dentro de una partida (HDU-3 CA5, HDU-4 CA5).</summary>

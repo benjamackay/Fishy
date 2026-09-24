@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Fishy.Mision;
+using Fishy.Net;
 using Fishy.World;
 using UnityEngine;
 using UnityEngine.Events;
@@ -37,6 +38,10 @@ public class MissionTracker : MonoBehaviour
     }
 
     private readonly List<Seguimiento> seguimientos = new List<Seguimiento>();
+
+    /// <summary>Sube cada vez que se reinicia el rastreador. Los listeners que quedaron
+    /// enganchados a un evento de un seguimiento viejo lo comparan y se callan.</summary>
+    private int _generacion;
     private bool suscritoAlInventario;
 
     /// <summary>Objetivos cuyo evento ya está enganchado, para no engancharlo dos veces
@@ -56,6 +61,42 @@ public class MissionTracker : MonoBehaviour
     /// </summary>
     public event Action OnProgresoCambiado;
 
+    /// <summary>
+    /// Un objetivo pasó a cumplido JUGANDO (no al restaurarlo del servidor). Lo escucha
+    /// <c>ObjetivosBackendSync</c> para guardarlo. Estático: quien escucha no puede
+    /// depender de que este rastreador ya exista.
+    /// </summary>
+    public static event Action<DesafioData, ObjetivoMision> OnObjetivoCumplido;
+
+    /// <summary>
+    /// Marca como cumplidos los objetivos que el servidor ya tenía guardados para esta
+    /// partida. <paramref name="yaCumplido"/> recibe (misionId, ordenCatalogo).
+    /// Se llama al bajar el avance y también al empezar a seguir una misión, porque
+    /// cualquiera de los dos puede llegar primero.
+    /// </summary>
+    public void AplicarCumplidos(Func<string, int, bool> yaCumplido)
+    {
+        if (yaCumplido == null) return;
+        bool cambio = false;
+        foreach (Seguimiento s in seguimientos)
+            cambio |= MarcarGuardados(s, yaCumplido);
+        if (cambio) { OnProgresoCambiado?.Invoke(); RevisarTodo(); }
+    }
+
+    private static bool MarcarGuardados(Seguimiento s, Func<string, int, bool> yaCumplido)
+    {
+        if (s.desafio == null) return false;
+        bool cambio = false;
+        foreach (ObjetivoMision o in s.objetivos)
+        {
+            if (o == null || o.cumplido || o.ordenCatalogo <= 0) continue;
+            if (!yaCumplido(s.desafio.desafioId, o.ordenCatalogo)) continue;
+            o.cumplido = true;
+            cambio = true;
+        }
+        return cambio;
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -71,6 +112,21 @@ public class MissionTracker : MonoBehaviour
         // el inventario: el evento es estático, así que no hace falta que ZonaActual
         // exista todavía cuando el rastreador arranca.
         ZonaActual.OnZonaCambiada += AlCambiarDeZona;
+        MissionManager.OnPartidaCambiada += Reiniciar;
+    }
+
+    /// <summary>
+    /// Olvida lo que se estaba siguiendo. Es DontDestroyOnLoad, así que sin esto el
+    /// perfil siguiente en el mismo PC heredaría los objetivos cumplidos del anterior:
+    /// <see cref="Seguir"/> corta si la misión ya está en la lista, y con ella se
+    /// quedaba el "cumplido" de otro niño/a.
+    /// </summary>
+    public void Reiniciar()
+    {
+        _generacion++;
+        seguimientos.Clear();
+        _suscritos.Clear();
+        OnProgresoCambiado?.Invoke();
     }
 
     private void OnDestroy()
@@ -79,6 +135,7 @@ public class MissionTracker : MonoBehaviour
             InventoryManager.instance.OnInventoryChanged -= RevisarTodo;
 
         ZonaActual.OnZonaCambiada -= AlCambiarDeZona;
+        MissionManager.OnPartidaCambiada -= Reiniciar;
     }
 
     private void AlCambiarDeZona(string anterior, string nueva) => RevisarTodo();
@@ -107,6 +164,10 @@ public class MissionTracker : MonoBehaviour
             objetivos = objetivos ?? new List<ObjetivoMision>(),
         };
         seguimientos.Add(seguimiento);
+
+        // Lo que el servidor ya sabe de esta misión, antes de enganchar eventos: un
+        // objetivo cumplido en una sesión anterior no tiene que volver a hacerse.
+        MarcarGuardados(seguimiento, ObjetivosBackendSync.YaCumplido);
 
         SuscribirPendientes(seguimiento);
 
@@ -206,12 +267,16 @@ public class MissionTracker : MonoBehaviour
             }
 
             ObjetivoMision capturado = objetivo;   // sin esto la lambda vería el último del bucle
+            int generacion = _generacion;
+            DesafioData desafioDelObjetivo = seguimiento.desafio;
             evento.AddListener(() =>
             {
+                if (generacion != _generacion) return;   // de una partida anterior
                 if (capturado.cumplido) return;
                 capturado.cumplido = true;
                 if (verboseLogs)
                     Debug.Log($"[Misiones] Objetivo cumplido: {capturado.Describir()}", this);
+                OnObjetivoCumplido?.Invoke(desafioDelObjetivo, capturado);
                 OnProgresoCambiado?.Invoke();
                 RevisarTodo();
             });
@@ -246,7 +311,11 @@ public class MissionTracker : MonoBehaviour
         {
             bool estabaCumplido = objetivo.cumplido;
             if (!objetivo.Evaluar()) todos = false;
-            if (!estabaCumplido && objetivo.cumplido) avanzo = true;
+            if (!estabaCumplido && objetivo.cumplido)
+            {
+                avanzo = true;
+                OnObjetivoCumplido?.Invoke(seguimiento.desafio, objetivo);
+            }
         }
 
         // Los que se cumplen por evento ya avisaron desde su listener; esto cubre a

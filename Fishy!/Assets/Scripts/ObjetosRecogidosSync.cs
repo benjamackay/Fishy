@@ -42,6 +42,10 @@ public class ObjetosRecogidosSync : MonoBehaviour
     private static bool registroCargado;
 
     private static int? partidaCargada;
+
+    /// <summary>Tras fallar la bajada se espera esto antes de reintentar.</summary>
+    private const float EsperaTrasFallo = 5f;
+    private float _noAntesDe;
     private bool avisoDeSinPartidaDado;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -154,7 +158,7 @@ public class ObjetosRecogidosSync : MonoBehaviour
                 sinPartidaDesde = Time.realtimeSinceStartup;
                 avisoDeSinPartidaDado = false;
 
-                if (partidaCargada != api.PartidaId)
+                if (partidaCargada != api.PartidaId && Time.realtimeSinceStartup >= _noAntesDe)
                 {
                     partidaCargada = api.PartidaId;
                     registroCargado = false;
@@ -198,6 +202,10 @@ public class ObjetosRecogidosSync : MonoBehaviour
                 // Sin registro no se esconde nada: los objetos quedan en el mapa y el
                 // niño/a puede recogerlos de nuevo. Es molesto, no destructivo.
                 Debug.LogWarning($"[ObjetosRecogidos] No se pudo saber qué estaba recogido: {e}");
+                // Se reintenta: sin esto, un fallo de red al entrar dejaba todos los objetos
+                // ya recogidos de vuelta en el mapa durante toda la sesión.
+                partidaCargada = null;
+                _noAntesDe = Time.realtimeSinceStartup + EsperaTrasFallo;
             });
     }
 

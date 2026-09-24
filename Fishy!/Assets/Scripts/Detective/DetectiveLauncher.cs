@@ -10,8 +10,12 @@ namespace Fishy.Detective
     /// <summary>
     /// Coloca este componente en el GameObject de la zona del modo detective.
     /// Requiere un Collider2D con isTrigger = true.
+    ///
+    /// Se abre con la tecla de interacción (E): implementa <see cref="IInteractable"/>, así
+    /// que el <c>InteractionDetector</c> de Otto lo encuentra al entrar en el trigger. Si se
+    /// prefiere abrirlo solo al acercarse, está <see cref="abrirAlAcercarse"/>.
     /// </summary>
-    public class DetectiveLauncher : MonoBehaviour
+    public class DetectiveLauncher : MonoBehaviour, IInteractable
     {
         [Header("Caso")]
         [Tooltip("caso_id en el backend (ej: DC_CASO_01). Se intenta cargar de ahí primero. " +
@@ -35,6 +39,10 @@ namespace Fishy.Detective
                  "que cambia es que el NPC no deja de activarse. Hay que alejarse y " +
                  "volver a acercarse.")]
         [SerializeField] private bool repetible = false;
+
+        [Tooltip("Abrir el caso apenas Otto entra al trigger, sin pulsar nada. Por defecto " +
+                 "está apagado: se abre con la tecla de interacción (E) estando cerca.")]
+        [SerializeField] private bool abrirAlAcercarse = false;
 
         [Header("Referencias (se crean solas si están vacías)")]
         [SerializeField] private DetectiveCaseManager caseManager;
@@ -91,8 +99,25 @@ namespace Fishy.Detective
 
         // ── Trigger ──────────────────────────────────────────────────────────
 
+        // ── IInteractable (tecla E) ────────────────────────────────────────────
+
+        /// <summary>Frame en que se cerró el último caso.</summary>
+        private int _cerradoEnFrame = -10;
+
+        public bool CanInteract() => !_enCurso && (repetible || !YaCompletado());
+
+        public void Interact()
+        {
+            // El detector llama a Interact() sin mirar CanInteract(); y el margen evita que
+            // la misma pulsación que cierra el caso lo reabra en ese frame.
+            if (!CanInteract()) return;
+            if (Time.frameCount - _cerradoEnFrame <= 1) return;
+            Iniciar();
+        }
+
         private void OnTriggerEnter2D(Collider2D other)
         {
+            if (!abrirAlAcercarse) return;
             if (_enCurso) return;
             if (!other.CompareTag("Player")) return;
 
@@ -102,6 +127,11 @@ namespace Fishy.Detective
                 return;
             }
 
+            Iniciar();
+        }
+
+        private void Iniciar()
+        {
             _enCurso = true;
             DetectiveCaseLoader.LoadAsync(casoId, resourcePath, OnCasoCargado);
         }
@@ -163,6 +193,7 @@ namespace Fishy.Detective
         {
             controller?.EnableMovement();
             _enCurso = false;
+            _cerradoEnFrame = Time.frameCount;
 
             // Sólo se bloquea el reintento si aprobó. Si cerró habiendo reprobado —sin
             // pulsar "Repetir"— el caso queda SIN marcar completado, así que la próxima

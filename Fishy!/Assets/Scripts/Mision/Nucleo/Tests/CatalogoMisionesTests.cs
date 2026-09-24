@@ -145,20 +145,43 @@ public class CatalogoMisionesTests
     // ── Que mande la base ────────────────────────────────────────────────────
 
     [UnityTest]
-    public IEnumerator AplicarDesdeBase_ReemplazaAlArchivo()
+    public IEnumerator AplicarDesdeBase_Manda_PeroElArchivoTapaHuecos()
     {
         yield return null;
 
         CatalogoMisiones.LeerTexto(JsonDosMisiones);
 
+        LogAssert.ignoreFailingMessages = true;   // avisa que la base venía incompleta
         CatalogoMisiones.AplicarDesdeBase(new List<MisionRegistro>
         {
             new MisionRegistro { mision_id = "M_DE_LA_BASE", titulo = "Traída de la base", orden = 5 },
         });
+        LogAssert.ignoreFailingMessages = false;
 
         Assert.AreEqual(CatalogoMisiones.Origen.Base, CatalogoMisiones.DeDonde);
-        Assert.AreEqual(1, CatalogoMisiones.Todas.Count);
-        Assert.IsNull(CatalogoMisiones.Buscar("M_PRIMERA"), "El catálogo viejo tiene que irse.");
+        Assert.AreEqual("Traída de la base", CatalogoMisiones.Buscar("M_DE_LA_BASE").titulo);
+
+        // Una base incompleta (falta correr cargar_banco) no puede dejar al juego sin
+        // las misiones del archivo.
+        Assert.IsNotNull(CatalogoMisiones.Buscar("M_PRIMERA"));
+        Assert.AreEqual(3, CatalogoMisiones.Todas.Count);
+    }
+
+    [UnityTest]
+    public IEnumerator AplicarDesdeBase_ElTituloDeLaBaseGanaAlDelArchivo()
+    {
+        yield return null;
+
+        CatalogoMisiones.LeerTexto(JsonDosMisiones);
+
+        LogAssert.ignoreFailingMessages = true;
+        CatalogoMisiones.AplicarDesdeBase(new List<MisionRegistro>
+        {
+            new MisionRegistro { mision_id = "M_PRIMERA", titulo = "Título de la base" },
+        });
+        LogAssert.ignoreFailingMessages = false;
+
+        Assert.AreEqual("Título de la base", CatalogoMisiones.Buscar("M_PRIMERA").titulo);
     }
 
     [UnityTest]

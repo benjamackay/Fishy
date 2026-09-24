@@ -166,17 +166,12 @@ namespace Fishy.Chat
         // ── Subida ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Reproduce la cadena: NPC → chat → mensajes en orden → cierre.
+        /// Sube la conversación en un solo POST atómico (<c>chats/completo</c>): o
+        /// entra entera o no entra nada, y son ~0,7 s en vez de ~6 s.
         ///
-        /// Va estrictamente en serie porque <c>ApiManager.NpcId</c> y <c>ChatId</c> son
-        /// estado global: dos conversaciones a la vez se pisarían. Por eso la cola manda
-        /// las entradas de familia Cadena de una en una, sin paralelismo.
-        ///
-        /// Un fallo a media cadena la aborta entera: no tiene sentido seguir metiendo
-        /// mensajes en un chat que no se llegó a abrir.
-        ///
-        /// Cuando exista el endpoint de conversación completa esto pasa a ser un solo
-        /// POST — misma grabación, mismo encolado, solo cambia este método.
+        /// Si el servidor todavía no tiene ese endpoint (un despliegue anterior
+        /// responde 404 con una página HTML), se cae a la cadena antigua en vez de
+        /// dejar la conversación reintentándose para siempre en la cola.
         /// </summary>
         private static void Subir(string contacto, string zona, string categoria,
             List<MensajeGrabado> mensajes, string cierre, Action ok, Action<string> error)
@@ -184,6 +179,44 @@ namespace Fishy.Chat
             var api = ApiManager.Instance;
             if (api == null || api.PartidaId == null) { error("No hay partida."); return; }
 
+            var cuerpo = new List<Dictionary<string, object>>(mensajes.Count);
+            foreach (var m in mensajes)
+            {
+                var d = new Dictionary<string, object> { { "tipo", m.Tipo }, { "respuesta", m.Texto } };
+                if (!string.IsNullOrEmpty(m.Calidad))         d["calidad_respuesta"] = m.Calidad;
+                if (!string.IsNullOrEmpty(m.PreguntaBancoId)) d["pregunta_banco_id"] = m.PreguntaBancoId;
+                if (!string.IsNullOrEmpty(m.OpcionBancoId))   d["opcion_banco_id"]   = m.OpcionBancoId;
+                if (m.Opciones != null && m.Opciones.Count > 0) d["posibles_respuestas"] = m.Opciones;
+                cuerpo.Add(d);
+            }
+
+            api.RegistrarChatCompleto(contacto, zona, "enemigo", categoria, cuerpo, cierre,
+                onSuccess: _ => ok(),
+                onError: e =>
+                {
+                    if (EsEndpointInexistente(e))
+                    {
+                        Debug.LogWarning("[ChatBackendLogger] El servidor no tiene chats/completo; " +
+                                         "se sube por la cadena antigua.");
+                        SubirEnCadena(api, contacto, zona, categoria, mensajes, cierre, ok, error);
+                    }
+                    else error(e);
+                });
+        }
+
+        private static bool EsEndpointInexistente(string e)
+            => !string.IsNullOrEmpty(e) &&
+               (e.Contains("<html", StringComparison.OrdinalIgnoreCase) ||
+                e.Contains("Not Found", StringComparison.OrdinalIgnoreCase) ||
+                e.Contains("404"));
+
+        /// <summary>
+        /// Respaldo: reproduce la cadena NPC → chat → mensajes en orden → cierre.
+        /// Va en serie porque <c>ApiManager.NpcId</c> y <c>ChatId</c> son estado global.
+        /// </summary>
+        private static void SubirEnCadena(ApiManager api, string contacto, string zona, string categoria,
+            List<MensajeGrabado> mensajes, string cierre, Action ok, Action<string> error)
+        {
             api.RegistrarNPC(contacto, zona, "enemigo", confianza: 0,
                 onSuccess: _ => api.IniciarChat(categoria,
                     onSuccess: _ => SubirMensaje(api, mensajes, 0, cierre, ok, error),

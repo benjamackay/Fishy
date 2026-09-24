@@ -88,7 +88,7 @@ intermedio.
 
 **Lo importante de Cadena:** va **sola y esperando**, sin paralelismo, porque
 `ApiManager.NpcId` y `ChatId` son estado global mutable y dos cadenas a la vez se
-pisarían.
+pisarían. Hoy solo la usa el respaldo del chat (ver §12).
 
 Reencolar una clave **reemplaza el contenido pero conserva su posición original**. Si no,
 un snapshot que se repite mucho —la posición de Otto, que se marca en cada guardado— se
@@ -354,7 +354,8 @@ guardó y nadie sabe por qué"* y un diagnóstico.
 | `SaveManager.cs` | Los momentos, `wantsToQuit`, el cierre retenido |
 | `ApiManager.cs` | `PeticionesEnVuelo` y `TopeDeTiempoParaPeticiones` en `Send<T>` |
 | `UI/MenuPausa.cs` | El botón de salir y el cartel de "sin conexión" |
-| `Chat/ChatBackendLogger.cs` | Graba la conversación y la manda entera |
+| `Chat/ChatBackendLogger.cs` | Graba la conversación y la manda entera, en un POST atómico |
+| `ObjetivosBackendSync.cs` | Guarda y restaura el avance por objetivo |
 | `PersonajeBackendSync.cs`, `InventarioBackendSync.cs`, `ObjetosRecogidosSync.cs`, `NpcTematicaSync.cs`, `MisionBackendSync.cs` | Encolan en vez de llamar |
 | `Detective/DetectiveCaseManager.cs`, `Mision/RegistrarZonaCompletada.cs`, `Zonas/BosqueDesconocidos/BosqueDesconocidosManager.cs` | Ídem, escrituras sueltas |
 | `../Editor/FishyPruebasCola.cs` | Las pruebas headless |
@@ -363,37 +364,18 @@ guardó y nadie sabe por qué"* y un diagnóstico.
 
 ## 12. Pendiente
 
-**Un endpoint de conversación completa para el chat.** Hoy una conversación se sube
-reproduciendo la cadena: `RegistrarNPC` → `IniciarChat` → N × `RegistrarMensaje` →
-`FinalizarChat`, obligatoriamente en serie. Son ~9 peticiones × 700 ms ≈ **6 s por
-conversación**, y hay 6 lanzadores de chat en MainScene (4 `PhoneChatLauncher` +
-2 `ChatModuleLauncher`).
+**El chat ya sube en un solo POST atómico** (`POST /api/partidas/{id}/chats/completo/`,
+~0,7 s en vez de ~6 s, y o entra la conversación entera o no entra nada).
+`ChatBackendLogger.Subir()` lo usa; si el servidor todavía no tiene ese endpoint responde
+404 y cae a la cadena antigua (`RegistrarNPC` → `IniciarChat` → N × `RegistrarMensaje` →
+`FinalizarChat`) para no dejar la conversación reintentándose para siempre. Lo que se graba
+y cuándo se encola no cambió. Contrato completo en `REQUISITOS_BD.md`, sección A.3.
 
-Con un POST único serían **~0,7 s**, y además sería atómico — o entra la conversación
-entera o no entra nada, que es exactamente lo que se quiere.
-
-```
-POST /api/partidas/{partida_id}/chats/completo/
-{
-  "npc":  { "nombre": "Alex", "area": "zona_2", "tipo": "enemigo", "confianza": 0 },
-  "chat": { "categoria_riesgo": "desconocidos" },
-  "mensajes": [
-    { "tipo": "start",   "respuesta": "...", "pregunta_banco_id": "..." },
-    { "tipo": "request", "respuesta": "...", "pregunta_banco_id": "...",
-      "posibles_respuestas": [ ... ] },
-    { "tipo": "chain",   "respuesta": "...", "calidad_respuesta": "segura",
-      "opcion_banco_id": "..." }
-  ],
-  "finalizar": true
-}
-```
-
-Crea `api_npc` + `api_chat` + los `api_mensaje` + `api_posiblerespuesta` en un
-`transaction.atomic` y devuelve los ids. Reusa los serializers que ya existen; el cálculo
-de riesgo por zona no cambia porque las filas quedan igual.
-
-**Del lado de Unity el cambio es un método**: `ChatBackendLogger.Subir()`. Lo que se graba
-y cuándo se encola no se toca.
+**El avance por objetivo también se guarda** (`ObjetivosBackendSync`, `GET/POST
+/partidas/{id}/objetivos/`): cada objetivo cumplido de una misión del catálogo se encola
+con `EncolarAppend` (clave `objetivo:<mision>:<orden>`) y al entrar a la partida se baja y
+se aplica a `MissionTracker`. `recoger_objeto` queda fuera a propósito: se recalcula de la
+mochila.
 
 **También pendiente:** arrastrar el `SaveManager` a MainScene para que sus campos del
 Inspector manden (ver §1).

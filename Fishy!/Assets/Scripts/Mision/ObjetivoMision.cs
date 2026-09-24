@@ -100,6 +100,13 @@ public class ObjetivoMision
     [NonSerialized] public bool cumplido;
 
     /// <summary>
+    /// Posición del objetivo en el catálogo (<see cref="ObjetivoRegistro.orden"/>): la
+    /// mitad de la clave con la que el backend guarda su avance. 0 = no viene del
+    /// catálogo (armado a mano en la escena) y entonces no se sincroniza.
+    /// </summary>
+    [NonSerialized] public int ordenCatalogo;
+
+    /// <summary>
     /// Construye un objetivo a partir de lo que vino en los datos.
     ///
     /// Sólo traduce; no busca nada en la escena todavía. De eso se encarga
@@ -120,6 +127,7 @@ public class ObjetivoMision
             zonaDestino     = registro.zona_id ?? "",
             casoDetectiveId = registro.caso_id ?? "",
             descripcion     = registro.descripcion ?? "",
+            ordenCatalogo   = registro.orden,
         };
         return objetivo;
     }

@@ -324,9 +324,69 @@ namespace Fishy.Mision
                     "'objetivos'.");
             }
 
+            CompletarConElRespaldo(lista);
+
             Poner(lista, Origen.Base);
             Debug.Log($"[CatalogoMisiones] {_porId.Count} misión(es) desde la base de datos.");
             OnCatalogoCambiado?.Invoke();
+        }
+
+        /// <summary>
+        /// Rellena lo que la base no trae con lo que sí trae el archivo de respaldo.
+        ///
+        /// La base y el juego se despliegan por separado. Si la migración de misiones ya
+        /// está aplicada pero <c>cargar_banco</c> no se corrió con el catálogo nuevo, la
+        /// base devuelve las 9 misiones del banco sin orden ni objetivos, y sin esto ese
+        /// catálogo pobre REEMPLAZABA al completo: al niño/a le desaparecían misiones y
+        /// objetivos sin que nada avisara. Aquí no se pisa nada de lo que la base sí
+        /// tiene; sólo se agregan las misiones que faltan y los objetivos de las que
+        /// llegaron sin ninguno.
+        /// </summary>
+        private static void CompletarConElRespaldo(List<MisionRegistro> desdeBase)
+        {
+            // Lo que ya está cargado del archivo, si es de ahí; si no (una segunda
+            // descarga encima de una anterior de la base), se relee el archivo.
+            IEnumerable<MisionRegistro> respaldo = null;
+            if (DeDonde == Origen.Archivo && _porId != null)
+                respaldo = _porId.Values.ToList();
+            else
+            {
+                var asset = Resources.Load<TextAsset>(RutaResources);
+                if (asset == null) return;
+                try { respaldo = JsonUtility.FromJson<MisionesArchivo>(asset.text)?.misiones; }
+                catch (Exception) { return; }
+            }
+            if (respaldo == null) return;
+
+            var porId = new Dictionary<string, MisionRegistro>();
+            foreach (MisionRegistro m in desdeBase)
+                if (m != null && !string.IsNullOrWhiteSpace(m.mision_id))
+                    porId[m.mision_id.Trim()] = m;
+
+            int agregadas = 0, conObjetivos = 0;
+            foreach (MisionRegistro local in respaldo)
+            {
+                if (local == null || string.IsNullOrWhiteSpace(local.mision_id)) continue;
+                string id = local.mision_id.Trim();
+
+                if (!porId.TryGetValue(id, out MisionRegistro remota))
+                {
+                    desdeBase.Add(local);
+                    agregadas++;
+                }
+                else if ((remota.objetivos == null || remota.objetivos.Count == 0) &&
+                         local.objetivos != null && local.objetivos.Count > 0)
+                {
+                    remota.objetivos = local.objetivos;
+                    conObjetivos++;
+                }
+            }
+
+            if (agregadas > 0 || conObjetivos > 0)
+                Debug.LogWarning(
+                    $"[CatalogoMisiones] La base venía incompleta: se agregaron {agregadas} " +
+                    $"misión(es) y se copiaron los objetivos de {conObjetivos} desde el archivo " +
+                    "de respaldo. Probablemente falta correr cargar_banco en el servidor.");
         }
 
         private static void Poner(List<MisionRegistro> misiones, Origen origen)
