@@ -70,6 +70,12 @@ namespace Fishy.Mision
         /// <summary>Ids que el backend reporta como completados en esta partida.</summary>
         private readonly HashSet<string> completadosRemotos = new HashSet<string>();
 
+        /// <summary>
+        /// Ids que el backend devolvió pero que todavía no se pudieron pintar porque el
+        /// catálogo no los conoce. Ver <see cref="ReintentarLosQueFaltaban"/>.
+        /// </summary>
+        private readonly HashSet<string> sinFichaTodavia = new HashSet<string>();
+
         /// <summary>Todos los desafíos registrados en esta sesión (disponibles + completados).</summary>
         public IReadOnlyCollection<DesafioRuntime> Desafios => desafios.Values;
 
@@ -125,6 +131,18 @@ namespace Fishy.Mision
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            // El `-=` antes del `+=` no es de más: el evento es estático y sobrevive al
+            // recargado de dominio del editor, así que sin él nos suscribiríamos dos
+            // veces y cada misión pendiente se intentaría registrar por duplicado.
+            CatalogoMisiones.OnCatalogoCambiado -= ReintentarLosQueFaltaban;
+            CatalogoMisiones.OnCatalogoCambiado += ReintentarLosQueFaltaban;
+        }
+
+        private void OnDestroy()
+        {
+            CatalogoMisiones.OnCatalogoCambiado -= ReintentarLosQueFaltaban;
+            if (Instance == this) Instance = null;
         }
 
         /// <summary>Devuelve la instancia activa, creándola si aún no existe en la escena.</summary>
@@ -162,6 +180,9 @@ namespace Fishy.Mision
             // debe verse el estado que estaba cargado para la partida anterior.
             desafios.Clear();
             completadosRemotos.Clear();
+            // Son de la partida anterior: reintentarlas aquí le metería al hermano las
+            // misiones del otro en el panel.
+            sinFichaTodavia.Clear();
             contextoPersistencia = nuevoContexto;
             persistirLocalmente = true;
             RecalcularActiva();
@@ -246,26 +267,86 @@ namespace Fishy.Mision
                 if (string.IsNullOrWhiteSpace(id)) continue;
                 if (desafios.ContainsKey(id)) continue;   // ya está en el panel
 
-                var data = CatalogoDesafios.Buscar(id);
+                var data = BuscarFicha(id);
                 if (data == null)
                 {
-                    // El id está en la base pero no hay DesafioData con ese id. Igual que
-                    // con los ítems: se avisa, porque significa que Unity y el backend
-                    // dejaron de hablar el mismo idioma y al niño/a le falta una misión
-                    // del panel sin explicación.
-                    Debug.LogWarning(
-                        $"[MissionManager] '{id}' está guardado pero ninguna ficha tiene ese " +
-                        "desafioId, así que no se puede mostrar en el panel.");
+                    // El catálogo todavía no conoce ese id. Se guarda para reintentarlo
+                    // cuando llegue, en vez de perderlo: el catálogo y el progreso se
+                    // bajan por separado y nada garantiza cuál llega primero.
+                    sinFichaTodavia.Add(id);
                     sinFicha++;
                     continue;
                 }
 
                 RegistrarDesafioDisponible(data, anunciar: false);
+                sinFichaTodavia.Remove(id);
                 puestos++;
             }
 
             Debug.Log($"[MissionManager] {puestos} misión(es) restauradas en el panel" +
-                      (sinFicha > 0 ? $", {sinFicha} sin ficha." : "."));
+                      (sinFicha > 0 ? $", {sinFicha} esperando al catálogo." : "."));
+        }
+
+        /// <summary>
+        /// La ficha de esa misión, mire donde mire.
+        ///
+        /// Son dos catálogos y hay que preguntar en los dos.
+        /// <see cref="CatalogoDesafios"/> solo ve los <c>DesafioData</c> que alguien
+        /// arrastró a <c>Resources/Misiones/</c> —hoy tres—, mientras que las misiones
+        /// del contenido viven en <see cref="CatalogoMisiones"/> y su ficha se fabrica al
+        /// pedirla. **Las dos listas no se solapan en ninguna misión.**
+        ///
+        /// Preguntar solo por el primero es lo que hacía que el panel volviera vacío: al
+        /// retomar la partida, el id venía del backend sin haber pasado por el NPC que lo
+        /// entrega, así que nadie había fabricado la ficha todavía y la misión se
+        /// descartaba con un aviso. Fallaba siempre, no a veces.
+        ///
+        /// El orden importa: primero el asset, porque lo que alguien puso a mano en el
+        /// proyecto manda sobre lo que se fabrique en caliente. Es el mismo criterio que
+        /// aplica <see cref="CatalogoMisiones.Ficha"/>.
+        /// </summary>
+        private static DesafioData BuscarFicha(string id)
+            => CatalogoDesafios.Buscar(id) ?? CatalogoMisiones.Ficha(id);
+
+        /// <summary>
+        /// Vuelve a intentar las misiones que quedaron sin ficha, ahora que el catálogo
+        /// cambió.
+        ///
+        /// Hace falta porque <c>MisionBackendSync.BajarProgreso()</c> y la bajada del
+        /// catálogo son dos peticiones independientes: si el progreso gana la carrera, el
+        /// catálogo todavía está vacío y no hay de dónde sacar el título ni el orden. Sin
+        /// esto, esas misiones no volvían hasta la sesión siguiente.
+        /// </summary>
+        private void ReintentarLosQueFaltaban()
+        {
+            if (sinFichaTodavia.Count == 0) return;
+
+            var pendientes = new List<string>(sinFichaTodavia);
+            int puestos = 0;
+
+            foreach (string id in pendientes)
+            {
+                if (desafios.ContainsKey(id)) { sinFichaTodavia.Remove(id); continue; }
+
+                var data = BuscarFicha(id);
+                if (data == null) continue;   // sigue sin estar; ya habrá otro catálogo
+
+                RegistrarDesafioDisponible(data, anunciar: false);
+                sinFichaTodavia.Remove(id);
+                puestos++;
+            }
+
+            if (puestos > 0)
+                Debug.Log($"[MissionManager] {puestos} misión(es) entraron al panel al " +
+                          "llegar el catálogo.");
+
+            // Las que sigan aquí después de que el catálogo se haya actualizado son ids
+            // que la base tiene y el contenido no: eso ya no se arregla esperando.
+            if (sinFichaTodavia.Count > 0)
+                Debug.LogWarning(
+                    $"[MissionManager] {sinFichaTodavia.Count} misión(es) guardadas no están " +
+                    "en el catálogo, así que no se pueden mostrar en el panel: " +
+                    string.Join(", ", sinFichaTodavia));
         }
 
         /// <summary>
