@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: PIN_ANALISTA_CORRIENTES
   itemName: Pin del Analista de Corrientes
-  itemIcon: {fileID: 0}
-  itemDescription: Un recuerdo de haber resuelto con cuidado el caso del Lobo Marino y el Pingüino de Humboldt.
+  itemIcon: {fileID: 21300000, guid: 27780d5aff388e543bc1bb0d8b383b76, type: 3}
+  itemDescription: "Un recuerdo de haber resuelto con cuidado el caso del Lobo Marino
+    y el Ping\xFCino de Humboldt."
   itemType: 1

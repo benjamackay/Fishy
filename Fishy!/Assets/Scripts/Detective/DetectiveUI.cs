@@ -835,8 +835,13 @@ namespace Fishy.Detective
                 () => { Hide(); _onRepetir?.Invoke(); });
             _btnVerExplicacion = CrearBotonCard(card, Txt.BotonExplicacion, Col.BotonExplicacion,
                 () => MostrarExplicaciones());
+            // El cierre pasa por la celebración del pin: primero se va la ventana,
+            // después se celebra lo ganado (si hay algo pendiente) y sólo al acabar
+            // se suelta _onCerrar, que es quien le devuelve el control a Otto. Así
+            // la animación no compite con el feedback ni el jugador camina bajo ella.
+            // Sin pin pendiente, MostrarPendiente llama al callback en el acto.
             CrearBotonCard(card, Txt.BotonCerrar, Col.BotonConfirmar,
-                () => { Hide(); _onCerrar?.Invoke(); });
+                () => { Hide(); DetectiveRewardPopup.MostrarPendiente(() => _onCerrar?.Invoke()); });
 
             _panelResultado.SetActive(false);
         }

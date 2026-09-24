@@ -313,7 +313,7 @@ El Modo Detective (HDU-10) presenta un caso: una conversación ya ocurrida donde
 |--------|-----------|---------|
 | `DetectiveCaseManager.cs` | `Scripts/Detective/` | Calcula el resultado del caso y otorga la recompensa (pin + álbum) si corresponde |
 | `CatalogoRecompensasDetective.cs` | `Scripts/Detective/` | Respaldo local de recompensas por caso (umbral, ítem, si no se duplica al repetir) |
-| `DetectiveRewardPopup.cs` | `Scripts/Detective/` | Cartel de recompensa obtenida |
+| `DetectiveRewardPopup.cs` | `Scripts/Detective/` | Celebración del pin obtenido: guarda la recompensa y la anima (pop del ítem al centro + textos) al pulsar "Continuar" en el feedback |
 | `DetectiveRewardEvents.cs` | `Scripts/Detective/` | Evento estático que avisa cuándo se otorgó una recompensa |
 | `DetectiveCaseLoader.cs` / `DetectiveCaseData.cs` | `Scripts/Detective/` | Carga de casos (backend con respaldo local) |
 
