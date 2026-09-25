@@ -60,6 +60,14 @@ def grupo_propio(request, grupo_id, bloquear=False):
     return get_object_or_404(qs, pk=grupo_id, tutor=request.user)
 
 
+def grupo_visible(request, grupo_id):
+    """Para LEER un grupo: el profesor, solo los suyos; el admin del portal, cualquiera.
+    Toda escritura sigue pasando por `grupo_propio`, que exige ser el profesor dueño."""
+    if request.user.es_admin_portal:
+        return get_object_or_404(GrupoTutor, pk=grupo_id)
+    return grupo_propio(request, grupo_id)
+
+
 class DatosGrupo(serializers.Serializer):
     nombre = serializers.CharField(max_length=80)
     descripcion = serializers.CharField(max_length=280, required=False, allow_blank=True, default="")
@@ -154,10 +162,9 @@ def grupos(request):
 @api_view(["GET", "DELETE"])
 def grupo_detalle(request, grupo_id):
     with transaction.atomic():
-        grupo = grupo_propio(request, grupo_id, bloquear=request.method == "DELETE")
         if request.method == "GET":
-            return Response(datos_grupo(grupo, detalle=True))
-        grupo.delete()
+            return Response(datos_grupo(grupo_visible(request, grupo_id), detalle=True))
+        grupo_propio(request, grupo_id, bloquear=True).delete()
     return Response(status=204)
 
 
@@ -240,7 +247,7 @@ def consultar_invitacion(request):
 @api_view(["POST"])
 @throttle_classes([LimiteInvitaciones])
 def aceptar_invitacion(request):
-    if request.user.es_profesor:
+    if not request.user.gestiona_menores:
         raise PermissionDenied("Acepta la invitación con la cuenta del padre o madre destinatario.")
     datos = validar(DatosAceptacion, request.data)
     inicial = get_object_or_404(InvitacionGrupo, token_hash=huella(datos["token"]))

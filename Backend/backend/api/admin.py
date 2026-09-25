@@ -78,7 +78,9 @@ class AdultoResponsableAdmin(BaseUserAdmin):
         (None,          {"fields": ("nombre", "password")}),
         ("Datos personales", {"fields": ("apellido", "email", "edad", "fecha_nacimiento")}),
         ("Portal web",  {"fields": ("rol",),
-                         "description": "Profesor: gestiona cursos y no tiene perfiles de menores."}),
+                         "description": "Profesor: gestiona cursos y no tiene perfiles de menores. "
+                                        "Admin: el equipo de Fishy!; ve todos los profesores y grupos desde el portal. "
+                                        "El rol admin solo se asigna aquí."}),
         ("Permisos técnicos", {"fields": ("is_admin",),
                                "description": "Da acceso a este administrador de Django. Solo para el equipo."}),
     )

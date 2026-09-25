@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from .invitaciones import grupo_propio
+from .invitaciones import grupo_visible
 from .models import Mensaje, OpcionBanco, UsuarioJugador, ZonaProgreso
 
 TEMAS = ("desconocidos", "ciberacoso", "retos_virales")
@@ -68,7 +68,7 @@ def sin_cache(datos):
 
 @api_view(["GET"])
 def reporte_grupo(request, grupo_id):
-    grupo = grupo_propio(request, grupo_id)
+    grupo = grupo_visible(request, grupo_id)
     # No usar jugador__adulto__in: eso incorporaría hermanos de otros cursos.
     ids = list(grupo.miembros.values_list("jugador_id", flat=True))
     minimo = max(3, settings.FISHY_REPORTE_MINIMO)
@@ -80,8 +80,8 @@ def reporte_grupo(request, grupo_id):
 
 @api_view(["GET"])
 def reporte_nino(request, jugador_id):
-    if request.user.es_profesor:
-        raise PermissionDenied("Los profesores solo pueden consultar reportes grupales.")
+    if not request.user.gestiona_menores:
+        raise PermissionDenied("Esta cuenta solo puede consultar reportes grupales.")
     nino = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
     temas, _, fecha = calcular([nino.pk], 1)
     return sin_cache({"nino": {"id": nino.pk, "adulto_id": nino.adulto_id, "nombre": nino.nombre,
