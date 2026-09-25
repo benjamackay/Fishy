@@ -127,14 +127,16 @@ public class NpcMarker : MonoBehaviour
         _proximoReintento = 0f;   // que los que faltan se busquen ya, no dentro de 2 s
     }
 
-    private static bool EsDeInteraccion(TipoObjetivo tipo) =>
+    /// <summary>Públicos porque el mapa del celular (<see cref="MapaMarcadoresUI"/>) señala los
+    /// mismos objetivos y con la misma regla; así no pueden discrepar.</summary>
+    public static bool EsDeInteraccion(TipoObjetivo tipo) =>
         tipo == TipoObjetivo.HablarConNpc ||
         tipo == TipoObjetivo.ChatearPorTelefono ||
         tipo == TipoObjetivo.CompletarCasoDetective;
 
     /// <summary>Qué objeto del mundo hay que buscar para este objetivo, o null si aún no
     /// está resuelto.</summary>
-    private static Component DestinoDe(ObjetivoMision objetivo)
+    public static Component DestinoDe(ObjetivoMision objetivo)
     {
         switch (objetivo.tipo)
         {

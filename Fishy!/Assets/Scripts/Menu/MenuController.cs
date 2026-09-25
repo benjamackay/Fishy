@@ -70,6 +70,8 @@ public class MenuController : MonoBehaviour
 
             LlevarAUnCanvasPropio();
             ConstruirBotonCerrar();
+            ConectarPaginaDelMapa();
+            PonerElEncabezadoSobreLasPaginas();
             menuCanvas.SetActive(false);
         }
     }
@@ -201,6 +203,41 @@ public class MenuController : MonoBehaviour
         var img = go.GetComponent<Image>();
         FishyUIKit.FondoRedondeado(img, Color.white, 16, 8);   // extremos redondeados
         img.raycastTarget = false;   // el clic lo recibe el aro, no el trazo
+    }
+
+    /// <summary>
+    /// Monta el controlador de la página del mapa. Se hace desde aquí, por código, y no en el
+    /// prefab, para no obligar a nadie a añadir el componente a mano en cada escena. Es el
+    /// mismo enfoque que <see cref="TabsController"/> usa con "QuestPage".
+    /// </summary>
+    void ConectarPaginaDelMapa()
+    {
+        Transform pagina = panel.Find("Pantalla/Pages/MapPage");
+        if (pagina == null)
+        {
+            Debug.LogWarning("[MenuController] No encuentro 'Pantalla/Pages/MapPage' dentro del panel: " +
+                             "la página del mapa quedará vacía.", this);
+            return;
+        }
+        if (pagina.GetComponent<MapPageUI>() == null) pagina.gameObject.AddComponent<MapPageUI>();
+    }
+
+    /// <summary>
+    /// Sube la barra de la hora y el encabezado (título y botón de volver) por encima de las
+    /// páginas. En la "Pantalla" iban DEBAJO de "Pages", lo que no se notaba mientras las
+    /// páginas dejaban libre esa franja; pero el mapa llena toda la pantalla y los tapaba.
+    /// Para el resto de páginas no cambia nada: su contenido empieza más abajo.
+    /// </summary>
+    void PonerElEncabezadoSobreLasPaginas()
+    {
+        Transform pantalla = panel.Find("Pantalla");
+        if (pantalla == null) return;
+
+        foreach (string nombre in new[] { "BarraEstado", "Encabezado" })
+        {
+            Transform t = pantalla.Find(nombre);
+            if (t != null) t.SetAsLastSibling();
+        }
     }
 
     /// <summary>El menú está abierto, o a punto de abrirse (preparando la captura del fondo).

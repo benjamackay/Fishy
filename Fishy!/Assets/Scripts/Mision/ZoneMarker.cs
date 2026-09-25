@@ -299,7 +299,7 @@ public class ZoneMarker : MonoBehaviour
         rt.sizeDelta = tamano;
 
         var img = go.GetComponent<Image>();
-        img.sprite = FishyUIKit.SpriteTriangulo();
+        img.sprite = DibujoFlecha.Obtener();
         img.color = color;
         img.raycastTarget = false;   // la flecha no se toca, sólo se mira
     }
