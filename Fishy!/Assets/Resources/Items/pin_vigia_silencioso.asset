@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: pin_vigia_silencioso
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: PIN_VIGIA_SILENCIOSO
-  itemName: Pin del Vigía Silencioso
-  itemIcon: {fileID: 0}
-  itemDescription: Un recuerdo de haber resuelto con cuidado el caso del Puma y el Pudú.
+  itemName: "Pin del Vig\xEDa Silencioso"
+  itemIcon: {fileID: 6389373222798105659, guid: f6af59080e9403e2bbd694ec20b964d2, type: 3}
+  itemDescription: "Un recuerdo de haber resuelto con cuidado el caso del Puma y
+    el Pud\xFA."
   itemType: 1

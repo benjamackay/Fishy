@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: album_evidencias
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_ALBUM_EVIDENCIAS
-  itemName: Álbum de Evidencias
-  itemIcon: {fileID: 0}
-  itemDescription: Guarda los pines de los casos del Modo Detective que ya resolviste. Tócalo para abrirlo.
+  itemName: "\xC1lbum de Evidencias"
+  itemIcon: {fileID: -5968968707278975380, guid: 068848e737eb5d0ba8a3847d3dd5dd48, type: 3}
+  itemDescription: "Guarda los pines de los casos del Modo Detective que ya resolviste.
+    T\xF3calo para abrirlo."
   itemType: 1
