@@ -78,6 +78,7 @@ namespace Fishy.EditorTools
                 ProbarObjetivosDelCatalogo(log);
                 ProbarQueSeguirEnciendeElProgreso(log, tracker);
                 ProbarQueSeguirNoPisaLoQueYaHabia(log, tracker);
+                ProbarNombreDeUnObjetivoYaCumplido(log);
             }
             finally
             {
@@ -154,6 +155,49 @@ namespace Fishy.EditorTools
             Comprobar(log, "Volver a seguir la misma misión no pisa los objetivos ya seguidos",
                 tracker.Progreso(IdMision) == "0/2",
                 $"progreso = {tracker.Progreso(IdMision) ?? "null"}");
+        }
+
+        /// <summary>
+        /// Un objetivo que vuelve del servidor ya cumplido tiene que enseñar el NOMBRE
+        /// del personaje, no el id del banco.
+        ///
+        /// Es lo que se vio en pantalla: "Atender el chat de M1_CHAT01 (1/1) ¡listo!"
+        /// junto a "Atender el chat de Pumy (1/1) ¡listo!". El de abajo se había resuelto
+        /// porque seguía pendiente al empezar a seguirlo; el de arriba llegó marcado como
+        /// cumplido, y MissionTracker salta esos al resolver.
+        /// </summary>
+        private static void ProbarNombreDeUnObjetivoYaCumplido(StringBuilder log)
+        {
+            // Sin HideAndDontSave a propósito: FindObjectsByType —que es como
+            // ObjetivoMision busca el lanzador— no ve los objetos ocultos, y la prueba
+            // pasaría por el motivo equivocado. Se destruye igual en el finally.
+            var go = new GameObject("Puma");
+            try
+            {
+                // PhoneChatLauncher pide un Collider2D, y esa clase es abstracta: sin
+                // uno concreto delante, AddComponent devuelve null en silencio.
+                go.AddComponent<BoxCollider2D>();
+                var lanzador = go.AddComponent<Fishy.Phone.PhoneChatLauncher>();
+                lanzador.escenarioIds = "M1_CHAT01";
+
+                var objetivo = ObjetivoMision.DesdeRegistro(new ObjetivoRegistro
+                {
+                    orden = 1, tipo = "chatear_telefono", escenario_ids = "M1_CHAT01",
+                });
+
+                // Como vuelve del servidor: cumplido y sin que nadie lo haya resuelto.
+                objetivo.cumplido = true;
+
+                string linea = objetivo.Describir();
+
+                Comprobar(log, "Un objetivo ya cumplido enseña el nombre del personaje, no el id",
+                    linea == "Atender el chat de Puma",
+                    $"decía «{linea}»");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
         }
 
         // ── Andamiaje ─────────────────────────────────────────────────────────
