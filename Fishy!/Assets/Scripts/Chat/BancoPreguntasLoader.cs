@@ -63,6 +63,14 @@ namespace Fishy.Chat
         /// donde el JSON dice <c>id</c> y <c>opciones_respuesta</c>. Sin esto, las
         /// preguntas llegarían con el id vacío y ningún nodo enlazaría con el siguiente.
         /// </summary>
+        /// <summary>
+        /// Suelta el banco cargado para que la próxima consulta lo vuelva a leer de
+        /// Resources. Para el editor y las pruebas: <see cref="AplicarDesdeBackend"/>
+        /// reemplaza el contenido de la caché, así que un arnés que inyecte un banco de
+        /// prueba se lo dejaría puesto al siguiente Play.
+        /// </summary>
+        public static void Recargar() => _cache = null;
+
         public static void AplicarDesdeBackend(List<PreguntaBancoDto> dtos)
         {
             if (dtos == null || dtos.Count == 0)
@@ -320,6 +328,9 @@ namespace Fishy.Chat
             // Nodo de apertura del celular (mensaje introductorio del sistema).
             // Sólo tiene sentido con la secuencia de celular; en chat cara a cara
             // se arranca directo en la primera pregunta del banco.
+            // Por estructura y no por orden de llegada: ver ElegirArranque.
+            string primera = ElegirArranque(preguntas) ?? "";
+
             if (introComoTelefono)
             {
                 var intro = new ChatNode
@@ -329,14 +340,14 @@ namespace Fishy.Chat
                     kind       = ChatMessageKind.Neutral,
                     isSystem   = true,
                     closesChat = false,
-                    nextNodeId = preguntas.Count > 0 ? preguntas[0].id : ""
+                    nextNodeId = primera
                 };
                 allNodes.Add(intro);
                 conv.startNodeId = intro.id;
             }
             else
             {
-                conv.startNodeId = preguntas.Count > 0 ? preguntas[0].id : "";
+                conv.startNodeId = primera;
             }
 
             // Construir un nodo por pregunta.
@@ -510,10 +521,15 @@ namespace Fishy.Chat
             conv.contactName = contactName;
 
             var allNodes = new List<ChatNode>();
-            string startNodeId = null;
+
+            // Por dónde se entra a cada pregunta: ella misma, o la cabeza de su cadena
+            // de historial si lo trae.
+            var entradaDe = new Dictionary<string, string>();
 
             foreach (var p in preguntas)
             {
+                string entrada = p.id;
+
                 if (p.historial_previo != null && p.historial_previo.Count > 0)
                 {
                     string prevNext = p.id;
@@ -532,12 +548,10 @@ namespace Fishy.Chat
                         });
                         prevNext = histId;
                     }
-                    if (startNodeId == null) startNodeId = prevNext;
+                    entrada = prevNext;
                 }
-                else if (startNodeId == null)
-                {
-                    startNodeId = p.id;
-                }
+
+                entradaDe[p.id] = entrada;
 
                 bool isFin = p.es_fin_de_npc || p.es_fin_de_zona;
                 var node = new ChatNode
@@ -575,13 +589,104 @@ namespace Fishy.Chat
                 allNodes.Add(node);
             }
 
-            conv.startNodeId = startNodeId ?? (allNodes.Count > 0 ? allNodes[0].id : "");
+            string arranque = ElegirArranque(preguntas);
+            conv.startNodeId = arranque != null && entradaDe.TryGetValue(arranque, out string entrada0)
+                ? entrada0
+                : (allNodes.Count > 0 ? allNodes[0].id : "");
             conv.nodes = allNodes;
             AvisarReferenciasColgando(conv);
             return conv;
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Por qué pregunta empieza la conversación.
+        ///
+        /// <b>No por el orden en que llegaron</b>, que es lo que estaba roto. Ese orden lo
+        /// decide el backend con <c>PreguntaBanco.Meta.ordering = ["zona", "npc_id",
+        /// "fase", "orden_en_fase", …]</c>, y trae dos sorpresas:
+        ///
+        ///  1. <c>fase</c> es nullable y los nodos FIN no tienen fase. <b>En SQLite los
+        ///     NULL ordenan PRIMERO</b>, así que el endpoint devolvía <c>…_FIN_SEGURO</c>
+        ///     antes que <c>…_Q01</c> y cada conversación de riesgo empezaba por su propio
+        ///     final: mostraba la narración de cierre y se cerraba. En PostgreSQL los NULL
+        ///     ordenan últimos, así que contra Supabase no se veía. Mismo juego, dos bases,
+        ///     dos comportamientos — y el equipo probando contra la BD local no veía ni una
+        ///     conversación con los personajes sospechosos.
+        ///  2. <c>npc_id</c> pesa MÁS que <c>fase</c>, así que un escenario repartido entre
+        ///     dos NPCs arranca por el del npc_id alfabéticamente menor. Eso pasaba también
+        ///     contra Supabase.
+        ///
+        /// Así que el arranque se deduce de la estructura, que es lo único que no depende de
+        /// quién sirvió los datos: <b>el principio es aquello que nadie apunta.</b> Entre
+        /// varios candidatos gana el de menor <c>fase</c>/<c>orden_en_fase</c>, y un nodo de
+        /// cierre se elige solo si no queda nada mejor.
+        ///
+        /// Devuelve null si no hay ninguna pregunta utilizable.
+        /// </summary>
+        private static string ElegirArranque(List<PreguntaBanco> preguntas)
+        {
+            if (preguntas == null || preguntas.Count == 0) return null;
+
+            // Lo que algo apunta no puede ser el principio.
+            var apuntados = new HashSet<string>();
+            foreach (var p in preguntas)
+            {
+                if (p == null) continue;
+                if (!string.IsNullOrEmpty(p.narrativa_continuacion))
+                    apuntados.Add(p.narrativa_continuacion);
+                if (p.opciones_respuesta == null) continue;
+                foreach (var op in p.opciones_respuesta)
+                    if (op != null && !string.IsNullOrEmpty(op.siguiente_pregunta))
+                        apuntados.Add(op.siguiente_pregunta);
+            }
+
+            string mejor = null;
+            Candidato mejorC = default;
+
+            foreach (var p in preguntas)
+            {
+                if (p == null || string.IsNullOrEmpty(p.id)) continue;
+
+                var c = new Candidato
+                {
+                    Huerfano = !apuntados.Contains(p.id),
+                    NoEsFin  = !(p.es_fin_de_npc || p.es_fin_de_zona),
+                    // fase 0 es "sin fase": tanto JsonUtility como la conversión del
+                    // backend dejan 0 donde la base tiene NULL. Va al FINAL de la cola de
+                    // candidatos, no al principio: una pregunta sin fase no es la primera
+                    // de la historia. Esto es exactamente lo que SQLite hacía al revés.
+                    Fase  = p.fase > 0 ? p.fase : int.MaxValue,
+                    Orden = p.orden_en_fase > 0 ? p.orden_en_fase : int.MaxValue,
+                };
+
+                if (mejor == null || c.MejorQue(mejorC))
+                {
+                    mejor = p.id;
+                    mejorC = c;
+                }
+            }
+
+            return mejor;
+        }
+
+        /// <summary>Un aspirante a nodo inicial, con sus criterios en orden de peso.</summary>
+        private struct Candidato
+        {
+            public bool Huerfano;   // nadie lo apunta
+            public bool NoEsFin;    // no es un nodo de cierre
+            public int  Fase;
+            public int  Orden;
+
+            public bool MejorQue(Candidato otro)
+            {
+                if (Huerfano != otro.Huerfano) return Huerfano;
+                if (NoEsFin  != otro.NoEsFin)  return NoEsFin;
+                if (Fase     != otro.Fase)     return Fase < otro.Fase;
+                return Orden < otro.Orden;
+            }
+        }
 
         /// <summary>
         /// Avisa por consola si la conversación recién armada apunta a nodos que no
