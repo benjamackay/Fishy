@@ -201,11 +201,21 @@ def verificar_dialogos(data):
         else:
             ok(f"diálogo {did} idéntico")
 
+    # Las misiones vienen de DOS fuentes: las que desbloquea el banco y las del
+    # catálogo de Unity (`misiones.json`), que `cargar_banco` también carga. Hay
+    # misiones que solo existen en el catálogo (MISION_NPC_03, MISION_NPC_04,
+    # MISION_PANTANO_CRIATURAS); contar solo el banco las daba por huérfanas.
+    from api.management.commands.cargar_banco import RUTA_MISIONES_DEFAULT
     misiones_json = {d["mision_desbloquea"] for d in dialogos if d.get("mision_desbloquea")}
+    if RUTA_MISIONES_DEFAULT.is_file():
+        catalogo = json.loads(RUTA_MISIONES_DEFAULT.read_text(encoding="utf-8"))
+        misiones_json |= {m["mision_id"] for m in catalogo.get("misiones", [])}
+    else:
+        falla("no encontré el catálogo de misiones de Unity", str(RUTA_MISIONES_DEFAULT))
     misiones_bd = set(Mision.objects.values_list("mision_id", flat=True))
-    comparar("cantidad de misiones", len(misiones_json), len(misiones_bd))
+    comparar("cantidad de misiones (banco + catálogo)", len(misiones_json), len(misiones_bd))
     if misiones_json - misiones_bd:
-        falla("misiones del JSON que no llegaron", sorted(misiones_json - misiones_bd))
+        falla("misiones del banco o del catálogo que no llegaron", sorted(misiones_json - misiones_bd))
     if misiones_bd - misiones_json:
         falla("misiones huérfanas en la base", sorted(misiones_bd - misiones_json))
 
