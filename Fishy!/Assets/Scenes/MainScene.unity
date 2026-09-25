@@ -3654,7 +3654,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.BlockedZone
   zoneId: zona_3
-  zonaBanco: Arrecife de los retos
+  zonaBanco: reto_viral
   isLocked: 1
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
@@ -10004,7 +10004,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.BlockedZone
   zoneId: zona_2
-  zonaBanco: Bosque de los susurros
+  zonaBanco: ciberacoso
   isLocked: 1
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
