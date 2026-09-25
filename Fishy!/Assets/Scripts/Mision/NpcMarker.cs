@@ -45,6 +45,17 @@ public class NpcMarker : MonoBehaviour
     [Tooltip("Cada cuántos segundos se recalcula en qué zona está cada objetivo.")]
     [Min(0.05f)] public float intervaloZona = 0.25f;
 
+    [Header("Orden de dibujo de los signos (! y ?)")]
+    [Tooltip("Sorting Layer de los signos. Tiene que ser la misma que la de Otto, los NPC y " +
+             "los árboles: entre capas distintas manda la capa, y un signo en una capa de " +
+             "abajo se esconde detrás de cualquier árbol.")]
+    public string capaDeLosSignos = "Entity";
+
+    [Tooltip("Order in Layer de los signos. Más alto que el de todo lo que pueda tapar " +
+             "(Otto y los árboles están en 0 y 1): así el signo se ve siempre, se ponga " +
+             "un árbol delante o no.")]
+    public int ordenDeLosSignos = 500;
+
     /// <summary>Todo lo que se dibuja para un mismo destino.</summary>
     private class Senal
     {
@@ -343,11 +354,12 @@ public class NpcMarker : MonoBehaviour
     /// <summary>El signo como imagen. El dibujo ya trae su color, así que no se tiñe;
     /// se escala para que mida <see cref="MisionHudTheme.Medidas.AlturaSignoDibujo"/>
     /// de alto en el mundo, sea cual sea el tamaño en píxeles del PNG.</summary>
-    private static void ConstruirSignoConDibujo(GameObject go, Sprite dibujo)
+    private void ConstruirSignoConDibujo(GameObject go, Sprite dibujo)
     {
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = dibujo;
-        sr.sortingOrder = 500;   // por encima de los sprites del mapa
+        sr.sortingLayerID = IdDeLaCapa();
+        sr.sortingOrder = ordenDeLosSignos;
 
         float alto = Mathf.Max(0.0001f, dibujo.bounds.size.y);
         float escala = MisionHudTheme.Medidas.AlturaSignoDibujo / alto;
@@ -355,7 +367,7 @@ public class NpcMarker : MonoBehaviour
     }
 
     /// <summary>Respaldo cuando no hay dibujo: el signo escrito con la fuente.</summary>
-    private static void ConstruirSignoConTexto(GameObject go, Senal s)
+    private void ConstruirSignoConTexto(GameObject go, Senal s)
     {
         var texto = go.AddComponent<TextMeshPro>();
         texto.text = s.signo;
@@ -366,7 +378,19 @@ public class NpcMarker : MonoBehaviour
         texto.outlineWidth = 0.3f;
         texto.outlineColor = MisionHudTheme.Colores.FlechaBorde;
         texto.rectTransform.sizeDelta = new Vector2(4f, 4f);
-        texto.sortingOrder = 500;
+        texto.sortingLayerID = IdDeLaCapa();
+        texto.sortingOrder = ordenDeLosSignos;
+    }
+
+    /// <summary>
+    /// La Sorting Layer de los signos. Si no existe con ese nombre (alguien la renombró o
+    /// la quitó) se cae a Default en vez de fallar: peor un signo tapado por un árbol que
+    /// un error en consola cada vez que aparece un NPC.
+    /// </summary>
+    private int IdDeLaCapa()
+    {
+        int id = SortingLayer.NameToID(capaDeLosSignos);
+        return SortingLayer.IsValid(id) ? id : 0;
     }
 
     /// <summary>

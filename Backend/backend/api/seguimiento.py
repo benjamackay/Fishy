@@ -66,6 +66,8 @@ def evaluar_alumno(miembro, muestras, reglas, ahora):
 
 @api_view(["GET"])
 def seguimiento_grupo(request, grupo_id):
+    # `grupo_propio` y no `grupo_visible`: son datos por niño (nombre, correo de la
+    # familia, nivel de riesgo), así que el admin del portal no los ve. Ver panel_admin.py.
     grupo = grupo_propio(request, grupo_id)
     reglas = criterios_seguimiento()
     ahora = timezone.now()

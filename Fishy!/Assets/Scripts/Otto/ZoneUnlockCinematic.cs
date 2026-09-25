@@ -215,6 +215,14 @@ namespace Fishy.World
             _bannerGroup = panel.GetComponent<CanvasGroup>();
             _bannerGroup.alpha = 0f;
 
+            // El banner es sólo un cartel: no recibe clics. Con alpha 0 sigue existiendo, y
+            // por defecto un CanvasGroup invisible sigue bloqueando el ratón; como este canvas
+            // es de los de más arriba (8000), tapaba en silencio cualquier botón que quedara
+            // debajo (la X del álbum de evidencias, por ejemplo). Va en el grupo para que
+            // valga también para el texto hijo.
+            _bannerGroup.blocksRaycasts = false;
+            _bannerGroup.interactable   = false;
+
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
             txtGO.transform.SetParent(panel.transform, false);
             var trt = txtGO.GetComponent<RectTransform>();

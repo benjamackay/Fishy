@@ -104,6 +104,7 @@ namespace Fishy.Net
             misiones.onDesafioRegistrado.AddListener(AlRegistrarDesafio);
             misiones.onDesafioCompletado.AddListener(AlCompletarDesafio);
             BlockedZone.OnZonaDesbloqueada += AlDesbloquearZona;
+            CatalogoMisiones.OnCatalogoCambiado += SeguirObjetivosDeLoGuardado;
 
             StartCoroutine(EsperarPartidaYBajarProgreso());
         }
@@ -116,6 +117,7 @@ namespace Fishy.Net
                 MissionManager.Instance.onDesafioCompletado.RemoveListener(AlCompletarDesafio);
             }
             BlockedZone.OnZonaDesbloqueada -= AlDesbloquearZona;
+            CatalogoMisiones.OnCatalogoCambiado -= SeguirObjetivosDeLoGuardado;
         }
 
         // ── 1. Bajar lo que ya estaba hecho ──────────────────────────────────
@@ -271,6 +273,7 @@ namespace Fishy.Net
             // registra como completada en vez de aparecer disponible de nuevo.
             misiones.PrecargarCompletados(completadas);
             misiones.PrecargarConocidos(conocidas);
+            SeguirObjetivosDeLoGuardado();
 
             // Despues de aplicar, no antes: quien espere esta senal tiene que
             // encontrarse el estado ya puesto.
@@ -278,6 +281,44 @@ namespace Fishy.Net
             {
                 ProgresoDeMisionesAplicado = true;
                 OnProgresoDeMisionesAplicado?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Engancha el seguimiento de objetivos de las misiones que volvieron del
+        /// servidor.
+        ///
+        /// <b>Restaurar la misión no bastaba.</b> <c>PrecargarConocidos</c> la vuelve a
+        /// poner en el panel, pero los objetivos no viven en la ficha: los lleva
+        /// <see cref="MissionTracker"/>, y a ese solo lo arrancaban los cinco sitios que
+        /// ENTREGAN una misión —un NPC, un disparador—, ninguno de los cuales corre al
+        /// retomar la partida. Resultado: la misión reaparecía con su título y su
+        /// descripción, y <c>MissionTracker.Progreso</c> devolvía null, así que el panel
+        /// no decía cuántos objetivos faltaban. El niño/a veía la misión sin saber qué
+        /// tenía que hacer.
+        ///
+        /// Va aquí y no en <c>MissionManager</c> porque el rastreador y
+        /// <c>ObjetivoMision</c> viven en Assembly-CSharp, al otro lado de la frontera
+        /// del assembly <c>Fishy.Mision</c>.
+        ///
+        /// <c>Seguir</c> no hace nada si esa misión ya se seguía, así que esto no pisa los
+        /// objetivos que un NPC haya puesto a mano en el Inspector, y se puede llamar
+        /// tantas veces como haga falta. Por eso también se llama cuando cambia el
+        /// catálogo: si llegó después del progreso, aquí es donde se recupera.
+        /// </summary>
+        private void SeguirObjetivosDeLoGuardado()
+        {
+            if (misionesEnServidor.Count == 0) return;
+
+            foreach (string misionId in new List<string>(misionesEnServidor.Keys))
+            {
+                DesafioData ficha = MissionManager.BuscarFicha(misionId);
+                if (ficha == null) continue;   // el catálogo aún no la conoce
+
+                List<ObjetivoMision> objetivos = ObjetivoMision.DesdeCatalogo(misionId);
+                if (objetivos.Count == 0) continue;
+
+                MissionTracker.GetOrCreate().Seguir(ficha, objetivos);
             }
         }
 

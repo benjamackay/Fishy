@@ -35,7 +35,11 @@ class AdultoResponsable(AbstractBaseUser):
     """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
     ROL_PADRE    = "padre"
     ROL_PROFESOR = "profesor"
-    ROLES = [(ROL_PADRE, "Padre o madre"), (ROL_PROFESOR, "Profesor")]
+    # Admin del PORTAL: el equipo de Fishy! mirando profesores y grupos desde la
+    # web. No confundir con `is_admin`, que abre /admin/ de Django.
+    ROL_ADMIN    = "admin"
+    ROLES = [(ROL_PADRE, "Padre o madre"), (ROL_PROFESOR, "Profesor"),
+             (ROL_ADMIN, "Admin del portal (equipo)")]
 
     nombre           = models.CharField(max_length=150, unique=True)
     apellido         = models.CharField(max_length=150, blank=True)
@@ -70,6 +74,16 @@ class AdultoResponsable(AbstractBaseUser):
 
     @property
     def es_profesor(self): return self.rol == self.ROL_PROFESOR
+
+    @property
+    def es_admin_portal(self): return self.rol == self.ROL_ADMIN
+
+    @property
+    def gestiona_menores(self):
+        # Solo el padre tiene perfiles de niños. Se pregunta por el padre y no
+        # por "no es profesor" para que un rol nuevo o mal escrito en la base
+        # quede afuera en vez de colarse como familia.
+        return self.rol == self.ROL_PADRE
 
     class Meta:
         verbose_name = "Adulto Responsable"
