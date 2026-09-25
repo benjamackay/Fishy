@@ -509,54 +509,18 @@ public class iniciar : MonoBehaviour
 
     private void AbrirPartida(UsuarioJugadorDto elegido)
     {
-        // Camino nuevo: el panel pide la lista y deja elegir. El cartel de abajo se
-        // conserva como respaldo para cuando el panel no esta montado en la escena,
-        // que es tambien el caso del atajo de perfiles de prueba.
-        if (panelPartidas != null)
-        {
-            ++solicitudPartida;
-            esperandoPartidas = false;
-            seleccionando = false;
-            perfilElegido = elegido;
-            LimpiarBotonesPartida();
-            if (panelPerfiles != null) panelPerfiles.gameObject.SetActive(false);
-            if (cartel != null) cartel.gameObject.SetActive(false);
-            if (estadoLabel != null) estadoLabel.gameObject.SetActive(false);
-            ApiManager.Instance.SeleccionarJugador(elegido.id);
-            panelPartidas.Mostrar(elegido);
-            return;
-        }
-
-        if (!PrepararCartelPartidas()) return;
-        ApiManager api = ApiManager.Instance;
+        // Elegir perfil ya no elige partida: se fija el perfil y se pasa a MenuDos, donde
+        // el boton Jugar ofrece "Nueva partida" o "Continuar" segun lo que tenga guardado
+        // (ver Segundomenu). El resto del flujo viejo (selector de partidas sobre el cartel
+        // del login, CrearPartidaNueva, ContinuarPartida) queda sin llamadas; se puede
+        // borrar en una limpieza aparte.
+        ++solicitudPartida;
+        esperandoPartidas = false;
+        seleccionando = true;   // evita un segundo toque en "Aceptar" mientras carga la escena
         perfilElegido = elegido;
-        esperandoPartidas = true;
-        int actual = ++solicitudPartida;
-        string sesion = api.Token;
-
-        if (panelPerfiles != null) panelPerfiles.gameObject.SetActive(false);
-        if (tituloLabel != null) tituloLabel.text = "Preparando tu aventura";
-        SetEstado("Buscando tus partidas...", colorInfo);
-
-        api.SeleccionarJugador(elegido.id);
-        api.ObtenerPartidasJugador(elegido.id,
-            onSuccess: partidas =>
-            {
-                if (!RespuestaPartidaVigente(actual, api, sesion)) return;
-                esperandoPartidas = false;
-                if (partidas == null)
-                {
-                    MostrarErrorPartida("El servidor no devolvió una lista de partidas válida.");
-                    return;
-                }
-                if (partidas.Count == 0) { CrearPartidaNueva(); return; }
-                MostrarSelectorDePartidas(partidas);
-            },
-            onError: error =>
-            {
-                if (!RespuestaPartidaVigente(actual, api, sesion)) return;
-                MostrarErrorPartida(TraducirError(error));
-            });
+        ApiManager.Instance.SeleccionarJugador(elegido.id);
+        SetOcupado(true);
+        Continuar();
     }
 
     private bool RespuestaPartidaVigente(int numero, ApiManager api, string sesion)
