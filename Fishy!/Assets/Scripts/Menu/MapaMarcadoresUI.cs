@@ -23,9 +23,15 @@ using UnityEngine.UI;
 /// </summary>
 public class MapaMarcadoresUI : MonoBehaviour
 {
-    private MapPageUI _pagina;
+    private IVistaDeMapa _pagina;
+    private float _factor = 1f;
+    private bool _conEstrellas = true;
 
-    public static MapaMarcadoresUI Crear(MapPageUI pagina, RectTransform mapa)
+    /// <param name="factor">Multiplica el tamaño de todos los marcadores (1 = el de la página del
+    /// mapa). El minimapa los pide más chicos.</param>
+    /// <param name="conEstrellas">Si se marcan también los objetos por recoger.</param>
+    public static MapaMarcadoresUI Crear(IVistaDeMapa pagina, RectTransform mapa,
+                                         float factor = 1f, bool conEstrellas = true)
     {
         var go = new GameObject("Marcadores", typeof(RectTransform));
         go.transform.SetParent(mapa, false);
@@ -39,6 +45,8 @@ public class MapaMarcadoresUI : MonoBehaviour
 
         var marcadores = go.AddComponent<MapaMarcadoresUI>();
         marcadores._pagina = pagina;
+        marcadores._factor = factor;
+        marcadores._conEstrellas = conEstrellas;
         return marcadores;
     }
 
@@ -52,7 +60,7 @@ public class MapaMarcadoresUI : MonoBehaviour
             Destroy(transform.GetChild(i).gameObject);
 
         // Primero las estrellas y luego los signos, para que un «!» nunca quede tapado por una.
-        PonerEstrellas();
+        if (_conEstrellas) PonerEstrellas();
         PonerSignos();
     }
 
@@ -69,7 +77,7 @@ public class MapaMarcadoresUI : MonoBehaviour
         {
             if (objeto == null || !objeto.CanInteract()) continue;
 
-            float t = MapaTheme.Medidas.TamanoEstrella;
+            float t = MapaTheme.Medidas.TamanoEstrella * _factor;
             Vector2 pos = _pagina.PosicionEnMapa(objeto.transform.position);
             Imagen("Estrella_" + objeto.name, dibujo, pos, new Vector2(t, t), new Vector2(0.5f, 0.5f));
         }
@@ -101,7 +109,7 @@ public class MapaMarcadoresUI : MonoBehaviour
             // El pie del signo queda sobre el punto: señala el sitio, en vez de taparlo.
             Vector2 pos = _pagina.PosicionEnMapa(destino.transform.position);
             Vector2 pie = new Vector2(0.5f, 0f);
-            float alto = MapaTheme.Medidas.AlturaSigno;
+            float alto = MapaTheme.Medidas.AlturaSigno * _factor;
 
             if (dibujo != null)
             {

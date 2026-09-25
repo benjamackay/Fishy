@@ -85,7 +85,7 @@ public static class MisionHudTheme
         public static float AnchoPanel = 440f;
 
         /// <summary>Separación del cartel respecto a la esquina.</summary>
-        public static Vector2 MargenPanel = new Vector2(28f, -28f);
+        public static Vector2 MargenPanel = new Vector2(28f, -384f);
 
         /// <summary>
         /// Cuántos objetivos se listan como mucho. El resumen es un recordatorio de

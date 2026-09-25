@@ -28,7 +28,7 @@ using UnityEngine.UI;
 /// ellos, así que el visor se ajusta a la "Pantalla" del celular menos la barra de estado.
 /// </summary>
 [DisallowMultipleComponent]
-public class MapPageUI : MonoBehaviour
+public class MapPageUI : MonoBehaviour, IVistaDeMapa
 {
     [Header("Mapa")]
     [Tooltip("Dibujo del mapa. Si se deja vacío se toma el del suelo del mundo.")]
