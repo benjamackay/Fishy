@@ -113,6 +113,31 @@ public class ObjetivoMision
     /// <see cref="Resolver"/>, que se llama más tarde y tantas veces como haga falta:
     /// un NPC de otra zona puede no existir aún cuando el catálogo se carga.
     /// </summary>
+    /// <summary>
+    /// Los objetivos de esa misión, sacados del catálogo y en orden.
+    ///
+    /// Vive aquí porque este mismo bucle estaba copiado en <c>MissionGiver</c>,
+    /// <c>MisionInicial</c> y <c>EntregarMisionDelCatalogo</c>: los tres sitios que
+    /// ENTREGAN una misión. Al restaurar una partida hace falta lo mismo, y una cuarta
+    /// copia era una de más.
+    ///
+    /// Lista vacía si la misión no está en el catálogo o no tiene objetivos; nunca null.
+    /// </summary>
+    public static List<ObjetivoMision> DesdeCatalogo(string misionId)
+    {
+        var lista = new List<ObjetivoMision>();
+
+        MisionRegistro registro = CatalogoMisiones.Buscar(misionId);
+        if (registro == null) return lista;
+
+        foreach (ObjetivoRegistro o in registro.ObjetivosEnOrden())
+        {
+            ObjetivoMision objetivo = DesdeRegistro(o);
+            if (objetivo != null) lista.Add(objetivo);
+        }
+        return lista;
+    }
+
     public static ObjetivoMision DesdeRegistro(ObjetivoRegistro registro)
     {
         if (registro == null) return null;
