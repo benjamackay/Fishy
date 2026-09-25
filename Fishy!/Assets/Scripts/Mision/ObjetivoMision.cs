@@ -307,6 +307,21 @@ public class ObjetivoMision
         // justo para eso que existe.
         if (!string.IsNullOrWhiteSpace(descripcion)) return descripcion.Trim();
 
+        // Resolver también aquí, y no confiar en que ya se haya hecho.
+        //
+        // El nombre que lee el niño/a —"Atender el chat de Puma"— sale de la referencia
+        // resuelta, pero hasta ahora eso solo pasaba en MissionTracker.SuscribirPendientes,
+        // que SALTA los objetivos ya cumplidos: no hay evento al que engancharse en algo
+        // que ya está hecho. Así que un objetivo que vuelve del servidor marcado como
+        // cumplido nunca se resolvía, y el panel enseñaba el id crudo del banco:
+        // "Atender el chat de M1_CHAT01". Al retomar la partida era lo normal, no la
+        // excepción.
+        //
+        // Resolver() cachea en cuanto acierta, así que esto cuesta una búsqueda por
+        // objetivo sin resolver y nada cuando ya lo está; y el panel se repinta por
+        // eventos, no cada frame.
+        Resolver();
+
         switch (tipo)
         {
             case TipoObjetivo.RecogerObjeto:
