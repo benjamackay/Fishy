@@ -305,7 +305,7 @@ namespace Fishy.Mision
         /// proyecto manda sobre lo que se fabrique en caliente. Es el mismo criterio que
         /// aplica <see cref="CatalogoMisiones.Ficha"/>.
         /// </summary>
-        private static DesafioData BuscarFicha(string id)
+        public static DesafioData BuscarFicha(string id)
             => CatalogoDesafios.Buscar(id) ?? CatalogoMisiones.Ficha(id);
 
         /// <summary>

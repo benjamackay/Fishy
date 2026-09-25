@@ -113,6 +113,31 @@ public class ObjetivoMision
     /// <see cref="Resolver"/>, que se llama más tarde y tantas veces como haga falta:
     /// un NPC de otra zona puede no existir aún cuando el catálogo se carga.
     /// </summary>
+    /// <summary>
+    /// Los objetivos de esa misión, sacados del catálogo y en orden.
+    ///
+    /// Vive aquí porque este mismo bucle estaba copiado en <c>MissionGiver</c>,
+    /// <c>MisionInicial</c> y <c>EntregarMisionDelCatalogo</c>: los tres sitios que
+    /// ENTREGAN una misión. Al restaurar una partida hace falta lo mismo, y una cuarta
+    /// copia era una de más.
+    ///
+    /// Lista vacía si la misión no está en el catálogo o no tiene objetivos; nunca null.
+    /// </summary>
+    public static List<ObjetivoMision> DesdeCatalogo(string misionId)
+    {
+        var lista = new List<ObjetivoMision>();
+
+        MisionRegistro registro = CatalogoMisiones.Buscar(misionId);
+        if (registro == null) return lista;
+
+        foreach (ObjetivoRegistro o in registro.ObjetivosEnOrden())
+        {
+            ObjetivoMision objetivo = DesdeRegistro(o);
+            if (objetivo != null) lista.Add(objetivo);
+        }
+        return lista;
+    }
+
     public static ObjetivoMision DesdeRegistro(ObjetivoRegistro registro)
     {
         if (registro == null) return null;
@@ -281,6 +306,21 @@ public class ObjetivoMision
         // Lo escrito a mano (o traído del catálogo) manda sobre el automático: es
         // justo para eso que existe.
         if (!string.IsNullOrWhiteSpace(descripcion)) return descripcion.Trim();
+
+        // Resolver también aquí, y no confiar en que ya se haya hecho.
+        //
+        // El nombre que lee el niño/a —"Atender el chat de Puma"— sale de la referencia
+        // resuelta, pero hasta ahora eso solo pasaba en MissionTracker.SuscribirPendientes,
+        // que SALTA los objetivos ya cumplidos: no hay evento al que engancharse en algo
+        // que ya está hecho. Así que un objetivo que vuelve del servidor marcado como
+        // cumplido nunca se resolvía, y el panel enseñaba el id crudo del banco:
+        // "Atender el chat de M1_CHAT01". Al retomar la partida era lo normal, no la
+        // excepción.
+        //
+        // Resolver() cachea en cuanto acierta, así que esto cuesta una búsqueda por
+        // objetivo sin resolver y nada cuando ya lo está; y el panel se repinta por
+        // eventos, no cada frame.
+        Resolver();
 
         switch (tipo)
         {
