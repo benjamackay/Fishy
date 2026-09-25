@@ -146,8 +146,7 @@ namespace Fishy.Net
                 {
                     // Sin partida, el progreso no se ata a nadie y no se guarda. Antes
                     // este bucle esperaba callado para siempre.
-                    if (!avisoDeSinPartidaDado &&
-                        Time.realtimeSinceStartup - sinPartidaDesde > 8f)
+                    if (!avisoDeSinPartidaDado && AvisoSinPartida.HayQueAvisar(sinPartidaDesde))
                     {
                         avisoDeSinPartidaDado = true;
                         Debug.LogWarning(

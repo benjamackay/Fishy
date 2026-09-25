@@ -45,9 +45,6 @@ namespace Fishy.Net
         /// </summary>
         private const float RadioParaConsiderarQueNoSeHaMovido = 1.5f;
 
-        /// <summary>Segundos sin PartidaId antes de avisar que no se va a guardar nada.</summary>
-        private const float SegundosAntesDeAvisarQueNoHayPartida = 8f;
-
         private int? partidaAtendida;
 
         /// <summary>
@@ -211,8 +208,7 @@ namespace Fishy.Net
                 {
                     // El silencio es lo que más ha costado en este proyecto: sin partida
                     // no se guarda nada y antes no se decía. Se avisa una vez.
-                    if (!avisoDeSinPartidaDado &&
-                        Time.realtimeSinceStartup - sinPartidaDesde > SegundosAntesDeAvisarQueNoHayPartida)
+                    if (!avisoDeSinPartidaDado && AvisoSinPartida.HayQueAvisar(sinPartidaDesde))
                     {
                         avisoDeSinPartidaDado = true;
                         Debug.LogWarning(

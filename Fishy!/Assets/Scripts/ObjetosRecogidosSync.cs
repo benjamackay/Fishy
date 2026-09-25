@@ -26,7 +26,6 @@ public class ObjetosRecogidosSync : MonoBehaviour
     public static ObjetosRecogidosSync Instance { get; private set; }
 
     private const float EsperaEntreIntentos = 0.5f;
-    private const float SegundosAntesDeAvisarQueNoHayPartida = 8f;
 
     /// <summary>
     /// Lo que esta partida ya recogió. Estático para que un <see cref="WorldItem"/>
@@ -143,8 +142,7 @@ public class ObjetosRecogidosSync : MonoBehaviour
 
             if (api == null || api.PartidaId == null)
             {
-                if (!avisoDeSinPartidaDado &&
-                    Time.realtimeSinceStartup - sinPartidaDesde > SegundosAntesDeAvisarQueNoHayPartida)
+                if (!avisoDeSinPartidaDado && AvisoSinPartida.HayQueAvisar(sinPartidaDesde))
                 {
                     avisoDeSinPartidaDado = true;
                     Debug.LogWarning(
