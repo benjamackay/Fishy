@@ -505,14 +505,23 @@ namespace Fishy.Chat
             string escenarioId, List<PreguntaBanco> preguntas)
         {
             var conv = ScriptableObject.CreateInstance<ChatConversation>();
-            conv.zoneId = !string.IsNullOrEmpty(preguntas[0].zona) ? preguntas[0].zona : "chat_simulado";
-            conv.categoriaRiesgo = !string.IsNullOrEmpty(preguntas[0].categoria)
-                ? preguntas[0].categoria
-                : EscenarioToCategoria(escenarioId);
+
+            // Por dónde empieza la conversación. Se calcula ya aquí porque de ella salen
+            // también la zona y el nombre del contacto: NINGUNA de las tres puede venir
+            // de `preguntas[0]`, que es quien llegó primero y no quien manda. Ver
+            // ElegirArranque.
+            string arranque = ElegirArranque(preguntas);
+            PreguntaBanco pArranque = Buscar(preguntas, arranque);
+
+            conv.zoneId = !string.IsNullOrEmpty(pArranque?.zona) ? pArranque.zona : "chat_simulado";
+            conv.categoriaRiesgo = ElegirCategoria(preguntas, pArranque, escenarioId);
 
             // Nombre del contacto: primero se busca en el historial (estilo HDU-8),
-            // si no hay se usa el npc_nombre de la propia pregunta (estilo HDU-2/3).
+            // si no hay se usa el npc_nombre de quien abre la conversación (estilo
+            // HDU-2/3), y como último recurso cualquiera que lo traiga.
             string contactName = DeducirContactName(preguntas);
+            if (contactName == "Desconocido" && !string.IsNullOrEmpty(pArranque?.npc_nombre))
+                contactName = pArranque.npc_nombre;
             if (contactName == "Desconocido")
             {
                 foreach (var p in preguntas)
@@ -589,7 +598,6 @@ namespace Fishy.Chat
                 allNodes.Add(node);
             }
 
-            string arranque = ElegirArranque(preguntas);
             conv.startNodeId = arranque != null && entradaDe.TryGetValue(arranque, out string entrada0)
                 ? entrada0
                 : (allNodes.Count > 0 ? allNodes[0].id : "");
@@ -669,6 +677,58 @@ namespace Fishy.Chat
             }
 
             return mejor;
+        }
+
+        private static PreguntaBanco Buscar(List<PreguntaBanco> preguntas, string id)
+        {
+            if (preguntas == null || string.IsNullOrEmpty(id)) return null;
+            foreach (var p in preguntas)
+                if (p != null && p.id == id) return p;
+            return null;
+        }
+
+        /// <summary>
+        /// La categoría de riesgo de la conversación.
+        ///
+        /// <b>Es la de sus mensajes de riesgo, no la del primero de la lista.</b> Los
+        /// nodos de cierre son <c>neutral</c> por definición —narran el desenlace, no
+        /// ponen a prueba a nadie—, así que tomarla del primer elemento etiquetaba como
+        /// "neutral" conversaciones enteras de grooming en cuanto el backend devolvía un
+        /// FIN primero. Pasó: en la partida 2 quedaron dos chats con Puma, con sus cuatro
+        /// respuestas y sus opcion_banco_id bien guardados, pero con
+        /// <c>categoria_riesgo = 'neutral'</c>. El reporte del adulto filtra por ahí.
+        ///
+        /// Se elige la del primer mensaje de riesgo en orden de fase; si la conversación
+        /// no tiene ninguno es que de verdad es neutra, y entonces vale la del arranque.
+        /// </summary>
+        private static string ElegirCategoria(
+            List<PreguntaBanco> preguntas, PreguntaBanco arranque, string escenarioId)
+        {
+            PreguntaBanco mejor = null;
+            foreach (var p in preguntas)
+            {
+                if (p == null || !p.es_mensaje_riesgo) continue;
+                if (string.IsNullOrEmpty(p.categoria) || p.categoria == "neutral") continue;
+
+                if (mejor == null || AntesQue(p, mejor)) mejor = p;
+            }
+
+            if (mejor != null) return mejor.categoria;
+            if (!string.IsNullOrEmpty(arranque?.categoria)) return arranque.categoria;
+            return EscenarioToCategoria(escenarioId);
+        }
+
+        /// <summary>True si <paramref name="a"/> va antes que <paramref name="b"/> en la
+        /// historia. Sin fase (0) va al final, igual que en ElegirArranque.</summary>
+        private static bool AntesQue(PreguntaBanco a, PreguntaBanco b)
+        {
+            int fa = a.fase > 0 ? a.fase : int.MaxValue;
+            int fb = b.fase > 0 ? b.fase : int.MaxValue;
+            if (fa != fb) return fa < fb;
+
+            int oa = a.orden_en_fase > 0 ? a.orden_en_fase : int.MaxValue;
+            int ob = b.orden_en_fase > 0 ? b.orden_en_fase : int.MaxValue;
+            return oa < ob;
         }
 
         /// <summary>Un aspirante a nodo inicial, con sus criterios en orden de peso.</summary>

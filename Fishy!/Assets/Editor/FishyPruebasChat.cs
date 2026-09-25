@@ -49,6 +49,8 @@ namespace Fishy.EditorTools
             ProbarArranqueConLosFinAlFinal(log);
             ProbarDosNpcsEnUnEscenario(log);
             ProbarLaConversacionNoSeCierraDeInmediato(log);
+            ProbarCategoriaDeRiesgo(log);
+            ProbarCategoriaDeUnaConversacionNeutra(log);
 
             // Devolver el banco de verdad: las pruebas metieron uno de cuatro preguntas
             // en la caché estática, y si se corren desde el menú el siguiente Play se lo
@@ -122,6 +124,37 @@ namespace Fishy.EditorTools
                 nodo != null && !nodo.closesChat && nodo.HasOptions,
                 nodo == null ? "no se encontró el nodo inicial"
                              : $"closesChat={nodo.closesChat}, opciones={nodo.options.Count}");
+        }
+
+        /// <summary>
+        /// La categoría tiene que ser la del riesgo, no la del nodo de cierre.
+        ///
+        /// Los FIN son `neutral` por definición, así que tomarla del primer elemento de
+        /// la lista etiquetaba como neutra una conversación de acoso entera. Se vio en la
+        /// partida 2: dos chats de grooming con sus cuatro respuestas bien guardadas y
+        /// `categoria_riesgo = 'neutral'`, que es por donde filtra el reporte del adulto.
+        /// </summary>
+        private static void ProbarCategoriaDeRiesgo(StringBuilder log)
+        {
+            var conv = Armar(FinSeguro(), FinInseguro(), Q01(), Q02());
+
+            Comprobar(log, "La categoría sale del mensaje de riesgo, no del nodo FIN",
+                conv != null && conv.categoriaRiesgo == "ciberacoso_exclusion",
+                $"quedó en '{conv?.categoriaRiesgo}'");
+        }
+
+        /// <summary>
+        /// Y una conversación que de verdad no tiene riesgo —el cierre de zona, por
+        /// ejemplo— tiene que seguir siendo neutra. Si no, el arreglo de arriba se
+        /// llevaría por delante la distinción que el reporte necesita.
+        /// </summary>
+        private static void ProbarCategoriaDeUnaConversacionNeutra(StringBuilder log)
+        {
+            var conv = Armar(FinSeguro());
+
+            Comprobar(log, "Una conversación sin mensajes de riesgo sigue siendo neutra",
+                conv != null && conv.categoriaRiesgo == "neutral",
+                $"quedó en '{conv?.categoriaRiesgo}'");
         }
 
         // ── Andamiaje ─────────────────────────────────────────────────────────
