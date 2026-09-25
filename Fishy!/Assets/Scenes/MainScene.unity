@@ -3334,20 +3334,12 @@ PrefabInstance:
       propertyPath: modoTelefono
       value: 1
       objectReference: {fileID: 0}
-    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: m_Sprite
-      value: 
-      objectReference: {fileID: 5800196132840099909, guid: 747af32e1ad59774cbcbc52fd5f66a06, type: 3}
-    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: m_SortingLayer
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: m_SortingLayerID
-      value: -1360283395
-      objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: variantesSegunVariable.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: variantesSegunVariable.Array.data[0].valor
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
@@ -3359,12 +3351,20 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: variantesSegunVariable.Array.data[0].valor
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: variantesSegunVariable.Array.data[0].escenarioIds
       value: M6_DECISION01
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 5800196132840099909, guid: 747af32e1ad59774cbcbc52fd5f66a06, type: 3}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayer
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_SortingLayerID
+      value: -1360283395
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3417,6 +3417,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
   misionId: MISION_EXPLORACION_02
+  mision: {fileID: 0}
+  objetivos: []
   verboseLogs: 1
 --- !u!114 &754696002
 MonoBehaviour:
@@ -3492,6 +3494,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Lobito de Mar
       objectReference: {fileID: 0}
+    - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5479489533958605667, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: npcId
       value: 
@@ -3519,10 +3525,6 @@ PrefabInstance:
     - target: {fileID: 8935019312824024043, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
       propertyPath: m_SortingLayerID
       value: -1360283395
-      objectReference: {fileID: 0}
-    - target: {fileID: 4819045752595667910, guid: 99ad2730f2efab91f8ee67b152185db1, type: 3}
-      propertyPath: m_IsActive
-      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3652,7 +3654,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.BlockedZone
   zoneId: zona_3
-  zonaBanco: 
+  zonaBanco: Arrecife de los retos
   isLocked: 1
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
@@ -8999,6 +9001,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: misionId
+      value: MISION_EXPLORACION_03
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: soloUnaVez
       value: 1
       objectReference: {fileID: 0}
@@ -9022,6 +9028,70 @@ PrefabInstance:
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: requiereVolverParaEntregar
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].tipo
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].tipo
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].tipo
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].tipo
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].cantidad
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].descripcion
+      value: Enfrentar los retos del Lobo Marino
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].descripcion
+      value: Enfrentar los retos del Lobo Marino
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].descripcion
+      value: "Revisar el caso del Ping\xFCino"
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].descripcion
+      value: "Superar el \xFAltimo desaf\xEDo"
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[0].escenarioIds
+      value: M5A_DECISION01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[1].escenarioIds
+      value: M5B_DECISION01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[3].escenarioIds
+      value: M6_DECISION01_BASE
+      objectReference: {fileID: 0}
+    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: objetivos.Array.data[2].casoDetectiveId
+      value: DC_CASO_03
       objectReference: {fileID: 0}
     - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_Name
@@ -9086,74 +9156,6 @@ PrefabInstance:
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: onDialogueEnded.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
       value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: misionId
-      value: MISION_EXPLORACION_03
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].tipo
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].escenarioIds
-      value: M5A_DECISION01
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[0].descripcion
-      value: Enfrentar los retos del Lobo Marino
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].tipo
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].escenarioIds
-      value: M5B_DECISION01
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[1].descripcion
-      value: Enfrentar los retos del Lobo Marino
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[2].tipo
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[2].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[2].casoDetectiveId
-      value: DC_CASO_03
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[2].descripcion
-      value: "Revisar el caso del Ping\xFCino"
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[3].tipo
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[3].cantidad
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[3].escenarioIds
-      value: M6_DECISION01_BASE
-      objectReference: {fileID: 0}
-    - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
-      propertyPath: objetivos.Array.data[3].descripcion
-      value: "Superar el \xFAltimo desaf\xEDo"
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -10002,7 +10004,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Fishy.World.BlockedZone
   zoneId: zona_2
-  zonaBanco: 
+  zonaBanco: Bosque de los susurros
   isLocked: 1
   mensajeBloqueo: "Esta zona a\xFAn est\xE1 cerrada. Completa m\xE1s misiones para
     abrirla."
@@ -11555,6 +11557,340 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1990000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1990000002}
+  - component: {fileID: 1990000003}
+  - component: {fileID: 1990000004}
+  m_Layer: 0
+  m_Name: MisionArrecife
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1990000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 774275078}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1990000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
+  misionId: 
+  mision: {fileID: 11400000, guid: 5a2c7e9b1d3f4a6c8e0b2d4f6a8c0e1b, type: 2}
+  objetivos:
+  - tipo: 1
+    objeto: {fileID: 0}
+    cantidad: 1
+    npc: {fileID: 0}
+    telefono: {fileID: 0}
+    zonaDestino: 
+    detective: {fileID: 0}
+    itemId: 
+    dialogoNpcId: HDU1_NPC_FOCA
+    escenarioIds: 
+    casoDetectiveId: 
+    descripcion: 
+  verboseLogs: 1
+--- !u!114 &1990000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75e94149e8c96e0418e67e1f17b39f4d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionAlEntrarZona
+  zonaId: zona_3
+  verboseLogs: 1
+--- !u!1 &1990000011
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1990000012}
+  - component: {fileID: 1990000013}
+  - component: {fileID: 1990000014}
+  - component: {fileID: 1990000015}
+  m_Layer: 0
+  m_Name: CierreDelJuego
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1990000012
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000011}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1990000013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e4b1c7a2d5f4e8a9b3c6d0e1f2a4b6c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MensajeDeCierre
+  titulo: "\xA1Completaste el Arrecife!"
+  mensaje: Terminaste todas las misiones. Puedes seguir explorando el mapa cuando
+    quieras.
+  textoBoton: Seguir explorando
+--- !u!114 &1990000014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b91248bc9f391f352879e31d43df4e22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AlCompletarMision
+  mision: {fileID: 0}
+  misionId: MISION_EXPLORACION_03
+  verboseLogs: 1
+  alCompletar:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1990000013}
+        m_TargetAssemblyTypeName: MensajeDeCierre, Assembly-CSharp
+        m_MethodName: Mostrar
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 1990000015}
+        m_TargetAssemblyTypeName: RegistrarZonaCompletada, Assembly-CSharp
+        m_MethodName: Registrar
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  alRestaurar:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1990000015}
+        m_TargetAssemblyTypeName: RegistrarZonaCompletada, Assembly-CSharp
+        m_MethodName: Registrar
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &1990000015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3d5e7f9a1b24c6d8e0f1a2b3c4d5e6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RegistrarZonaCompletada
+  zonaBanco: reto_viral
+--- !u!1 &1990000020
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1990000021}
+  - component: {fileID: 1990000022}
+  - component: {fileID: 1990000023}
+  - component: {fileID: 1990000024}
+  - component: {fileID: 1990000025}
+  m_Layer: 0
+  m_Name: CierrePantano
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1990000021
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000020}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!61 &1990000022
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000020}
+  m_Enabled: 0
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 1, y: 1}
+    newSize: {x: 1, y: 1}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 1, y: 1}
+  m_EdgeRadius: 0
+--- !u!114 &1990000023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba0600216a039314ba0c681020bf415e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Fishy.Phone.PhoneChatLauncher
+  escenarioIds: ZONA_FIN_CIBERACOSO
+  variantesSegunVariable: []
+  otto: {fileID: 0}
+  phone: {fileID: 0}
+  ottoMood: {fileID: 0}
+  modoTelefono: 1
+  bloquearMovimiento: 1
+  repetible: 0
+  abrirAlAcercarse: 0
+  ottoTag: Player
+  reportToBackend: 0
+  notificationText: "\U0001F4F1 Tienes un mensaje nuevo\u2026"
+  previewDuration: 1.5
+  onChatOpened:
+    m_PersistentCalls:
+      m_Calls: []
+  onChatClosed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &1990000024
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4e6f8a0b2c34d5e9f1a3b5c7d9e1f2a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AbrirChatTrasCinematica
+  chat: {fileID: 1990000023}
+  esperaExtra: 0.5
+--- !u!114 &1990000025
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1990000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3d5e7f9a1b24c6d8e0f1a2b3c4d5e6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RegistrarZonaCompletada
+  zonaBanco: ciberacoso
 --- !u!1 &1991218066
 GameObject:
   m_ObjectHideFlags: 0
@@ -12517,321 +12853,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!1 &1990000001
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1990000002}
-  - component: {fileID: 1990000003}
-  - component: {fileID: 1990000004}
-  m_Layer: 0
-  m_Name: MisionArrecife
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1990000002
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000001}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 774275078}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1990000003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
-  misionId: 
-  mision: {fileID: 11400000, guid: 5a2c7e9b1d3f4a6c8e0b2d4f6a8c0e1b, type: 2}
-  objetivos:
-  - tipo: 1
-    objeto: {fileID: 0}
-    cantidad: 1
-    npc: {fileID: 0}
-    telefono: {fileID: 0}
-    zonaDestino: 
-    detective: {fileID: 0}
-    itemId: 
-    dialogoNpcId: HDU1_NPC_FOCA
-    escenarioIds: 
-    casoDetectiveId: 
-    descripcion: 
-  verboseLogs: 1
---- !u!114 &1990000004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 75e94149e8c96e0418e67e1f17b39f4d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionAlEntrarZona
-  zonaId: zona_3
-  verboseLogs: 1
---- !u!1 &1990000011
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1990000012}
-  - component: {fileID: 1990000013}
-  - component: {fileID: 1990000014}
-  - component: {fileID: 1990000015}
-  m_Layer: 0
-  m_Name: CierreDelJuego
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1990000012
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000011}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1990000013
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000011}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9e4b1c7a2d5f4e8a9b3c6d0e1f2a4b6c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MensajeDeCierre
---- !u!114 &1990000014
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000011}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b91248bc9f391f352879e31d43df4e22, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AlCompletarMision
-  mision: {fileID: 0}
-  misionId: MISION_EXPLORACION_03
-  verboseLogs: 1
-  alCompletar:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1990000013}
-        m_TargetAssemblyTypeName: MensajeDeCierre, Assembly-CSharp
-        m_MethodName: Mostrar
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 1990000015}
-        m_TargetAssemblyTypeName: RegistrarZonaCompletada, Assembly-CSharp
-        m_MethodName: Registrar
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  alRestaurar:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1990000015}
-        m_TargetAssemblyTypeName: RegistrarZonaCompletada, Assembly-CSharp
-        m_MethodName: Registrar
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
---- !u!114 &1990000015
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000011}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c3d5e7f9a1b24c6d8e0f1a2b3c4d5e6f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RegistrarZonaCompletada
-  zonaBanco: reto_viral
---- !u!1 &1990000020
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1990000021}
-  - component: {fileID: 1990000022}
-  - component: {fileID: 1990000023}
-  - component: {fileID: 1990000024}
-  - component: {fileID: 1990000025}
-  m_Layer: 0
-  m_Name: CierrePantano
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1990000021
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000020}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!61 &1990000022
-BoxCollider2D:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000020}
-  m_Enabled: 0
-  serializedVersion: 3
-  m_Density: 1
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ForceSendLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ForceReceiveLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ContactCaptureLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_CallbackLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_IsTrigger: 1
-  m_UsedByEffector: 0
-  m_CompositeOperation: 0
-  m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1, y: 1}
-    newSize: {x: 1, y: 1}
-    adaptiveTilingThreshold: 0.5
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
-  m_Size: {x: 1, y: 1}
-  m_EdgeRadius: 0
---- !u!114 &1990000023
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000020}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ba0600216a039314ba0c681020bf415e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Fishy.Phone.PhoneChatLauncher
-  escenarioIds: ZONA_FIN_CIBERACOSO
-  modoTelefono: 1
-  repetible: 0
-  reportToBackend: 0
---- !u!114 &1990000024
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000020}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d4e6f8a0b2c34d5e9f1a3b5c7d9e1f2a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AbrirChatTrasCinematica
-  chat: {fileID: 1990000023}
-  esperaExtra: 0.5
---- !u!114 &1990000025
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1990000020}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c3d5e7f9a1b24c6d8e0f1a2b3c4d5e6f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RegistrarZonaCompletada
-  zonaBanco: ciberacoso
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

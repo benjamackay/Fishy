@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -18,6 +19,28 @@ public class MissionManagerTests
 {
     private MissionManager manager;
     private DesafioData desafio;
+
+    /// <summary>
+    /// Una misión que vive SOLO en el catálogo, sin ningún asset en
+    /// <c>Resources/Misiones/</c>. Es el caso normal: el catálogo real trae 12 misiones
+    /// y en esa carpeta hay 3 assets, con cero solapamiento entre las dos listas.
+    /// </summary>
+    private const string IdSoloEnCatalogo = "M_SOLO_EN_CATALOGO";
+
+    private const string JsonDelCatalogo = @"{
+        ""version"": ""test"",
+        ""misiones"": [
+            {
+                ""mision_id"": ""M_SOLO_EN_CATALOGO"",
+                ""titulo"": ""Una del catálogo"",
+                ""tipo"": ""exploracion"",
+                ""zona"": ""desconocidos"",
+                ""zona_objetivo"": ""zona_1"",
+                ""orden"": 10,
+                ""objetivos"": []
+            }
+        ]
+    }";
 
     [SetUp]
     public void SetUp()
@@ -40,6 +63,12 @@ public class MissionManagerTests
     {
         if (manager != null) Object.DestroyImmediate(manager.gameObject);
         if (desafio != null) Object.DestroyImmediate(desafio);
+
+        // CatalogoDesafios y CatalogoMisiones son estáticos y viven todo el proceso: sin
+        // esto, la ficha que fabrique una prueba se la encuentra hecha la siguiente y la
+        // prueba de la restauración pasaría por el motivo equivocado.
+        CatalogoDesafios.Olvidar(IdSoloEnCatalogo);
+        CatalogoMisiones.Recargar();
     }
 
     [UnityTest]
@@ -105,5 +134,70 @@ public class MissionManagerTests
 
         Assert.IsTrue(segundaVez);
         Assert.AreEqual(0, llamadasEvento); // no debe volver a disparar el evento
+    }
+
+    // ── Restaurar el panel al retomar la partida ─────────────────────────────
+
+    [UnityTest]
+    public IEnumerator PrecargarConocidos_RestauraUnaMisionQueSoloEstaEnElCatalogo()
+    {
+        yield return null;
+
+        CatalogoMisiones.LeerTexto(JsonDelCatalogo);
+
+        // Nadie llamó a Ficha() todavía, y ese es justo el estado al retomar: el id llega
+        // del backend sin haber pasado por ningún NPC ni disparador. Si esta afirmación
+        // fallara, la prueba estaría midiendo otra cosa.
+        Assert.IsNull(CatalogoDesafios.Buscar(IdSoloEnCatalogo),
+            "La ficha no debería existir todavía: es lo que hace real a esta prueba.");
+
+        manager.PrecargarConocidos(new[] { IdSoloEnCatalogo });
+
+        Assert.IsTrue(manager.EstaDisponible(IdSoloEnCatalogo),
+            "La misión volvió del backend pero el panel quedó vacío.");
+    }
+
+    [UnityTest]
+    public IEnumerator PrecargarConocidos_UnaMisionCompletadaVuelveComoCompletada()
+    {
+        yield return null;
+
+        CatalogoMisiones.LeerTexto(JsonDelCatalogo);
+
+        // El orden real de MisionBackendSync.AplicarMisiones: primero las completadas.
+        manager.PrecargarCompletados(new[] { IdSoloEnCatalogo });
+        manager.PrecargarConocidos(new[] { IdSoloEnCatalogo });
+
+        Assert.IsTrue(manager.EstaCompletado(IdSoloEnCatalogo),
+            "Una misión ya terminada reapareció como pendiente.");
+    }
+
+    [UnityTest]
+    public IEnumerator PrecargarConocidos_SiElCatalogoLlegaDespues_LaMisionSeRecupera()
+    {
+        yield return null;
+
+        // El catálogo y el progreso se bajan por separado y son independientes, así que
+        // el progreso puede llegar primero. Antes eso costaba la misión: se avisaba y se
+        // descartaba, y no volvía hasta la sesión siguiente.
+        CatalogoMisiones.LeerTexto(@"{ ""version"": ""vacio"", ""misiones"": [] }");
+
+        manager.PrecargarConocidos(new[] { IdSoloEnCatalogo });
+        Assert.IsFalse(manager.EstaDisponible(IdSoloEnCatalogo),
+            "Sin catálogo no hay título ni orden: todavía no se puede pintar.");
+
+        CatalogoMisiones.AplicarDesdeBase(new List<MisionRegistro>
+        {
+            new MisionRegistro
+            {
+                mision_id = IdSoloEnCatalogo,
+                titulo = "Una del catálogo",
+                zona_objetivo = "zona_1",
+                orden = 10,
+            }
+        });
+
+        Assert.IsTrue(manager.EstaDisponible(IdSoloEnCatalogo),
+            "Al llegar el catálogo, la misión pendiente tenía que entrar sola al panel.");
     }
 }

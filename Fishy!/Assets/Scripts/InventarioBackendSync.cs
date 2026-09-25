@@ -97,8 +97,7 @@ namespace Fishy.Net
                 {
                     // Sin partida no se guarda nada, y antes eso no se decia: el juego
                     // parecia andar bien y la mochila se perdia igual.
-                    if (!avisoDeSinPartidaDado &&
-                        Time.realtimeSinceStartup - sinPartidaDesde > 8f)
+                    if (!avisoDeSinPartidaDado && AvisoSinPartida.HayQueAvisar(sinPartidaDesde))
                     {
                         avisoDeSinPartidaDado = true;
                         Debug.LogWarning(

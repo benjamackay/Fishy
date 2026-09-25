@@ -27,12 +27,43 @@ namespace Fishy.World
                  "el zoneId, que no siempre coincide.")]
         public string zonaBanco = "";
 
+        /// <summary>Los únicos slugs que el banco reconoce como temática.</summary>
+        private static readonly string[] SlugsDelBanco = { "desconocidos", "ciberacoso", "reto_viral" };
+
         /// <summary>
         /// Id con el que esta zona viaja al backend. El <see cref="zoneId"/> nombra el
         /// collider de la escena y el slug del banco nombra la temática: no tienen por
         /// qué coincidir, así que se pueden separar sin renombrar nada en la escena.
+        ///
+        /// <b>El respaldo al <c>zoneId</c> avisa.</b> Dejar <see cref="zonaBanco"/> vacío
+        /// hace que se guarde el id de la escena en la columna de la temática, y eso ya
+        /// pasó: en `api_zonaprogreso` quedaron filas `zona_2` y `zona_3` conviviendo con
+        /// `desconocidos` y `ciberacoso`. Dos vocabularios en la misma columna, y el
+        /// reporte del adulto agrupa por temática, así que esas filas no las puede leer
+        /// nadie y la misma zona aparece dos veces. El respaldo se conserva —quitarlo
+        /// rompería las filas que ya están guardadas así—, pero deja de ser silencioso.
         /// </summary>
-        public string ZonaBackend => string.IsNullOrEmpty(zonaBanco) ? zoneId : zonaBanco;
+        public string ZonaBackend
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(zonaBanco)) return zonaBanco.Trim();
+
+                if (!_avisoDeSlugDado && Array.IndexOf(SlugsDelBanco, zoneId) < 0)
+                {
+                    _avisoDeSlugDado = true;
+                    Debug.LogWarning(
+                        $"[BlockedZone] '{name}' no tiene 'Zona Banco', así que va a guardar " +
+                        $"'{zoneId}' en la columna de la temática, donde el backend espera " +
+                        $"una de: {string.Join(", ", SlugsDelBanco)}. El reporte del adulto no " +
+                        "va a poder leer esa fila. Ponle el slug en el Inspector.", this);
+                }
+
+                return zoneId;
+            }
+        }
+
+        private bool _avisoDeSlugDado;
 
         /// <summary>
         /// Se dispara cuando cualquier zona se desbloquea, venga de WorldZoneManager,

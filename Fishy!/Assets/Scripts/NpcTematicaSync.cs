@@ -29,7 +29,6 @@ public class NpcTematicaSync : MonoBehaviour
     public static NpcTematicaSync Instance { get; private set; }
 
     private const float EsperaEntreIntentos = 0.5f;
-    private const float SegundosAntesDeAvisarQueNoHayPartida = 8f;
 
     /// <summary>Lo que esta partida ya terminó, y con qué resultado.</summary>
     private static readonly Dictionary<string, bool> terminados = new Dictionary<string, bool>();
@@ -125,8 +124,7 @@ public class NpcTematicaSync : MonoBehaviour
 
             if (api == null || api.PartidaId == null)
             {
-                if (!avisoDeSinPartidaDado &&
-                    Time.realtimeSinceStartup - sinPartidaDesde > SegundosAntesDeAvisarQueNoHayPartida)
+                if (!avisoDeSinPartidaDado && AvisoSinPartida.HayQueAvisar(sinPartidaDesde))
                 {
                     avisoDeSinPartidaDado = true;
                     Debug.LogWarning(

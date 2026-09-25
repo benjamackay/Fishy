@@ -267,10 +267,62 @@ namespace Fishy.World
             // salga nada.
             if (_listoParaCerrar) return;
 
-            // Camino sin `wantsToQuit`: en el editor, parar el Play NO lo dispara. Aquí
-            // ya no se puede retrasar nada, así que es best-effort, como siempre fue.
+            // Camino sin `wantsToQuit`. Aquí ya no se puede retrasar nada: se pide el
+            // vaciado igual, pero arranca una corrutina y Unity está desmontando, así
+            // que normalmente no alcanza a salir. Es best-effort, como siempre fue.
+            // Quien avisa de lo que se perdió por aquí es `AlCambiarElPlay`.
             Guardar(Motivo.CierreDeAplicacion);
         }
+
+#if UNITY_EDITOR
+        // ── El agujero del editor ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Avisa cuando se para el Play con cambios sin subir.
+        ///
+        /// En un build el cierre se retiene: <c>Application.wantsToQuit</c> devuelve
+        /// false y la cola tiene su plazo. Parando el Play en el editor eso no ocurre —
+        /// llegue o no llegue ese evento, el que manda es el propio editor— y lo que
+        /// queda es <c>OnApplicationQuit</c>, que arranca una corrutina cuando Unity ya
+        /// está desmontando: no sale.
+        ///
+        /// <b>Y no se puede arreglar reteniendo.</b> <c>playModeStateChanged</c> avisa
+        /// pero no se puede cancelar, y bloquear dentro del callback tampoco sirve: las
+        /// peticiones avanzan en el bucle de Unity, que es justo lo que quedaría parado.
+        ///
+        /// Así que lo único honesto es decirlo. Sin esto, alguien prueba el guardado en
+        /// el editor, para el Play, ve que no se guardó nada y concluye que el guardado
+        /// está roto — cuando lo que pasó es que la cola nunca llegó a salir.
+        ///
+        /// La condición no supone nada sobre <c>wantsToQuit</c>: si llegó a vaciar,
+        /// <see cref="_listoParaCerrar"/> está puesto y esto no dice nada. Así el aviso
+        /// vale igual si el comportamiento del editor cambia entre versiones de Unity.
+        /// </summary>
+        [UnityEditor.InitializeOnLoadMethod]
+        private static void VigilarLaSalidaDelPlay()
+        {
+            // El estático sobrevive al recargado de dominio: sin el `-=` nos
+            // suscribiríamos otra vez con cada recompilación.
+            UnityEditor.EditorApplication.playModeStateChanged -= AlCambiarElPlay;
+            UnityEditor.EditorApplication.playModeStateChanged += AlCambiarElPlay;
+        }
+
+        private static void AlCambiarElPlay(UnityEditor.PlayModeStateChange cambio)
+        {
+            if (cambio != UnityEditor.PlayModeStateChange.ExitingPlayMode) return;
+            if (_listoParaCerrar) return;
+
+            int pendientes = ColaDeCambios.Pendientes;
+            if (pendientes <= 0) return;
+
+            Debug.LogError(
+                $"[SaveManager] Se paró el Play con {pendientes} cambio(s) todavía en la " +
+                "cola, y se pierden. NO es que el guardado falle: en el editor no se " +
+                "puede retrasar la salida como se retrasa el cierre de un build.\n" +
+                "Para probar el guardado de verdad: cruzar de zona antes de parar, o " +
+                "salir con «Guardar y salir» del menú de pausa (Esc).");
+        }
+#endif
 
         private void OnApplicationPause(bool pausado)
         {

@@ -146,8 +146,7 @@ namespace Fishy.Net
                 {
                     // Sin partida, el progreso no se ata a nadie y no se guarda. Antes
                     // este bucle esperaba callado para siempre.
-                    if (!avisoDeSinPartidaDado &&
-                        Time.realtimeSinceStartup - sinPartidaDesde > 8f)
+                    if (!avisoDeSinPartidaDado && AvisoSinPartida.HayQueAvisar(sinPartidaDesde))
                     {
                         avisoDeSinPartidaDado = true;
                         Debug.LogWarning(
@@ -327,10 +326,34 @@ namespace Fishy.Net
             Subir(runtime.Id, true);
         }
 
+        /// <summary>Ids sobre los que ya se avisó de que se perdieron: uno por misión,
+        /// no uno por frame.</summary>
+        private static readonly HashSet<string> avisadosSinPartida = new HashSet<string>();
+
         private void Subir(string misionId, bool completada)
         {
             var api = ApiManager.Instance;
-            if (api == null || api.IsLocalMode || !api.IsLoggedIn || api.PartidaId == null) return;
+            if (api == null || api.IsLocalMode) return;
+
+            // Sin partida no hay dónde guardar, y esto NO se reintenta: la misión se
+            // pierde para siempre. Antes se descartaba en la misma línea que el caso
+            // normal de "todavía estamos en el menú", así que no dejaba rastro.
+            //
+            // Se distinguen los dos: sin sesión es lo esperable en el menú y se calla;
+            // con sesión iniciada y sin PartidaId es una misión que el niño/a completó
+            // en una ventana en la que el juego no sabía a qué partida escribirle, y eso
+            // hay que verlo.
+            if (!api.IsLoggedIn) return;
+            if (api.PartidaId == null)
+            {
+                if (avisadosSinPartida.Add(misionId))
+                    Debug.LogWarning(
+                        $"[MisionBackendSync] '{misionId}' cambió de estado antes de que " +
+                        "hubiera partida activa, así que no se encoló y se pierde. Si sale " +
+                        "esto, quien entrega la misión está corriendo antes de que la " +
+                        "partida esté lista.");
+                return;
+            }
 
             // No repetir lo que ya está puesto. Ojo al cambio: `misionesEnServidor`
             // antes quería decir "lo que el servidor confirmó" y se escribía en el
