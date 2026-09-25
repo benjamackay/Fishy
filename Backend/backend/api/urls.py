@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, invitaciones, reportes_web, seguimiento
+from . import views, invitaciones, panel_admin, reportes_web, seguimiento
 
 urlpatterns = [
     # Portal web: grupos, invitaciones y reportes
@@ -13,6 +13,11 @@ urlpatterns = [
     path("grupos/<uuid:grupo_id>/invitaciones/<uuid:invitacion_id>/", invitaciones.gestionar_invitacion),
     path("invitaciones/consultar/", invitaciones.consultar_invitacion),
     path("invitaciones/aceptar/", invitaciones.aceptar_invitacion),
+    # Portal web: panel del admin (equipo de Fishy!). Ver panel_admin.py.
+    path("admin/profesores/", panel_admin.profesores),
+    path("admin/grupos/", panel_admin.grupos),
+    path("admin/cuentas/", panel_admin.cuentas),
+    path("admin/cuentas/<int:cuenta_id>/rol/", panel_admin.cambiar_rol),
     # Health
     path("health/", views.health_check, name="health_check"),
 
