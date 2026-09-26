@@ -11,7 +11,53 @@ El contrato de dominio está en `src/types/panel.ts` y el adaptador en
 `src/api/panelReal.ts`. La implementación y la configuración del servidor están
 en [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
-## Vinculación por niño
+## Agregar niños por correo (HDU17)
+
+**Backend listo desde el 25 de septiembre de 2026 (migración `0018`); el frontend falta.**
+
+Es el flujo que pide el criterio de aceptación de HDU17: el profesor presiona
+"Agregar", escribe el correo del apoderado, ve los perfiles de niño de esa cuenta,
+marca uno o varios y presiona "Agregar". Quedan en el curso **de inmediato**, sin
+correo ni aceptación de la familia. Reemplaza a "Invitar familia" en el portal:
+las invitaciones siguen en el backend (sección siguiente), pero **se ocultan**.
+El aviso a la familia y que ella pueda sacar al niño quedan para el Sprint 3.
+
+**Un niño está en un solo curso a la vez.** Lo garantiza la base de datos.
+
+### Endpoints (profesor dueño del grupo)
+
+| Método y ruta | Body | Respuesta |
+|---|---|---|
+| `POST /api/grupos/<id>/buscar-familia/` | `{"email": "..."}` | 200 `{"perfiles": [{"jugador_id", "nombre", "estado"}]}` |
+| `POST /api/grupos/<id>/miembros/` | `{"email": "...", "jugador_ids": [1, 2]}` | 201 con el detalle del grupo (igual que `GET /api/grupos/<id>/`); 200 si todos ya estaban |
+
+Es POST también para buscar, para que el correo no quede en URLs ni logs.
+
+`estado` de cada perfil:
+
+- `disponible`: se puede marcar.
+- `en_este_curso`: ya está; mostrarlo marcado o deshabilitado.
+- `en_otro_curso`: **deshabilitado**, con el texto "Ya está en otro curso". No se
+  dice cuál ni de qué profesor, a propósito.
+
+Solo se devuelve el nombre del perfil: nada de edad ni avance antes de agregarlo.
+
+### Errores (todos traen `detail` listo para mostrar)
+
+| Código | Cuándo |
+|---|---|
+| 400 | Correo inválido, `jugador_ids` vacío o con más de 20 |
+| 403 | La cuenta no es profesor (padre y admin incluidos) |
+| 404 `No encontramos perfiles de niño para ese correo.` | El correo no tiene cuenta, es de un profesor, no tiene niños, o algún `jugador_id` no es de ese correo. **Es el mismo mensaje a propósito**, para no revelar quién está registrado |
+| 404 (otro texto) | El grupo no existe o es de otro profesor |
+| 409 `Martina ya está en otro curso. ...` | Algún elegido está en otro curso. **No se agrega ninguno** (todo o nada) |
+| 429 | Más de 120 búsquedas o agregados por hora del mismo profesor |
+
+Repetir un agregado no duplica: los que ya estaban se saltan sin error.
+
+## Vinculación por niño (invitaciones, oculto en el portal)
+
+Una invitación de un niño que ya está en otro curso se rechaza al aceptarla (409).
 
 El profesor envía `{ email, nombre_nino }` desde el detalle de su propio grupo.
 Se crea una invitación con UUID, vencimiento y secreto de un solo uso. El envío no
@@ -30,7 +76,8 @@ por nombre. Si existe con otro nombre, el profesor debe cancelar y corregir la
 invitación para conservar su progreso. Si no existe, se crea únicamente ese
 perfil dentro de la misma transacción que lo incorpora al curso.
 
-La membresía persiste `grupo + jugador_id`, con unicidad en base de datos.
+La membresía persiste `grupo + jugador_id`. Desde la `0018`, la base exige que
+cada `jugador_id` esté en un solo grupo.
 Dos hermanos requieren dos invitaciones. Quitar a un integrante elimina solo
 su pertenencia al curso, conservando la cuenta, el perfil y el juego.
 
