@@ -1068,7 +1068,9 @@ class MiembroGrupo(models.Model):
     fecha_ingreso = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["grupo", "jugador"], name="miembro_unico_por_grupo_jugador")]
+        # Un niño está en un solo curso a la vez (decisión del equipo, HDU17). La
+        # base lo garantiza aunque dos profesores lo agreguen al mismo tiempo.
+        constraints = [models.UniqueConstraint(fields=["jugador"], name="miembro_un_curso_por_jugador")]
 
 
 class InvitacionGrupo(models.Model):

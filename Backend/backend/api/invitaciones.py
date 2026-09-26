@@ -8,13 +8,13 @@ from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
-from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
@@ -76,6 +76,20 @@ class DatosGrupo(serializers.Serializer):
 class DatosInvitacion(serializers.Serializer):
     email = serializers.EmailField(max_length=254)
     nombre_nino = serializers.CharField(max_length=150)
+
+
+class DatosFamilia(serializers.Serializer):
+    email = serializers.EmailField(max_length=254)
+
+
+class DatosAgregar(DatosFamilia):
+    jugador_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), min_length=1, max_length=20)
+
+
+class LimiteBusquedaFamilias(LimiteInvitaciones):
+    # Holgado para inscribir un curso completo, corto para no probar correos en masa.
+    scope = "busqueda_familias"
+    rate = "120/hour"
 
 
 class DatosToken(serializers.Serializer):
@@ -176,6 +190,59 @@ def quitar_miembro(request, grupo_id, miembro_id):
     return Response(status=204)
 
 
+SIN_PERFILES = "No encontramos perfiles de niño para ese correo."
+EN_OTRO_CURSO = "ya está en otro curso. Para cambiarlo, primero debe salir de ese curso."
+
+
+def perfiles_de_familia(email):
+    """Perfiles de niño de la cuenta de familia con ese correo. Correo sin cuenta, de un
+    profesor o sin niños dan lo mismo: una lista vacía, para no revelar quién está registrado."""
+    return UsuarioJugador.objects.filter(adulto__email__iexact=email, adulto__rol=AdultoResponsable.ROL_PADRE)
+
+
+@api_view(["POST"])
+@throttle_classes([LimiteBusquedaFamilias])
+def buscar_familia(request, grupo_id):
+    grupo = grupo_propio(request, grupo_id)
+    email = validar(DatosFamilia, request.data)["email"]
+    cursos = dict(MiembroGrupo.objects.filter(jugador__in=perfiles_de_familia(email)).values_list("jugador_id", "grupo_id"))
+    perfiles = [{"jugador_id": j.pk, "nombre": j.nombre,
+                 # Del otro curso no se dice cuál es ni de qué profesor.
+                 "estado": "disponible" if j.pk not in cursos else "en_este_curso" if cursos[j.pk] == grupo.pk else "en_otro_curso"}
+                for j in perfiles_de_familia(email).order_by("nombre", "pk")]
+    if not perfiles:
+        raise NotFound(SIN_PERFILES)
+    respuesta = Response({"perfiles": perfiles})
+    respuesta["Cache-Control"] = "no-store"
+    return respuesta
+
+
+@api_view(["POST"])
+@throttle_classes([LimiteBusquedaFamilias])
+def agregar_miembros(request, grupo_id):
+    """HDU17: el profesor agrega de inmediato los perfiles que eligió, sin invitación.
+    Pide el correo además de los ids para que no se puedan agregar niños probando números."""
+    datos = validar(DatosAgregar, request.data)
+    ids = set(datos["jugador_ids"])
+    with transaction.atomic():
+        grupo = grupo_propio(request, grupo_id, bloquear=True)
+        jugadores = list(perfiles_de_familia(datos["email"]).select_for_update().filter(pk__in=ids).order_by("pk"))
+        if len(jugadores) != len(ids):
+            raise NotFound(SIN_PERFILES)
+        cursos = dict(MiembroGrupo.objects.filter(jugador__in=jugadores).values_list("jugador_id", "grupo_id"))
+        ocupados = [j.nombre for j in jugadores if j.pk in cursos and cursos[j.pk] != grupo.pk]
+        if ocupados:
+            raise Conflicto(", ".join(ocupados) + " " + EN_OTRO_CURSO)
+        nuevos = [j for j in jugadores if j.pk not in cursos]
+        try:
+            with transaction.atomic():
+                MiembroGrupo.objects.bulk_create(MiembroGrupo(grupo=grupo, jugador=j, nombre_invitado=j.nombre) for j in nuevos)
+        except IntegrityError:
+            # Otro profesor lo agregó en el mismo instante; la restricción de la base manda.
+            raise Conflicto("Uno de los niños " + EN_OTRO_CURSO)
+    return Response(datos_grupo(grupo, detalle=True), status=201 if nuevos else 200)
+
+
 @api_view(["POST"])
 @throttle_classes([LimiteInvitaciones])
 def invitar(request, grupo_id):
@@ -270,7 +337,9 @@ def aceptar_invitacion(request):
             jugador = get_object_or_404(UsuarioJugador.objects.select_for_update(), pk=datos["jugador_id"], adulto=adulto)
             if nombre_clave(jugador.nombre) != inv.nombre_clave:
                 raise ValidationError("El perfil seleccionado no coincide con el niño invitado. Pide al profesor corregir el nombre si corresponde.")
-        miembro, _ = MiembroGrupo.objects.get_or_create(grupo=inv.grupo, jugador=jugador, defaults={"nombre_invitado": inv.nombre_nino})
+        if jugador.grupos.exclude(grupo=inv.grupo).exists():
+            raise Conflicto(jugador.nombre + " " + EN_OTRO_CURSO)
+        miembro, _ =MiembroGrupo.objects.get_or_create(grupo=inv.grupo, jugador=jugador, defaults={"nombre_invitado": inv.nombre_nino})
         inv.miembro = miembro
         inv.estado = "aceptada"
         inv.aceptada_en = timezone.now()

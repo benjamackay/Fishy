@@ -8,6 +8,8 @@ urlpatterns = [
     path("grupos/<uuid:grupo_id>/reporte/", reportes_web.reporte_grupo),
     path("grupos/<uuid:grupo_id>/seguimiento/", seguimiento.seguimiento_grupo),
     path("jugadores/<int:jugador_id>/reporte/", reportes_web.reporte_nino),
+    path("grupos/<uuid:grupo_id>/buscar-familia/", invitaciones.buscar_familia),
+    path("grupos/<uuid:grupo_id>/miembros/", invitaciones.agregar_miembros),
     path("grupos/<uuid:grupo_id>/miembros/<uuid:miembro_id>/", invitaciones.quitar_miembro),
     path("grupos/<uuid:grupo_id>/invitaciones/", invitaciones.invitar),
     path("grupos/<uuid:grupo_id>/invitaciones/<uuid:invitacion_id>/", invitaciones.gestionar_invitacion),
