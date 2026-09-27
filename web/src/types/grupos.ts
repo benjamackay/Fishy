@@ -9,6 +9,12 @@ export interface NuevoGrupo {
   nombre: string
   descripcion?: string
 }
+export interface PerfilFamilia {
+  jugador_id: number
+  nombre: string
+  estado: 'disponible' | 'en_este_curso' | 'en_otro_curso'
+}
+export interface FamiliaEncontrada { perfiles: PerfilFamilia[] }
 /** Cada integrante representa a un niño; un padre puede recibir invitaciones para distintos hijos. */
 export interface MiembroGrupo {
   id: string

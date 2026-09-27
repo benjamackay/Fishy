@@ -2,9 +2,8 @@ import { listarJugadores } from '@/api/jugadores'
 import { api } from '@/lib/api'
 import { operacionGrupo } from './invitaciones'
 import type { FuentePanel } from '@/types/panel'
-import type { Grupo, GrupoDetalle, InvitacionGrupo } from '@/types/grupos'
+import type { Grupo, GrupoDetalle, InvitacionGrupo, FamiliaEncontrada } from '@/types/grupos'
 import type { ReporteGrupo, ReporteNino } from '@/types/reportes'
-import type { SeguimientoGrupo } from '@/types/seguimiento'
 
 /**
  * Grupos e invitaciones usan el contrato implementado en Backend/backend/api/invitaciones.py.
@@ -20,11 +19,12 @@ export const panelReal: FuentePanel = {
   listarGrupos: opciones => operacionGrupo(() => api.get<Grupo[]>('/grupos/', opciones)),
   crearGrupo: datos => operacionGrupo(() => api.post<Grupo>('/grupos/', datos)),
   obtenerGrupo: (id, opciones) => operacionGrupo(() => api.get<GrupoDetalle>(ruta(id), opciones)),
+  buscarFamilia: (id, email) => operacionGrupo(() => api.post<FamiliaEncontrada>(ruta(id) + 'buscar-familia/', { email })),
+  agregarNinos: (id, email, jugadorIds) => operacionGrupo(() => api.post<GrupoDetalle>(ruta(id) + 'miembros/', { email, jugador_ids: jugadorIds })),
   invitarFamilia: (id, datos) => operacionGrupo(() => api.post<InvitacionGrupo>(ruta(id) + 'invitaciones/', datos)),
   reenviarInvitacion: (id, invitacionId) => operacionGrupo(() => api.post<InvitacionGrupo>(ruta(id) + 'invitaciones/' + encodeURIComponent(invitacionId) + '/')),
   cancelarInvitacion: (id, invitacionId) => operacionGrupo(() => api.delete<void>(ruta(id) + 'invitaciones/' + encodeURIComponent(invitacionId) + '/')),
   eliminarUsuario: (id, miembroId) => operacionGrupo(() => api.delete<void>(ruta(id) + 'miembros/' + encodeURIComponent(miembroId) + '/')),
   eliminarGrupo: id => operacionGrupo(() => api.delete<void>(ruta(id))),
   obtenerReporteGrupo: (id, opciones) => operacionGrupo(() => api.get<ReporteGrupo>(ruta(id) + 'reporte/', opciones)),
-  obtenerSeguimientoGrupo: (id, opciones) => operacionGrupo(() => api.get<SeguimientoGrupo>(ruta(id) + 'seguimiento/', opciones)),
 }

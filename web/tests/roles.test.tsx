@@ -134,17 +134,18 @@ describe('permisos antes de invocar el servicio', () => {
     p => p.listarGrupos(),
     p => p.crearGrupo({ nombre: 'No permitido' }),
     p => p.obtenerGrupo('grupo'),
+    p => p.buscarFamilia('grupo', 'familia@example.com'),
+    p => p.agregarNinos('grupo', 'familia@example.com', [1]),
     p => p.invitarFamilia('grupo', { email: 'familia@example.com', nombre_nino: 'Martina' }),
     p => p.reenviarInvitacion('grupo', 'invitacion'),
     p => p.cancelarInvitacion('grupo', 'invitacion'),
     p => p.eliminarUsuario('grupo', 'miembro'),
     p => p.eliminarGrupo('grupo'),
     p => p.obtenerReporteGrupo('grupo'),
-    p => p.obtenerSeguimientoGrupo('grupo'),
   ]
   it.each(['padre', undefined, 'Profesor', 'admin', true, null])('deniega todas las operaciones grupales con un rol no autorizado: %s', async rol => {
     const fuente = crearPanelDemo(1001)
-    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo', 'obtenerSeguimientoGrupo'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
+    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'buscarFamilia', 'agregarNinos', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
     const perfil = { ...perfilesDemo.principal, is_admin: true, rol } as unknown as AdultoResponsable
     const panel = aplicarPermisosPanel(fuente, perfil)
     for (const operacion of operaciones) await expect(operacion(panel)).rejects.toThrow('Solo los tutores administradores')

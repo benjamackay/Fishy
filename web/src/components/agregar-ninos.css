@@ -1,0 +1,10 @@
+.familia-buscada{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0;padding:14px;background:var(--pastel);border-radius:8px}
+.familia-buscada>div{min-width:0}.familia-buscada p{margin:0;overflow-wrap:anywhere;font-size:.875rem}
+.familia-buscada .boton{flex-shrink:0}
+.familia-perfiles{border:0;margin:16px 0;padding:0;display:grid;gap:8px;min-width:0}
+.familia-perfil{display:flex;gap:12px;align-items:center;border:1px solid var(--linea);border-radius:8px;padding:14px;min-height:60px;cursor:pointer}
+.familia-perfil:has(input:checked){background:#f5f0eb;border-color:#cbb29c}
+.familia-perfil:has(input:disabled){cursor:default;background:var(--fondo)}
+.familia-perfil input{width:20px;height:20px;flex-shrink:0;accent-color:var(--cafe-oscuro)}
+.familia-perfil span{min-width:0;overflow-wrap:anywhere}.familia-perfil strong,.familia-perfil small{display:block}.familia-perfil small{color:var(--muted);margin-top:3px}
+@media(max-width:480px){.familia-buscada{align-items:flex-start;flex-direction:column}}
