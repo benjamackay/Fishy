@@ -1,7 +1,10 @@
 # Django en Railway
 
-El `requirements.txt` de la raíz incluye el de `Backend/backend`, que contiene
-las dependencias de Django y Gunicorn. No hace falta mantener dos listas.
+El `requirements.txt` de la raíz contiene las dependencias de Django y Gunicorn
+sin referencias a otros archivos. Así puede instalarse durante la etapa de
+dependencias de Railpack, antes de que esté disponible el resto del código.
+Mantener su lista sincronizada con `Backend/backend/requirements.txt`, que usan
+las herramientas de desarrollo y Docker del backend.
 
 ## Configuración del servicio
 
