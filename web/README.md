@@ -1,7 +1,7 @@
 # Fishy! · Panel de tutores
 
-Frontend en React + TypeScript + Vite, con grupos e invitaciones por niño
-integrados con Django. El envío de correo queda preparado para configurar el
+Frontend en React + TypeScript + Vite, con grupos y agregado de niños por correo
+integrados con Django. Las invitaciones se conservan, pero están ocultas en el panel. El envío de correo queda preparado para configurar el
 proveedor elegido. Ver [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
 ## Ejecutar y probar
@@ -23,9 +23,13 @@ backend ni contraseña y siempre muestra una etiqueta de datos ficticios.
 - Diego, tutor administrador/profesor: únicamente creación, gestión y reportes
   de grupos. No tiene niños asociados ni acceso a reportes individuales.
 - La demo de profesor abre Mis grupos, con un grupo con resultados y otro sin datos.
-- “Invitar familia” solicita nombre del niño y correo del padre. La demo simula
-  invitaciones, reenvío y cancelación; nunca afirma que se envió un correo real.
-  Dos hermanos requieren dos invitaciones, aunque compartan el correo del padre.
+- En el grupo, “Agregar” busca el correo del apoderado y permite seleccionar uno
+  o varios niños. Se incorporan al confirmar, sin enviar correos ni esperar aceptación.
+  Los perfiles de este curso se ven marcados y deshabilitados; los de otro curso
+  quedan deshabilitados sin revelar el curso ni su profesor.
+- Para probar en la demo de profesor, busca `familia.silva@example.com`: Sofía ya
+  tiene curso; Valentina y Mateo empiezan disponibles. Solo entran los elegidos.
+  Las invitaciones anteriores no se muestran, pero su código y datos se conservan.
 - En un reporte individual, “Probar la actualización automática” simula un
   nivel completado. El cambio también afecta al agregado del grupo cuando
   ese perfil participa en él.
@@ -84,7 +88,7 @@ El contrato es `src/types/panel.ts` (`FuentePanel`); el punto de conexión es
 `src/api/panelReal.ts`. No hay que reescribir las pantallas.
 
 El login y el listado de perfiles conservan las llamadas que ya existían.
-El adaptador conecta grupos, invitaciones, integrantes, reportes y seguimiento
+El adaptador conecta grupos, invitaciones, integrantes y reportes
 con los endpoints de Django (migración `0014_grupos_invitaciones`). Invitar
 necesita además la configuración SMTP del backend; sin ella responde 503 con un
 mensaje claro. Las invitaciones exigen aceptación con el correo destinatario y
@@ -96,17 +100,6 @@ ofrece explícitamente en un build de demostración; `VITE_DEMO=false` la oculta
 `VITE_GRUPOS_MOCK` y `VITE_FORZAR_ADMIN` no activan las nuevas pantallas.
 
 ## Reportes y privacidad
-
-El detalle de cada grupo incluye **Alumnos que necesitan apoyo**, visible solo
-para su profesor. Explica las dificultades con métricas por temática y permite
-preparar un correo a la familia. Los umbrales iniciales son 60% para apoyo y 40%
-para prioridad, con al menos cinco decisiones por temática. Las muestras pequeñas
-y antiguas se distinguen explícitamente. El reporte grupal y su PDF permanecen
-agregados. Ver criterios completos en [INTEGRACION_FRONTEND.md](INTEGRACION_FRONTEND.md).
-
-Para probarlo en la demo: entrar como profesor → abrir 5° Básico A →
-**Probar casos de apoyo** → **Simular casos de apoyo**. **Simular mejora**
-permite verificar que las alertas se retiran automáticamente.
 
 - Tres temáticas fijas: Desconocidos, Ciberacoso y Retos Virales.
 - Decisiones seguras / decisiones evaluadas × 100, redondeado al entero.

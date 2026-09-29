@@ -1,23 +1,13 @@
 # Criterios de aceptación del frontend
 
-La ampliación de seguimiento añade al detalle del grupo una sección privada
-de alumnos que necesitan apoyo: nombre, correo familiar, motivos cuantitativos
-por temática, resumen ponderado y borrador de contacto. Se cubren los límites
-40/60%, cero con muestra suficiente, muestras pequeñas, datos ausentes o antiguos,
-mejoras que retiran alertas, eliminación de vínculos, cambios de grupo, red y
-permisos revocados. Un promedio alto no oculta una temática baja. Este seguimiento
-no se exporta al PDF ni se expone a padres, otros profesores o grupos. Los reportes
-individuales de padres y el PDF agregado mantienen sus permisos anteriores.
-Los criterios iniciales ajustables están en `INTEGRACION_FRONTEND.md`.
-
 Los flujos están implementados en el frontend y los nuevos endpoints de grupos,
 invitaciones y reportes. Se prueban con DOM simulado y base SQLite aislada.
 La activación requiere aplicar la migración y configurar el correo del entorno,
 según [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
-La aclaración posterior cambia el alta de integrantes: se invita a un niño
-específico mediante el correo del padre. El vínculo se crea tras su aceptación;
-no se incorporan todos los hijos de esa cuenta ni se agregan usuarios directamente.
+El alta de integrantes busca el correo del apoderado y permite seleccionar
+solo los perfiles de este curso. El vínculo se crea al confirmar el agregado;
+no se incorporan todos los hijos de esa cuenta. Las invitaciones están ocultas.
 
 Los criterios de grupos (8–18) corresponden exclusivamente al tutor administrador
 (profesor). El tutor padre/madre solo consulta los reportes de sus hijos.
@@ -43,8 +33,8 @@ estas validaciones y corregir las asociaciones reales antiguas si existen.
 | 8 | Crear grupo abre formulario con nombre y descripción | Prueba del flujo de creación y validación. |
 | 9 | Confirmación de creación e identificador único | Prueba de UUID y persistencia de demo. UUID definitivo lo asigna el servidor. |
 | 10 | Detalle con gestión habilitada tras crear | Prueba del flujo completo. |
-| 11 | Invitar familia abre formulario de nombre del niño y correo del padre | Prueba de formulario. |
-| 12 | Envía invitación; el padre acepta un perfil concreto o lo crea | Pruebas de cuenta nueva/existente, preservación del progreso, confirmación y exclusión de hermanos. |
+| 11 | Agregar abre la búsqueda de perfiles por correo del apoderado | Prueba de formulario y búsqueda POST. |
+| 12 | Incorpora únicamente los perfiles seleccionados al confirmar | Pruebas de selección, estados de pertenencia, conflictos y exclusión de hermanos. |
 | 13 | Eliminar integrante pide confirmación; conserva perfil y progreso | Pruebas de interfaz y API; no permite reutilizar la invitación ya consumida. |
 | 14 | Ver reporte presenta agregado por temática | Pruebas de agregación ponderada y pantalla. Agregado real corresponde al servidor. |
 | 15 | Sin muestra suficiente: aviso sin porcentajes, PDF deshabilitado | Pruebas de grupo vacío y grupos pequeños. Umbral provisional: 3 por temática. |

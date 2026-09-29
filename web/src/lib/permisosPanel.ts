@@ -30,12 +30,13 @@ export function aplicarPermisosPanel(fuente: FuentePanel, perfil: AdultoResponsa
     listarGrupos: opciones => soloAdministrador(() => fuente.listarGrupos(opciones)),
     crearGrupo: datos => soloAdministrador(() => fuente.crearGrupo(datos)),
     obtenerGrupo: (id, opciones) => soloAdministrador(() => fuente.obtenerGrupo(id, opciones)),
+    buscarFamilia: (id, email) => soloAdministrador(() => fuente.buscarFamilia(id, email)),
+    agregarNinos: (id, email, jugadorIds) => soloAdministrador(() => fuente.agregarNinos(id, email, jugadorIds)),
     invitarFamilia: (id, datos) => soloAdministrador(() => fuente.invitarFamilia(id, datos)),
     reenviarInvitacion: (id, invitacionId) => soloAdministrador(() => fuente.reenviarInvitacion(id, invitacionId)),
     cancelarInvitacion: (id, invitacionId) => soloAdministrador(() => fuente.cancelarInvitacion(id, invitacionId)),
     eliminarUsuario: (id, miembroId) => soloAdministrador(() => fuente.eliminarUsuario(id, miembroId)),
     eliminarGrupo: id => soloAdministrador(() => fuente.eliminarGrupo(id)),
     obtenerReporteGrupo: (id, opciones) => soloAdministrador(() => fuente.obtenerReporteGrupo(id, opciones)),
-    obtenerSeguimientoGrupo: (id, opciones) => soloAdministrador(() => fuente.obtenerSeguimientoGrupo(id, opciones)),
   }
 }

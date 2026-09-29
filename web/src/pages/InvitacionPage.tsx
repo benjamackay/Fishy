@@ -62,7 +62,7 @@ function ContenidoInvitacion({ token }: { token: string }) {
     <div className="brand"><Marca /></div><span className="eyebrow">INVITACIÓN A UN CURSO</span><h1>Confirma el perfil del niño</h1>
     <dl className="invitation-summary"><dt>Niño o niña</dt><dd>{datos.nombre_nino}</dd><dt>Curso</dt><dd>{datos.grupo}</dd><dt>Profesor</dt><dd>{datos.profesor}</dd><dt>Cuenta destinataria</dt><dd>{datos.email}</dd></dl>
     {cuentaIncorrecta ? <><p className="aviso" role="alert">{modoDemo ? 'Las cuentas de demostración no pueden aceptar invitaciones reales.' : 'Esta invitación debe aceptarse con la cuenta del padre o madre que recibió el correo.'}</p><button className="boton" onClick={salir}>Usar la cuenta destinataria</button></> : <form onSubmit={aceptar}>
-      <p className="muted">Solo se vinculará {datos.nombre_nino}. El profesor podrá ver el resumen del grupo y un seguimiento de sus necesidades de apoyo por temática, con su nombre y tu correo para coordinar el acompañamiento. No verá conversaciones ni respuestas literales. Tus otros hijos quedarán fuera de este curso.</p>
+      <p className="muted">Solo se vinculará {datos.nombre_nino}. El profesor podrá ver su nombre y tu correo en la lista de integrantes, además del resumen agregado del grupo. No verá conversaciones ni respuestas literales. Tus otros hijos quedarán fuera de este curso.</p>
       <label className="campo"><span>Perfil que corresponde a {datos.nombre_nino}</span><select value={seleccion} onChange={e => { setSeleccion(e.target.value); setConfirmar(false) }} required disabled={ocupado}>
         <option value="">Selecciona una opción</option>
         {candidatos.map(j => <option key={j.id} value={j.id}>{j.nombre}{j.edad ? ' · ' + j.edad + ' años' : ''} · conservar progreso</option>)}

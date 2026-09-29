@@ -1,5 +1,4 @@
 import { ErrorUsuario } from '@/lib/errores'
-import { CRITERIOS_SEGUIMIENTO_DEMO, evaluarSeguimientoDemo, ordenarSeguimiento } from '@/lib/seguimiento'
 import { hayResultados, porcentajeSeguro, tematicasCompletas } from '@/lib/reportes'
 import { EVENTO_DATOS } from '@/hooks/useDatosVivos'
 import type { FuentePanel } from '@/types/panel'
@@ -66,6 +65,7 @@ function leer(adultoId: number): Almacen {
 
 /** Corrige la demo anterior sin perder grupos, integrantes ni progreso guardado. */
 function migrarVinculosProfesor(adultoId: number, datos: Almacen): Almacen {
+  completarFamiliaDemo(adultoId, datos)
   for (const g of datos.grupos) {
     g.invitaciones ??= []
     for (const m of g.miembros) {
@@ -83,6 +83,7 @@ function migrarVinculosProfesor(adultoId: number, datos: Almacen): Almacen {
 }
 function iniciar(adultoId: number): Almacen {
   const datos = sembrar(adultoId)
+  completarFamiliaDemo(adultoId, datos)
   guardar(adultoId, datos, false)
   return copia(datos)
 }
@@ -119,6 +120,23 @@ export function validarGrupo(datos: NuevoGrupo): NuevoGrupo {
   if (descripcion.length > 280) throw new ErrorUsuario('La descripción puede tener hasta 280 caracteres.')
   return { nombre, descripcion }
 }
+/** Hermanos sin curso para probar la selección sin alterar los resultados existentes. */
+function completarFamiliaDemo(adultoId: number, datos: Almacen) {
+  if (adultoId !== perfilesDemo.alternativa.id) return
+  for (const [id, nombre] of [[907, 'Valentina'], [908, 'Mateo']] as const) {
+    if (datos.ninos.some(r => r.nino.id === id)) continue
+    const tematicas = TEMATICAS.map(t => resultado(t.id, null))
+    datos.ninos.push({ nino: { id, nombre, adulto_id: -1, edad: 9, actualizado_en: null }, actualizado_en: null, tematicas })
+    datos.usuarios.push({ id: 'usuario-' + id, email: 'familia.silva@example.com', nino_id: id })
+  }
+}
+function familiaPorCorreo(datos: Almacen, correo: string) {
+  const email = normalizarCorreo(correo)
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new ErrorUsuario('Ingresa un correo electrónico válido.', 400)
+  const perfiles = datos.usuarios.filter(u => normalizarCorreo(u.email) === email && datos.ninos.some(r => r.nino.id === u.nino_id))
+  if (!perfiles.length) throw new ErrorUsuario('No encontramos perfiles de niño para ese correo.', 404)
+  return perfiles
+}
 export function crearPanelDemo(adultoId: number): FuentePanel {
   return {
     listarNinos: async () => copia(leer(adultoId).ninos.filter(r => r.nino.adulto_id === adultoId).map(r => ({ ...r.nino, actualizado_en: r.actualizado_en, tematicas: r.tematicas }))),
@@ -136,17 +154,39 @@ export function crearPanelDemo(adultoId: number): FuentePanel {
       return resumen(grupo)
     }),
     obtenerGrupo: async id => detalle(buscarGrupo(leer(adultoId), id)),
-    obtenerSeguimientoGrupo: async id => {
+    buscarFamilia: async (id, email) => {
       const almacen = leer(adultoId)
-      const grupo = buscarGrupo(almacen, id)
-      const ahora = Date.now()
-      const alumnos = grupo.miembros.map(m => {
-        const ninoId = almacen.usuarios.find(u => u.id === m.id)?.nino_id
-        return evaluarSeguimientoDemo(m, almacen.ninos.find(r => r.nino.id === ninoId), ahora)
-      })
-      return { grupo_id: id, nombre_grupo: grupo.nombre, consultado_en: new Date(ahora).toISOString(),
-        criterios: { ...CRITERIOS_SEGUIMIENTO_DEMO }, alumnos: ordenarSeguimiento(alumnos) }
+      buscarGrupo(almacen, id)
+      return { perfiles: familiaPorCorreo(almacen, email).map(u => ({
+        jugador_id: u.nino_id,
+        nombre: almacen.ninos.find(r => r.nino.id === u.nino_id)!.nino.nombre,
+        estado: almacen.grupos.some(g => g.id === id && g.miembros.some(m => m.id === u.id)) ? 'en_este_curso' as const
+          : almacen.grupos.some(g => g.miembros.some(m => m.id === u.id)) ? 'en_otro_curso' as const : 'disponible' as const,
+      })) }
     },
+    agregarNinos: (id, email, jugadorIds) => mutar(adultoId, almacen => {
+      const grupo = buscarGrupo(almacen, id)
+      if (!jugadorIds.length || jugadorIds.length > 20) throw new ErrorUsuario('Selecciona entre 1 y 20 niños.', 400)
+      const familia = familiaPorCorreo(almacen, email)
+      const elegidos = [...new Set(jugadorIds)].map(id => {
+        const usuario = familia.find(u => u.nino_id === id)
+        if (!usuario) throw new ErrorUsuario('No encontramos perfiles de niño para ese correo.', 404)
+        return usuario
+      })
+      // Valida todos antes de cambiar el grupo: misma regla todo-o-nada del servidor.
+      for (const u of elegidos) {
+        if (almacen.grupos.some(g => g.id !== id && g.miembros.some(m => m.id === u.id))) {
+          const nombre = almacen.ninos.find(r => r.nino.id === u.nino_id)!.nino.nombre
+          throw new ErrorUsuario(nombre + ' ya está en otro curso. No se agregó ningún niño.', 409)
+        }
+      }
+      for (const u of elegidos) {
+        if (grupo.miembros.some(m => m.id === u.id)) continue
+        grupo.miembros.push({ id: u.id, email: normalizarCorreo(email), nombre_nino: almacen.ninos.find(r => r.nino.id === u.nino_id)!.nino.nombre, fecha_ingreso: new Date().toISOString() })
+      }
+      grupo.actualizado_en = new Date().toISOString()
+      return detalle(grupo)
+    }),
     invitarFamilia: (id, datos) => mutar(adultoId, almacen => {
       const grupo = buscarGrupo(almacen, id)
       const email = normalizarCorreo(datos.email)
@@ -215,24 +255,3 @@ export function simularProgreso(adultoId: number, ninoId: number, tematica: Tema
   })
 }
 export function correosDemo(adultoId: number): string[] { return leer(adultoId).usuarios.map(u => u.email) }
-
-/** Reemplaza únicamente resultados ficticios del grupo desde controles explícitos de demo. */
-export function simularSeguimiento(adultoId: number, grupoId: string, mejora = false): Promise<void> {
-  return mutar(adultoId, almacen => {
-    const grupo = buscarGrupo(almacen, grupoId)
-    grupo.miembros.forEach((m, i) => {
-      const ninoId = almacen.usuarios.find(u => u.id === m.id)?.nino_id
-      const r = almacen.ninos.find(r => r.nino.id === ninoId)
-      if (!r) return
-      const casos = [
-        [resultado('desconocidos', 0), resultado('ciberacoso', 2), resultado('retos_virales', 8)],
-        [resultado('desconocidos', 4), resultado('ciberacoso', 6), resultado('retos_virales', null)],
-        [resultado('desconocidos', 0, 3, false), resultado('ciberacoso', null), resultado('retos_virales', null)],
-        TEMATICAS.map(t => resultado(t.id, null)),
-      ]
-      r.tematicas = mejora ? TEMATICAS.map(t => resultado(t.id, 18, 20)) : casos[i % casos.length]
-      r.actualizado_en = new Date().toISOString()
-    })
-    grupo.actualizado_en = new Date().toISOString()
-  })
-}
