@@ -1,0 +1,2 @@
+# Dependencias de Django; se mantiene una sola lista en el backend.
+-r Backend/backend/requirements.txt
