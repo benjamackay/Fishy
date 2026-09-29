@@ -437,17 +437,22 @@ namespace Fishy.Net
 
         /// <summary>Actualiza progreso (0-100) y/o nivel_riesgo de la partida activa.</summary>
         public void ActualizarPartida(float? progreso = null, int? nivelRiesgo = null,
+            int? partidaId = null,
             Action<PartidaDto> onSuccess = null, Action<string> onError = null)
         {
             if (useLocalMode) { LocalActualizarPartida(progreso, nivelRiesgo, onSuccess, onError); return; }
 
-            if (!RequireId(PartidaId, "PartidaId", onError)) return;
+            // La partida va como argumento, igual que en el resto de las escrituras: el
+            // diario de la cola puede subir un cambio anotado en otra partida, y hacerlo
+            // contra la que se juega ahora le escribiría el avance al perfil equivocado.
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
 
             var body = new Dictionary<string, object>();
             if (progreso.HasValue) body["progreso"] = progreso.Value;
             if (nivelRiesgo.HasValue) body["nivel_riesgo"] = nivelRiesgo.Value;
 
-            StartCoroutine(Send<PartidaDto>("PATCH", $"/partidas/{PartidaId}/", body, auth: true,
+            StartCoroutine(Send<PartidaDto>("PATCH", $"/partidas/{pId}/", body, auth: true,
                 onSuccess: onSuccess, onError: onError));
         }
 
@@ -597,6 +602,7 @@ namespace Fishy.Net
         /// </summary>
         public void RegistrarChatCompleto(string nombreNpc, string area, string tipoNpc,
             string categoriaRiesgo, List<Dictionary<string, object>> mensajes, string respuestaFinal = "",
+            int? partidaId = null,
             Action<ChatCompletoDto> onSuccess = null, Action<string> onError = null)
         {
             if (useLocalMode)
@@ -605,7 +611,10 @@ namespace Fishy.Net
                 return;
             }
 
-            if (!RequireId(PartidaId, "PartidaId", onError)) return;
+            // Ver la nota de ActualizarPartida: una conversación anotada en el diario
+            // tiene que subir a la partida en la que ocurrió, no a la que se juega ahora.
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
 
             var body = new Dictionary<string, object>
             {
@@ -615,7 +624,7 @@ namespace Fishy.Net
                 { "finalizar", true },
                 { "respuesta_final", respuestaFinal ?? "" },
             };
-            StartCoroutine(Send<ChatCompletoDto>("POST", $"/partidas/{PartidaId}/chats/completo/", body,
+            StartCoroutine(Send<ChatCompletoDto>("POST", $"/partidas/{pId}/chats/completo/", body,
                 auth: true, onSuccess: onSuccess, onError: onError));
         }
 
