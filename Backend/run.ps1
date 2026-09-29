@@ -61,6 +61,11 @@ $modo = ""
 if ($args.Count -gt 0) { $modo = [string]$args[0] }
 $resto = @($args | Select-Object -Skip 1)
 
+# Con "Stop", Windows PowerShell 5.1 corta el script en cuanto Python escribe a
+# stderr (Django avisa "Creating test database..." por ahí) aunque todo vaya bien.
+# El .env ya se cargó; desde aquí manda el código de salida de Python.
+$ErrorActionPreference = "Continue"
+
 switch ($modo) {
     "--global" {
         Escribir-Verde "Test global: todas las capas (levanta y baja el servidor solo)"

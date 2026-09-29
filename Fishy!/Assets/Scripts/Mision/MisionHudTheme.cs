@@ -53,6 +53,13 @@ public static class MisionHudTheme
 
         /// <summary>Cartelito con el nombre de la zona, bajo la flecha.</summary>
         public static Color FondoEtiquetaZona = Paleta.Hex(0x33211A, 0.8f);
+
+        /// <summary>"!" y flecha de los NPC y chats de teléfono pendientes. Azul, para
+        /// que no se confunda con la flecha amarilla de la zona.</summary>
+        public static Color ObjetivoNpc = Paleta.Hex(0x3FA7F5);
+
+        /// <summary>"?" y flecha de los casos del Modo Detective pendientes.</summary>
+        public static Color ObjetivoDetective = Paleta.Hex(0x9B5DE5);
     }
 
     public static class Fuente
@@ -109,6 +116,38 @@ public static class MisionHudTheme
         /// atención sin marear.</summary>
         public static float AmplitudLatido = 0.08f;
         public static float VelocidadLatido = 2.2f;
+
+        // ── Señales de NPC (NpcMarker) ───────────────────────────────────────
+
+        /// <summary>Tamaño del "!" o "?" sobre la cabeza, en tamaño de fuente de TMP
+        /// en el mundo (10 de fuente ≈ 1 unidad de mundo de alto).</summary>
+        public static float TamanoSigno = 8f;
+
+        /// <summary>Alto del signo cuando es un dibujo (exclamacion.png / interrogacion.png),
+        /// en unidades de mundo. Con el respaldo de texto manda <see cref="TamanoSigno"/>.</summary>
+        public static float AlturaSignoDibujo = 1f;
+
+        /// <summary>Distancia, en unidades de mundo, entre lo más alto del NPC y el
+        /// signo.</summary>
+        public static float ElevacionSigno = 0.5f;
+
+        /// <summary>Cuánto sube y baja el signo, en unidades de mundo, y a qué ritmo.</summary>
+        public static float AmplitudRebote = 0.12f;
+        public static float VelocidadRebote = 3f;
+
+        /// <summary>
+        /// A qué distancia de Otto la flecha de un NPC es la más grande y a cuál la más
+        /// pequeña. Se miden en "alturas de pantalla" y no en unidades de mundo, para que
+        /// valga igual con cualquier zoom o resolución: 1 = un NPC a una pantalla de
+        /// distancia de Otto.
+        /// </summary>
+        public static float DistanciaCerca = 0.6f;
+        public static float DistanciaLejos = 3f;
+
+        /// <summary>Multiplicador del tamaño de la flecha (1 = el de la flecha de zona)
+        /// para el NPC más cercano y para el más lejano.</summary>
+        public static float EscalaCerca = 1.3f;
+        public static float EscalaLejos = 0.65f;
     }
 
     public static class Textos

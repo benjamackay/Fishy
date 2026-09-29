@@ -67,16 +67,50 @@ namespace Fishy.Net
             /// <summary>Veces que ya se intento y fallo.</summary>
             public int Intentos;
 
-            /// <summary>La llamada, ya lista. Recibe (cuandoSalgaBien, cuandoFalle).</summary>
+            /// <summary>
+            /// Antes de este instante (realtime) no se vuelve a intentar. Es el retardo
+            /// creciente: contra un servidor caido, reintentar cada diez segundos para
+            /// siempre solo llena el log.
+            ///
+            /// No se anota en el diario a proposito: si el juego se reinicio, lo sensato
+            /// es probar otra vez de inmediato.
+            /// </summary>
+            public float NoAntesDe;
+
+            /// <summary>
+            /// Fallo tantas veces que se deja de reintentar solo. <b>No se pierde</b>:
+            /// sigue en el diario, sale en el aviso al jugador y vuelve a la carga con
+            /// "Intentar ahora" o al volver a entrar al juego.
+            /// </summary>
+            public bool Atascado;
+
+            /// <summary>
+            /// La llamada, ya lista. Recibe (cuandoSalgaBien, cuandoFalle).
+            ///
+            /// <b>Solo la usan los dos snapshots de verdad</b> —la mochila y la posicion
+            /// de Otto—, que leen el estado vivo al ejecutarse. Un closure no se puede
+            /// anotar en el diario, asi que todo lo demas va por <see cref="Receta"/>.
+            /// </summary>
             public Action<Action, Action<string>> Enviar;
 
             /// <summary>
-            /// Para los que fusionan (zona, progreso): el valor acumulado, y como
-            /// construir el envio a partir de el. Se rehace al vaciar para que salga el
-            /// valor ya fusionado y no el primero que llego.
+            /// Nombre de la receta que sabe hacer esta llamada (ver
+            /// <see cref="RecetasDeCola"/>), o null si va por <see cref="Enviar"/>.
+            ///
+            /// Tenerlo por nombre y no por delegado es lo que permite escribir el cambio
+            /// en el diario y rehacerlo al volver a entrar al juego.
+            /// </summary>
+            public string Receta;
+
+            /// <summary>
+            /// Los argumentos de la receta, serializables. Para las claves que fusionan
+            /// (zona por OR, progreso por maximo) es el valor ya acumulado: se rehace el
+            /// envio al vaciar para que salga el fusionado y no el primero que llego.
             /// </summary>
             public object Valor;
-            public Func<object, Action<Action, Action<string>>> HacerEnviar;
+
+            /// <summary>Se puede anotar en el diario y sobrevivir al cierre.</summary>
+            public bool Anotable => !string.IsNullOrEmpty(Receta);
 
             /// <summary>Cómo se combinan dos valores de esta clave (viejo, nuevo). Null =
             /// gana el nuevo. Se guarda aquí para poder fusionar también cuando un envío
@@ -84,7 +118,7 @@ namespace Fishy.Net
             public Func<object, object, object> Fusion;
 
             public Action<Action, Action<string>> Resolver()
-                => HacerEnviar != null ? HacerEnviar(Valor) : Enviar;
+                => Anotable ? RecetasDeCola.Hacer(Receta, Valor, Partida) : Enviar;
         }
 
         /// <summary>
@@ -126,6 +160,37 @@ namespace Fishy.Net
                 if (!_porClave.Remove(clave)) return false;
                 _orden.Remove(clave);
                 return true;
+            }
+
+            public bool Contiene(string clave) => !string.IsNullOrEmpty(clave) && _porClave.ContainsKey(clave);
+
+            /// <summary>
+            /// Vuelve a meter un cambio que viene del diario, <b>conservando su orden
+            /// original</b>: lo que quedó de la sesión anterior es más viejo que lo de
+            /// ahora y tiene que salir antes. La secuencia se adelanta para que un
+            /// cambio nuevo no reciba un orden que ya está usado.
+            ///
+            /// Si la clave ya está ocupada gana la de ahora, que es la que tiene el dato
+            /// más reciente.
+            /// </summary>
+            public void Reponer(CambioPendiente cambio)
+            {
+                if (cambio == null || string.IsNullOrEmpty(cambio.Clave)) return;
+
+                if (_porClave.TryGetValue(cambio.Clave, out var vivo))
+                {
+                    // Gana el de ahora, que tiene el dato más reciente... pero si la
+                    // clave fusiona hay que combinarlos, igual que al reencolar un fallo:
+                    // una zona que quedó "completada" la sesión pasada no la puede borrar
+                    // un "desbloqueada" de esta. El repuesto es el viejo de los dos.
+                    if (cambio.Fusion != null)
+                        vivo.Valor = cambio.Fusion(cambio.Valor, vivo.Valor);
+                    return;
+                }
+
+                _porClave[cambio.Clave] = cambio;
+                _orden.Add(cambio.Clave);
+                if (cambio.Orden >= _secuencia) _secuencia = cambio.Orden + 1;
             }
 
             /// <summary>
@@ -199,6 +264,13 @@ namespace Fishy.Net
             /// <summary>Se quedaron en la cola sin llegar a salir.</summary>
             public int SinIntentar;
 
+            /// <summary>
+            /// Se saltaron a proposito: esperaban su retardo tras un fallo, o estan
+            /// atascados. No son una perdida — siguen anotados en el diario — asi que no
+            /// cuentan como "sin guardar" para el aviso de cierre.
+            /// </summary>
+            public int Esperando;
+
             public float Segundos;
 
             public bool TodoBien => Fallidos == 0 && SinRespuesta == 0 && SinIntentar == 0;
@@ -212,9 +284,20 @@ namespace Fishy.Net
                  "siempre van de una en una, sin importar este valor.")]
         [Min(1)] public int paralelismo = 4;
 
-        [Tooltip("Veces que se reintenta un cambio que falló, cuando el vaciado admite " +
-                 "reintento (el del cambio de zona). El del cierre no reintenta: no hay tiempo.")]
-        [Min(0)] public int maxIntentos = 3;
+        [Tooltip("Veces que se reintenta un cambio que falla antes de dejar de insistir " +
+                 "solo. Pasadas, el cambio NO se pierde: queda anotado en el diario, sale " +
+                 "en el aviso al jugador y vuelve a intentarse con «Intentar ahora» o al " +
+                 "volver a entrar al juego.")]
+        [Min(1)] public int maxIntentos = 6;
+
+        [Tooltip("Segundos entre dos vaciados de fondo. La cola se va subiendo mientras " +
+                 "se juega, en vez de solo al cambiar de zona; dentro de este rato los " +
+                 "cambios siguen agrupándose, así que el número de peticiones es el mismo.")]
+        [Min(1f)] public float intervaloDeFondo = 10f;
+
+        [Tooltip("Segundos máximos que puede tardar un vaciado de fondo o un reintento " +
+                 "pedido por el jugador.")]
+        [Min(1f)] public float topeDeFondo = 15f;
 
         [Tooltip("Avisar por consola si la cola crece por encima de esto sin vaciarse. " +
                  "Señal de que algún vaciado dejó de ocurrir.")]
@@ -242,6 +325,90 @@ namespace Fishy.Net
         private int _fallidos;
         private int _intentados;
         private int _descartados;
+
+        /// <summary>Los que se saltaron porque todavia esperaban su retardo, o porque
+        /// estan atascados. No son un fallo: no se intentaron a proposito.</summary>
+        private int _esperando;
+
+        /// <summary>
+        /// Cuanto se espera antes de volver a intentar, segun las veces que ya fallo.
+        /// Contra un servidor caido, reintentar cada diez segundos para siempre no
+        /// arregla nada y llena el log.
+        /// </summary>
+        private static float RetardoTras(int intentos)
+        {
+            switch (intentos)
+            {
+                case 1:  return 10f;
+                case 2:  return 30f;
+                case 3:  return 60f;
+                default: return 120f;
+            }
+        }
+
+        /// <summary>
+        /// Hay algo que fallo tantas veces que se dejo de reintentar solo. Es lo que
+        /// enciende el aviso al jugador: no se perdio nada, pero no va a salir sin ayuda.
+        /// </summary>
+        public static bool HayAtasco
+        {
+            get
+            {
+                foreach (var cambio in _almacen.Instantanea())
+                    if (cambio.Atascado) return true;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Todo lo que queda por subir esta anotado en el diario, o sea que cerrar ahora
+        /// no pierde nada: se sube al volver a entrar.
+        ///
+        /// Es lo que decide si al jugador se le dice "se perdera el progreso" o "se
+        /// guardara la proxima vez". Confundir las dos cosas fue justo lo que hizo creer
+        /// durante semanas que el guardado estaba roto.
+        /// </summary>
+        public static bool TodoAnotado
+        {
+            get
+            {
+                foreach (var cambio in _almacen.Instantanea())
+                    if (!cambio.Anotable) return false;
+                return true;
+            }
+        }
+
+        /// <summary>Que falta por subir, en palabras, para poder decirselo al jugador.</summary>
+        public static List<string> Descripciones()
+        {
+            var lista = new List<string>();
+            foreach (var cambio in _almacen.Instantanea())
+                lista.Add(string.IsNullOrEmpty(cambio.Descripcion) ? cambio.Clave : cambio.Descripcion);
+            return lista;
+        }
+
+        /// <summary>
+        /// Lo que el jugador pulsa en "Intentar ahora": se olvidan los retardos y los
+        /// atascos, y se vacia enseguida.
+        /// </summary>
+        public static void ReintentarAhora()
+        {
+            foreach (var cambio in _almacen.Instantanea())
+            {
+                cambio.Atascado = false;
+                cambio.NoAntesDe = 0f;
+                cambio.Intentos = 0;
+            }
+
+            // Va directo a vaciar y no por SaveManager.Guardar a propósito: el
+            // interruptor `momentosActivos` es para los momentos AUTOMÁTICOS, y ahí
+            // `Manual` viene apagado de fábrica, así que pedirlo por ese camino no haría
+            // nada. Además un reintento no necesita marcar de sucios la mochila ni la
+            // posición: lo que hay que sacar es lo que ya está en la cola.
+            var cola = Instance;
+            if (cola == null || cola._vaciando) return;
+            cola.StartCoroutine(cola.Vaciar("PedidoDelJugador", cola.topeDeFondo, reintentarSiFalla: true));
+        }
 
         /// <summary>Claves que salieron y todavia no contestaron. Solo sirve para poder
         /// nombrarlas si el plazo vence con alguna en vuelo.</summary>
@@ -271,7 +438,64 @@ namespace Fishy.Net
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void AutoCrear() => GetOrCreate();
+        private static void AutoCrear()
+        {
+            GetOrCreate();
+            Reproducir();
+        }
+
+        /// <summary>
+        /// Devuelve a la cola lo que quedó anotado de sesiones anteriores.
+        ///
+        /// Cada entrada vuelve con <b>su</b> partida, no con la que se está jugando: los
+        /// endpoints de escritura son todos por partida y el servidor comprueba que sea
+        /// de este adulto, así que un objetivo que se cumplió en la partida 3 se sube
+        /// bien mientras se juega la 4. Es lo que permite que el diario no tenga que
+        /// descartar nada por haber cambiado de perfil.
+        /// </summary>
+        public static void Reproducir()
+        {
+            var entradas = DiarioDeCambios.Leer();
+            if (entradas.Count == 0) return;
+
+            int repuestos = 0;
+            foreach (var entrada in entradas)
+            {
+                object args = DiarioDeCambios.ArgsDe(entrada);
+                if (args == null)
+                {
+                    DiarioDeCambios.Confirmar(entrada.Clave);   // ilegible: sacarlo del diario
+                    continue;
+                }
+
+                if (!Enum.TryParse(entrada.Familia, out Familia familia))
+                    familia = Familia.Append;
+
+                _almacen.Reponer(new CambioPendiente
+                {
+                    Clave = entrada.Clave,
+                    Familia = familia,
+                    Descripcion = entrada.Descripcion,
+                    Partida = entrada.Partida,
+                    Orden = entrada.Orden,
+
+                    // A cero, y no el del diario, a propósito: una sesión nueva merece
+                    // sus intentos completos. Si se arrastrara la cuenta, algo que se
+                    // atascó ayer se atascaría hoy al primer fallo, aunque el problema
+                    // (el servidor caído, el wifi del colegio) ya no exista.
+                    Intentos = 0,
+
+                    Receta = entrada.Receta,
+                    Valor = args,
+                    Fusion = RecetasDeCola.FusionDe(entrada.Receta),
+                });
+                repuestos++;
+            }
+
+            if (repuestos > 0)
+                Debug.Log($"[Cola] {repuestos} cambio(s) quedaron sin subir la última vez " +
+                          "y vuelven a la cola.");
+        }
 
         public static ColaDeCambios GetOrCreate()
         {
@@ -293,6 +517,50 @@ namespace Fishy.Net
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        private void Start() => StartCoroutine(GotearDeFondo());
+
+        /// <summary>
+        /// Va subiendo la cola cada pocos segundos mientras se juega.
+        ///
+        /// <b>Por qué, si ya había dos momentos.</b> Los dos momentos son instantes, y
+        /// entre uno y otro puede pasar media partida: el niño/a que se queda en la misma
+        /// zona cuarenta minutos no guarda nada en cuarenta minutos. Así la ventana deja
+        /// de ser una lista de instantes y pasa a ser "siempre, unos segundos por
+        /// detrás".
+        ///
+        /// <b>No vuelve al goteo de una petición por evento</b>, que es lo que esta cola
+        /// vino a quitar: dentro del intervalo los cambios se siguen agrupando por clave,
+        /// así que el número de peticiones es el mismo, solo reparte. El cambio de zona
+        /// sigue vaciando de inmediato y el cierre sigue vaciando con plazo.
+        ///
+        /// <b>Espera en realtime, no en tiempo de juego.</b> <c>MenuPausa</c> pone
+        /// <c>Time.timeScale = 0</c> al abrirse, y un <c>WaitForSeconds</c> aquí dejaría
+        /// el goteo parado para siempre en cuanto alguien abriera la pausa.
+        /// </summary>
+        private IEnumerator GotearDeFondo()
+        {
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(Mathf.Max(1f, intervaloDeFondo));
+
+                if (_vaciando || _almacen.Cuenta == 0) continue;
+
+                // Cualificado: SaveManager vive en Fishy.World y esto en Fishy.Net.
+                var save = Fishy.World.SaveManager.Instance;
+                if (save != null &&
+                    (save.momentosActivos & Fishy.World.SaveManager.Momentos.EnSegundoPlano) == 0)
+                    continue;
+
+                // No se exige PartidaId. Lo anotado lleva su propia partida, así que en
+                // cuanto hay sesión se puede ir subiendo lo que quedó de la vez anterior,
+                // incluso desde el menú y antes de elegir con qué partida se sigue.
+                var api = ApiManager.Instance;
+                if (api == null || api.IsLocalMode || !api.IsLoggedIn) continue;
+
+                yield return Vaciar("EnSegundoPlano", topeDeFondo, reintentarSiFalla: true);
+            }
         }
 
         // ── Encolar ───────────────────────────────────────────────────────────
@@ -329,16 +597,9 @@ namespace Fishy.Net
         {
             if (string.IsNullOrEmpty(slug)) return;
 
-            Meter($"zona:{slug}", Familia.Append, null, $"zona {slug}",
-                valor: completada,
-                fusion: (viejo, nuevo) => (viejo is bool v && v) || (nuevo is bool n && n),
-                hacerEnviar: v => (ok, error) =>
-                {
-                    var api = ApiManager.Instance;
-                    if (api == null) { error("No hay ApiManager."); return; }
-                    api.RegistrarProgresoZona(slug, (bool)v,
-                        onSuccess: _ => ok(), onError: error);
-                });
+            EncolarReceta($"zona:{slug}", Familia.Append, RecetasDeCola.Zona,
+                new RecetasDeCola.ArgsZona { Zona = slug, Completada = completada },
+                $"zona {slug}");
         }
 
         /// <summary>
@@ -348,29 +609,110 @@ namespace Fishy.Net
         /// dos vaciados y la segunda tuviera un valor menor, el progreso retrocederia.
         /// </summary>
         public static void EncolarProgreso(float progreso)
+            => EncolarReceta("partida.progreso", Familia.Snapshot, RecetasDeCola.Progreso,
+                new RecetasDeCola.ArgsProgreso { Progreso = progreso },
+                $"progreso {progreso:F0}%");
+
+        /// <summary>Una misión que quedó disponible o que se completó.</summary>
+        public static void EncolarMision(string misionId, bool completada)
         {
-            Meter("partida.progreso", Familia.Snapshot, null, $"progreso {progreso:F0}%",
-                valor: progreso,
-                fusion: (viejo, nuevo) => Mathf.Max(
-                    viejo is float a ? a : float.MinValue,
-                    nuevo is float b ? b : float.MinValue),
-                hacerEnviar: v => (ok, error) =>
-                {
-                    var api = ApiManager.Instance;
-                    if (api == null) { error("No hay ApiManager."); return; }
-                    api.ActualizarPartida(progreso: (float)v,
-                        onSuccess: _ => ok(), onError: error);
-                });
+            if (string.IsNullOrEmpty(misionId)) return;
+
+            EncolarReceta($"mision:{misionId}", Familia.Append, RecetasDeCola.Mision,
+                new RecetasDeCola.ArgsMision { MisionId = misionId, Completada = completada },
+                $"misión {misionId}");
         }
+
+        /// <summary>Un objetivo concreto de una misión, por su orden en el catálogo.</summary>
+        public static void EncolarObjetivo(string misionId, int orden)
+        {
+            if (string.IsNullOrEmpty(misionId)) return;
+
+            EncolarReceta($"objetivo:{misionId}:{orden}", Familia.Append, RecetasDeCola.Objetivo,
+                new RecetasDeCola.ArgsObjetivo { MisionId = misionId, Orden = orden },
+                $"objetivo {misionId} #{orden}");
+        }
+
+        /// <summary>Un objeto que el niño/a recogió del mapa.</summary>
+        public static void EncolarObjeto(string objetoId)
+        {
+            if (string.IsNullOrEmpty(objetoId)) return;
+
+            EncolarReceta($"objeto:{objetoId}", Familia.Append, RecetasDeCola.Objeto,
+                new RecetasDeCola.ArgsObjeto { ObjetoId = objetoId },
+                $"objeto {objetoId}");
+        }
+
+        /// <summary>Un NPC de temática terminado, con o sin éxito.</summary>
+        public static void EncolarNpc(string npcId, bool exito)
+        {
+            if (string.IsNullOrEmpty(npcId)) return;
+
+            EncolarReceta($"npc:{npcId}", Familia.Append, RecetasDeCola.Npc,
+                new RecetasDeCola.ArgsNpc { NpcId = npcId, Exito = exito },
+                $"NPC {npcId}");
+        }
+
+        /// <summary>Un caso del Modo Detective jugado, aprobado o no.</summary>
+        public static void EncolarDetective(string casoId, IEnumerable<string> marcados,
+            int aciertos, int totalRiesgo, float porcentaje)
+        {
+            if (string.IsNullOrEmpty(casoId)) return;
+
+            EncolarReceta($"detective:{casoId}", Familia.Append, RecetasDeCola.Detective,
+                new RecetasDeCola.ArgsDetective
+                {
+                    CasoId = casoId,
+                    // Copia: el jugador puede reabrir el caso antes de que esto salga.
+                    Marcados = marcados != null ? new List<string>(marcados) : new List<string>(),
+                    Aciertos = aciertos,
+                    TotalRiesgo = totalRiesgo,
+                    Porcentaje = porcentaje,
+                },
+                $"caso {casoId}");
+        }
+
+        /// <summary>
+        /// Una conversación entera. La clave la pone quien llama, porque un mismo
+        /// contacto puede tener varias conversaciones en una partida y pisarlas las
+        /// perdería.
+        /// </summary>
+        public static void EncolarChat(string clave, string contacto, string zona,
+            string categoria, List<RecetasDeCola.MensajeDeChat> mensajes, string cierre)
+        {
+            if (string.IsNullOrEmpty(clave)) return;
+
+            EncolarReceta(clave, Familia.Cadena, RecetasDeCola.Chat,
+                new RecetasDeCola.ArgsChat
+                {
+                    Contacto = contacto,
+                    Zona = zona,
+                    Categoria = categoria,
+                    Cierre = cierre,
+                    Mensajes = mensajes,
+                },
+                $"conversación con {contacto} ({(mensajes != null ? mensajes.Count : 0)} mensajes)");
+        }
+
+        /// <summary>
+        /// El camino general: un cambio que sabe rehacerse a partir de su nombre de
+        /// receta y sus argumentos, y que por eso puede anotarse en el diario.
+        /// </summary>
+        public static void EncolarReceta(string clave, Familia familia, string receta,
+            object args, string descripcion = null)
+            => Meter(clave, familia, null, descripcion,
+                receta: receta,
+                valor: args,
+                fusion: RecetasDeCola.FusionDe(receta));
 
         /// <summary>Saca un cambio de la cola sin mandarlo. Para deshacer un encolado.</summary>
         public static void Olvidar(string clave) => _almacen.Quitar(clave);
 
         private static void Meter(string clave, Familia familia,
             Action<Action, Action<string>> enviar, string descripcion,
+            string receta = null,
             object valor = null,
-            Func<object, object, object> fusion = null,
-            Func<object, Action<Action, Action<string>>> hacerEnviar = null)
+            Func<object, object, object> fusion = null)
         {
             if (string.IsNullOrEmpty(clave)) return;
 
@@ -379,22 +721,32 @@ namespace Fishy.Net
                 Clave = clave,
                 Familia = familia,
                 Descripcion = string.IsNullOrEmpty(descripcion) ? clave : descripcion,
-                // El sello de partida es lo que impide que el avance de un hermano se le
-                // aparezca al otro si se cambia de perfil con la cola a medias.
+                // La partida en la que ocurrió el cambio. Ya no sirve para descartar
+                // —el diario puede subir a la partida de antes, porque los endpoints son
+                // por partida— sino para subirlo a la correcta.
                 Partida = ApiManager.Instance != null ? ApiManager.Instance.PartidaId : null,
                 Enviar = enviar,
+                Receta = receta,
                 Valor = valor,
-                HacerEnviar = hacerEnviar,
                 Fusion = fusion,
             };
 
             _almacen.Poner(cambio, fusion);
 
+            // Después de Poner, no antes: lo que se anota tiene que ser el valor ya
+            // fusionado —una zona que pasó a completada, un progreso que subió— y no el
+            // que llegó suelto.
+            if (cambio.Anotable)
+                DiarioDeCambios.Anotar(cambio.Clave, cambio.Familia.ToString(), cambio.Receta,
+                    cambio.Valor, cambio.Partida, cambio.Orden, cambio.Intentos,
+                    cambio.Descripcion, cambio.Fusion);
+
             var cola = Instance;
             if (cola == null) return;
 
             if (cola.verboseLogs)
-                Debug.Log($"[Cola] +{clave} ({familia}) — {_almacen.Cuenta} pendientes.");
+                Debug.Log($"[Cola] +{clave} ({familia}) — {_almacen.Cuenta} pendientes." +
+                          (cambio.Anotable ? "" : " Sin diario: no sobrevive al cierre."));
 
             if (cola.avisarPorEncimaDe > 0 && _almacen.Cuenta == cola.avisarPorEncimaDe)
                 Debug.LogWarning($"[Cola] Llevo {_almacen.Cuenta} cambios sin vaciar. " +
@@ -442,6 +794,11 @@ namespace Fishy.Net
             _fallidos = 0;
             _intentados = 0;
             _descartados = 0;
+            _esperando = 0;
+
+            // Al cerrar no se respeta el retardo: es la última oportunidad de esta
+            // sesión, así que se intenta todo, incluido lo atascado.
+            bool respetarRetardo = reintentarSiFalla;
 
             // Todo el tiempo va en realtime: MenuPausa pone Time.timeScale = 0 al
             // abrirse, y un WaitForSeconds aqui dejaria el juego colgado para siempre.
@@ -457,6 +814,17 @@ namespace Fishy.Net
                 foreach (var previsto in _almacen.Instantanea())
                 {
                     if (Time.realtimeSinceStartup >= limite) break;
+
+                    // Lo que espera su retardo, o lo que se atascó, no se toca... salvo
+                    // al cerrar, que es la última oportunidad de esta sesión y entonces
+                    // se intenta todo. `respetarRetardo` distingue los dos momentos sin
+                    // necesidad de otro parámetro.
+                    if (respetarRetardo &&
+                        (previsto.Atascado || Time.realtimeSinceStartup < previsto.NoAntesDe))
+                    {
+                        _esperando++;
+                        continue;
+                    }
 
                     // Una cadena no puede solaparse con nada: el chat usa NpcId y ChatId
                     // de ApiManager, que son estado global y se pisarian.
@@ -475,9 +843,14 @@ namespace Fishy.Net
                     var cambio = _almacen.Tomar(previsto.Clave);
                     if (cambio == null) continue;
 
-                    // El sello: si la cola sobrevivio a un cambio de perfil, esto es lo
-                    // unico que evita escribirle el avance de un hermano al otro.
-                    if (cambio.Partida.HasValue && cambio.Partida != api.PartidaId)
+                    // Antes, un cambio de otra partida se tiraba: era lo único que
+                    // evitaba escribirle el avance de un hermano al otro. Ya no hace
+                    // falta tirar nada. Lo anotado lleva SU partida y se sube a ella,
+                    // porque los endpoints de escritura son todos por partida.
+                    //
+                    // Lo que no está anotado sí se descarta, porque un snapshot lee el
+                    // estado vivo y ese ya es de la partida de ahora.
+                    if (!cambio.Anotable && cambio.Partida.HasValue && cambio.Partida != api.PartidaId)
                     {
                         _descartados++;
                         Debug.LogWarning(
@@ -500,21 +873,50 @@ namespace Fishy.Net
                             _enVueloCola--;
                             _enVueloClaves.Remove(c.Clave);
                             _subidos++;
+
+                            // Antes cada sincronizador escribía su propio "guardado".
+                            // Decirlo aquí lo dice de todos igual, y en el sitio que
+                            // sabe de verdad que el servidor contestó que sí.
+                            if (verboseLogs) Debug.Log($"[Cola] ✓ {c.Descripcion}");
+
+                            // Recién ahora se borra del diario. Si hay otro cambio con
+                            // esta misma clave esperando, el diario tiene que conservarlo:
+                            // lo que se acaba de confirmar es el valor viejo.
+                            if (c.Anotable && !_almacen.Contiene(c.Clave))
+                                DiarioDeCambios.Confirmar(c.Clave);
                         },
                         error =>
                         {
                             _enVueloCola--;
                             _enVueloClaves.Remove(c.Clave);
                             _fallidos++;
-                            if (!reintentar || c.Intentos + 1 >= maxIntentos)
-                            {
-                                if (reintentar)
-                                    Debug.LogWarning($"[Cola] '{c.Descripcion}' falló " +
-                                                     $"{c.Intentos + 1} veces, se abandona: {error}");
-                                return;
-                            }
+
+                            // Lo que no se puede anotar tampoco se puede reintentar más
+                            // allá de esta sesión, y al cerrar no hay otra vez.
+                            if (!reintentar && !c.Anotable) return;
+
                             c.Intentos++;
+
+                            // Ya no se abandona nunca. Tras unos cuantos intentos se deja
+                            // de insistir solo —"atascado"—, pero sigue en el diario, sale
+                            // en el aviso al jugador y vuelve a intentarse con "Intentar
+                            // ahora" o en la sesión siguiente.
+                            if (c.Intentos >= Mathf.Max(1, maxIntentos))
+                            {
+                                c.Atascado = true;
+                                Debug.LogWarning($"[Cola] '{c.Descripcion}' falló {c.Intentos} " +
+                                                 $"veces y deja de reintentarse solo. No se pierde: " +
+                                                 $"queda guardado para el próximo intento. Último error: {error}");
+                            }
+                            else
+                            {
+                                c.NoAntesDe = Time.realtimeSinceStartup + RetardoTras(c.Intentos);
+                            }
+
                             _almacen.Reencolar(c);
+                            if (c.Anotable)
+                                DiarioDeCambios.Anotar(c.Clave, c.Familia.ToString(), c.Receta,
+                                    c.Valor, c.Partida, c.Orden, c.Intentos, c.Descripcion, c.Fusion);
                         });
 
                     // La cadena se espera entera antes de seguir.
@@ -553,7 +955,11 @@ namespace Fishy.Net
                 // De los que habia al empezar, los que ni salieron. No se mira el tamano
                 // del almacen: los fallidos que se reencolan para la proxima estan ahi
                 // dentro y se contarian dos veces, una como fallo y otra como no intento.
-                SinIntentar = Mathf.Max(0, alEmpezar - _intentados - _descartados),
+                // Los que esperaban su retardo se restan aparte: no es que no se
+                // hayan podido mandar, es que no era su momento.
+                SinIntentar = Mathf.Max(0, alEmpezar - _intentados - _descartados - _esperando),
+
+                Esperando = _esperando,
 
                 Segundos = Time.realtimeSinceStartup - arranque,
             };
@@ -571,22 +977,46 @@ namespace Fishy.Net
             if (r.TodoBien)
             {
                 if (verboseLogs)
-                    Debug.Log($"[Cola] Vaciada en {r.Segundos:F1} s: {r.Subidos} subidos.");
+                    Debug.Log($"[Cola] Vaciada en {r.Segundos:F1} s: {r.Subidos} subidos." +
+                              (r.Esperando > 0 ? $" {r.Esperando} esperan su turno." : ""));
                 return;
             }
 
-            // LogError y no Warning a proposito: en un build esto es lo unico que queda
-            // en Player.log, y es la diferencia entre "no se guardó y nadie sabe por qué"
-            // y poder decir exactamente qué se perdió.
             var claves = _almacen.Claves();
             foreach (string enVuelo in _enVueloClaves)
                 if (!claves.Contains(enVuelo)) claves.Add(enVuelo);
 
-            Debug.LogError(
-                $"[Cola] Vaciada por {motivo} en {r.Segundos:F1} s con cambios sin guardar: " +
-                $"{r.Subidos} subidos, {r.Fallidos} fallidos, " +
-                $"{r.SinRespuesta} sin respuesta, {r.SinIntentar} sin intentar." +
-                (claves.Count > 0 ? $"\nQuedan: {string.Join(", ", claves)}" : ""));
+            // Cuánto de lo que queda sobrevive al cierre. Es la diferencia entre "se
+            // subirá solo la próxima vez" y "esto se perdió", y confundirlas fue
+            // justamente lo que hizo creer durante semanas que el guardado estaba roto.
+            int anotados = 0;
+            foreach (var cambio in _almacen.Instantanea())
+                if (cambio.Anotable) anotados++;
+
+            // Lo que salió y no contestó a tiempo sigue anotado, así que también vuelve.
+            // Puede que hubiera llegado y se mande dos veces: todas las escrituras son
+            // idempotentes a propósito, así que repetir una no duplica nada.
+            int perdidos = r.Pendientes - anotados - r.SinRespuesta;
+
+            string resumen =
+                $"[Cola] Vaciada por {motivo} en {r.Segundos:F1} s: {r.Subidos} subidos, " +
+                $"{r.Fallidos} fallidos, {r.SinRespuesta} sin respuesta, " +
+                $"{r.SinIntentar} sin intentar." +
+                (claves.Count > 0 ? $"\nQuedan: {string.Join(", ", claves)}" : "");
+
+            if (perdidos <= 0)
+            {
+                // Nada que lamentar: está todo en el diario y se sube al volver a entrar.
+                Debug.LogWarning($"{resumen}\nTodo lo que queda está anotado: se sube solo " +
+                                 "en cuanto haya conexión, o al volver a entrar al juego.");
+                return;
+            }
+
+            // LogError solo para lo que de verdad se pierde. En un build esto es lo único
+            // que queda en Player.log.
+            Debug.LogError($"{resumen}\n{perdidos} cambio(s) NO están anotados y se pierden " +
+                           "(la mochila y la posición de Otto, que se recalculan solas al " +
+                           "siguiente guardado).");
         }
     }
 }

@@ -431,8 +431,10 @@ def fase_2_unitarios():
     print("  Corre api/tests/ contra SQLite a propósito: no toca Supabase y no")
     print("  necesita conexión. Lo que NO cubre es lo propio de Postgres (jsonb,")
     print("  constraints bajo concurrencia) — de eso se encarga la fase 5.\n")
+    # --noinput: si quedó un test_db.sqlite3 de una corrida cortada, Django pregunta
+    # si lo borra y, sin nadie que responda, la fase falla con EOFError.
     correr([sys.executable, os.path.join(RAIZ, "backend", "manage.py"),
-            "test", "api", "--settings=juego_backend.settings_test"],
+            "test", "api", "--settings=juego_backend.settings_test", "--noinput"],
            "suite unitaria")
 
 
@@ -520,13 +522,25 @@ def fase_5_detective():
         subtitulo("Escritura de progreso y verificación directa en Supabase")
         marcados = [m["mensaje_id"] for m in caso["mensajes"] if m["es_senal_riesgo"]]
         total_riesgo = len(marcados)
+
+        def corregir(marcas):
+            """Lo que el servidor debería guardar (`_corregir_caso` en views.py).
+            Desde HDU-11 el servidor corrige el caso él mismo: ignora los números
+            del cliente, no cuenta las señales ambiguas y el porcentaje va de 0 a 1."""
+            reales = [m["mensaje_id"] for m in caso["mensajes"]
+                      if m["es_senal_riesgo"] and not m.get("es_ambiguo")]
+            aciertos = sum(1 for mid in reales if mid in set(marcas))
+            return aciertos, len(reales), (aciertos / len(reales)) if reales else 1.0
+
         cuerpo = {
             "partida_id": pid,
             "mensajes_marcados": marcados,
-            "aciertos": total_riesgo,
-            "total_riesgo": total_riesgo,
-            "porcentaje": 100.0 if total_riesgo else 0.0,
+            # El servidor los ignora y los recalcula; van para probar justamente eso.
+            "aciertos": 999,
+            "total_riesgo": 999,
+            "porcentaje": 0.0,
         }
+        esp_aciertos, esp_total, esp_porcentaje = corregir(marcados)
         req("POST", f"/casos-detective/{cid_texto}/progreso/", cuerpo,
             token=tok, espera=201)
 
@@ -547,15 +561,17 @@ def fase_5_detective():
             else:
                 falla("el jsonb `mensajes_marcados` no volvió igual",
                       f"enviado: {marcados}\nen BD:   {fila.mensajes_marcados}")
-            if fila.aciertos == total_riesgo and fila.total_riesgo == total_riesgo:
-                ok(f"aciertos y total_riesgo persistidos ({total_riesgo})")
+            if fila.aciertos == esp_aciertos and fila.total_riesgo == esp_total:
+                ok(f"aciertos y total_riesgo los calculó el servidor ({esp_aciertos}/{esp_total}), "
+                   "no los 999 del cliente")
             else:
-                falla("aciertos/total_riesgo no cuadran en la base",
-                      f"BD: aciertos={fila.aciertos} total_riesgo={fila.total_riesgo}")
-            if abs(fila.porcentaje - cuerpo["porcentaje"]) < 0.01:
-                ok(f"porcentaje persistido ({fila.porcentaje})")
+                falla("aciertos/total_riesgo no cuadran con la corrección del servidor",
+                      f"esperado: {esp_aciertos}/{esp_total}\n"
+                      f"BD:       aciertos={fila.aciertos} total_riesgo={fila.total_riesgo}")
+            if abs(fila.porcentaje - esp_porcentaje) < 0.001:
+                ok(f"porcentaje calculado por el servidor, de 0 a 1 ({fila.porcentaje})")
             else:
-                falla(f"porcentaje: enviado {cuerpo['porcentaje']}, en BD {fila.porcentaje}")
+                falla(f"porcentaje: esperado {esp_porcentaje}, en BD {fila.porcentaje}")
             if fila.intentos == 1:
                 ok("intentos = 1 en el primer registro")
             else:
@@ -567,8 +583,8 @@ def fase_5_detective():
 
         # Reintento: mismo (partida, caso). No debe crear fila nueva.
         subtitulo("Reintento idempotente (constraint de Postgres)")
-        cuerpo2 = dict(cuerpo, mensajes_marcados=marcados[:1],
-                       aciertos=min(1, total_riesgo), porcentaje=50.0)
+        cuerpo2 = dict(cuerpo, mensajes_marcados=marcados[:1])
+        _, _, esp_porcentaje2 = corregir(marcados[:1])
         req("POST", f"/casos-detective/{cid_texto}/progreso/", cuerpo2,
             token=tok, espera=200)
         filas = CasoDetectiveProgreso.objects.filter(
@@ -581,7 +597,7 @@ def fase_5_detective():
                 ok("intentos subió a 2")
             else:
                 falla(f"intentos debería ser 2 y es {fila.intentos}")
-            if fila.mensajes_marcados == marcados[:1] and abs(fila.porcentaje - 50.0) < 0.01:
+            if fila.mensajes_marcados == marcados[:1] and abs(fila.porcentaje - esp_porcentaje2) < 0.001:
                 ok("el resultado se sobrescribió con el del último intento")
             else:
                 falla("el reintento no sobrescribió el resultado",

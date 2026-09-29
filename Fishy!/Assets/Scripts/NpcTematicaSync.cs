@@ -94,21 +94,7 @@ public class NpcTematicaSync : MonoBehaviour
     /// </summary>
     private static void Subir(string id, bool exito)
     {
-        ColaDeCambios.EncolarAppend($"npc:{id}",
-            (ok, error) =>
-            {
-                var api = ApiManager.Instance;
-                if (api == null || api.PartidaId == null) { error("No hay partida."); return; }
-
-                api.MarcarNpcTerminado(id, exito,
-                    onSuccess: _ => ok(),
-                    onError: e =>
-                    {
-                        Debug.LogWarning($"[NpcTematica] No se pudo guardar '{id}': {e}");
-                        error(e);
-                    });
-            },
-            $"NPC {id}");
+        ColaDeCambios.EncolarNpc(id, exito);
     }
 
     // ── Bajar y repartir ─────────────────────────────────────────────────────

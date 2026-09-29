@@ -87,3 +87,14 @@ class RolesPortalTests(TestCase):
                 ["x", "DesdeDev", "", "dev@example.com", timezone.now(), False],
             )
         self.assertEqual(AdultoResponsable.objects.get(nombre="DesdeDev").rol, "padre")
+
+    def test_un_rol_desconocido_en_la_base_no_se_cuela_como_padre(self):
+        # Lo que pasó en QA: alguien escribió `rol` a mano en Supabase. Los
+        # `choices` no se validan en Postgres, así que la base lo acepta.
+        rara = AdultoResponsable.objects.create_user(nombre="Rara", email="rara@example.com", password="prueba")
+        AdultoResponsable.objects.filter(pk=rara.pk).update(rol="rector")
+        rara.refresh_from_db()
+        self.client.force_authenticate(rara)
+        self.assertEqual(self.client.get("/api/jugadores/").status_code, 403)
+        self.assertEqual(self.client.get("/api/admin/profesores/").status_code, 403)
+        self.assertEqual(self.client.get("/api/grupos/").status_code, 403)

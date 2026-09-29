@@ -190,6 +190,11 @@ public class MissionUIController : MonoBehaviour
         // CA2 y CA4 en una línea: hay zona que señalar, o no la hay.
         ZoneMarker.GetOrCreate().Apuntar(zona);
 
+        // Y los NPC, chats y casos que falten por atender: "!" / "?" y sus flechas.
+        NpcMarker.GetOrCreate().Actualizar(activa != null && MissionTracker.Instance != null
+            ? MissionTracker.Instance.Objetivos(activa.Id)
+            : null);
+
         if (activa == null) { PintarSinMisiones(); return; }
 
         _etiqueta.gameObject.SetActive(true);

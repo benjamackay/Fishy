@@ -44,15 +44,6 @@ TagManager:
   - name: Ground
     uniqueID: 597112457
     locked: 0
-  - name: Arrecife
-    uniqueID: 3541820393
-    locked: 0
-  - name: Pantano
-    uniqueID: 4212095431
-    locked: 0
-  - name: Bosque
-    uniqueID: 2479127657
-    locked: 0
   - name: Entity
     uniqueID: 2934683901
     locked: 0

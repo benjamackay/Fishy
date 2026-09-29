@@ -144,7 +144,9 @@ public class AlbumEvidenciasUI : MonoBehaviour
         canvasGO.transform.SetParent(transform, false);
         var canvas = canvasGO.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 1000;
+        // Por encima del panel del menú (1200): el álbum se abre desde ahí y tiene que
+        // verse delante de él.
+        canvas.sortingOrder = 1300;
         var scaler = canvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);

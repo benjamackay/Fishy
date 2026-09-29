@@ -72,11 +72,18 @@ namespace Fishy.EditorTools
             ProbarOrdenDeSalida(log, cola);
             ProbarCadenaVaSola(log, cola);
             ProbarElThunkLeeAlVaciar(log, cola);
-            ProbarFalloSeReintentaHastaElTope(log, cola);
+            ProbarFalloSeReintentaConRetardo(log, cola);
             ProbarCierreNoReintenta(log, cola);
             ProbarSinRespuestaNoEsTodoBien(log, cola);
             ProbarSelloDePartida(log, cola, api);
             ProbarTopeDeTiempoSeRestaura(log, cola, api);
+
+            // ── El diario: que nada se pierda al morir el proceso ──
+            ProbarDiarioSobreviveAlReinicio(log);
+            ProbarSnapshotsNoSeAnotan(log);
+            ProbarDiarioConservaSuPartida(log, api);
+            ProbarDiarioNoDegradaUnaZona(log);
+            ProbarIdaYVueltaDeLasRecetas(log);
 
             // ── Los interruptores de SaveManager ──
             ProbarInterruptorDeMomentos(log, cola);
@@ -122,6 +129,12 @@ namespace Fishy.EditorTools
                 subido == "segundo", $"subió '{subido}'");
         }
 
+        /// <summary>El valor fusionado de una entrada de zona dice "completada".
+        /// Antes el valor era un bool a secas; ahora es el objeto de argumentos de la
+        /// receta, que es lo que permite anotarlo en el diario.</summary>
+        private static bool ZonaCompletada(ColaDeCambios.CambioPendiente cambio)
+            => cambio != null && cambio.Valor is RecetasDeCola.ArgsZona z && z.Completada;
+
         private static void ProbarZonaFusionaPorOr(StringBuilder log)
         {
             // El caso real: BosqueDesconocidosManager marca la zona completada y después
@@ -132,7 +145,7 @@ namespace Fishy.EditorTools
             ColaDeCambios.EncolarZona("desconocidos", completada: false);
 
             Comprobar(log, "Completar una zona no se puede deshacer con un desbloqueo",
-                ColaDeCambios.Pendientes == 1 && Primero().Valor is bool b && b,
+                ColaDeCambios.Pendientes == 1 && ZonaCompletada(Primero()),
                 $"valor = {Primero().Valor}");
 
             // Y al revés también: primero desbloquear, después completar.
@@ -140,7 +153,7 @@ namespace Fishy.EditorTools
             ColaDeCambios.EncolarZona("retos", completada: false);
             ColaDeCambios.EncolarZona("retos", completada: true);
             Comprobar(log, "Y completarla después del desbloqueo sí cuenta",
-                Primero().Valor is bool c && c, $"valor = {Primero().Valor}");
+                ZonaCompletada(Primero()), $"valor = {Primero().Valor}");
         }
 
         private static void ProbarProgresoFusionaPorMaximo(StringBuilder log)
@@ -150,7 +163,9 @@ namespace Fishy.EditorTools
             ColaDeCambios.EncolarProgreso(10f);
 
             Comprobar(log, "El progreso de la partida nunca retrocede",
-                ColaDeCambios.Pendientes == 1 && Primero().Valor is float v && Mathf.Approximately(v, 25f),
+                ColaDeCambios.Pendientes == 1 &&
+                Primero().Valor is RecetasDeCola.ArgsProgreso v &&
+                Mathf.Approximately(v.Progreso, 25f),
                 $"valor = {Primero().Valor}");
         }
 
@@ -195,7 +210,7 @@ namespace Fishy.EditorTools
             almacen.Reencolar(zonaVieja);
 
             Comprobar(log, "Una zona 'desbloqueada' que falló no borra la 'completada' posterior",
-                ColaDeCambios.Pendientes == 1 && Primero().Valor is bool b && b,
+                ColaDeCambios.Pendientes == 1 && ZonaCompletada(Primero()),
                 $"valor = {(ColaDeCambios.Pendientes > 0 ? Primero().Valor : null)}");
 
             // Tomar saca lo que hay AHORA, no una copia vieja.
@@ -297,7 +312,7 @@ namespace Fishy.EditorTools
                 subido == "tres flores y un caracol", $"subió '{subido}'");
         }
 
-        private static void ProbarFalloSeReintentaHastaElTope(StringBuilder log, ColaDeCambios cola)
+        private static void ProbarFalloSeReintentaConRetardo(StringBuilder log, ColaDeCambios cola)
         {
             // Esto es lo que antes hacían por su cuenta ObjetosRecogidosSync y
             // NpcTematicaSync con sus propias listas de pendientes.
@@ -311,13 +326,189 @@ namespace Fishy.EditorTools
                 ColaDeCambios.Pendientes == 1 && cola.UltimoResultado.Fallidos == 1,
                 $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes");
 
+            // El siguiente vaciado NO lo toca: tras fallar espera antes de reintentar.
+            // Contra un servidor caído, insistir cada pocos segundos solo llena el log.
             Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
-            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
+            Comprobar(log, "Tras fallar, espera su retardo antes de volver a intentarlo",
+                intentos == 1 && cola.UltimoResultado.Esperando == 1,
+                $"{intentos} intento(s), {cola.UltimoResultado.Esperando} esperando");
 
-            Comprobar(log, "Tras maxIntentos se abandona en vez de reintentar para siempre",
-                intentos == 3 && ColaDeCambios.Pendientes == 0,
-                $"{intentos} intentos, {ColaDeCambios.Pendientes} pendientes");
+            // Se simula que pasó el rato y se agotan los intentos.
+            for (int i = 0; i < 5; i++)
+            {
+                foreach (var c in ColaDeCambios.AlmacenParaPruebas.Instantanea()) c.NoAntesDe = 0f;
+                Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
+            }
+
+            // El contrato cambió a propósito: antes esto se ABANDONABA, y con ello se
+            // perdía de verdad. Ahora deja de reintentarse solo, pero sigue en la cola.
+            Comprobar(log, "Tras maxIntentos deja de insistir solo pero NO se pierde",
+                intentos == cola.maxIntentos && ColaDeCambios.Pendientes == 1 &&
+                ColaDeCambios.HayAtasco,
+                $"{intentos} intentos, {ColaDeCambios.Pendientes} pendientes, " +
+                $"atasco = {ColaDeCambios.HayAtasco}");
+
+            // Y el jugador puede desatascarlo.
+            ColaDeCambios.ReintentarAhora();
+            Comprobar(log, "«Intentar ahora» desatasca lo que había dejado de reintentarse",
+                !ColaDeCambios.HayAtasco && ColaDeCambios.Pendientes == 1,
+                $"atasco = {ColaDeCambios.HayAtasco}, {ColaDeCambios.Pendientes} pendientes");
         }
+
+        // ── El diario ─────────────────────────────────────────────────────────
+
+        private static void ProbarDiarioSobreviveAlReinicio(StringBuilder log)
+        {
+            // El caso real, y el que costó 19 cambios en una tarde: se para el Play (o se
+            // cae el juego) con la cola a medias. Antes eso era una pérdida definitiva de
+            // los objetivos, porque el chat que los marca no se vuelve a disparar.
+            Vaciar();
+            ColaDeCambios.EncolarMision("MISION_NPC_03", completada: true);
+            ColaDeCambios.EncolarObjetivo("MISION_NPC_03", 2);
+
+            // "Se murió el proceso": la cola en memoria desaparece, el diario no.
+            ColaDeCambios.AlmacenParaPruebas.Limpiar();
+            Comprobar(log, "Al morir el proceso la cola en memoria queda vacía",
+                ColaDeCambios.Pendientes == 0, $"{ColaDeCambios.Pendientes} pendientes");
+
+            ColaDeCambios.Reproducir();
+
+            bool volvioLaMision = false, volvioElObjetivo = false;
+            foreach (var c in ColaDeCambios.AlmacenParaPruebas.Instantanea())
+            {
+                if (c.Valor is RecetasDeCola.ArgsMision m && m.MisionId == "MISION_NPC_03" && m.Completada)
+                    volvioLaMision = true;
+                if (c.Valor is RecetasDeCola.ArgsObjetivo o && o.MisionId == "MISION_NPC_03" && o.Orden == 2)
+                    volvioElObjetivo = true;
+            }
+
+            Comprobar(log, "Al volver a entrar, lo anotado vuelve a la cola con sus datos",
+                ColaDeCambios.Pendientes == 2 && volvioLaMision && volvioElObjetivo,
+                $"{ColaDeCambios.Pendientes} pendientes, misión = {volvioLaMision}, " +
+                $"objetivo = {volvioElObjetivo}");
+        }
+
+        private static void ProbarSnapshotsNoSeAnotan(StringBuilder log)
+        {
+            // La mochila y la posición leen el estado vivo al subir, así que el siguiente
+            // guardado los manda completos igual. Anotarlos sería guardar una foto vieja
+            // de algo que se puede volver a mirar.
+            Vaciar();
+            ColaDeCambios.EncolarSnapshot("inventario", Bien());
+            ColaDeCambios.EncolarSnapshot("personaje", Bien());
+            ColaDeCambios.EncolarObjeto("ITEM_FLOR_01");
+
+            ColaDeCambios.AlmacenParaPruebas.Limpiar();
+            ColaDeCambios.Reproducir();
+
+            var claves = Claves();
+            Comprobar(log, "La mochila y la posición no se anotan; el objeto recogido sí",
+                claves.Count == 1 && claves[0] == "objeto:ITEM_FLOR_01",
+                claves.Count == 0 ? "(ninguna)" : string.Join(", ", claves));
+        }
+
+        private static void ProbarDiarioConservaSuPartida(StringBuilder log, ApiManager api)
+        {
+            // Un cambio anotado en la partida 3 se sube A LA 3, aunque ahora se juegue la
+            // 4. Antes esto se descartaba, y era lo único que evitaba escribirle el
+            // avance de un hermano al otro; ahora no hay que tirar nada, porque todos los
+            // endpoints de escritura reciben la partida.
+            Vaciar();
+            UsarPartida(api, PartidaA);
+            ColaDeCambios.EncolarObjetivo("MISION_NPC_03", 3);
+
+            ColaDeCambios.AlmacenParaPruebas.Limpiar();
+            UsarPartida(api, PartidaB);
+            ColaDeCambios.Reproducir();
+
+            var repuesto = Primero();
+            Comprobar(log, "Lo anotado vuelve con SU partida, no con la que se juega ahora",
+                repuesto != null && repuesto.Partida == PartidaA,
+                $"partida del cambio = {repuesto?.Partida}, partida activa = {api.PartidaId}");
+
+            UsarPartida(api, PartidaA);
+        }
+
+        private static void ProbarDiarioNoDegradaUnaZona(StringBuilder log)
+        {
+            // El caso: la zona quedó COMPLETADA la sesión pasada y no alcanzó a subirse.
+            // Esta sesión, al recalcular, MisionBackendSync la manda como "desbloqueada".
+            // Si al reponer el diario ganara sin más el valor de ahora, el reporte del
+            // adulto pasaría a mostrar como pendiente una zona ya terminada.
+            //
+            // Se prueba en el orden que de verdad rompe: primero lo de esta sesión y
+            // después la reposición. En el juego el orden normal es el contrario, así que
+            // este es el camino que se escapa sin querer.
+            Vaciar();
+            ColaDeCambios.EncolarZona("ciberacoso", completada: true);
+
+            var anotado = DiarioDeCambios.Leer();
+            ColaDeCambios.AlmacenParaPruebas.Limpiar();
+
+            ColaDeCambios.EncolarZona("ciberacoso", completada: false);
+            ColaDeCambios.Reproducir();
+
+            Comprobar(log, "Reponer del diario no degrada una zona ya completada",
+                ColaDeCambios.Pendientes == 1 && ZonaCompletada(Primero()),
+                $"anotadas {anotado.Count}, valor = {Primero()?.Valor}");
+        }
+
+        private static void ProbarIdaYVueltaDeLasRecetas(StringBuilder log)
+        {
+            // La conversión de closures a (receta, argumentos) tocó nueve sitios, y un
+            // cuerpo mal armado ahí es una escritura silenciosamente equivocada. Esto
+            // comprueba que cada receta sobrevive al viaje por disco con sus datos.
+            Vaciar();
+            ColaDeCambios.EncolarMision("MISION_X", completada: true);
+            ColaDeCambios.EncolarObjetivo("MISION_X", 7);
+            ColaDeCambios.EncolarZona("ciberacoso", completada: true);
+            ColaDeCambios.EncolarObjeto("ITEM_ROCA");
+            ColaDeCambios.EncolarNpc("NPC_ALEX", exito: true);
+            ColaDeCambios.EncolarDetective("DC_CASO_01",
+                new List<string> { "m1", "m2" }, 4, 5, 80f);
+            ColaDeCambios.EncolarProgreso(42f);
+            ColaDeCambios.EncolarChat("chat:0", "Puma", "zona_2", "desconocidos",
+                new List<RecetasDeCola.MensajeDeChat>
+                {
+                    new RecetasDeCola.MensajeDeChat { Tipo = "chain", Texto = "hola", Calidad = "segura" },
+                },
+                "cerrado");
+
+            ColaDeCambios.AlmacenParaPruebas.Limpiar();
+            ColaDeCambios.Reproducir();
+
+            var porClave = new Dictionary<string, object>();
+            foreach (var c in ColaDeCambios.AlmacenParaPruebas.Instantanea())
+                porClave[c.Clave] = c.Valor;
+
+            Comprobar(log, "Las ocho recetas vuelven del diario",
+                porClave.Count == 8, $"{porClave.Count} de 8");
+
+            Comprobar(log, "Una misión vuelve con su id y su estado",
+                porClave.TryGetValue("mision:MISION_X", out var vm) &&
+                vm is RecetasDeCola.ArgsMision m && m.MisionId == "MISION_X" && m.Completada,
+                Describir(porClave, "mision:MISION_X"));
+
+            Comprobar(log, "Un objetivo vuelve con su orden",
+                porClave.TryGetValue("objetivo:MISION_X:7", out var vo) &&
+                vo is RecetasDeCola.ArgsObjetivo o && o.Orden == 7,
+                Describir(porClave, "objetivo:MISION_X:7"));
+
+            Comprobar(log, "Un caso de detective vuelve con sus marcados y su puntaje",
+                porClave.TryGetValue("detective:DC_CASO_01", out var vd) &&
+                vd is RecetasDeCola.ArgsDetective d && d.Marcados != null &&
+                d.Marcados.Count == 2 && d.Aciertos == 4 && Mathf.Approximately(d.Porcentaje, 80f),
+                Describir(porClave, "detective:DC_CASO_01"));
+
+            Comprobar(log, "Una conversación vuelve con sus mensajes",
+                porClave.TryGetValue("chat:0", out var vc) &&
+                vc is RecetasDeCola.ArgsChat ch && ch.Contacto == "Puma" &&
+                ch.Mensajes != null && ch.Mensajes.Count == 1 && ch.Mensajes[0].Texto == "hola",
+                Describir(porClave, "chat:0"));
+        }
+
+        private static string Describir(Dictionary<string, object> porClave, string clave)
+            => porClave.TryGetValue(clave, out var v) && v != null ? v.GetType().Name : "(no volvió)";
 
         private static void ProbarCierreNoReintenta(StringBuilder log, ColaDeCambios cola)
         {
@@ -518,8 +709,18 @@ namespace Fishy.EditorTools
             return claves;
         }
 
-        /// <summary>Deja la cola limpia entre prueba y prueba: el almacén es estático.</summary>
-        private static void Vaciar() => ColaDeCambios.AlmacenParaPruebas.Limpiar();
+        /// <summary>
+        /// Deja la cola limpia entre prueba y prueba: el almacén es estático.
+        ///
+        /// <b>Y el diario también</b>, que es lo importante: ahora encolar escribe en
+        /// PlayerPrefs, así que sin esto una corrida de pruebas le dejaría al juego de
+        /// verdad un puñado de cambios inventados para subir al backend.
+        /// </summary>
+        private static void Vaciar()
+        {
+            ColaDeCambios.AlmacenParaPruebas.Limpiar();
+            DiarioDeCambios.Limpiar();
+        }
 
         /// <summary>
         /// Barre los objetos de una corrida anterior que se cortó a medias.

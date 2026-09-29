@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using Fishy.Net;
 
+// La línea de conversación vive en RecetasDeCola: es lo que se anota en el diario
+// de la cola, así que el tipo tiene que verse desde la receta que rehace el envío.
+using MensajeGrabado = Fishy.Net.RecetasDeCola.MensajeDeChat;
+
 namespace Fishy.Chat
 {
     /// <summary>
@@ -36,17 +40,6 @@ namespace Fishy.Chat
     /// </summary>
     public class ChatBackendLogger
     {
-        /// <summary>Una línea de la conversación, tal como la espera el endpoint.</summary>
-        private class MensajeGrabado
-        {
-            public string Tipo;               // start | request | chain
-            public string Texto;
-            public string Calidad;
-            public List<OpcionRespuesta> Opciones;
-            public string PreguntaBancoId;
-            public string OpcionBancoId;
-        }
-
         /// <summary>Para que cada conversación tenga su propia clave en la cola.</summary>
         private static int _secuencia;
 
@@ -146,15 +139,10 @@ namespace Fishy.Chat
 
             // Se copia todo a locales: este logger se suelta en cuanto termina el chat
             // (ChatModuleController lo pone a null) y la cola puede tardar en vaciarse.
-            string contacto = _contacto;
-            string zona = _zona;
-            string categoria = _categoriaRiesgo;
-            string cierre = mensajeCierre;
-            var mensajes = new List<MensajeGrabado>(_mensajes);
-
-            ColaDeCambios.EncolarCadena($"chat:{_secuencia++}",
-                (ok, error) => Subir(contacto, zona, categoria, mensajes, cierre, ok, error),
-                $"conversación con {contacto} ({mensajes.Count} mensajes)");
+            // La lista se copia: este logger se suelta en cuanto termina el chat
+            // (ChatModuleController lo pone a null) y la cola puede tardar en vaciarse.
+            ColaDeCambios.EncolarChat($"chat:{_secuencia++}", _contacto, _zona, _categoriaRiesgo,
+                new List<MensajeGrabado>(_mensajes), mensajeCierre);
         }
 
         private void Anotar(MensajeGrabado mensaje)
@@ -173,12 +161,13 @@ namespace Fishy.Chat
         /// responde 404 con una página HTML), se cae a la cadena antigua en vez de
         /// dejar la conversación reintentándose para siempre en la cola.
         /// </summary>
-        private static void Subir(string contacto, string zona, string categoria,
-            List<MensajeGrabado> mensajes, string cierre, Action ok, Action<string> error)
+        public static void SubirConversacion(ApiManager api, RecetasDeCola.ArgsChat args,
+            int? partida, Action ok, Action<string> error)
         {
-            var api = ApiManager.Instance;
-            if (api == null || api.PartidaId == null) { error("No hay partida."); return; }
+            if (api == null) { error("No hay ApiManager."); return; }
+            if (args == null || args.Mensajes == null) { error("Conversación vacía."); return; }
 
+            var mensajes = args.Mensajes;
             var cuerpo = new List<Dictionary<string, object>>(mensajes.Count);
             foreach (var m in mensajes)
             {
@@ -190,7 +179,8 @@ namespace Fishy.Chat
                 cuerpo.Add(d);
             }
 
-            api.RegistrarChatCompleto(contacto, zona, "enemigo", categoria, cuerpo, cierre,
+            api.RegistrarChatCompleto(args.Contacto, args.Zona, "enemigo", args.Categoria,
+                cuerpo, args.Cierre, partida,
                 onSuccess: _ => ok(),
                 onError: e =>
                 {
@@ -198,7 +188,7 @@ namespace Fishy.Chat
                     {
                         Debug.LogWarning("[ChatBackendLogger] El servidor no tiene chats/completo; " +
                                          "se sube por la cadena antigua.");
-                        SubirEnCadena(api, contacto, zona, categoria, mensajes, cierre, ok, error);
+                        SubirEnCadena(api, args, ok, error);
                     }
                     else error(e);
                 });
@@ -214,12 +204,12 @@ namespace Fishy.Chat
         /// Respaldo: reproduce la cadena NPC → chat → mensajes en orden → cierre.
         /// Va en serie porque <c>ApiManager.NpcId</c> y <c>ChatId</c> son estado global.
         /// </summary>
-        private static void SubirEnCadena(ApiManager api, string contacto, string zona, string categoria,
-            List<MensajeGrabado> mensajes, string cierre, Action ok, Action<string> error)
+        private static void SubirEnCadena(ApiManager api, RecetasDeCola.ArgsChat args,
+            Action ok, Action<string> error)
         {
-            api.RegistrarNPC(contacto, zona, "enemigo", confianza: 0,
-                onSuccess: _ => api.IniciarChat(categoria,
-                    onSuccess: _ => SubirMensaje(api, mensajes, 0, cierre, ok, error),
+            api.RegistrarNPC(args.Contacto, args.Zona, "enemigo", confianza: 0,
+                onSuccess: _ => api.IniciarChat(args.Categoria,
+                    onSuccess: _ => SubirMensaje(api, args.Mensajes, 0, args.Cierre, ok, error),
                     onError: error),
                 onError: error);
         }
