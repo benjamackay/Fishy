@@ -43,7 +43,40 @@ if not SECRET_KEY:
 # porque esta explicado en juego_backend/filtros_error.py.
 DEFAULT_EXCEPTION_REPORTER_FILTER = "juego_backend.filtros_error.FiltroCredenciales"
 
-ALLOWED_HOSTS = ["*"]  # Restringir en producción
+def lista_entorno(nombre):
+    """Variable de entorno con valores separados por coma, sin vacios."""
+    return [v.strip() for v in os.environ.get(nombre, "").split(",") if v.strip()]
+
+
+# Railway entrega el dominio publico del servicio (ej. fishy-test.up.railway.app)
+# en RAILWAY_PUBLIC_DOMAIN, asi que el despliegue no necesita escribirlo a mano.
+# En desarrollo se deja "*" para poder probar desde el celular por la IP de la red.
+DOMINIO_PUBLICO = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+else:
+    ALLOWED_HOSTS = lista_entorno("DJANGO_ALLOWED_HOSTS") + ([DOMINIO_PUBLICO] if DOMINIO_PUBLICO else [])
+    if not ALLOWED_HOSTS:
+        raise ImproperlyConfigured(
+            "Con DJANGO_DEBUG=False hay que decir en que dominio corre el servidor: "
+            "DJANGO_ALLOWED_HOSTS=mi-dominio.cl (en Railway basta con RAILWAY_PUBLIC_DOMAIN)."
+        )
+
+# El login del /admin/ es un POST con CSRF, y Django compara el Origin (https)
+# contra el esquema que ve. Detras del proxy de Railway la peticion llega como
+# http, asi que sin estas dos lineas el admin rechaza el login con "CSRF failed".
+CSRF_TRUSTED_ORIGINS = ["https://" + h for h in lista_entorno("DJANGO_ALLOWED_HOSTS") + ([DOMINIO_PUBLICO] if DOMINIO_PUBLICO else [])]
+if DOMINIO_PUBLICO:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # La sesion del /admin/ solo viaja por https.
+    SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True
+
+# CORS: el portal web publicado vive en otro dominio y llama a /api/ desde el
+# navegador. En desarrollo no hace falta (Vite reenvia /api al Django local).
+# El portal manda el token en el header Authorization, sin cookies, asi que no
+# se habilita CORS_ALLOW_CREDENTIALS. Solo se abren las rutas de la API.
+CORS_ALLOWED_ORIGINS = lista_entorno("CORS_ALLOWED_ORIGINS")
+CORS_URLS_REGEX = r"^/api/.*$"
 
 # ─── Aplicaciones ─────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -54,6 +87,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Terceros
+    "corsheaders",
     "rest_framework",
     "rest_framework.authtoken",
     # Propias
@@ -63,6 +97,8 @@ INSTALLED_APPS = [
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Antes de CommonMiddleware: tiene que contestar el preflight OPTIONS del navegador.
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
