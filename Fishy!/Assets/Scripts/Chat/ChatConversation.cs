@@ -73,13 +73,34 @@ namespace Fishy.Chat
 
         public bool HasOptions => options != null && options.Count > 0;
 
-        /// <summary>Convierte las opciones a la estructura que espera el backend.</summary>
-        public List<OpcionRespuesta> ToOpciones()
+        /// <summary>
+        /// Convierte las opciones a la estructura que espera el backend.
+        ///
+        /// <paramref name="orden"/> es la permutación con la que se dibujaron en
+        /// pantalla (ver <c>ChatModuleController.OrdenDeOpciones</c>); vacío =
+        /// salieron en el orden de la lista. Importa porque el campo del backend se
+        /// llama <c>orden</c> y significa "orden de presentación al jugador": si las
+        /// opciones se barajan y aquí se mandara siempre 0,1,2, ese campo estaría
+        /// describiendo una pantalla que el niño/a nunca vio. El puntaje no depende de
+        /// esto —va por <c>opcion_banco_id</c>—, pero el reporte del adulto sí.
+        /// </summary>
+        public List<OpcionRespuesta> ToOpciones(IReadOnlyList<int> orden = null)
         {
             var list = new List<OpcionRespuesta>();
             if (options == null) return list;
-            for (int i = 0; i < options.Count; i++)
-                list.Add(new OpcionRespuesta(options[i].text, i, options[i].QualityKey));
+
+            if (orden == null)
+            {
+                for (int i = 0; i < options.Count; i++)
+                    list.Add(new OpcionRespuesta(options[i].text, i, options[i].QualityKey));
+                return list;
+            }
+
+            for (int puesto = 0; puesto < orden.Count; puesto++)
+            {
+                ChatOption opcion = options[orden[puesto]];
+                list.Add(new OpcionRespuesta(opcion.text, puesto, opcion.QualityKey));
+            }
             return list;
         }
     }

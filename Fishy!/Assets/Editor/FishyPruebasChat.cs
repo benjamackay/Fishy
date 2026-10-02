@@ -51,6 +51,10 @@ namespace Fishy.EditorTools
             ProbarLaConversacionNoSeCierraDeInmediato(log);
             ProbarCategoriaDeRiesgo(log);
             ProbarCategoriaDeUnaConversacionNeutra(log);
+            ProbarBarajarEsUnaPermutacion(log);
+            ProbarSinBarajarRespetaElOrdenEscrito(log);
+            ProbarBarajarCambiaDeVerdadElOrden(log);
+            ProbarElRegistroSigueAlOrdenMostrado(log);
 
             // Devolver el banco de verdad: las pruebas metieron uno de cuatro preguntas
             // en la caché estática, y si se corren desde el menú el siguiente Play se lo
@@ -155,6 +159,104 @@ namespace Fishy.EditorTools
             Comprobar(log, "Una conversación sin mensajes de riesgo sigue siendo neutra",
                 conv != null && conv.categoriaRiesgo == "neutral",
                 $"quedó en '{conv?.categoriaRiesgo}'");
+        }
+
+        // ── Orden de las respuestas ───────────────────────────────────────────
+
+        /// <summary>
+        /// Barajar no puede perder, repetir ni inventar opciones: lo que sale tiene que
+        /// ser una permutación de 0..n-1. Si esto falla, en pantalla aparecería una
+        /// respuesta dos veces, o faltaría una — y la que falta puede ser la segura.
+        ///
+        /// Se prueban propiedades y no un resultado fijo porque el orden es aleatorio a
+        /// propósito; afirmar una secuencia concreta sería afirmar la semilla.
+        /// </summary>
+        private static void ProbarBarajarEsUnaPermutacion(StringBuilder log)
+        {
+            bool todasBien = true;
+            string detalle = "";
+
+            for (int cantidad = 0; cantidad <= 5 && todasBien; cantidad++)
+            {
+                for (int intento = 0; intento < 200 && todasBien; intento++)
+                {
+                    int[] orden = ChatModuleController.OrdenDeOpciones(cantidad, aleatorizar: true);
+                    var vistos = new HashSet<int>();
+
+                    if (orden.Length != cantidad)
+                    {
+                        todasBien = false;
+                        detalle = $"con {cantidad} opciones devolvió {orden.Length}";
+                        break;
+                    }
+
+                    foreach (int i in orden)
+                    {
+                        if (i < 0 || i >= cantidad || !vistos.Add(i))
+                        {
+                            todasBien = false;
+                            detalle = $"con {cantidad} opciones salió [{string.Join(",", orden)}]";
+                            break;
+                        }
+                    }
+                }
+            }
+
+            Comprobar(log, "Barajar devuelve siempre una permutación (sin perder ni repetir)",
+                todasBien, detalle);
+        }
+
+        /// <summary>Apagada la casilla, el orden es el que escribió el equipo.</summary>
+        private static void ProbarSinBarajarRespetaElOrdenEscrito(StringBuilder log)
+        {
+            int[] orden = ChatModuleController.OrdenDeOpciones(4, aleatorizar: false);
+
+            Comprobar(log, "Con 'aleatorizarOpciones' apagado salen en el orden del banco",
+                orden.Length == 4 && orden[0] == 0 && orden[1] == 1 && orden[2] == 2 && orden[3] == 3,
+                $"salió [{string.Join(",", orden)}]");
+        }
+
+        /// <summary>
+        /// Con 3 opciones hay 6 órdenes posibles; en 300 intentos tienen que salir más
+        /// de uno. Pilla el caso de que barajar no baraje nada —un bucle que no entra,
+        /// un Range con el máximo mal puesto— que la prueba de permutación daría por
+        /// bueno, porque la identidad también es una permutación válida.
+        /// </summary>
+        private static void ProbarBarajarCambiaDeVerdadElOrden(StringBuilder log)
+        {
+            var distintos = new HashSet<string>();
+            for (int i = 0; i < 300; i++)
+                distintos.Add(string.Join(",", ChatModuleController.OrdenDeOpciones(3, aleatorizar: true)));
+
+            Comprobar(log, "Barajar produce más de un orden con 3 opciones",
+                distintos.Count > 1, $"{distintos.Count} órdenes distintos en 300 intentos");
+        }
+
+        /// <summary>
+        /// Lo que se le manda al backend tiene que ser lo que se vio: el `orden` de cada
+        /// opción es su puesto en pantalla (0,1,2…) y el texto, el de esa posición. Si
+        /// esto se desalinea, el reporte del adulto describe una pantalla que no existió.
+        /// </summary>
+        private static void ProbarElRegistroSigueAlOrdenMostrado(StringBuilder log)
+        {
+            var node = new ChatNode { id = "Q01", text = "¿?" };
+            node.options.Add(new ChatOption("A", OptionSafety.Unsafe, "fin_a", "OP_A"));
+            node.options.Add(new ChatOption("B", OptionSafety.Safe,   "fin_b", "OP_B"));
+            node.options.Add(new ChatOption("C", OptionSafety.Neutral, "fin_c", "OP_C"));
+
+            // Un orden dado a mano, para poder afirmar el resultado exacto.
+            int[] orden = { 2, 0, 1 };
+            var opciones = node.ToOpciones(orden);
+
+            bool bien = opciones.Count == 3
+                && opciones[0].texto == "C" && opciones[0].orden == 0
+                && opciones[1].texto == "A" && opciones[1].orden == 1
+                && opciones[2].texto == "B" && opciones[2].orden == 2
+                && opciones[2].calidad_respuesta == "buena";
+
+            Comprobar(log, "El registro al backend sale en el orden en que se mostró",
+                bien,
+                bien ? "" : string.Join(" | ", opciones.ConvertAll(o => $"{o.orden}:{o.texto}")));
         }
 
         // ── Andamiaje ─────────────────────────────────────────────────────────

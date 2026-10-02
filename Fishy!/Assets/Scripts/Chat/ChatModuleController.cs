@@ -60,6 +60,18 @@ namespace Fishy.Chat
         // Antes eran WaitForSeconds fijos e "iba demasiado rápido" para quien lee más
         // despacio; ahora el ritmo lo pone quien juega, no un número fijo.
 
+        [Header("Respuestas")]
+        [Tooltip("Barajar las respuestas posibles cada vez que se muestran, en vez de " +
+                 "sacarlas siempre en el orden en que las escribió el equipo.\n\n" +
+                 "Apagado, la respuesta segura cae siempre en el mismo sitio dentro de " +
+                 "cada conversación, y al repetirla se puede acertar por posición sin " +
+                 "leer. Barajar obliga a leer, que es justamente lo que la actividad " +
+                 "quiere enseñar.\n\n" +
+                 "Este componente se crea solo (GetOrCreate), así que para tocar esta " +
+                 "casilla desde el Inspector hay que poner un ChatModuleController en " +
+                 "la escena; si no, manda el valor de aquí.")]
+        public bool aleatorizarOpciones = true;
+
         public bool IsActive { get; private set; }
 
         /// <summary>
@@ -202,6 +214,14 @@ namespace Fishy.Chat
 
             ui.PostNpc(node.text, node.isSystem);
 
+            // En qué orden se dibujan las respuestas. Se calcula una sola vez al entrar
+            // al nodo porque lo usan dos cosas que no pueden discrepar: los botones y lo
+            // que se le cuenta al backend. Volver a barajar para el registro mandaría un
+            // orden que nadie vio.
+            int[] orden = node.HasOptions
+                ? OrdenDeOpciones(node.options.Count, aleatorizarOpciones)
+                : null;
+
             // ── Registro best-effort en el backend ─────────────────────────────
             // node.id == pregunta_banco_id del banco (ej. "HDU2_NPC01_F2_Q01").
             if (!firstLineLogged)
@@ -211,7 +231,7 @@ namespace Fishy.Chat
             }
             else if (node.HasOptions)
             {
-                logger.LogRequest(node.text, node.ToOpciones(), preguntaBancoId: node.id);
+                logger.LogRequest(node.text, node.ToOpciones(orden), preguntaBancoId: node.id);
             }
 
             if (node.closesChat)
@@ -223,9 +243,13 @@ namespace Fishy.Chat
 
             if (node.HasOptions)
             {
-                var texts = new List<string>(node.options.Count);
-                foreach (var o in node.options) texts.Add(o.text);
-                ui.ShowOptions(texts, idx => OnOption(node, idx));
+                var texts = new List<string>(orden.Length);
+                foreach (int opcion in orden) texts.Add(node.options[opcion].text);
+
+                // Lo que devuelve la UI es el número de BOTÓN, no el de la opción:
+                // `orden` es lo que los vuelve a juntar. Sin esta traducción, barajar
+                // haría que elegir "bloquear" contara como otra cosa.
+                ui.ShowOptions(texts, boton => OnOption(node, orden[boton]));
                 return;
             }
 
@@ -271,6 +295,40 @@ namespace Fishy.Chat
             }
 
             ui.ClearOptions();
+        }
+
+        /// <summary>
+        /// En qué orden salen las <paramref name="cantidad"/> respuestas de un nodo:
+        /// devuelve, para cada botón, cuál opción de <c>node.options</c> le toca.
+        ///
+        /// Es una permutación aparte y <b>no se reordena <c>node.options</c></b>: una
+        /// <see cref="ChatConversation"/> puede ser un asset del proyecto, y barajarle
+        /// la lista en el editor dejaría el orden cambiado en disco. Además el orden
+        /// original es el que escribió el equipo (<c>BancoPreguntasLoader</c> ordena por
+        /// el campo <c>orden</c> del banco) y hay que poder volver a él apagando la
+        /// casilla.
+        ///
+        /// Se vuelve a barajar en cada entrada al nodo, a propósito: si la conversación
+        /// se repite, tampoco debería servir recordar dónde estaba la buena.
+        /// </summary>
+        public static int[] OrdenDeOpciones(int cantidad, bool aleatorizar)
+        {
+            var orden = new int[Mathf.Max(0, cantidad)];
+            for (int i = 0; i < orden.Length; i++) orden[i] = i;
+
+            if (!aleatorizar) return orden;
+
+            // Fisher-Yates: cada permutación sale con la misma probabilidad. Barajar
+            // "a ojo" (recorrer intercambiando con una posición cualquiera) no lo hace
+            // y deja sesgos que, con 2 ó 3 opciones, se notan.
+            for (int i = orden.Length - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);   // Range(int) excluye el máximo
+                int tmp = orden[i];
+                orden[i] = orden[j];
+                orden[j] = tmp;
+            }
+            return orden;
         }
 
         private void OnOption(ChatNode node, int index)
