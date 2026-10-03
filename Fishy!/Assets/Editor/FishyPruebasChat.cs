@@ -55,6 +55,8 @@ namespace Fishy.EditorTools
             ProbarSinBarajarRespetaElOrdenEscrito(log);
             ProbarBarajarCambiaDeVerdadElOrden(log);
             ProbarElRegistroSigueAlOrdenMostrado(log);
+            ProbarQueNoSeDibujanLasEtiquetas(log);
+            ProbarQueUnCorcheteNormalSeRespeta(log);
 
             // Devolver el banco de verdad: las pruebas metieron uno de cuatro preguntas
             // en la caché estática, y si se corren desde el menú el siguiente Play se lo
@@ -257,6 +259,54 @@ namespace Fishy.EditorTools
             Comprobar(log, "El registro al backend sale en el orden en que se mostró",
                 bien,
                 bien ? "" : string.Join(" | ", opciones.ConvertAll(o => $"{o.orden}:{o.texto}")));
+        }
+
+        // ── Etiquetas de autoría ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Las etiquetas del banco —"[SISTEMA] ", "[ZONA] "— marcan quién habla para
+        /// quien escribe el contenido; al jugador no se le enseñan. Salía "[ZONA] Coipo:"
+        /// dibujado en la pantalla del teléfono porque la limpieza quitaba
+        /// "[ZONA COMPLETADA] ", que no existe en el banco, y dejaba pasar "[ZONA] ".
+        ///
+        /// Se prueban las dos reales y una inventada, porque lo que se arregló es
+        /// justamente que no dependa de una lista de etiquetas conocidas.
+        /// </summary>
+        private static void ProbarQueNoSeDibujanLasEtiquetas(StringBuilder log)
+        {
+            var casos = new[]
+            {
+                ("[SISTEMA] Puma se desconecta.",            "Puma se desconecta."),
+                ("[ZONA] Antes de seguir, mira tu libreta.", "Antes de seguir, mira tu libreta."),
+                ("[ETIQUETA_NUEVA] Texto cualquiera.",       "Texto cualquiera."),
+            };
+
+            bool todas = true;
+            string detalle = "";
+
+            foreach (var (crudo, esperado) in casos)
+            {
+                var conv = Armar(Base("SOLO", 1, 1, crudo));
+                string salida = conv?.GetNode("SOLO")?.text;
+                if (salida != esperado)
+                {
+                    todas = false;
+                    detalle = $"'{crudo}' quedó como '{salida}'";
+                    break;
+                }
+            }
+
+            Comprobar(log, "Las etiquetas [SISTEMA]/[ZONA] no llegan a la pantalla", todas, detalle);
+        }
+
+        /// <summary>Un corchete que no es etiqueta es contenido y no se toca.</summary>
+        private static void ProbarQueUnCorcheteNormalSeRespeta(StringBuilder log)
+        {
+            var conv = Armar(Base("SOLO", 1, 1, "[mira esto] dijo el pato."));
+            string salida = conv?.GetNode("SOLO")?.text;
+
+            Comprobar(log, "Un corchete en minúsculas se respeta como contenido",
+                salida == "[mira esto] dijo el pato.", $"quedó '{salida}'");
         }
 
         // ── Andamiaje ─────────────────────────────────────────────────────────

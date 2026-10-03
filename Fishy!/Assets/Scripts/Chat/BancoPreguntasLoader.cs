@@ -801,12 +801,37 @@ namespace Fishy.Chat
             return "Desconocido";
         }
 
-        /// <summary>Quita prefijos "[SISTEMA]" y "[ZONA COMPLETADA]" del texto.</summary>
+        /// <summary>
+        /// Quita la etiqueta de autoría del principio del texto: "[SISTEMA] ",
+        /// "[ZONA] " y cualquier otra que siga la convención del banco.
+        ///
+        /// <b>Va por convención y no por una lista de etiquetas concretas</b> porque la
+        /// lista ya se desfasó una vez: quitaba "[ZONA COMPLETADA] ", que no existe en
+        /// el banco, y dejaba pasar "[ZONA] ", que sí — y esa salía dibujada en pantalla
+        /// delante del mensaje. La convención es corchetes con el nombre en MAYÚSCULAS,
+        /// así que se reconoce eso y no hay nada que mantener al día cuando el contenido
+        /// estrene una etiqueta nueva.
+        ///
+        /// Un texto que empiece por corchete sin ser etiqueta (minúsculas, números) se
+        /// deja intacto: es contenido, no marca.
+        /// </summary>
         private static string LimpiarTextoSistema(string raw)
         {
             if (string.IsNullOrEmpty(raw)) return raw;
-            raw = raw.Replace("[SISTEMA] ", "").Replace("[ZONA COMPLETADA] ", "");
-            return raw;
+
+            string texto = raw.TrimStart();
+            if (!texto.StartsWith("[")) return raw;
+
+            int cierre = texto.IndexOf(']');
+            if (cierre < 0) return raw;
+
+            for (int i = 1; i < cierre; i++)
+            {
+                char c = texto[i];
+                if (!char.IsUpper(c) && c != ' ' && c != '_') return raw;
+            }
+
+            return texto.Substring(cierre + 1).TrimStart();
         }
     }
 }

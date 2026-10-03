@@ -922,7 +922,7 @@
       "es_fin_de_npc": false,
       "es_fin_de_zona": true,
       "historial_previo": [],
-      "mensaje_npc": "[ZONA] Huemul: 'Antes de seguir al pantano, mira tu libreta: ahí quedaron anotadas tus dudas, tus preguntas a tiempo y también los momentos en que te arriesgaste de más. Ese resumen sigue contigo, y tu tutor podrá verlo, bien simple, en su reporte.'",
+      "mensaje_npc": "[ZONA] Antes de seguir al pantano, mira tu libreta: ahí quedaron anotadas tus dudas, tus preguntas a tiempo y también los momentos en que te arriesgaste de más. Ese resumen sigue contigo, y tu tutor podrá verlo, bien simple, en su reporte.",
       "etiquetas_ml": [
         "fin_zona",
         "desbloqueo_siguiente"
@@ -1537,7 +1537,7 @@
       "es_fin_de_npc": false,
       "es_fin_de_zona": true,
       "historial_previo": [],
-      "mensaje_npc": "[ZONA] Coipo: 'Antes de que sigas al arrecife, gracias por ayudarme con el rumor. Tu libreta ya guarda cómo respondiste cada vez que alguien quiso burlarse o hacerte elegir un bando.'",
+      "mensaje_npc": "[ZONA] Antes de que sigas al arrecife, gracias por ayudarme con el rumor. Tu libreta ya guarda cómo respondiste cada vez que alguien quiso burlarse o hacerte elegir un bando.",
       "etiquetas_ml": [
         "fin_zona",
         "desbloqueo_siguiente"
