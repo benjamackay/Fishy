@@ -30,6 +30,10 @@ namespace Fishy.UI
         /// así que sin esto se repintaría en cada conversación sin necesidad.</summary>
         private static readonly HashSet<GameObject> _yaPintados = new HashSet<GameObject>();
 
+        /// <summary>Suelo al que puede encoger el nombre si la escena no trae uno puesto.
+        /// Por debajo de esto deja de leerse, y vale más que asome a que no se entienda.</summary>
+        private const float TamanoMinimoNombre = 18f;
+
         /// <summary>
         /// Aplica el aspecto de Fishy. Es idempotente: llamarlo en cada conversación
         /// no cuesta nada a partir de la segunda.
@@ -52,6 +56,21 @@ namespace Fishy.UI
                 nombre.color = DialogoNeutroTheme.Colores.Nombre;
                 nombre.fontStyle = FontStyles.Bold;
                 if (DialogoNeutroTheme.Fuente.Nombre > 0f) nombre.fontSize = DialogoNeutroTheme.Fuente.Nombre;
+
+                // Un nombre largo —"Foca de Weddell"— no cabe de una línea en su caja,
+                // se partía en dos y la segunda línea caía ENCIMA del texto del diálogo.
+                // No es casualidad: en la escena las dos cajas se solapan 16 px por abajo,
+                // así que la primera línea cabe justa y la segunda ya invade al vecino.
+                //
+                // Se arregla por tipografía y no moviendo las cajas porque el panel está
+                // montado a mano, lo comparten todos los NPCs y la geometría es decisión
+                // de quien lo diseñó. Prohibirle partirse y dejarlo encoger mantiene el
+                // nombre dentro de lo suyo sea cual sea el largo.
+                float tamanoDeDiseno = nombre.fontSize;   // antes de encender el ajuste
+                nombre.textWrappingMode = TextWrappingModes.NoWrap;
+                nombre.enableAutoSizing = true;
+                nombre.fontSizeMax = tamanoDeDiseno;      // sólo encoger, nunca agrandar
+                if (nombre.fontSizeMin <= 0f) nombre.fontSizeMin = TamanoMinimoNombre;
             }
 
             if (texto != null)
