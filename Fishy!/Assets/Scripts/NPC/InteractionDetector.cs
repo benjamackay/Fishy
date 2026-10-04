@@ -119,7 +119,13 @@ public class InteractionDetector : MonoBehaviour
     {
         // Un NPC puede desactivarse por su cuenta (p. ej. el del bosque cuando se
         // aleja) sin que llegue a dispararse OnTriggerExit2D.
-        enRango.RemoveAll(c => c == null || !c.gameObject.activeInHierarchy);
+        //
+        // Se mira también el componente y no solo el GameObject: PresenciaSegunMision
+        // retira a un NPC apagándole las piezas —el objeto sigue activo, porque si no
+        // no podría volver—, así que uno que ya estuviera en la lista seguiría siendo
+        // un objetivo válido sin esto.
+        enRango.RemoveAll(c => c == null || !c.gameObject.activeInHierarchy ||
+                               (c is Behaviour pieza && !pieza.enabled));
 
         // 'objetivo' es una interfaz, así que su '== null' es comparación normal de
         // C# y NO el operador de Unity: un objeto ya destruido —un WorldItem recién
