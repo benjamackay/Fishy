@@ -156,7 +156,9 @@ AUTH_USER_MODEL = "api.AdultoResponsable"
 # Sin FISHY_EMAIL_ENABLED=True y un proveedor SMTP, invitar responde 503 sin guardar nada.
 FISHY_WEB_URL = os.environ.get("FISHY_WEB_URL", "http://127.0.0.1:5174").rstrip("/")
 FISHY_EMAIL_ENABLED = os.environ.get("FISHY_EMAIL_ENABLED", "False").lower() == "true"
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# En local se puede poner EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+# para ver los correos en la terminal sin proveedor.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")

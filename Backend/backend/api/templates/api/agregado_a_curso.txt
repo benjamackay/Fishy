@@ -1,0 +1,12 @@
+Aviso de Fishy
+
+{{ profesor }} agregó a {{ ninos }} al curso {{ grupo }}.
+
+{% if varios %}Desde ahora forman parte del curso{% else %}Desde ahora forma parte del curso{% endif %}: el profesor podrá ver {% if varios %}sus nombres{% else %}su nombre{% endif %}, tu correo y el resumen de su avance en Fishy, para coordinar el acompañamiento. No verá conversaciones ni respuestas literales.
+{% if enlace %}
+Puedes revisar el avance de tus hijos en el portal:
+{{ enlace }}
+{% endif %}
+Si no reconoces al profesor o al curso, contáctate con el colegio o escríbele al profesor para que lo corrija.
+
+Este correo se envía a la cuenta de familia registrada en Fishy. No necesitas responderlo.

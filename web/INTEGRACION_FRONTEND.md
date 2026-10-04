@@ -43,6 +43,21 @@ Es POST también para buscar, para que el correo no quede en URLs ni logs.
 
 Solo se devuelve el nombre del perfil: nada de edad ni avance antes de agregarlo.
 
+### Aviso por correo a la familia
+
+Al agregar, la cuenta de familia recibe un correo con el nombre de los niños nuevos, el
+curso y el profesor (uno solo aunque sean hermanos). La respuesta de `miembros/` trae
+`aviso_familia` para que el portal pueda decirlo:
+
+| Valor | Qué mostrar |
+|---|---|
+| `enviado` | "Le avisamos a la familia por correo." |
+| `fallido` | "Se agregó, pero no pudimos avisar por correo a la familia." |
+| `desactivado` | Nada: el correo no está configurado en el servidor. |
+| `sin_cambios` | Nada: no había nadie nuevo que agregar. |
+
+**Un fallo del correo nunca deshace la incorporación**: el niño queda en el curso igual.
+
 ### Errores (todos traen `detail` listo para mostrar)
 
 | Código | Cuándo |

@@ -147,3 +147,84 @@ class InvitacionRespetaUnCursoTests(TestCase):
         self.assertEqual(respuesta.status_code, 409)
         self.assertIn("ya está en otro curso", respuesta.data["detail"])
         self.assertEqual(grupo.miembros.count(), 0)
+
+
+CORREO_ACTIVO = dict(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", FISHY_EMAIL_ENABLED=True,
+                     DEFAULT_FROM_EMAIL="Fishy <avisos@example.com>", FISHY_WEB_URL="https://fishy.example.com",
+                     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+
+
+@override_settings(**CORREO_ACTIVO)
+class AvisoALaFamiliaTests(TestCase):
+    """Al agregar a un niño, la cuenta de familia recibe un correo. Si el correo falla,
+    el niño queda igual en el curso: el aviso nunca deshace la incorporación."""
+
+    def setUp(self):
+        cache.clear()
+        self.profesor = AdultoResponsable.objects.create_user(
+            "Ana", "profe@example.com", "clave", rol="profesor", apellido="Rojas")
+        self.padre = AdultoResponsable.objects.create_user("padre", "familia@example.com", "clave")
+        self.nina = UsuarioJugador.objects.create(adulto=self.padre, nombre="Martina")
+        self.hermano = UsuarioJugador.objects.create(adulto=self.padre, nombre="Tomás")
+        self.grupo = GrupoTutor.objects.create(tutor=self.profesor, nombre="5° Básico A")
+        self.client = APIClient()
+        self.client.force_authenticate(self.profesor)
+
+    def agregar(self, ids):
+        return self.client.post(f"/api/grupos/{self.grupo.pk}/miembros/",
+                                {"email": "familia@example.com", "jugador_ids": ids}, format="json")
+
+    def test_avisa_a_la_cuenta_de_familia_con_el_nino_el_curso_y_el_profesor(self):
+        respuesta = self.agregar([self.nina.pk])
+        self.assertEqual(respuesta.status_code, 201, respuesta.data)
+        self.assertEqual(respuesta.data["aviso_familia"], "enviado")
+        self.assertEqual(len(mail.outbox), 1)
+        correo = mail.outbox[0]
+        self.assertEqual(correo.to, ["familia@example.com"])
+        self.assertIn("Martina", correo.body)
+        self.assertIn("5° Básico A", correo.body)
+        self.assertIn("Ana Rojas", correo.body)
+        self.assertIn("https://fishy.example.com", correo.body)
+        self.assertIn("No verá conversaciones", correo.body)
+        self.assertNotIn("Tomás", correo.body)          # el hermano no se agregó
+        self.assertEqual(len(correo.alternatives), 1)    # versión HTML
+
+    def test_dos_hermanos_a_la_vez_son_un_solo_correo(self):
+        self.agregar([self.nina.pk, self.hermano.pk])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("Martina y Tomás", mail.outbox[0].body)
+        self.assertIn("tus hijos", mail.outbox[0].subject)
+
+    def test_repetir_sin_nadie_nuevo_no_vuelve_a_avisar(self):
+        self.agregar([self.nina.pk])
+        respuesta = self.agregar([self.nina.pk])
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.data["aviso_familia"], "sin_cambios")
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_solo_avisa_por_los_nuevos(self):
+        self.agregar([self.nina.pk])
+        self.agregar([self.nina.pk, self.hermano.pk])
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertIn("Tomás", mail.outbox[1].body)
+        self.assertNotIn("Martina", mail.outbox[1].body)
+
+    def test_si_el_correo_falla_el_nino_igual_queda_en_el_curso(self):
+        with patch("api.invitaciones.EmailMultiAlternatives.send", side_effect=OSError("smtp caído")):
+            respuesta = self.agregar([self.nina.pk])
+        self.assertEqual(respuesta.status_code, 201)
+        self.assertEqual(respuesta.data["aviso_familia"], "fallido")
+        self.assertTrue(self.grupo.miembros.filter(jugador=self.nina).exists())
+
+    @override_settings(FISHY_EMAIL_ENABLED=False)
+    def test_sin_correo_configurado_se_agrega_igual_y_lo_dice(self):
+        respuesta = self.agregar([self.nina.pk])
+        self.assertEqual(respuesta.status_code, 201)
+        self.assertEqual(respuesta.data["aviso_familia"], "desactivado")
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(FISHY_WEB_URL="sin-esquema")
+    def test_sin_url_del_portal_avisa_igual_pero_sin_enlace(self):
+        self.agregar([self.nina.pk])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn("sin-esquema", mail.outbox[0].body)

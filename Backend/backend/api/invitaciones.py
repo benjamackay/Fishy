@@ -217,6 +217,63 @@ def buscar_familia(request, grupo_id):
     return respuesta
 
 
+def correo_configurado():
+    """True si hay con qué mandar correos. Mismo criterio que `comprobar_correo`, pero
+    sin exigir la URL del sitio: el aviso a la familia funciona aunque no lleve enlace."""
+    if not settings.FISHY_EMAIL_ENABLED or not settings.DEFAULT_FROM_EMAIL:
+        return False
+    return settings.EMAIL_BACKEND != "django.core.mail.backends.smtp.EmailBackend" or bool(settings.EMAIL_HOST)
+
+
+def enlace_al_portal():
+    """La URL del portal si está bien configurada, o "" para mandar el aviso sin botón."""
+    try:
+        comprobar_correo()
+    except NoDisponible:
+        return ""
+    return settings.FISHY_WEB_URL
+
+
+def lista_de_nombres(nombres):
+    if len(nombres) <= 1:
+        return "".join(nombres)
+    return ", ".join(nombres[:-1]) + " y " + nombres[-1]
+
+
+def avisar_familia(grupo, jugadores):
+    """
+    Avisa por correo a la cuenta de familia que el profesor agregó a sus hijos al curso.
+
+    Un solo correo aunque se agreguen varios hermanos: son de la misma cuenta, porque
+    `agregar_miembros` los busca por un único correo. Se llama después de confirmar la
+    incorporación, y **un fallo del correo no la deshace**: el niño ya está en el curso,
+    y el profesor no tiene nada que corregir. Por eso no lanza excepciones; devuelve
+    "enviado", "fallido" o "desactivado" para que el portal pueda decirlo.
+    """
+    if not jugadores:
+        return "desactivado"
+    if not correo_configurado():
+        return "desactivado"
+
+    nombres = [j.nombre for j in jugadores]
+    contexto = {"profesor": str(grupo.tutor), "grupo": grupo.nombre, "ninos": lista_de_nombres(nombres),
+                "varios": len(nombres) > 1, "enlace": enlace_al_portal()}
+    destinatario = jugadores[0].adulto.email
+    mensaje = EmailMultiAlternatives(
+        "Fishy: " + ("tus hijos se sumaron" if len(nombres) > 1 else "tu hijo/a se sumó") + " a un curso",
+        render_to_string("api/agregado_a_curso.txt", contexto),
+        settings.DEFAULT_FROM_EMAIL, [destinatario])
+    mensaje.attach_alternative(render_to_string("api/agregado_a_curso.html", contexto), "text/html")
+    try:
+        if mensaje.send(fail_silently=False) != 1:
+            raise OSError("El servicio de correo no aceptó el mensaje")
+    except Exception:
+        # Igual que en las invitaciones: no registrar correo, nombres ni el error del proveedor.
+        logger.warning("No se pudo avisar a la familia del grupo %s", grupo.pk)
+        return "fallido"
+    return "enviado"
+
+
 @api_view(["POST"])
 @throttle_classes([LimiteBusquedaFamilias])
 def agregar_miembros(request, grupo_id):
@@ -240,7 +297,12 @@ def agregar_miembros(request, grupo_id):
         except IntegrityError:
             # Otro profesor lo agregó en el mismo instante; la restricción de la base manda.
             raise Conflicto("Uno de los niños " + EN_OTRO_CURSO)
-    return Response(datos_grupo(grupo, detalle=True), status=201 if nuevos else 200)
+    # Fuera del atomic: el aviso sale solo si la incorporación quedó guardada, y un
+    # proveedor lento no deja la transacción (ni los bloqueos) abierta.
+    aviso = avisar_familia(grupo, nuevos) if nuevos else "sin_cambios"
+    datos = datos_grupo(grupo, detalle=True)
+    datos["aviso_familia"] = aviso
+    return Response(datos, status=201 if nuevos else 200)
 
 
 @api_view(["POST"])
