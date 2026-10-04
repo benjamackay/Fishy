@@ -168,6 +168,12 @@ namespace Fishy.Phone
             else
                 yield return PhoneSequenceDirecta();
 
+            // Antes de avisar: al cerrar el chat se completa su misión, y si esa misión
+            // se bifurca según cómo terminó el reto, la decisión se toma en este mismo
+            // frame (ver MisionRegistro.desbloquea_si_acepta).
+            RechazosEnChats.Anotar(EscenariosPedidos(),
+                ChatModuleController.Instance != null ? ChatModuleController.Instance.UltimaEleccion : null);
+
             onChatClosed?.Invoke();
             _sequenceRunning = false;
             _terminoEnFrame = Time.frameCount;

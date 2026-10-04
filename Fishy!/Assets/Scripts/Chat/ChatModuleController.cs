@@ -82,6 +82,17 @@ namespace Fishy.Chat
         /// </summary>
         public event Action<float> OnSesionCerrada;
 
+        /// <summary>
+        /// Seguridad de la última respuesta que eligió el jugador en esta sesión, o null
+        /// si cerró sin elegir ninguna. Se conserva hasta que se abre la siguiente sesión,
+        /// así que quien se entera de que el chat terminó todavía puede leerla.
+        ///
+        /// La última y no un promedio: un reto se gana o se pierde por cómo TERMINA. Es la
+        /// misma regla que usa el backend para el contador de rechazos, donde una duda
+        /// seguida de un "no" cuenta como rechazo.
+        /// </summary>
+        public OptionSafety? UltimaEleccion { get; private set; }
+
         private ChatModuleUI ui;
         private OttoMoodController ottoMood;
         private readonly Queue<ChatConversation> queue = new Queue<ChatConversation>();
@@ -128,6 +139,7 @@ namespace Fishy.Chat
             ottoMood = otto != null ? otto : FindAnyObjectByType<OttoMoodController>();
             safeCount = 0;
             unsafeCount = 0;
+            UltimaEleccion = null;
 
             desafioActual = desafio;
             if (desafioActual != null)
@@ -338,6 +350,8 @@ namespace Fishy.Chat
 
             ui.PostChild(option.text);
             ui.ClearOptions();
+
+            UltimaEleccion = option.safety;
 
             if (option.CountsForScore)
             {
