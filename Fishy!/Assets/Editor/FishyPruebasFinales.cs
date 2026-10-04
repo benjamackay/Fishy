@@ -42,6 +42,8 @@ namespace Fishy.EditorTools
             log.AppendLine(new string('=', 70));
 
             ProbarUmbrales(log);
+            ProbarMaximoDelBanco(log);
+            ProbarPorcentajeConPisoYTope(log);
             ProbarSinPorcentajeVaElDelMedio(log);
             ProbarDisparadores(log);
             ProbarRecompensasExisten(log);
@@ -91,10 +93,33 @@ namespace Fishy.EditorTools
             Comprobar(log, "A desde 70 %, B desde 40 %, C debajo", todos, todos ? "" : detalle);
         }
 
+        /// <summary>
+        /// La mejor ruta de los 8 chats con decisión suma 18 (M1 y M4 fase 1 dan 3 por
+        /// el seguimiento; las dos variantes de la Misión 6 cuentan una vez). El backend
+        /// aplica la misma regla y tiene una prueba con el mismo número.
+        /// </summary>
+        private static void ProbarMaximoDelBanco(StringBuilder log)
+        {
+            int maximo = SistemaDeFinales.PuntosMaximos(BancoPreguntasLoader.Load());
+            Comprobar(log, "El máximo posible, calculado desde el banco, es 18", maximo == 18, $"{maximo}");
+        }
+
+        private static void ProbarPorcentajeConPisoYTope(StringBuilder log)
+        {
+            float? negativo = SistemaDeFinales.Porcentaje(-4, 18);
+            float? ejemplo = SistemaDeFinales.Porcentaje(16, 18);
+            float? pasado = SistemaDeFinales.Porcentaje(25, 18);
+            float? sinMaximo = SistemaDeFinales.Porcentaje(5, 0);
+            bool bien = negativo == 0f && Mathf.Abs(ejemplo.Value - 88.89f) < 0.01f
+                        && pasado == 100f && sinMaximo == null;
+            Comprobar(log, "Negativo cuenta como 0, 16 de 18 es 89 %, tope en 100", bien,
+                $"{negativo} / {ejemplo} / {pasado} / {(sinMaximo.HasValue ? sinMaximo.ToString() : "null")}");
+        }
+
         private static void ProbarSinPorcentajeVaElDelMedio(StringBuilder log)
         {
             string id = SistemaDeFinales.ElegirFinal(Finales(), null)?.id;
-            Comprobar(log, "Sin decisiones contadas se muestra el Final B", id == "FINAL_B", id);
+            Comprobar(log, "Sin porcentaje se muestra el Final B", id == "FINAL_B", id);
         }
 
         /// <summary>

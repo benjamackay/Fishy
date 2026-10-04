@@ -475,30 +475,33 @@ la opción elegida —como el módulo de diálogo antiguo de Desconocidos, con n
 escritos a mano (`a0`, `a1`, …) que no existen en el banco— quedan fuera del
 cálculo a propósito, en vez de contribuir con datos inventados.
 
-**GET `/partidas/{partida_id}/decisiones-seguras/`** — Porcentaje que elige el final (HDU-09)
+**GET `/partidas/{partida_id}/puntaje-final/`** — Puntaje que elige el final (HDU-09)
 
-Lo pide `SistemaDeFinales` al terminar la Misión 6. Cuenta **cada decisión** de las
-tres zonas del recorrido (`desconocidos`, `ciberacoso`, `reto_viral`); las `dudosa`
-no suman ni restan: `porcentaje = seguras / (seguras + inseguras) × 100`.
+Lo pide `SistemaDeFinales` al terminar la Misión 6. Son los mismos puntos del chat que
+mueven el estado de Otto: cada opción elegida suma su `impacto_puntuacion` (+2, +1, 0,
+-1), las respuestas de seguimiento incluidas, en las tres zonas del recorrido. Un total
+negativo cuenta como 0.
+
+`puntos_maximos` es lo que sumaría quien elige la mejor ruta en cada chat, calculado
+desde el banco (hoy 18). Las variantes `_BASE` de un escenario (`M6_DECISION01_BASE`)
+cuentan una sola vez, porque se juega una u otra.
+
+`porcentaje = puntos / puntos_maximos × 100`, con tope en 100.
 
 ```json
 {
   "partida_id": 1,
-  "seguras": 9,
-  "inseguras": 3,
-  "dudosas": 2,
-  "porcentaje": 75.0,
-  "por_zona": {
-    "desconocidos": {"seguras": 4, "inseguras": 1, "dudosas": 1},
-    "ciberacoso":   {"seguras": 3, "inseguras": 1, "dudosas": 0},
-    "reto_viral":   {"seguras": 2, "inseguras": 1, "dudosas": 1}
-  }
+  "puntos": 16,
+  "puntos_brutos": 16,
+  "puntos_maximos": 18,
+  "porcentaje": 88.9,
+  "decisiones": 9,
+  "por_zona": {"desconocidos": 5, "ciberacoso": 6, "reto_viral": 5}
 }
 ```
 
-`porcentaje` es `null` si no hay ninguna decisión contada. Qué final corresponde a
-cada porcentaje no lo decide el backend: los umbrales son contenido y viven en
-`finales_narrativos` del banco (A desde 70, B desde 40, C debajo).
+Qué final corresponde a cada porcentaje no lo decide el backend: los umbrales son
+contenido y viven en `finales_narrativos` del banco (A desde 70, B desde 40, C debajo).
 
 **GET `/partidas/{partida_id}/oportunidades-mejora/`** — Decisiones inseguras
 

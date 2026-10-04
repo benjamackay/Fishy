@@ -34,6 +34,10 @@ namespace Fishy.Chat
                  "real del banco. Vacío en conversaciones escritas a mano.")]
         public string bancoOptionId;
 
+        [Tooltip("Puntos de esta opción en el banco (+2, +1, 0, -1). Los suma el " +
+                 "sistema de finales cuando no hay servidor.")]
+        public int impacto;
+
         public ChatOption() { }
         public ChatOption(string text, OptionSafety safety, string nextNodeId,
             string bancoOptionId = null)

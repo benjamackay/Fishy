@@ -91,13 +91,12 @@ namespace Fishy.Chat
         public static event Action<string> OnCierreNarrativo;
 
         /// <summary>
-        /// Decisiones seguras e inseguras contadas en esta ejecución del juego, con el
-        /// mismo criterio que el estado de Otto (las dudosas no cuentan). Es solo el
-        /// respaldo del sistema de finales cuando no hay servidor: el dato bueno sale
-        /// del backend, que recuerda también las sesiones anteriores.
+        /// Puntos de chat sumados en esta ejecución del juego: el impacto de cada
+        /// opción elegida (+2, +1, 0, -1), seguimiento incluido. Es solo el respaldo
+        /// del sistema de finales cuando no hay servidor: el dato bueno sale del
+        /// backend, que recuerda también las sesiones anteriores.
         /// </summary>
-        public static int SegurasEnLaSesion   { get; private set; }
-        public static int InsegurasEnLaSesion { get; private set; }
+        public static int PuntosEnLaSesion { get; private set; }
 
         private ChatModuleUI ui;
         private OttoMoodController ottoMood;
@@ -364,10 +363,12 @@ namespace Fishy.Chat
             ui.PostChild(option.text);
             ui.ClearOptions();
 
+            PuntosEnLaSesion += option.impacto;
+
             if (option.CountsForScore)
             {
-                if (option.safety == OptionSafety.Safe) { safeCount++; SegurasEnLaSesion++; }
-                else { unsafeCount++; InsegurasEnLaSesion++; }
+                if (option.safety == OptionSafety.Safe) safeCount++;
+                else unsafeCount++;
             }
 
             // Registra la respuesta del jugador vinculada al nodo-pregunta que la

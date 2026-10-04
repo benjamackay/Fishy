@@ -1936,7 +1936,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] Otto vuelve a la orilla con ayuda. El cofre sigue ahí, y la aventura también.",
+      "mensaje_npc": "[SISTEMA] Otto vuelve a la orilla con ayuda.",
       "etiquetas_ml": [
         "fin_npc",
         "fallo"
@@ -2113,7 +2113,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] Otto vuelve a la orilla con ayuda. El cofre sigue ahí, y la aventura también.",
+      "mensaje_npc": "[SISTEMA] Otto vuelve a la orilla con ayuda.",
       "etiquetas_ml": [
         "fin_npc",
         "fallo"
@@ -2123,7 +2123,7 @@
     }
   ],
   "finales_narrativos": {
-    "nota": "Al terminar la Misión 6, por cualquier rama, se calcula el porcentaje de decisiones seguras de las tres zonas (seguras / (seguras + inseguras); las dudosas no cuentan) y se muestra el primer final cuyo porcentaje_minimo se alcance. En los tres Otto recupera la brújula; solo cambia cómo se ve. La recompensa sale del final y no de la opción elegida en la Misión 6.",
+    "nota": "Al terminar la Misión 6, por cualquier rama, se suman los puntos de todas las opciones elegidas en los chats de las tres zonas (impacto_puntuacion, respuestas de seguimiento incluidas; un total negativo cuenta como 0) y se dividen por el máximo posible: lo que sumaría quien elige la mejor ruta en cada chat, calculado desde el banco (las variantes _BASE de un escenario cuentan una sola vez, porque se juega una u otra). Se muestra el primer final cuyo porcentaje_minimo se alcance. En los tres Otto recupera la brújula; solo cambia cómo se ve. La recompensa sale del final.",
     "disparan_al_terminar": [
       "M6_DECISION01",
       "M6_DECISION01_BASE"

@@ -1224,12 +1224,12 @@ namespace Fishy.Net
         }
 
         /// <summary>
-        /// Porcentaje de decisiones seguras de las tres zonas, para elegir el final
-        /// (HDU-09). En modo local no hay historial: avisa por onError y quien llama
-        /// usa lo que haya contado en la sesion.
+        /// Puntaje de la aventura completa (puntos de chat de las tres zonas sobre el
+        /// maximo posible), para elegir el final (HDU-09). En modo local no hay
+        /// historial: avisa por onError y quien llama usa lo que sumo en la sesion.
         /// </summary>
-        public void ObtenerDecisionesSeguras(int? partidaId = null,
-            Action<DecisionesSegurasDto> onSuccess = null, Action<string> onError = null)
+        public void ObtenerPuntajeFinal(int? partidaId = null,
+            Action<PuntajeFinalDto> onSuccess = null, Action<string> onError = null)
         {
             int? pId = partidaId ?? PartidaId;
             if (!RequireId(pId, "PartidaId", onError)) return;
@@ -1240,7 +1240,7 @@ namespace Fishy.Net
                 return;
             }
 
-            StartCoroutine(Send<DecisionesSegurasDto>("GET", $"/partidas/{pId}/decisiones-seguras/",
+            StartCoroutine(Send<PuntajeFinalDto>("GET", $"/partidas/{pId}/puntaje-final/",
                 null, auth: true, onSuccess: onSuccess, onError: onError));
         }
 
@@ -2357,13 +2357,14 @@ namespace Fishy.Net
     /// los dos lados. NO renombrarlo por prolijidad.
     /// </summary>
     [Serializable]
-    public class DecisionesSegurasDto
+    public class PuntajeFinalDto
     {
         public int    partida_id;
-        public int    seguras;
-        public int    inseguras;
-        public int    dudosas;
-        public float? porcentaje;   // null si no hay decisiones contadas
+        public int    puntos;           // ya con el piso en 0
+        public int    puntos_brutos;    // la suma tal cual, puede ser negativa
+        public int    puntos_maximos;   // mejor ruta de cada chat, desde el banco
+        public float? porcentaje;       // null si el banco no tiene decisiones
+        public int    decisiones;
     }
 
     public class PresionSocialDto

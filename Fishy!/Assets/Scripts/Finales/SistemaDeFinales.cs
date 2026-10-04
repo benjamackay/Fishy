@@ -13,8 +13,8 @@ namespace Fishy.Finales
 {
     /// <summary>
     /// Sistema de Finales Narrativos (HDU-09): al terminar la Misión 6, por la rama
-    /// que sea, muestra el Final A, B o C según el porcentaje de decisiones seguras
-    /// de las tres zonas, y entrega su recompensa.
+    /// que sea, muestra el Final A, B o C según el puntaje de chat de las tres zonas
+    /// sobre el máximo posible, y entrega su recompensa.
     ///
     /// <b>Todo lo que es contenido sale del banco</b> (<c>finales_narrativos</c>): los
     /// textos, los umbrales, la recompensa y qué escenarios lo disparan. Aquí solo
@@ -26,11 +26,14 @@ namespace Fishy.Finales
     /// nada. Espera a que el chat y el zoom del celular terminen para no aparecer
     /// encima.
     ///
-    /// <b>El porcentaje</b> lo calcula el backend (<c>/decisiones-seguras/</c>) a
-    /// partir de lo guardado, porque la aventura se juega en varias sesiones. Antes
-    /// de pedirlo se vacía la cola de guardado: la decisión de la Misión 6 se acaba
-    /// de tomar y si no subió, no contaría. Sin servidor se usa lo contado en esta
-    /// ejecución (<see cref="ChatModuleController.SegurasEnLaSesion"/>).
+    /// <b>El porcentaje</b> son los puntos de chat (+2, +1, 0, -1 por opción,
+    /// seguimiento incluido; negativo cuenta como 0) sobre lo que sumaría la mejor
+    /// ruta de cada chat. Lo calcula el backend (<c>/puntaje-final/</c>) a partir de
+    /// lo guardado, porque la aventura se juega en varias sesiones. Antes de pedirlo
+    /// se vacía la cola de guardado: la decisión de la Misión 6 se acaba de tomar y
+    /// si no subió, no contaría. Sin servidor se usa lo sumado en esta ejecución
+    /// (<see cref="ChatModuleController.PuntosEnLaSesion"/>) sobre
+    /// <see cref="PuntosMaximos"/>, que aplica la misma regla al banco local.
     ///
     /// <b>Cómo se ve.</b> Usa el mismo panel de diálogo de los NPCs neutros, que ya
     /// está en la escena: se toma prestado del primer NPC que lo tenga. Una línea por
@@ -104,7 +107,7 @@ namespace Fishy.Finales
 
         /// <summary>
         /// El final que corresponde a <paramref name="porcentaje"/>: el de umbral más
-        /// alto que se alcance. Sin porcentaje (nadie contó ninguna decisión) va el
+        /// alto que se alcance. Sin porcentaje (no hay máximo con qué comparar) va el
         /// del medio: no hay con qué premiar ni con qué marcar, y el B es el que no
         /// afirma ninguna de las dos cosas.
         /// </summary>
@@ -123,6 +126,82 @@ namespace Fishy.Finales
                 if (porcentaje.Value >= f.porcentaje_minimo) return f;
 
             return ordenados[ordenados.Count - 1];
+        }
+
+        /// <summary>
+        /// Lo que sumaría quien elige la mejor ruta en cada chat de las tres zonas.
+        /// Misma regla que <c>puntos_maximos_del_recorrido</c> del backend: desde el
+        /// primer nodo de cada escenario, la opción que más suma contando lo que
+        /// viene después; las variantes <c>_BASE</c> cuentan una sola vez.
+        /// </summary>
+        public static int PuntosMaximos(BancoRaiz banco)
+        {
+            if (banco?.preguntas == null) return 0;
+
+            var porId = new Dictionary<string, PreguntaBanco>();
+            foreach (var p in banco.preguntas)
+                if (p != null && !string.IsNullOrEmpty(p.id) && Array.IndexOf(ZonasDelRecorrido, p.zona) >= 0)
+                    porId[p.id] = p;
+
+            int MejorDesde(string id, HashSet<string> vistos)
+            {
+                if (string.IsNullOrEmpty(id) || !porId.TryGetValue(id, out var p) || !vistos.Add(id))
+                    return 0;
+                try
+                {
+                    if (p.opciones_respuesta != null && p.opciones_respuesta.Count > 0)
+                    {
+                        int mejor = int.MinValue;
+                        foreach (var o in p.opciones_respuesta)
+                            mejor = Math.Max(mejor, o.impacto_puntuacion + MejorDesde(o.siguiente_pregunta, vistos));
+                        return mejor;
+                    }
+                    return MejorDesde(p.narrativa_continuacion, vistos);
+                }
+                finally { vistos.Remove(id); }
+            }
+
+            var escenarios = new HashSet<string>();
+            foreach (var p in porId.Values)
+                if (!string.IsNullOrEmpty(p.escenario_id)) escenarios.Add(p.escenario_id);
+
+            var porGrupo = new Dictionary<string, int>();
+            foreach (var escenario in escenarios)
+            {
+                var apuntados = new HashSet<string>();
+                foreach (var p in porId.Values)
+                {
+                    if (p.escenario_id != escenario) continue;
+                    if (!string.IsNullOrEmpty(p.narrativa_continuacion)) apuntados.Add(p.narrativa_continuacion);
+                    if (p.opciones_respuesta != null)
+                        foreach (var o in p.opciones_respuesta) apuntados.Add(o.siguiente_pregunta);
+                }
+
+                int maximo = 0;
+                foreach (var p in porId.Values)
+                    if (p.escenario_id == escenario && !apuntados.Contains(p.id))
+                        maximo = Math.Max(maximo, MejorDesde(p.id, new HashSet<string>()));
+
+                string grupo = escenario.EndsWith(SufijoVariante)
+                    ? escenario.Substring(0, escenario.Length - SufijoVariante.Length)
+                    : escenario;
+                porGrupo[grupo] = porGrupo.TryGetValue(grupo, out int previo) ? Math.Max(previo, maximo) : maximo;
+            }
+
+            int total = 0;
+            foreach (int v in porGrupo.Values) total += v;
+            return total;
+        }
+
+        private static readonly string[] ZonasDelRecorrido = { "desconocidos", "ciberacoso", "reto_viral" };
+        private const string SufijoVariante = "_BASE";
+
+        /// <summary>Puntos sobre máximo, en %, con piso en 0 y tope en 100. Null si
+        /// no hay máximo (un banco sin decisiones).</summary>
+        public static float? Porcentaje(int puntos, int maximo)
+        {
+            if (maximo <= 0) return null;
+            return Mathf.Min(100f, 100f * Mathf.Max(0, puntos) / maximo);
         }
 
         /// <summary>Nombre que se muestra sobre la línea: "Huemul (por radio)".</summary>
@@ -170,7 +249,7 @@ namespace Fishy.Finales
             if (verboseLogs)
                 Debug.Log($"[Finales] {final.id} ({final.nombre}) con " +
                           $"{(porcentaje.HasValue ? porcentaje.Value.ToString("0.#") + " %" : "porcentaje desconocido")} " +
-                          $"de decisiones seguras ({origen}).", this);
+                          $"del puntaje máximo ({origen}).", this);
 
             // 3. Las líneas, y al final la recompensa.
             yield return MostrarLineas(final);
@@ -190,8 +269,8 @@ namespace Fishy.Finales
                     yield return cola.Vaciar("finales", topeGuardado, reintentarSiFalla: true);
 
                 bool respondio = false;
-                DecisionesSegurasDto dto = null;
-                api.ObtenerDecisionesSeguras(
+                PuntajeFinalDto dto = null;
+                api.ObtenerPuntajeFinal(
                     onSuccess: d => { dto = d; respondio = true; },
                     onError: e =>
                     {
@@ -205,15 +284,14 @@ namespace Fishy.Finales
 
                 if (dto != null && dto.porcentaje.HasValue)
                 {
-                    listo(dto.porcentaje, "servidor");
+                    listo(dto.porcentaje, $"servidor: {dto.puntos} de {dto.puntos_maximos} puntos");
                     yield break;
                 }
             }
 
-            int seguras = ChatModuleController.SegurasEnLaSesion;
-            int contadas = seguras + ChatModuleController.InsegurasEnLaSesion;
-            if (contadas > 0) listo(100f * seguras / contadas, "esta sesión");
-            else              listo(null, "sin decisiones contadas");
+            int puntos = ChatModuleController.PuntosEnLaSesion;
+            int maximo = PuntosMaximos(BancoPreguntasLoader.Load());
+            listo(Porcentaje(puntos, maximo), $"esta sesión: {puntos} de {maximo} puntos");
         }
 
         // ── Pantalla ──────────────────────────────────────────────────────────

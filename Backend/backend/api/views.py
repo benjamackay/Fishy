@@ -1378,31 +1378,82 @@ UMBRAL_RECHAZOS = 2
 NIVEL_PRESION_MAXIMO = 2
 
 ZONAS_DEL_RECORRIDO = ("desconocidos", "ciberacoso", "reto_viral")
-SEGURAS = ("segura_optima", "segura_basica")
+SUFIJO_VARIANTE = "_BASE"
+
+
+def puntos_maximos_del_recorrido():
+    """
+    Lo que sumaría quien elige la mejor ruta en cada chat de las tres zonas.
+
+    Se calcula desde el banco y no se escribe fijo, porque algunas misiones suman
+    más con las respuestas de seguimiento (M1: +2 y después +1). Para cada
+    escenario se recorre el árbol desde su primer nodo —el que ninguna opción
+    apunta— y en cada pregunta se toma la opción que más suma contando lo que
+    viene después.
+
+    Las variantes de un mismo escenario (`M6_DECISION01` y `M6_DECISION01_BASE`)
+    son alternativas: se juega una u otra según la presión acumulada. Cuentan una
+    sola vez, con la que más da.
+
+    Devuelve (total, {escenario: máximo}).
+    """
+    preguntas = {
+        p.pregunta_id: p
+        for p in PreguntaBanco.objects
+        .filter(zona__in=ZONAS_DEL_RECORRIDO)
+        .prefetch_related("opciones")
+    }
+
+    def mejor_desde(pid, vistos):
+        p = preguntas.get(pid)
+        if p is None or pid in vistos:
+            return 0
+        vistos = vistos | {pid}
+        opciones = list(p.opciones.all())
+        if opciones:
+            return max(o.impacto_puntuacion + mejor_desde(o.siguiente_pregunta, vistos)
+                       for o in opciones)
+        return mejor_desde(p.narrativa_continuacion, vistos) if p.narrativa_continuacion else 0
+
+    por_escenario = {}
+    escenarios = {p.escenario_id for p in preguntas.values() if p.escenario_id}
+    for escenario in escenarios:
+        del_escenario = [p for p in preguntas.values() if p.escenario_id == escenario]
+        apuntados = {o.siguiente_pregunta for p in del_escenario for o in p.opciones.all()}
+        apuntados |= {p.narrativa_continuacion for p in del_escenario}
+        raices = [p.pregunta_id for p in del_escenario if p.pregunta_id not in apuntados]
+        por_escenario[escenario] = max((mejor_desde(r, frozenset()) for r in raices), default=0)
+
+    por_grupo = {}
+    for escenario, maximo in por_escenario.items():
+        grupo = escenario[:-len(SUFIJO_VARIANTE)] if escenario.endswith(SUFIJO_VARIANTE) else escenario
+        por_grupo[grupo] = max(por_grupo.get(grupo, 0), maximo)
+
+    return sum(por_grupo.values()), por_escenario
 
 
 @api_view(["GET"])
-def decisiones_seguras(request, partida_id):
+def puntaje_final(request, partida_id):
     """
-    Porcentaje de decisiones seguras de las tres zonas, para elegir el final
-    (HDU-09) al terminar la Misión 6.
+    Puntaje de la aventura completa, para elegir el final (HDU-09) al terminar la
+    Misión 6.
+
+    Son los mismos puntos del chat que ya mueven el estado de Otto: cada opción
+    elegida suma su `impacto_puntuacion` (+2, +1, 0 o -1), las respuestas de
+    seguimiento incluidas. Se suman las tres zonas; si el total da negativo, cuenta
+    como 0. El porcentaje es ese total sobre `puntos_maximos_del_recorrido()`, con
+    tope en 100 por si se repitió algún chat.
 
     Se deriva de los `Mensaje` con `opcion_banco_id`, igual que `presion_social`:
-    el recorrido se juega en varias sesiones, así que un contador de Unity
+    la aventura se juega en varias sesiones, así que un contador de Unity
     arrancaría en cero cada vez que se retoma la partida.
-
-    Cuenta **cada decisión**, no cada NPC: el final resume cómo eligió el niño/a a
-    lo largo de toda la aventura, sub-decisiones incluidas. Las `dudosa` no suman
-    ni restan, igual que en el estado de Otto dentro del chat
-    (`ChatOption.CountsForScore`): porcentaje = seguras / (seguras + inseguras).
-    Sin decisiones contadas, `porcentaje` es null y el juego decide qué hacer.
 
     Qué final corresponde a cada porcentaje NO se decide aquí: los umbrales son
     contenido y viven en `finales_narrativos` del banco, junto a los textos.
 
     Respuesta:
-    {"partida_id": 1, "seguras": 9, "inseguras": 3, "dudosas": 2,
-     "porcentaje": 75.0, "por_zona": {"desconocidos": {...}, ...}}
+    {"partida_id": 1, "puntos": 16, "puntos_brutos": 16, "puntos_maximos": 18,
+     "porcentaje": 88.9, "decisiones": 9, "por_zona": {"desconocidos": 5, ...}}
     """
     partida = get_object_or_404(
         Partida, pk=partida_id, usuario_jugador__adulto=request.user
@@ -1422,30 +1473,26 @@ def decisiones_seguras(request, partida_id):
         .select_related("pregunta")
     }
 
-    por_zona = {z: {"seguras": 0, "inseguras": 0, "dudosas": 0} for z in ZONAS_DEL_RECORRIDO}
+    por_zona = {z: 0 for z in ZONAS_DEL_RECORRIDO}
+    decisiones = 0
     for opcion_id in elegidos:
         opcion = opciones.get(opcion_id)
         if opcion is None or opcion.pregunta.zona not in por_zona:
             continue  # contenido retirado del banco, o una zona fuera del recorrido
-        cuenta = por_zona[opcion.pregunta.zona]
-        if opcion.tipo in SEGURAS:
-            cuenta["seguras"] += 1
-        elif opcion.tipo == "insegura":
-            cuenta["inseguras"] += 1
-        elif opcion.tipo == "dudosa":
-            cuenta["dudosas"] += 1
+        por_zona[opcion.pregunta.zona] += opcion.impacto_puntuacion
+        decisiones += 1
 
-    seguras = sum(c["seguras"] for c in por_zona.values())
-    inseguras = sum(c["inseguras"] for c in por_zona.values())
-    dudosas = sum(c["dudosas"] for c in por_zona.values())
-    contadas = seguras + inseguras
+    brutos = sum(por_zona.values())
+    puntos = max(0, brutos)
+    maximos, _ = puntos_maximos_del_recorrido()
 
     return Response({
         "partida_id": partida.pk,
-        "seguras": seguras,
-        "inseguras": inseguras,
-        "dudosas": dudosas,
-        "porcentaje": round(100.0 * seguras / contadas, 1) if contadas else None,
+        "puntos": puntos,
+        "puntos_brutos": brutos,
+        "puntos_maximos": maximos,
+        "porcentaje": round(min(100.0, 100.0 * puntos / maximos), 1) if maximos else None,
+        "decisiones": decisiones,
         "por_zona": por_zona,
     })
 
