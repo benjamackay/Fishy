@@ -262,6 +262,12 @@ def verificar_album(data):
             esperadas[f"ALB_{d['mision_desbloquea']}"] = premio[0]
             esperadas_por_mision += 1
 
+    esperadas_por_final = 0
+    for f in (data.get("finales_narrativos") or {}).get("finales", []):
+        if (f.get("recompensa") or "").strip():
+            esperadas[f"ALB_{f['id']}"] = f["recompensa"].strip()
+            esperadas_por_final += 1
+
     en_bd = {r.recompensa_id: r for r in RecompensaAlbum.objects.all()}
     comparar("cantidad de recompensas", len(esperadas), len(en_bd))
 
@@ -283,11 +289,13 @@ def verificar_album(data):
     # que el cargador esté llenando el origen correcto y no dejando todo en uno.
     por_mision = sum(1 for r in en_bd.values() if r.mision_id is not None)
     por_opcion = sum(1 for r in en_bd.values() if r.opcion_banco_id)
+    por_final = sum(1 for r in en_bd.values() if r.final_id)
     # Los esperados salen del JSON y no de un número escrito acá: el banco 2.5
     # pasó de 6 a 8 recompensas por opción y esta comprobación se puso roja sin
     # que nada estuviera mal.
     comparar("recompensas con origen en una misión", esperadas_por_mision, por_mision)
     comparar("recompensas con origen en una opción", esperadas_por_opcion, por_opcion)
+    comparar("recompensas con origen en un final", esperadas_por_final, por_final)
 
     # El texto libre del que salen es frágil: si el banco cambia la redacción, lo
     # correcto es que el cargador falle, no que guarde un nombre vacío o raro.
@@ -306,7 +314,9 @@ def verificar_album(data):
     ) + sum(
         1 for d in data.get("dialogos_npc_neutros", []) if menciona_album(d.get("pista_mision") or "")
     )
-    comparar("textos del banco que mencionan el álbum vs recompensas cargadas", menciones, len(en_bd))
+    # Las de los finales no vienen de texto libre: se suman aparte.
+    comparar("textos del banco que mencionan el álbum (+ finales) vs recompensas cargadas",
+             menciones + esperadas_por_final, len(en_bd))
 
 
 def main():

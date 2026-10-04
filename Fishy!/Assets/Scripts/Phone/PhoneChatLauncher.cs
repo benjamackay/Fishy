@@ -97,6 +97,13 @@ namespace Fishy.Phone
         private PhoneZoomController _zoom;
         private bool               _sequenceRunning;
 
+        /// <summary>
+        /// Cuántas secuencias de chat están en curso en toda la escena, incluido el
+        /// zoom de vuelta al mundo. Lo mira el sistema de finales para no aparecer
+        /// encima del celular cuando la Misión 6 termina.
+        /// </summary>
+        public static int SecuenciasEnCurso { get; private set; }
+
         // ── Unity ──────────────────────────────────────────────────────────────
         private void Awake()
         {
@@ -154,6 +161,7 @@ namespace Fishy.Phone
         private IEnumerator PhoneSequence()
         {
             _sequenceRunning = true;
+            SecuenciasEnCurso++;
 
             // Con variantes, el contenido depende de cómo viene jugando el niño/a (ver
             // VariablesJugador), y ese valor sólo se refresca al cambiar de zona: los
@@ -170,6 +178,7 @@ namespace Fishy.Phone
 
             onChatClosed?.Invoke();
             _sequenceRunning = false;
+            SecuenciasEnCurso = Mathf.Max(0, SecuenciasEnCurso - 1);
             _terminoEnFrame = Time.frameCount;
         }
 

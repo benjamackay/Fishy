@@ -234,7 +234,9 @@ public class ObjetivoMision
                      FindObjectsInactive.Include))
         {
             if (candidato == null) continue;
-            if (string.Equals(candidato.dialogoId, dialogoId, StringComparison.Ordinal))
+            // También los que lo dicen más adelante: Coipo lleva su testimonio en
+            // la lista de diálogos siguientes, no en dialogoId.
+            if (candidato.DiceDialogo(dialogoId))
                 return candidato;
         }
         return null;
@@ -501,6 +503,19 @@ public class ObjetivoMision
     /// Vive aquí y no en MissionTracker para que sumar un tipo de objetivo nuevo sea
     /// tocar un solo archivo.
     /// </summary>
+    /// <summary>
+    /// Si el evento que acaba de dispararse cumple de verdad este objetivo. Casi
+    /// siempre sí; la excepción es un NPC con varios diálogos, cuyo onDialogueEnded
+    /// salta al terminar cualquiera de ellos: solo cuenta el que este objetivo pide.
+    /// </summary>
+    public bool AceptaElEvento()
+    {
+        if (tipo != TipoObjetivo.HablarConNpc || npc == null || !npc.TieneVariosDialogos)
+            return true;
+        return string.Equals(npc.UltimoDialogoTerminado, dialogoNpcId?.Trim(),
+                             StringComparison.Ordinal);
+    }
+
     public UnityEvent EventoQueLoCumple()
     {
         switch (tipo)

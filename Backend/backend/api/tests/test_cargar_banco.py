@@ -114,7 +114,7 @@ class CargaCompletaTests(TestCase):
         self.assertNotIn("NO carga", salida)
 
     def test_extrae_todas_las_recompensas_de_album(self):
-        self.assertEqual(RecompensaAlbum.objects.count(), 13)
+        self.assertEqual(RecompensaAlbum.objects.count(), 15)
         self.assertFalse(
             RecompensaAlbum.objects.filter(nombre="").exists(),
             "una recompensa quedó sin nombre: el parseo del texto libre se rompió",
@@ -123,9 +123,23 @@ class CargaCompletaTests(TestCase):
     def test_cada_recompensa_tiene_exactamente_un_origen(self):
         por_mision = RecompensaAlbum.objects.filter(mision__isnull=False).count()
         por_opcion = RecompensaAlbum.objects.exclude(opcion_banco_id="").count()
+        por_final = RecompensaAlbum.objects.exclude(final_id="").count()
         self.assertEqual(por_mision, 6)
-        self.assertEqual(por_opcion, 7)
-        self.assertEqual(por_mision + por_opcion, RecompensaAlbum.objects.count())
+        self.assertEqual(por_opcion, 6)
+        self.assertEqual(por_final, 3)
+        self.assertEqual(por_mision + por_opcion + por_final, RecompensaAlbum.objects.count())
+
+    def test_la_medalla_dorada_sale_del_final_y_no_de_la_mision_6(self):
+        """El banco dice "Medalla Dorada (o la que corresponda)": depende del
+        puntaje de toda la aventura. Si la entregara la opción óptima de la
+        Misión 6, un final B se llevaría también la dorada."""
+        dorada = RecompensaAlbum.objects.get(nombre="Medalla Dorada de Gran Detective Digital")
+        self.assertEqual(dorada.final_id, "FINAL_A")
+        self.assertEqual(dorada.opcion_banco_id, "")
+        self.assertEqual(
+            set(RecompensaAlbum.objects.exclude(final_id="").values_list("final_id", flat=True)),
+            {"FINAL_A", "FINAL_B", "FINAL_C"},
+        )
 
 
 class RecargaTests(TestCase):
@@ -211,7 +225,7 @@ class FallaRuidosaTests(TestCase):
         """Los diálogos sin recompensa (el guía Huemul) son normales."""
         ruta = self._banco_con("Sigue las huellas hasta el río.")
         cargar(archivo=ruta)
-        self.assertEqual(RecompensaAlbum.objects.count(), 12)
+        self.assertEqual(RecompensaAlbum.objects.count(), 14)
 
     def test_avisa_de_bloques_del_json_que_no_sabe_cargar(self):
         """El modo de falla original: ignorar contenido en silencio."""

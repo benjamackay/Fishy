@@ -1821,7 +1821,7 @@
           "id": "HDU4_NPC06_Q01_R1",
           "texto": "Esto está medio Fishy desde el principio. Rechazo el salto y descifro el cofre con las pistas seguras que ya reuní.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Lobo Marino reconoce: 'Tenías razón... la valentía era saber decir que no.' Álbum: desbloquea la 'Medalla Dorada de Gran Detective Digital'. Otto abre el cofre y recupera la brújula dorada.",
+          "consecuencia_narrativa": "Lobo Marino reconoce: 'Tenías razón... la valentía era saber decir que no.' Otto abre el cofre y recupera la brújula dorada.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU4_NPC06_FIN_SEGURO"
         },
@@ -2123,12 +2123,17 @@
     }
   ],
   "finales_narrativos": {
-    "nota": "Al completar la Misión 6 se evalúa el puntaje acumulado de las tres zonas y se muestra uno de estos tres cierres. Ninguno es punitivo: en los tres Otto recupera la brújula. El resumen de la Zona 3 va integrado aquí, con el aviso del bloc de notas.",
+    "nota": "Al terminar la Misión 6, por cualquier rama, se calcula el porcentaje de decisiones seguras de las tres zonas (seguras / (seguras + inseguras); las dudosas no cuentan) y se muestra el primer final cuyo porcentaje_minimo se alcance. En los tres Otto recupera la brújula; solo cambia cómo se ve. La recompensa sale del final y no de la opción elegida en la Misión 6.",
+    "disparan_al_terminar": [
+      "M6_DECISION01",
+      "M6_DECISION01_BASE"
+    ],
     "finales": [
       {
         "id": "FINAL_A",
         "nombre": "Detective Ejemplar",
         "nivel": "alto",
+        "porcentaje_minimo": 70,
         "lineas": [
           {
             "npc_nombre": "Foca de Weddell",
@@ -2147,12 +2152,14 @@
           }
         ],
         "recompensa": "Medalla Dorada de Gran Detective Digital",
+        "recompensa_item_id": "MEDALLA_DORADA_DETECTIVE",
         "permite_rejugar": false
       },
       {
         "id": "FINAL_B",
         "nombre": "Detective en Camino",
         "nivel": "medio",
+        "porcentaje_minimo": 40,
         "lineas": [
           {
             "npc_nombre": "Foca de Weddell",
@@ -2176,12 +2183,14 @@
           }
         ],
         "recompensa": "Medalla de Plata del Detective Precavido",
+        "recompensa_item_id": "MEDALLA_PLATA_DETECTIVE",
         "permite_rejugar": false
       },
       {
         "id": "FINAL_C",
         "nombre": "Detective en Formación",
         "nivel": "bajo",
+        "porcentaje_minimo": 0,
         "lineas": [
           {
             "npc_nombre": "Huemul",
@@ -2200,6 +2209,7 @@
           }
         ],
         "recompensa": "Insignia de Detective en Formación",
+        "recompensa_item_id": "INSIGNIA_DETECTIVE_FORMACION",
         "permite_rejugar": true
       }
     ]

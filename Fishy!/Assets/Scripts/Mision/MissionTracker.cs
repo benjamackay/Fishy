@@ -273,6 +273,7 @@ public class MissionTracker : MonoBehaviour
             {
                 if (generacion != _generacion) return;   // de una partida anterior
                 if (capturado.cumplido) return;
+                if (!capturado.AceptaElEvento()) return;   // otro diálogo del mismo NPC
                 capturado.cumplido = true;
                 if (verboseLogs)
                     Debug.Log($"[Misiones] Objetivo cumplido: {capturado.Describir()}", this);

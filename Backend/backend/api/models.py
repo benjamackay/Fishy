@@ -717,10 +717,11 @@ class DialogoNPC(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 # RECOMPENSA DE ALBUM  (catalogo — HDU-11 / HDU-12)
 #
-# Las 12 recompensas vienen de dos origenes distintos y excluyentes:
-#   - las 6 de misiones secundarias, desde `pista_mision` del dialogo  -> mision
-#   - las 6 de misiones principales, desde `consecuencia_narrativa`    -> opcion
-# Por eso los dos origenes son opcionales, con un check que obliga a tener
+# Las recompensas vienen de tres origenes distintos y excluyentes:
+#   - las de misiones secundarias, desde `pista_mision` del dialogo   -> mision
+#   - las de misiones principales, desde `consecuencia_narrativa`     -> opcion
+#   - las de los finales A/B/C, desde `finales_narrativos`            -> final
+# Por eso los tres origenes son opcionales, con un check que obliga a tener
 # exactamente uno. El `recompensa_id` se deriva del origen y no del nombre: el
 # nombre es texto que Luis puede reescribir, el id del origen es estable.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -741,6 +742,13 @@ class RecompensaAlbum(models.Model):
             "Mensaje.opcion_banco_id."
         ),
     )
+    final_id        = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text=(
+            "`id` del final (FINAL_A/B/C) que la entrega. La medalla depende del "
+            "puntaje de toda la aventura, no de la opcion que se elija en la Mision 6."
+        ),
+    )
 
     def __str__(self):
         return f"{self.recompensa_id} — {self.nombre}"
@@ -752,8 +760,9 @@ class RecompensaAlbum(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    models.Q(mision__isnull=False, opcion_banco_id="")
-                    | (models.Q(mision__isnull=True) & ~models.Q(opcion_banco_id=""))
+                    models.Q(mision__isnull=False, opcion_banco_id="", final_id="")
+                    | (models.Q(mision__isnull=True, final_id="") & ~models.Q(opcion_banco_id=""))
+                    | (models.Q(mision__isnull=True, opcion_banco_id="") & ~models.Q(final_id=""))
                 ),
                 name="recompensa_con_un_solo_origen",
             )

@@ -23,6 +23,45 @@ namespace Fishy.Chat
         /// hablaban con los NPCDialogue de relleno del inspector.
         /// </summary>
         public List<DialogoNeutroBanco> dialogos_npc_neutros = new List<DialogoNeutroBanco>();
+
+        /// <summary>Los tres finales (HDU-09) que se muestran al terminar la Misión 6.
+        /// Ver <see cref="Fishy.Finales.SistemaDeFinales"/>.</summary>
+        public FinalesNarrativos finales_narrativos = new FinalesNarrativos();
+    }
+
+    [System.Serializable]
+    public class FinalesNarrativos
+    {
+        public string nota;
+
+        /// <summary>escenario_id cuyos nodos FIN disparan los finales: las dos
+        /// variantes de la Misión 6 (con y sin la presión intensificada).</summary>
+        public List<string> disparan_al_terminar = new List<string>();
+
+        public List<FinalNarrativo> finales = new List<FinalNarrativo>();
+    }
+
+    /// <summary>Un final tal cual viene en el banco. Los textos ya dicen cómo se ve la
+    /// brújula (brilla, con manchas, opaca): es lo único que cambia entre los tres.</summary>
+    [System.Serializable]
+    public class FinalNarrativo
+    {
+        public string id;                 // "FINAL_A" | "FINAL_B" | "FINAL_C"
+        public string nombre;             // "Detective Ejemplar"
+        public string nivel;              // "alto" | "medio" | "bajo"
+        public int    porcentaje_minimo;  // % de decisiones seguras desde el que aplica
+        public List<LineaDeFinal> lineas = new List<LineaDeFinal>();
+        public string recompensa;         // nombre visible
+        public string recompensa_item_id; // ItemData de Resources/Items
+        public bool   permite_rejugar;
+    }
+
+    [System.Serializable]
+    public class LineaDeFinal
+    {
+        public string npc_nombre;
+        public bool   por_radio;
+        public string texto;
     }
 
     /// <summary>

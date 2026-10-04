@@ -1224,6 +1224,27 @@ namespace Fishy.Net
         }
 
         /// <summary>
+        /// Porcentaje de decisiones seguras de las tres zonas, para elegir el final
+        /// (HDU-09). En modo local no hay historial: avisa por onError y quien llama
+        /// usa lo que haya contado en la sesion.
+        /// </summary>
+        public void ObtenerDecisionesSeguras(int? partidaId = null,
+            Action<DecisionesSegurasDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: no hay historial de decisiones en el servidor.");
+                return;
+            }
+
+            StartCoroutine(Send<DecisionesSegurasDto>("GET", $"/partidas/{pId}/decisiones-seguras/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
         /// Marca que la interaccion con ese NPC termino. A diferencia de los objetos
         /// recogidos, repetir SI actualiza: un NPC con `repetible` puede rehacerse y
         /// vale el ultimo resultado.
@@ -2336,6 +2357,15 @@ namespace Fishy.Net
     /// los dos lados. NO renombrarlo por prolijidad.
     /// </summary>
     [Serializable]
+    public class DecisionesSegurasDto
+    {
+        public int    partida_id;
+        public int    seguras;
+        public int    inseguras;
+        public int    dudosas;
+        public float? porcentaje;   // null si no hay decisiones contadas
+    }
+
     public class PresionSocialDto
     {
         public int partida_id;

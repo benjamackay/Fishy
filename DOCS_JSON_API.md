@@ -475,6 +475,31 @@ la opción elegida —como el módulo de diálogo antiguo de Desconocidos, con n
 escritos a mano (`a0`, `a1`, …) que no existen en el banco— quedan fuera del
 cálculo a propósito, en vez de contribuir con datos inventados.
 
+**GET `/partidas/{partida_id}/decisiones-seguras/`** — Porcentaje que elige el final (HDU-09)
+
+Lo pide `SistemaDeFinales` al terminar la Misión 6. Cuenta **cada decisión** de las
+tres zonas del recorrido (`desconocidos`, `ciberacoso`, `reto_viral`); las `dudosa`
+no suman ni restan: `porcentaje = seguras / (seguras + inseguras) × 100`.
+
+```json
+{
+  "partida_id": 1,
+  "seguras": 9,
+  "inseguras": 3,
+  "dudosas": 2,
+  "porcentaje": 75.0,
+  "por_zona": {
+    "desconocidos": {"seguras": 4, "inseguras": 1, "dudosas": 1},
+    "ciberacoso":   {"seguras": 3, "inseguras": 1, "dudosas": 0},
+    "reto_viral":   {"seguras": 2, "inseguras": 1, "dudosas": 1}
+  }
+}
+```
+
+`porcentaje` es `null` si no hay ninguna decisión contada. Qué final corresponde a
+cada porcentaje no lo decide el backend: los umbrales son contenido y viven en
+`finales_narrativos` del banco (A desde 70, B desde 40, C debajo).
+
 **GET `/partidas/{partida_id}/oportunidades-mejora/`** — Decisiones inseguras
 
 Filtro opcional: `?zona=ciberacoso`

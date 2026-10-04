@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "nota": "Respaldo del catalogo de misiones: lo lee CatalogoMisiones cuando la base no responde, no hay sesion o se juega en modo local. Mismos campos que devuelve /misiones/. PENDIENTE DE REVISAR POR EL EQUIPO: (1) la mayoria de los 'objetivos' siguen vacios -el banco no los trae, y MISION_NPC_03/04 son las primeras escritas a mano ademas de MISION_EXPLORACION_01-, asi que falta escribir el resto como contenido nuevo; (2) el 'orden' esta puesto por progresion de zonas (desconocidos, ciberacoso, reto_viral) y con la exploracion antes que las secundarias de su zona, pero nadie lo ha confirmado como el orden narrativo; (3) el titulo de MISION_EXPLORACION_01 es un relleno, porque en el banco esa mision no tiene nombre; (4) hay una quinta categoria de objetivo, 'completar_caso_detective', que el banco no conoce -no viene de ahi, es del Modo Detective-, ver documentacion/README_CATALOGO_MISIONES.md; (5) hay dos campos opcionales nuevos por mision, 'desbloquea_mision' y 'recompensa_item_id' (+ 'recompensa_cantidad'), para encadenar o premiar sin cablear la escena a mano -ver documentacion/README_CATALOGO_MISIONES.md, seccion 'Conexion automatica'-; ninguna mision de este archivo los usa todavia.",
+  "nota": "Respaldo del catalogo de misiones: lo lee CatalogoMisiones cuando la base no responde, no hay sesion o se juega en modo local. Mismos campos que devuelve /misiones/. PENDIENTE DE REVISAR POR EL EQUIPO: (1) la mayoria de los 'objetivos' siguen vacios -el banco no los trae, y MISION_NPC_03/04 son las primeras escritas a mano ademas de MISION_EXPLORACION_01-, asi que falta escribir el resto como contenido nuevo; (2) el 'orden' esta puesto por progresion de zonas (desconocidos, ciberacoso, reto_viral) y con la exploracion antes que las secundarias de su zona, pero nadie lo ha confirmado como el orden narrativo; (3) el titulo de MISION_EXPLORACION_01 es un relleno, porque en el banco esa mision no tiene nombre; (4) hay una quinta categoria de objetivo, 'completar_caso_detective', que el banco no conoce -no viene de ahi, es del Modo Detective-, ver documentacion/README_CATALOGO_MISIONES.md; (5) hay dos campos opcionales nuevos por mision, 'desbloquea_mision' y 'recompensa_item_id' (+ 'recompensa_cantidad'), para encadenar o premiar sin cablear la escena a mano -ver documentacion/README_CATALOGO_MISIONES.md, seccion 'Conexion automatica'-; MISION_EXPLORACION_02 usa 'desbloquea_mision' para abrir MISION_M3_TESTIMONIOS al terminar la presentacion de Coipo.",
   "misiones": [
     {
       "mision_id": "MISION_EXPLORACION_01",
@@ -87,6 +87,35 @@
           "orden": 1,
           "tipo": "hablar_npc",
           "dialogo_id": "HDU1_NPC_COIPO"
+        }
+      ],
+      "desbloquea_mision": "MISION_M3_TESTIMONIOS"
+    },
+    {
+      "mision_id": "MISION_M3_TESTIMONIOS",
+      "titulo": "El rumor de la brújula",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 45,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU3_M3_TESTIMONIO_FLAMENCO",
+          "descripcion": "Reúne los tres testimonios"
+        },
+        {
+          "orden": 2,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU3_M3_TESTIMONIO_PATO",
+          "descripcion": "Reúne los tres testimonios"
+        },
+        {
+          "orden": 3,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU3_M3_TESTIMONIO_COIPO",
+          "descripcion": "Reúne los tres testimonios"
         }
       ]
     },

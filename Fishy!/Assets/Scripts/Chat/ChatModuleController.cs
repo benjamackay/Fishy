@@ -82,6 +82,23 @@ namespace Fishy.Chat
         /// </summary>
         public event Action<float> OnSesionCerrada;
 
+        /// <summary>
+        /// Se dispara al llegar a un nodo que cierra la conversación por narrativa
+        /// (un FIN del banco), con el id del nodo, que es el pregunta_id. No salta si
+        /// el chat se corta antes: lo usa el sistema de finales para saber que la
+        /// Misión 6 terminó de verdad, por la rama que sea.
+        /// </summary>
+        public static event Action<string> OnCierreNarrativo;
+
+        /// <summary>
+        /// Decisiones seguras e inseguras contadas en esta ejecución del juego, con el
+        /// mismo criterio que el estado de Otto (las dudosas no cuentan). Es solo el
+        /// respaldo del sistema de finales cuando no hay servidor: el dato bueno sale
+        /// del backend, que recuerda también las sesiones anteriores.
+        /// </summary>
+        public static int SegurasEnLaSesion   { get; private set; }
+        public static int InsegurasEnLaSesion { get; private set; }
+
         private ChatModuleUI ui;
         private OttoMoodController ottoMood;
         private readonly Queue<ChatConversation> queue = new Queue<ChatConversation>();
@@ -243,6 +260,7 @@ namespace Fishy.Chat
 
             if (node.closesChat)
             {
+                OnCierreNarrativo?.Invoke(node.id);
                 logger.LogEnd(node.text);
                 EndCurrentConversation("cierre_narrativo");
                 return;
@@ -348,8 +366,8 @@ namespace Fishy.Chat
 
             if (option.CountsForScore)
             {
-                if (option.safety == OptionSafety.Safe) safeCount++;
-                else unsafeCount++;
+                if (option.safety == OptionSafety.Safe) { safeCount++; SegurasEnLaSesion++; }
+                else { unsafeCount++; InsegurasEnLaSesion++; }
             }
 
             // Registra la respuesta del jugador vinculada al nodo-pregunta que la

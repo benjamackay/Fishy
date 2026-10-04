@@ -1377,6 +1377,79 @@ UMBRAL_RECHAZOS = 2
 # nivel máximo alcanzable es 2. Si se agregan NPCs, subir esto además del banco.
 NIVEL_PRESION_MAXIMO = 2
 
+ZONAS_DEL_RECORRIDO = ("desconocidos", "ciberacoso", "reto_viral")
+SEGURAS = ("segura_optima", "segura_basica")
+
+
+@api_view(["GET"])
+def decisiones_seguras(request, partida_id):
+    """
+    Porcentaje de decisiones seguras de las tres zonas, para elegir el final
+    (HDU-09) al terminar la Misión 6.
+
+    Se deriva de los `Mensaje` con `opcion_banco_id`, igual que `presion_social`:
+    el recorrido se juega en varias sesiones, así que un contador de Unity
+    arrancaría en cero cada vez que se retoma la partida.
+
+    Cuenta **cada decisión**, no cada NPC: el final resume cómo eligió el niño/a a
+    lo largo de toda la aventura, sub-decisiones incluidas. Las `dudosa` no suman
+    ni restan, igual que en el estado de Otto dentro del chat
+    (`ChatOption.CountsForScore`): porcentaje = seguras / (seguras + inseguras).
+    Sin decisiones contadas, `porcentaje` es null y el juego decide qué hacer.
+
+    Qué final corresponde a cada porcentaje NO se decide aquí: los umbrales son
+    contenido y viven en `finales_narrativos` del banco, junto a los textos.
+
+    Respuesta:
+    {"partida_id": 1, "seguras": 9, "inseguras": 3, "dudosas": 2,
+     "porcentaje": 75.0, "por_zona": {"desconocidos": {...}, ...}}
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    elegidos = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .values_list("opcion_banco_id", flat=True)
+    )
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in=set(elegidos))
+        .select_related("pregunta")
+    }
+
+    por_zona = {z: {"seguras": 0, "inseguras": 0, "dudosas": 0} for z in ZONAS_DEL_RECORRIDO}
+    for opcion_id in elegidos:
+        opcion = opciones.get(opcion_id)
+        if opcion is None or opcion.pregunta.zona not in por_zona:
+            continue  # contenido retirado del banco, o una zona fuera del recorrido
+        cuenta = por_zona[opcion.pregunta.zona]
+        if opcion.tipo in SEGURAS:
+            cuenta["seguras"] += 1
+        elif opcion.tipo == "insegura":
+            cuenta["inseguras"] += 1
+        elif opcion.tipo == "dudosa":
+            cuenta["dudosas"] += 1
+
+    seguras = sum(c["seguras"] for c in por_zona.values())
+    inseguras = sum(c["inseguras"] for c in por_zona.values())
+    dudosas = sum(c["dudosas"] for c in por_zona.values())
+    contadas = seguras + inseguras
+
+    return Response({
+        "partida_id": partida.pk,
+        "seguras": seguras,
+        "inseguras": inseguras,
+        "dudosas": dudosas,
+        "porcentaje": round(100.0 * seguras / contadas, 1) if contadas else None,
+        "por_zona": por_zona,
+    })
+
+
 ZONA_RETOS = "reto_viral"
 
 

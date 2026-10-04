@@ -19,6 +19,43 @@ public class NPC : MonoBehaviour, IInteractable
              "usar solo el NPCDialogue de abajo.")]
     public string dialogoId;
 
+    [Tooltip("Diálogos del banco que este NPC dice DESPUÉS del de 'Dialogo Id', uno por " +
+             "conversación y en este orden. Al terminar uno pasa al siguiente; al llegar " +
+             "al último se queda en él. Vacío = el NPC dice siempre lo mismo.\n\n" +
+             "Ej.: Coipo se presenta (HDU1_NPC_COIPO) y la vez siguiente da su " +
+             "testimonio (HDU3_M3_TESTIMONIO_COIPO).")]
+    public System.Collections.Generic.List<string> dialogosSiguientes =
+        new System.Collections.Generic.List<string>();
+
+    /// <summary>En cuál de sus diálogos va: 0 = <see cref="dialogoId"/>, 1 = el primero
+    /// de <see cref="dialogosSiguientes"/>, y así.</summary>
+    private int _indiceDialogo;
+
+    /// <summary>Id del diálogo que diría si se le hablara ahora.</summary>
+    public string DialogoActualId =>
+        _indiceDialogo == 0 || dialogosSiguientes == null || _indiceDialogo > dialogosSiguientes.Count
+            ? dialogoId
+            : dialogosSiguientes[_indiceDialogo - 1];
+
+    /// <summary>
+    /// Id del último diálogo que se terminó de escuchar. Lo lee el objetivo "hablar
+    /// con" cuando el NPC tiene varios diálogos: onDialogueEnded se dispara al cerrar
+    /// cualquiera, y sin esto terminar la presentación de Coipo contaría también como
+    /// haber escuchado su testimonio.
+    /// </summary>
+    public string UltimoDialogoTerminado { get; private set; }
+
+    /// <summary>True si alguno de sus diálogos es <paramref name="id"/>.</summary>
+    public bool DiceDialogo(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        if (string.Equals(dialogoId, id, StringComparison.Ordinal)) return true;
+        return dialogosSiguientes != null && dialogosSiguientes.Contains(id);
+    }
+
+    /// <summary>True si dice más de un diálogo a lo largo de la partida.</summary>
+    public bool TieneVariosDialogos => dialogosSiguientes != null && dialogosSiguientes.Count > 0;
+
     [Tooltip("Diálogo local. Se usa si no hay 'Dialogo Id', y de él salen siempre el " +
              "retrato, la velocidad de tecleo y la voz, que el banco no trae.")]
     public NPCDialogue dialogueData;
@@ -34,18 +71,28 @@ public class NPC : MonoBehaviour, IInteractable
 
     private void Awake()
     {
+        CargarDialogo(dialogoId);
+    }
+
+    /// <summary>
+    /// Pone las líneas del diálogo <paramref name="id"/>. Lo usa Awake con el primero
+    /// y <see cref="EndDialogue"/> al pasar al siguiente de la lista.
+    /// </summary>
+    private void CargarDialogo(string id)
+    {
         // El banco primero, y en el sitio: va empaquetado en Resources, así que el NPC
         // tiene sus líneas desde el primer frame, sin conexión y sin sesión iniciada.
-        NPCDialogue delBanco = DialogoNpcLoader.DesdeBanco(dialogoId, dialogueData);
+        NPCDialogue delBanco = DialogoNpcLoader.DesdeBanco(id, dialogueData);
         if (delBanco != null) dialogueData = delBanco;
 
         // El backend puede traer una corrección posterior del mismo texto, pero llega
         // tarde y puede no llegar. Nunca se aplica a media conversación: cambiar las
         // líneas con dialogueIndex a mitad dejaría el diálogo saltándose frases o
         // indexando fuera del array.
-        DialogoNpcLoader.LoadAsync(dialogoId, dialogueData, dialogo =>
+        DialogoNpcLoader.LoadAsync(id, dialogueData, dialogo =>
         {
             if (isDialogueActive) return;
+            if (DialogoActualId != id) return;   // llegó tarde: el NPC ya pasó a otro
             dialogueData = dialogo;
         });
     }
@@ -246,8 +293,28 @@ public class NPC : MonoBehaviour, IInteractable
         // quitarle el movimiento a Otto. Restaurarlo al final se lo pisaría.
         CerrarDialogo();
 
+        UltimoDialogoTerminado = DialogoActualId;
+
         //pausa
         onDialogueEnded?.Invoke();
+
+        // Se avanza DESPUÉS de avisar: quien escucha onDialogueEnded tiene que ver
+        // en UltimoDialogoTerminado el que se acaba de oír, no el que viene.
+        PasarAlSiguienteDialogo();
+    }
+
+    /// <summary>
+    /// Si quedan diálogos en <see cref="dialogosSiguientes"/>, la próxima charla será
+    /// el siguiente. El nuevo todavía no se ha contado, así que se reabre el panel
+    /// aunque el NPC no sea repetible.
+    /// </summary>
+    private void PasarAlSiguienteDialogo()
+    {
+        if (dialogosSiguientes == null || _indiceDialogo >= dialogosSiguientes.Count) return;
+
+        _indiceDialogo++;
+        yaSeConto = false;
+        CargarDialogo(DialogoActualId);
     }
 
     /// <summary>
