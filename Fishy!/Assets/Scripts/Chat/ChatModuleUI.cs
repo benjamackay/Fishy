@@ -170,6 +170,29 @@ namespace Fishy.Chat
         public void PostNpc(string text, bool isSystem) => AddBubble(text, npc: true, system: isSystem);
         public void PostChild(string text) => AddBubble(text, npc: false, system: false);
 
+        /// <summary>
+        /// Lo que Otto piensa sin escribirlo: del lado de Otto, como su respuesta, pero
+        /// con autor, porque si no se leería como algo que le mandó al NPC.
+        /// </summary>
+        public void PostPensamientoOtto(string text)
+        {
+            if (_panel != null)
+            {
+                _panel.Respuesta.text = ChatTxt.AutorPensamiento + ": " + text;
+                _panel.Respuesta.gameObject.SetActive(true);
+                return;
+            }
+
+            FishyUIKit.Burbuja(content, text, ChatTxt.AutorPensamiento,
+                izquierda: false,
+                fondo: ChatCol.BurbujaNino,
+                anchoMax: AnchoBurbujaActual(),
+                tamanoTexto: ChatFnt.TextoBurbuja,
+                tamanoAutor: ChatFnt.Autor);
+
+            ScrollToBottom();
+        }
+
         public void ShowOptions(IReadOnlyList<string> options, Action<int> onPick)
         {
             ClearOptions();

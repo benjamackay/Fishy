@@ -21,6 +21,7 @@ from api.models import (
     RecompensaAlbum,
     RecompensaObtenida,
 )
+from api.serializers import PreguntaBancoSerializer
 from api.tests.test_catalogo_album import crear_partida
 
 RUTA_BANCO = settings.BASE_DIR.parent.parent / "banco_preguntas" / "banco_preguntas.json"
@@ -93,8 +94,27 @@ class CargaCompletaTests(TestCase):
         )
 
 
+    def test_el_pensamiento_de_otto_llega_a_la_base_y_sale_por_la_api(self):
+        """Va aparte de mensaje_npc porque lo dice Otto, no el NPC. Si el cargador
+        no lo guardara, el juego lo perdería en cuanto baja el banco de la base,
+        porque esa copia reemplaza a la de Resources."""
+        con_pensamiento = [p for p in self.banco["preguntas"] if p.get("pensamiento_otto")]
+        self.assertTrue(con_pensamiento, "el banco ya no trae ningún pensamiento_otto")
+        for p in con_pensamiento:
+            obj = PreguntaBanco.objects.get(pregunta_id=p["id"])
+            self.assertEqual(obj.pensamiento_otto, p["pensamiento_otto"])
+            self.assertEqual(
+                PreguntaBancoSerializer(obj).data["pensamiento_otto"], p["pensamiento_otto"])
+        sin = PreguntaBanco.objects.exclude(
+            pregunta_id__in=[p["id"] for p in con_pensamiento]).first()
+        self.assertEqual(sin.pensamiento_otto, "")
+
+    def test_no_avisa_de_los_bloques_que_solo_lee_el_juego(self):
+        salida = cargar()
+        self.assertNotIn("NO carga", salida)
+
     def test_extrae_todas_las_recompensas_de_album(self):
-        self.assertEqual(RecompensaAlbum.objects.count(), 14)
+        self.assertEqual(RecompensaAlbum.objects.count(), 13)
         self.assertFalse(
             RecompensaAlbum.objects.filter(nombre="").exists(),
             "una recompensa quedó sin nombre: el parseo del texto libre se rompió",
@@ -104,7 +124,7 @@ class CargaCompletaTests(TestCase):
         por_mision = RecompensaAlbum.objects.filter(mision__isnull=False).count()
         por_opcion = RecompensaAlbum.objects.exclude(opcion_banco_id="").count()
         self.assertEqual(por_mision, 6)
-        self.assertEqual(por_opcion, 8)
+        self.assertEqual(por_opcion, 7)
         self.assertEqual(por_mision + por_opcion, RecompensaAlbum.objects.count())
 
 
@@ -191,7 +211,7 @@ class FallaRuidosaTests(TestCase):
         """Los diálogos sin recompensa (el guía Huemul) son normales."""
         ruta = self._banco_con("Sigue las huellas hasta el río.")
         cargar(archivo=ruta)
-        self.assertEqual(RecompensaAlbum.objects.count(), 13)
+        self.assertEqual(RecompensaAlbum.objects.count(), 12)
 
     def test_avisa_de_bloques_del_json_que_no_sabe_cargar(self):
         """El modo de falla original: ignorar contenido en silencio."""

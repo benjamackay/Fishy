@@ -2223,6 +2223,7 @@ namespace Fishy.Net
         public bool   es_fin_de_npc;
         public bool   es_fin_de_zona;
         public string mensaje_npc;
+        public string pensamiento_otto;
         public List<OpcionBancoDto> opciones = new List<OpcionBancoDto>();
     }
 

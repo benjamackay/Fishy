@@ -115,6 +115,7 @@ def verificar_preguntas(data):
             ("nivel_riesgo", p.get("nivel_riesgo", 0)),
             ("es_mensaje_riesgo", p.get("es_mensaje_riesgo", False)),
             ("mensaje_npc", p.get("mensaje_npc", "")),
+            ("pensamiento_otto", p.get("pensamiento_otto") or ""),
             ("escenario_id", p.get("escenario_id") or ""),
             ("etiquetas_ml", p.get("etiquetas_ml") or []),
         ):

@@ -223,6 +223,9 @@ namespace Fishy.Chat
 
             /// <summary>Prefijo de la respuesta elegida en el panel cara a cara.</summary>
             public static string PrefijoRespuesta = "Tú: ";
+
+            /// <summary>Autor de la burbuja cuando Otto piensa algo sin decirlo.</summary>
+            public static string AutorPensamiento = "Otto (para sí)";
         }
 
         /// <summary>

@@ -65,6 +65,7 @@ namespace Fishy.Chat
         public bool   es_fin_de_npc;
         public bool   es_fin_de_zona;
         public string mensaje_npc;
+        public string pensamiento_otto;  // lo que Otto piensa "para sí" antes de las opciones
         public List<OpcionBanco> opciones_respuesta = new List<OpcionBanco>();
         public string narrativa_continuacion; // nextNodeId para avance automático
     }

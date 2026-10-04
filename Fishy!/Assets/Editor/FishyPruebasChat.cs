@@ -57,6 +57,7 @@ namespace Fishy.EditorTools
             ProbarElRegistroSigueAlOrdenMostrado(log);
             ProbarQueNoSeDibujanLasEtiquetas(log);
             ProbarQueUnCorcheteNormalSeRespeta(log);
+            ProbarElPensamientoDeOttoLlegaAlNodo(log);
 
             // Devolver el banco de verdad: las pruebas metieron uno de cuatro preguntas
             // en la caché estática, y si se corren desde el menú el siguiente Play se lo
@@ -307,6 +308,32 @@ namespace Fishy.EditorTools
 
             Comprobar(log, "Un corchete en minúsculas se respeta como contenido",
                 salida == "[mira esto] dijo el pato.", $"quedó '{salida}'");
+        }
+
+        // ── Pensamiento de Otto ───────────────────────────────────────────────
+
+        /// <summary>
+        /// "Otto (para sí): Esto está medio Fishy..." va en su propio campo y tiene que
+        /// llegar al nodo sin mezclarse con el mensaje del NPC, que es lo que se
+        /// registra en el backend. Pasa por AplicarDesdeBackend, el mismo camino que
+        /// usa el juego al bajar el banco de la base: si el DTO no trajera el campo, el
+        /// pensamiento desaparecería en cuanto hay sesión.
+        /// </summary>
+        private static void ProbarElPensamientoDeOttoLlegaAlNodo(StringBuilder log)
+        {
+            var p = Q01();
+            p.pensamiento_otto = "Esto está medio Fishy...";
+            var conv = Armar(p, FinSeguro(), FinInseguro());
+            var nodo = conv?.GetNode("Q01");
+
+            bool bien = nodo != null
+                && nodo.pensamientoOtto == "Esto está medio Fishy..."
+                && nodo.text == "Te sacamos del grupo, jaja."
+                && nodo.HasOptions;
+
+            Comprobar(log, "El pensamiento de Otto llega a su nodo, aparte del mensaje del NPC",
+                bien, nodo == null ? "no se armó el nodo" :
+                      $"pensamiento='{nodo.pensamientoOtto}', texto='{nodo.text}'");
         }
 
         // ── Andamiaje ─────────────────────────────────────────────────────────

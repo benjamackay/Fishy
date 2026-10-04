@@ -142,7 +142,7 @@ class PreguntaBancoSerializer(serializers.ModelSerializer):
             "escenario_id", "escenario_nombre", "historial_previo",
             "categoria", "nivel_riesgo", "es_mensaje_riesgo",
             "es_fin_de_npc", "es_fin_de_zona",
-            "mensaje_npc", "etiquetas_ml",
+            "mensaje_npc", "pensamiento_otto", "etiquetas_ml",
             "opciones",
         ]
 

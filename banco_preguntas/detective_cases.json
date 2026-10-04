@@ -1,8 +1,8 @@
 {
-  "version": "2.5",
+  "version": "2.6",
   "autor": "Luis González — MLOps",
   "fecha_creacion": "2026-08-23",
-  "fecha_actualizacion": "2026-09-07",
+  "fecha_actualizacion": "2026-10-04",
   "hdu": "HDU-10",
   "descripcion": "Conversaciones pregrabadas para el Modo Detective. El jugador observa sin participar como interlocutor y marca los mensajes que considera señales de riesgo.",
   "nota_ambiguo": "Mensajes marcados como es_ambiguo:true no se contabilizan ni como acierto ni como error (CA5).",
@@ -131,7 +131,7 @@
       "permiso": {
         "player_text": "Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si hubo algo malo.",
         "npc_nombre": "Coipo",
-        "npc_response": "Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de mi mascota piedra, no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?"
+        "npc_response": "Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de Piedri, no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?"
       },
       "conversacion": [
         {
@@ -341,7 +341,7 @@
   "nota_recompensas": "HDU-11 CA1/CA2: cada caso entrega un ítem único al superar el umbral de aciertos. Desde la migración 0015 este bloque SÍ llega a la base: CasoDetective tiene los cinco campos recompensa_*, cargar_detective los lee de acá y la API los expone. Un caso sin este bloque queda con los campos vacíos y Unity cae a su catálogo local.",
   "mensajes_sistema": {
     "repetir_caso_ya_superado": "Ya tienes esta pista en tu álbum, ¡pero bien hecho repasando el caso!",
-    "sin_alcanzar_umbral": "Casi lo tienes. ¿Quieres revisar el caso otra vez o ver las pistas explicadas?",
+    "sin_alcanzar_umbral": "Casi lo tienes. ¿Quieres revisar el caso otra vez o ver las explicaciones?",
     "album_vacio": "Tu álbum está vacío por ahora. Resuelve tu primer caso del Modo Detective para empezar a llenarlo."
   }
 }

@@ -59,6 +59,12 @@ namespace Fishy.Chat
     {
         public string id;
         [TextArea] public string text;
+
+        [Tooltip("Lo que Otto piensa \"para sí\" justo después del mensaje del NPC y " +
+                 "antes de las opciones. Se dibuja como burbuja de Otto con la etiqueta " +
+                 "\"(para sí)\". Vacío = no hay.")]
+        [TextArea] public string pensamientoOtto;
+
         public ChatMessageKind kind = ChatMessageKind.Neutral;
 
         [Tooltip("Mensaje del sistema (cierre/seguridad), se muestra con otro estilo.")]

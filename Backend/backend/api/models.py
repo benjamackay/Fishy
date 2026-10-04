@@ -402,6 +402,9 @@ class PreguntaBanco(models.Model):
     nivel_riesgo         = models.PositiveSmallIntegerField(default=0)
     es_mensaje_riesgo    = models.BooleanField(default=False)
     mensaje_npc          = models.TextField()
+    # Lo que Otto piensa "para sí" después del mensaje del NPC y antes de las
+    # opciones. Va aparte de mensaje_npc porque lo dice Otto, no el NPC.
+    pensamiento_otto     = models.TextField(blank=True, default="")
     etiquetas_ml         = models.JSONField(default=list)
     es_fin_de_npc        = models.BooleanField(default=False, help_text="True en estados FIN_SEGURO / FIN_INSEGURO")
     es_fin_de_zona       = models.BooleanField(default=False, help_text="True en la pregunta ZONA_FIN")

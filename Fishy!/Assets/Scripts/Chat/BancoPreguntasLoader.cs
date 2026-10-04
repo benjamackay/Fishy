@@ -106,6 +106,7 @@ namespace Fishy.Chat
                     es_fin_de_npc          = d.es_fin_de_npc,
                     es_fin_de_zona         = d.es_fin_de_zona,
                     mensaje_npc            = d.mensaje_npc,
+                    pensamiento_otto       = d.pensamiento_otto,
                     narrativa_continuacion = d.narrativa_continuacion,
                 };
 
@@ -360,6 +361,7 @@ namespace Fishy.Chat
                 {
                     id         = p.id,
                     text       = LimpiarTextoSistema(p.mensaje_npc),
+                    pensamientoOtto = p.pensamiento_otto,
                     kind       = p.es_mensaje_riesgo ? ChatMessageKind.Risk : ChatMessageKind.Neutral,
                     isSystem   = isSystem,
                     closesChat = isFin,
@@ -461,6 +463,7 @@ namespace Fishy.Chat
                 {
                     id         = p.id,
                     text       = p.mensaje_npc,
+                    pensamientoOtto = p.pensamiento_otto,
                     kind       = p.es_mensaje_riesgo ? ChatMessageKind.Risk : ChatMessageKind.Neutral,
                     isSystem   = false,
                     closesChat = isFin && (p.opciones_respuesta == null || p.opciones_respuesta.Count == 0),
@@ -567,6 +570,7 @@ namespace Fishy.Chat
                 {
                     id = p.id,
                     text = LimpiarTextoSistema(p.mensaje_npc),
+                    pensamientoOtto = p.pensamiento_otto,
                     kind = p.es_mensaje_riesgo ? ChatMessageKind.Risk : ChatMessageKind.Neutral,
                     isSystem = false,
                     closesChat = isFin && (p.opciones_respuesta == null || p.opciones_respuesta.Count == 0),

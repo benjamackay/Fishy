@@ -214,6 +214,13 @@ namespace Fishy.Chat
 
             ui.PostNpc(node.text, node.isSystem);
 
+            // Va en el mismo nodo y no en uno propio porque lo que se registra en el
+            // backend es el mensaje del NPC con sus opciones: un nodo aparte para el
+            // pensamiento dejaría las opciones colgando de lo que piensa Otto, y el
+            // mensaje del NPC sin registrar.
+            if (!string.IsNullOrEmpty(node.pensamientoOtto))
+                ui.PostPensamientoOtto(node.pensamientoOtto);
+
             // En qué orden se dibujan las respuestas. Se calcula una sola vez al entrar
             // al nodo porque lo usan dos cosas que no pueden discrepar: los botones y lo
             // que se le cuenta al backend. Volver a barajar para el registro mandaría un

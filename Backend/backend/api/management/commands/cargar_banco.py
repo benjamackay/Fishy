@@ -46,6 +46,12 @@ RUTA_MISIONES_DEFAULT = settings.BASE_DIR.parent.parent / "Fishy!" / "Assets" / 
 # Claves del JSON que este cargador entiende. Cualquier otra se avisa por consola:
 # el modo de falla que costó caro fue justamente ignorar bloques en silencio.
 CLAVES_DE_CONTENIDO = {"preguntas", "dialogos_npc_neutros"}
+# Contenido que hoy solo lee el juego, desde su copia en Resources: los finales
+# los arma Unity al terminar la Misión 6 y los reconocimientos de accesorios
+# esperan a la personalización (HDU06). Ninguno se sirve por la API todavía, así
+# que no se modelan; se nombran aquí para que el aviso de abajo no los tome por
+# contenido perdido. Si algún día el portal los necesita, pasan a modelarse.
+CLAVES_SOLO_JUEGO = {"finales_narrativos", "dialogos_personalizacion"}
 CLAVES_DE_METADATA = {
     "version", "autor", "fecha_creacion", "fecha_actualizacion",
     "hdu_cubiertas", "formato_respuesta",
@@ -138,7 +144,7 @@ class Command(BaseCommand):
             data = json.load(f)
 
         # Avisar de bloques que el JSON trae y este cargador no sabe leer.
-        desconocidas = set(data) - CLAVES_DE_CONTENIDO - CLAVES_DE_METADATA
+        desconocidas = set(data) - CLAVES_DE_CONTENIDO - CLAVES_DE_METADATA - CLAVES_SOLO_JUEGO
         if desconocidas:
             self.stdout.write(self.style.WARNING(
                 f"El JSON trae bloques que este cargador NO carga: {sorted(desconocidas)}. "
@@ -199,6 +205,7 @@ class Command(BaseCommand):
                 "es_fin_de_npc":          p.get("es_fin_de_npc", False),
                 "es_fin_de_zona":         p.get("es_fin_de_zona", False),
                 "mensaje_npc":            p.get("mensaje_npc", ""),
+                "pensamiento_otto":       p.get("pensamiento_otto") or "",
                 "etiquetas_ml":           p.get("etiquetas_ml", []),
             }
 

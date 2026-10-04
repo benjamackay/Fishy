@@ -4,7 +4,7 @@
   "npcObservado2": "Pato Juarjual",
   "permisoPlayerText": "Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si hubo algo malo.",
   "permisoNpcNombre": "Coipo",
-  "permisoNpcResponse": "Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de mi mascota piedra, no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?",
+  "permisoNpcResponse": "Sí, por favor. Me agregaron a un grupo y empezaron a burlarse de mí y de Piedri, no entiendo bien qué pasó. ¿Puedes revisar los mensajes y decirme si hay algo que esté mal?",
   "mensajes": [
     {
       "id": "DC02_MSG01",
