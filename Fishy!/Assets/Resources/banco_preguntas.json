@@ -130,6 +130,58 @@
       "pista_mision": null
     },
     {
+      "id": "HDU1_TESTIMONIO_FLAMENCO",
+      "hdu": "HDU-1",
+      "zona": "ciberacoso",
+      "npc_id": "NPC_TESTIGO_FLAMENCO",
+      "npc_nombre": "Flamenco",
+      "npc_avatar": "npc_flamenco_01",
+      "tipo": "neutro",
+      "trigger": "boton_E",
+      "mision_desbloquea": null,
+      "nombre_mision": null,
+      "lineas": [
+        "Uy, llegaste tarde.",
+        "Alguien despistado la botó al fango. Ni busques, jaja."
+      ],
+      "pista_mision": null
+    },
+    {
+      "id": "HDU1_TESTIMONIO_PATO",
+      "hdu": "HDU-1",
+      "zona": "ciberacoso",
+      "npc_id": "NPC_TESTIGO_PATO",
+      "npc_nombre": "Pato Juarjual",
+      "npc_avatar": "npc_pato_juarjual_01",
+      "tipo": "neutro",
+      "trigger": "boton_E",
+      "mision_desbloquea": null,
+      "nombre_mision": null,
+      "lineas": [
+        "¡Todo el pantano lo dice! El Coipo la rompió por distraído.",
+        "Yo no lo vi, pero como todos lo dicen, debe ser cierto, ¿no?"
+      ],
+      "pista_mision": null
+    },
+    {
+      "id": "HDU1_TESTIMONIO_COIPO",
+      "hdu": "HDU-1",
+      "zona": "ciberacoso",
+      "npc_id": "NPC_TESTIGO_COIPO",
+      "npc_nombre": "Coipo",
+      "npc_avatar": "npc_coipo_01",
+      "tipo": "neutro",
+      "trigger": "boton_E",
+      "mision_desbloquea": null,
+      "nombre_mision": null,
+      "lineas": [
+        "¡Para nada! Vi una balsa llevando la caja río abajo.",
+        "Hasta anoté las marcas de la corriente – Piedri fue testigo también, aunque, bueno, no habla mucho.",
+        "Inventaron ese cuento para culparme."
+      ],
+      "pista_mision": null
+    },
+    {
       "id": "HDU1_NPC_FOCA",
       "hdu": "HDU-1",
       "zona": "reto_viral",
@@ -1967,7 +2019,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] El cofre se abre. La evaluación del recorrido completo dispara el Sistema de Finales.",
+      "mensaje_npc": "[SISTEMA] El cofre se abre y Otto recupera la brújula dorada de su abuelo.",
       "etiquetas_ml": [
         "fin_npc",
         "exito"
@@ -2144,7 +2196,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] El cofre se abre. La evaluación del recorrido completo dispara el Sistema de Finales.",
+      "mensaje_npc": "[SISTEMA] El cofre se abre y Otto recupera la brújula dorada de su abuelo.",
       "etiquetas_ml": [
         "fin_npc",
         "exito"
