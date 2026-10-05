@@ -211,19 +211,10 @@ namespace Fishy.UI
             Time.timeScale = 0f;
             _raiz.SetActive(true);
 
-            // Con el diario, cerrar ya no pierde nada: lo pendiente está en disco y sale
-            // al volver a entrar. El cartel tiene que decir eso, porque antes asustaba
-            // con una pérdida que —desde que existe el diario— no ocurre.
-            bool aSalvo = ColaDeCambios.TodoAnotado;
-
             if (_titulo != null) _titulo.text = "Sin conexión";
             if (_estado != null)
-                _estado.text = aSalvo
-                    ? $"No se pudo conectar con el servidor.\n" +
-                      $"Quedan {cambiosPendientes} cambio(s) por subir, y se guardan solos " +
-                      $"la próxima vez que entres."
-                    : $"No se pudo conectar con el servidor.\n" +
-                      $"Quedan {cambiosPendientes} cambio(s) sin guardar.";
+                _estado.text = $"No se pudo conectar con el servidor.\n" +
+                               $"Quedan {cambiosPendientes} cambio(s) sin guardar.";
 
             Reemplazar(_btnSeguir, "Seguir esperando", () =>
             {
@@ -231,9 +222,9 @@ namespace Fishy.UI
                 alEsperar?.Invoke();
             });
 
-            Reemplazar(_btnSalir, aSalvo ? "Cerrar" : "Cerrar de todas formas", () =>
+            Reemplazar(_btnSalir, "Cerrar de todas formas", () =>
             {
-                Congelar(aSalvo ? "Cerrando; se guarda al volver." : "Cerrando sin guardar…");
+                Congelar("Cerrando sin guardar…");
                 alCerrar?.Invoke();
             });
         }

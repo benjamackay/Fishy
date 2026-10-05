@@ -411,9 +411,27 @@ namespace Fishy.Net
 
             misionesEnServidor[misionId] = completada;
 
-            // De informar de cómo fue se encarga la cola, que es la única que sabe si
-            // esto va a salir ahora, dentro de un rato o al volver a entrar al juego.
-            ColaDeCambios.EncolarMision(misionId, completada);
+            ColaDeCambios.EncolarAppend($"mision:{misionId}",
+                (ok, error) =>
+                {
+                    var actual = ApiManager.Instance;
+                    if (actual == null || actual.PartidaId == null) { error("No hay partida."); return; }
+
+                    actual.RegistrarProgresoMision(misionId, completada,
+                        onSuccess: dto =>
+                        {
+                            misionesEnServidor[misionId] = dto != null && dto.Completada;
+                            Debug.Log($"[MisionBackendSync] Misión '{misionId}' guardada como " +
+                                      $"{(completada ? "completada" : "disponible")}.");
+                            ok();
+                        },
+                        onError: e =>
+                        {
+                            Debug.LogWarning($"[MisionBackendSync] No se pudo guardar '{misionId}': {e}");
+                            error(e);
+                        });
+                },
+                $"misión {misionId}");
         }
 
         private void AlDesbloquearZona(BlockedZone zona)

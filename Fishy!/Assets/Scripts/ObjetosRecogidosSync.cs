@@ -112,7 +112,21 @@ public class ObjetosRecogidosSync : MonoBehaviour
         // pendientes y el bucle que la reintentaba cada medio segundo eran una cola en
         // memoria hecha a mano; ahora la hace ColaDeCambios, que además sabe esperar a
         // que termine antes de dejar cerrar el juego.
-        ColaDeCambios.EncolarObjeto(id);
+        ColaDeCambios.EncolarAppend($"objeto:{id}",
+            (ok, error) =>
+            {
+                var api = ApiManager.Instance;
+                if (api == null || api.PartidaId == null) { error("No hay partida."); return; }
+
+                api.MarcarObjetoRecogido(id,
+                    onSuccess: _ => ok(),
+                    onError: e =>
+                    {
+                        Debug.LogWarning($"[ObjetosRecogidos] No se pudo guardar '{id}': {e}");
+                        error(e);
+                    });
+            },
+            $"objeto {id}");
     }
 
     // ── Bajar el registro ────────────────────────────────────────────────────

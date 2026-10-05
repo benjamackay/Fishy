@@ -138,7 +138,21 @@ namespace Fishy.Net
             // Camino de ida: si ya figura cumplido no hay nada que mandar.
             if (!Agregar(misionId, orden)) return;
 
-            ColaDeCambios.EncolarObjetivo(misionId, orden);
+            ColaDeCambios.EncolarAppend($"objetivo:{misionId}:{orden}",
+                (ok, error) =>
+                {
+                    var actual = ApiManager.Instance;
+                    if (actual == null || actual.PartidaId == null) { error("No hay partida."); return; }
+
+                    actual.RegistrarProgresoObjetivo(misionId, orden, true,
+                        onSuccess: _ => ok(),
+                        onError: e =>
+                        {
+                            Debug.LogWarning($"[ObjetivosBackendSync] No se pudo guardar {misionId} #{orden}: {e}");
+                            error(e);
+                        });
+                },
+                $"objetivo {misionId} #{orden}");
         }
     }
 }
