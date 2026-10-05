@@ -45,6 +45,10 @@ namespace Fishy.World
             /// <summary>Alguien pidió guardar a mano: una prueba, o el menú de pausa
             /// antes de salir.</summary>
             Manual             = 4,
+            /// <summary>Lo pidió la historia, desde la escena: un <see cref="GuardarPartida"/>
+            /// enganchado a un disparador (p. ej. al completar la última misión, para que
+            /// el final se calcule con todas las decisiones ya en la nube).</summary>
+            Disparador         = 8,
         }
 
         /// <summary>En qué momentos se sube de verdad. Ver <see cref="momentosActivos"/>.</summary>
@@ -55,6 +59,7 @@ namespace Fishy.World
             CambioDeZona       = 1,
             CierreDeAplicacion = 2,
             Manual             = 4,
+            Disparador         = 8,
         }
 
         public static SaveManager Instance { get; private set; }
@@ -69,9 +74,12 @@ namespace Fishy.World
         [Tooltip("En qué momentos se vacía la cola hacia el backend. Quitar " +
                  "CierreDeAplicacion deja que solo se guarde al cambiar de zona; " +
                  "quitar los dos significa que no se guarda nunca, y se avisa al arrancar.\n\n" +
+                 "Disparador solo guarda donde la escena tenga un GuardarPartida " +
+                 "enganchado a algo, así que encendido no agrega guardados por su cuenta.\n\n" +
                  "Para que este campo sirva hay que poner el SaveManager en la escena: " +
                  "si no existe, se autocrea por código y manda el valor de aquí abajo.")]
-        public Momentos momentosActivos = Momentos.CambioDeZona | Momentos.CierreDeAplicacion;
+        public Momentos momentosActivos =
+            Momentos.CambioDeZona | Momentos.CierreDeAplicacion | Momentos.Disparador;
 
         [Tooltip("Segundos máximos que puede tardar un vaciado normal (cambio de zona).")]
         [Min(0f)]
@@ -372,8 +380,11 @@ namespace Fishy.World
                 return false;
             }
 
-            // El cierre nunca se frena: es la última oportunidad que hay.
-            bool urgente = motivo == Motivo.CierreDeAplicacion;
+            // El cierre nunca se frena: es la última oportunidad que hay. El disparador
+            // tampoco: la espera mínima está para agrupar los cambios de zona en ráfaga,
+            // y uno pedido por la historia es puntual y alguien está esperando el
+            // resultado. Frenado, el final se calcularía sin la última zona.
+            bool urgente = motivo == Motivo.CierreDeAplicacion || motivo == Motivo.Disparador;
             if (!urgente && Time.unscaledTime - _ultimoGuardado < esperaMinima) return false;
 
             var api = ApiManager.Instance;

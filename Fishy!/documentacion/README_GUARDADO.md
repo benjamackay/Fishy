@@ -21,6 +21,7 @@ cerrar el juego.
 | **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | **Insiste hasta vaciar la cola** |
 | **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s, y después **pregunta** | Sí, y el juego no cierra hasta vaciar |
 | **Manual** | Una prueba, o el menú de pausa | `topeNormal` | Sí |
+| **Disparador** | Un `GuardarPartida` en la escena, enganchado a un evento | el `tope` del componente (10 s) | Sí |
 
 **No hay tope de intentos.** El que manda es el plazo: mientras quede, se insiste. Antes
 había un `maxIntentos = 3` y lo que lo agotaba **se abandonaba**, con el agravante de que
@@ -35,12 +36,31 @@ nuevo en `SaveManager.Motivo`, no reabrir los de antes.
 > Lo que cubre el hueco no es guardar más seguido, sino insistir hasta vaciar la cola
 > cuando sí toca guardar.
 
+### `Disparador`: cuando la historia necesita la nube al día
+
+El **Disparador** no es un tercer momento fijo: solo guarda donde la escena tenga un
+`GuardarPartida` enganchado a algo, y por eso viene encendido por defecto sin cambiar
+nada de lo anterior. Existe para el final del juego: el final se calcula con las
+decisiones guardadas en la nube, y al terminar la última misión las de la Zona 3
+siguen en la cola —se cerraría con un final que ignora la zona entera—.
+
+- **Se engancha** `GuardarPartida.Guardar` a cualquier evento (el `alCompletar` de un
+  `AlCompletarMision`, un botón…).
+- **Quien necesite los datos al día** se engancha a su `alGuardar`, no al mismo evento:
+  ahí todavía no subió nada. Si no se pudo subir todo —sin conexión, sin sesión, plazo
+  vencido— sale `alQuedarPendiente` en su lugar.
+- **Espera un frame antes de vaciar**: los otros oyentes del mismo evento suelen encolar
+  cambios (registrar la zona completada), y el vaciado toma una foto de la cola al
+  empezar.
+- **No lo frena la espera mínima**, igual que al cierre: está para agrupar cambios de zona
+  en ráfaga, y uno pedido por la historia es puntual y tiene a alguien esperando.
+
 ### Encenderlos y apagarlos sin tocar código
 
 `SaveManager.momentosActivos` es un `[Flags]` visible en el Inspector:
 
 ```csharp
-[Flags] public enum Momentos { Ninguno = 0, CambioDeZona = 1, CierreDeAplicacion = 2, Manual = 4 }
+[Flags] public enum Momentos { Ninguno = 0, CambioDeZona = 1, CierreDeAplicacion = 2, Manual = 4, Disparador = 8 }
 ```
 
 Los valores de `Motivo` son las mismas potencias de dos, así que `Preparar()` pregunta
