@@ -1,103 +1,116 @@
 {
-  "version": "1",
-  "nota": "Respaldo del catalogo de misiones: lo lee CatalogoMisiones cuando la base no responde, no hay sesion o se juega en modo local. Mismos campos que devuelve /misiones/. PENDIENTE DE REVISAR POR EL EQUIPO: (1) la mayoria de los 'objetivos' siguen vacios -el banco no los trae, y MISION_NPC_03/04 son las primeras escritas a mano ademas de MISION_EXPLORACION_01-, asi que falta escribir el resto como contenido nuevo; (2) el 'orden' esta puesto por progresion de zonas (desconocidos, ciberacoso, reto_viral) y con la exploracion antes que las secundarias de su zona, pero nadie lo ha confirmado como el orden narrativo; (3) el titulo de MISION_EXPLORACION_01 es un relleno, porque en el banco esa mision no tiene nombre; (4) hay una quinta categoria de objetivo, 'completar_caso_detective', que el banco no conoce -no viene de ahi, es del Modo Detective-, ver documentacion/README_CATALOGO_MISIONES.md; (5) hay dos campos opcionales nuevos por mision, 'desbloquea_mision' y 'recompensa_item_id' (+ 'recompensa_cantidad'), para encadenar o premiar sin cablear la escena a mano -ver documentacion/README_CATALOGO_MISIONES.md, seccion 'Conexion automatica'-; MISION_EXPLORACION_02 usa 'desbloquea_mision' para abrir MISION_M3_TESTIMONIOS al terminar la presentacion de Coipo.",
+  "version": "2",
+  "nota": "Respaldo del catalogo de misiones: lo lee CatalogoMisiones cuando la base no responde, no hay sesion o se juega en modo local, y rellena lo que la base no tenga. Sigue el documento 'Orden de Narracion en Unity': una mision por paso, con un solo objetivo, encadenadas con 'desbloquea_mision', para que el panel muestre un solo objetivo a la vez. El id lleva zona y paso del documento (Z2_03 = Zona 2, paso 3). 'orden' es la posicion en la cadena; las secundarias van desde 901 para no quitarle nunca el sitio a un paso principal. Z3_03 y Z3_04 se bifurcan con 'desbloquea_si_acepta' segun como termine el reto, ver documentacion/README_CATALOGO_MISIONES.md. PENDIENTE: el Diccionario de cada zona (paso 1) y el Sistema de Finales (paso 7 de la Zona 3) no son misiones y todavia no existen; los objetivos de las secundarias siguen vacios.",
   "misiones": [
     {
-      "mision_id": "MISION_EXPLORACION_01",
-      "titulo": "Conoce el Bosque",
-      "tipo": "exploracion",
+      "mision_id": "Z1_02_HABLA_HUEMUL",
+      "titulo": "Bosque de los Desconocidos",
+      "tipo": "principal",
       "zona": "desconocidos",
       "zona_objetivo": "zona_1",
-      "orden": 10,
+      "orden": 1,
       "objetivos": [
         {
           "orden": 1,
           "tipo": "hablar_npc",
-          "dialogo_id": "HDU1_NPC_HUEMUL"
-        }
-      ]
-    },
-    {
-      "mision_id": "MISION_NPC_03",
-      "titulo": "Habla con dos NPCs de chat y resuelve un caso de detective",
-      "tipo": "secundaria",
-      "zona": "desconocidos",
-      "zona_objetivo": "zona_1",
-      "orden": 15,
-      "objetivos": [
-        {
-          "orden": 1,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M1_CHAT01"
-        },
-        {
-          "orden": 2,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M2_CHAT01"
-        },
-        {
-          "orden": 3,
-          "tipo": "completar_caso_detective",
-          "caso_id": "DC_CASO_01"
-        }
-      ]
-    },
-    {
-      "mision_id": "MISION_SEC_MOCHILA_HUEMUL",
-      "titulo": "La mochila de Huemul",
-      "tipo": "secundaria",
-      "zona": "desconocidos",
-      "zona_objetivo": "zona_1",
-      "orden": 20,
-      "objetivos": []
-    },
-    {
-      "mision_id": "MISION_NPC_04",
-      "titulo": "Habla con Huemul, está buscando sus flores",
-      "tipo": "secundaria",
-      "zona": "desconocidos",
-      "zona_objetivo": "zona_1",
-      "orden": 25,
-      "objetivos": [
-        {
-          "orden": 1,
-          "tipo": "hablar_npc",
-          "dialogo_id": "HDU1_NPC_HUEMUL"
-        }
-      ]
-    },
-    {
-      "mision_id": "MISION_SEC_COLLAR_PUDU",
-      "titulo": "El collar de flores de Pudú",
-      "tipo": "secundaria",
-      "zona": "desconocidos",
-      "zona_objetivo": "zona_1",
-      "orden": 30,
-      "objetivos": []
-    },
-    {
-      "mision_id": "MISION_EXPLORACION_02",
-      "titulo": "El rumor del pantano",
-      "tipo": "exploracion",
-      "zona": "ciberacoso",
-      "zona_objetivo": "zona_2",
-      "orden": 40,
-      "objetivos": [
-        {
-          "orden": 1,
-          "tipo": "hablar_npc",
-          "dialogo_id": "HDU1_NPC_COIPO"
+          "dialogo_id": "HDU1_NPC_HUEMUL",
+          "descripcion": "Habla con Huemul"
         }
       ],
-      "desbloquea_mision": "MISION_M3_TESTIMONIOS"
+      "desbloquea_mision": "Z1_03_CHAT_PUMA"
     },
     {
-      "mision_id": "MISION_M3_TESTIMONIOS",
-      "titulo": "El rumor de la brújula",
+      "mision_id": "Z1_03_CHAT_PUMA",
+      "titulo": "Una amistad inesperada",
+      "tipo": "principal",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 2,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M1_CHAT01",
+          "descripcion": "Atiende el chat de Puma"
+        }
+      ],
+      "desbloquea_mision": "Z1_04_CHAT_PUMY"
+    },
+    {
+      "mision_id": "Z1_04_CHAT_PUMY",
+      "titulo": "El regalo misterioso",
+      "tipo": "principal",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 3,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M2_CHAT01",
+          "descripcion": "Atiende el chat de Puma 2 / \"Pumy\""
+        }
+      ],
+      "desbloquea_mision": "Z1_05_CASO_1"
+    },
+    {
+      "mision_id": "Z1_05_CASO_1",
+      "titulo": "Los mensajes del Puma al Pudú",
+      "tipo": "principal",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 4,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "completar_caso_detective",
+          "caso_id": "DC_CASO_01",
+          "descripcion": "Resuelve el Caso 1 del Modo Detective"
+        }
+      ],
+      "desbloquea_mision": "Z1_06_CIERRE_HUEMUL"
+    },
+    {
+      "mision_id": "Z1_06_CIERRE_HUEMUL",
+      "titulo": "Resumen del bosque",
+      "tipo": "principal",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 5,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "ZONA_FIN_DESCONOCIDOS",
+          "descripcion": "Cierre de zona con Huemul"
+        }
+      ],
+      "desbloquea_mision": "Z2_02_HABLA_COIPO"
+    },
+    {
+      "mision_id": "Z2_02_HABLA_COIPO",
+      "titulo": "Pantano de los Susurros",
       "tipo": "principal",
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
-      "orden": 45,
+      "orden": 6,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_NPC_COIPO",
+          "descripcion": "Habla con Coipo"
+        }
+      ],
+      "desbloquea_mision": "Z2_03_TESTIMONIOS"
+    },
+    {
+      "mision_id": "Z2_03_TESTIMONIOS",
+      "titulo": "El rumor de la brújula (testimonios)",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 7,
       "objetivos": [
         {
           "orden": 1,
@@ -117,7 +130,214 @@
           "dialogo_id": "HDU3_M3_TESTIMONIO_COIPO",
           "descripcion": "Reúne los tres testimonios"
         }
+      ],
+      "desbloquea_mision": "Z2_03B_DECIDE_RUMOR"
+    },
+    {
+      "mision_id": "Z2_03B_DECIDE_RUMOR",
+      "titulo": "El rumor de la brújula (confrontación)",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 8,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M3_DECISION01",
+          "descripcion": "Decide qué hacer con el rumor"
+        }
+      ],
+      "desbloquea_mision": "Z2_04_HABLA_FLAMENCO"
+    },
+    {
+      "mision_id": "Z2_04_HABLA_FLAMENCO",
+      "titulo": "Una broma que fue demasiado lejos (fase 1)",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 9,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M4_FASE01",
+          "descripcion": "Habla con Flamenco"
+        }
+      ],
+      "desbloquea_mision": "Z2_05_BURLA_COIPO"
+    },
+    {
+      "mision_id": "Z2_05_BURLA_COIPO",
+      "titulo": "Una broma que fue demasiado lejos (fase 2)",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 10,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M4_FASE02",
+          "descripcion": "Resuelve la burla hacia Coipo (Pato Juarjual 2)"
+        }
+      ],
+      "desbloquea_mision": "Z2_06_CASO_2"
+    },
+    {
+      "mision_id": "Z2_06_CASO_2",
+      "titulo": "El grupo del pantano de Flamenco",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 11,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "completar_caso_detective",
+          "caso_id": "DC_CASO_02",
+          "descripcion": "Resuelve el Caso 2 del Modo Detective"
+        }
+      ],
+      "desbloquea_mision": "Z2_07_CIERRE_COIPO"
+    },
+    {
+      "mision_id": "Z2_07_CIERRE_COIPO",
+      "titulo": "Resumen del pantano",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 12,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "ZONA_FIN_CIBERACOSO",
+          "descripcion": "Cierre de zona con Coipo"
+        }
+      ],
+      "desbloquea_mision": "Z3_02_HABLA_FOCA"
+    },
+    {
+      "mision_id": "Z3_02_HABLA_FOCA",
+      "titulo": "Arrecife de los Retos",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 13,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_NPC_FOCA",
+          "descripcion": "Habla con Foca de Weddell"
+        }
+      ],
+      "desbloquea_mision": "Z3_03_PRIMER_RETO"
+    },
+    {
+      "mision_id": "Z3_03_PRIMER_RETO",
+      "titulo": "El reto de la cueva",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 14,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M5A_DECISION01",
+          "descripcion": "Responde al primer reto (Lobo Marino)"
+        }
+      ],
+      "desbloquea_mision": "Z3_04_SEGUNDO_RETO",
+      "desbloquea_si_acepta": "Z3_05_RETO_FINAL"
+    },
+    {
+      "mision_id": "Z3_04_SEGUNDO_RETO",
+      "titulo": "El segundo reto",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 15,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M5B_DECISION01",
+          "descripcion": "Responde al segundo reto (Lobo Marino + Lobo Marino 2)"
+        }
+      ],
+      "desbloquea_mision": "Z3_05_RETO_FINAL_INTENSO",
+      "desbloquea_si_acepta": "Z3_05_RETO_FINAL"
+    },
+    {
+      "mision_id": "Z3_05_RETO_FINAL",
+      "titulo": "El último desafío",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 16,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M6_DECISION01_BASE",
+          "descripcion": "Responde al reto final (presión máxima)"
+        }
+      ],
+      "desbloquea_mision": "Z3_06_CASO_3"
+    },
+    {
+      "mision_id": "Z3_05_RETO_FINAL_INTENSO",
+      "titulo": "El último desafío",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 17,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M6_DECISION01",
+          "descripcion": "Responde al reto final (presión máxima)"
+        }
+      ],
+      "desbloquea_mision": "Z3_06_CASO_3"
+    },
+    {
+      "mision_id": "Z3_06_CASO_3",
+      "titulo": "El reto que grabaron",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 18,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "completar_caso_detective",
+          "caso_id": "DC_CASO_03",
+          "descripcion": "Resuelve el Caso 3 del Modo Detective"
+        }
       ]
+    },
+    {
+      "mision_id": "MISION_SEC_MOCHILA_HUEMUL",
+      "titulo": "La mochila de Huemul",
+      "tipo": "secundaria",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 901,
+      "objetivos": []
+    },
+    {
+      "mision_id": "MISION_SEC_COLLAR_PUDU",
+      "titulo": "El collar de flores de Pudú",
+      "tipo": "secundaria",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 902,
+      "objetivos": []
     },
     {
       "mision_id": "MISION_SEC_MASCOTA_COIPO",
@@ -125,7 +345,7 @@
       "tipo": "secundaria",
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
-      "orden": 50,
+      "orden": 903,
       "objetivos": []
     },
     {
@@ -134,51 +354,7 @@
       "tipo": "secundaria",
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
-      "orden": 60,
-      "objetivos": []
-    },
-    {
-      "mision_id": "MISION_PANTANO_CRIATURAS",
-      "titulo": "Habla con todas las criaturas del pantano",
-      "tipo": "secundaria",
-      "zona": "ciberacoso",
-      "zona_objetivo": "zona_2",
-      "orden": 65,
-      "objetivos": [
-        {
-          "orden": 1,
-          "tipo": "recoger_objeto",
-          "item_id": "ITEM_ROCA",
-          "cantidad": 1,
-          "descripcion": "Recolectar mascota"
-        },
-        {
-          "orden": 2,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M4_FASE01",
-          "descripcion": "Interactuar con tres animales"
-        },
-        {
-          "orden": 3,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M4_FASE02",
-          "descripcion": "Interactuar con tres animales"
-        },
-        {
-          "orden": 4,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M3_DECISION01",
-          "descripcion": "Interactuar con tres animales"
-        }
-      ]
-    },
-    {
-      "mision_id": "MISION_EXPLORACION_03",
-      "titulo": "Las llaves del cofre",
-      "tipo": "exploracion",
-      "zona": "reto_viral",
-      "zona_objetivo": "zona_3",
-      "orden": 70,
+      "orden": 904,
       "objetivos": []
     },
     {
@@ -187,7 +363,7 @@
       "tipo": "secundaria",
       "zona": "reto_viral",
       "zona_objetivo": "zona_3",
-      "orden": 80,
+      "orden": 905,
       "objetivos": []
     },
     {
@@ -196,7 +372,7 @@
       "tipo": "secundaria",
       "zona": "reto_viral",
       "zona_objetivo": "zona_3",
-      "orden": 90,
+      "orden": 906,
       "objetivos": []
     }
   ]

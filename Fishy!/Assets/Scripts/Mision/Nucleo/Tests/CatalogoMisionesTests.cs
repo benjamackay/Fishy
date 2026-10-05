@@ -108,7 +108,7 @@ public class CatalogoMisionesTests
     // ── El archivo de verdad ─────────────────────────────────────────────────
 
     [UnityTest]
-    public IEnumerator ArchivoDeRespaldo_ExisteYTraeLasDoceMisiones()
+    public IEnumerator ArchivoDeRespaldo_TraeLaCadenaDelOrdenDeNarracion()
     {
         yield return null;
 
@@ -116,12 +116,17 @@ public class CatalogoMisionesTests
 
         Assert.AreEqual(CatalogoMisiones.Origen.Archivo, CatalogoMisiones.DeDonde,
             "Sin Resources/misiones.json el juego se queda sin respaldo.");
-        // 9 originales + MISION_NPC_03, MISION_NPC_04 y MISION_PANTANO_CRIATURAS.
-        Assert.AreEqual(12, CatalogoMisiones.Todas.Count);
+        // 18 pasos principales (el reto final cuenta dos: base e intenso) + 6 secundarias.
+        Assert.AreEqual(24, CatalogoMisiones.Todas.Count);
+        Assert.IsNotNull(CatalogoMisiones.Buscar("Z1_02_HABLA_HUEMUL"));
+        Assert.IsNotNull(CatalogoMisiones.Buscar("Z2_03_TESTIMONIOS"));
+        Assert.IsNotNull(CatalogoMisiones.Buscar("Z3_06_CASO_3"));
         Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_SEC_MASCOTA_COIPO"));
-        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_NPC_03"));
-        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_NPC_04"));
-        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_PANTANO_CRIATURAS"));
+
+        // La bifurcación del primer reto tiene que llegar parseada: si JsonUtility no
+        // la leyera, la cadena seguiría siempre por el segundo reto sin avisar.
+        Assert.AreEqual("Z3_05_RETO_FINAL",
+            CatalogoMisiones.Buscar("Z3_03_PRIMER_RETO").desbloquea_si_acepta);
     }
 
     [UnityTest]

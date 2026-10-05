@@ -298,7 +298,7 @@ namespace Fishy.Finales
 
         private IEnumerator MostrarLineas(FinalNarrativo final)
         {
-            NPC prestado = BuscarPanel();
+            DialogoNeutroNPC prestado = BuscarPanel();
             if (prestado == null)
             {
                 // Sin panel no hay dónde escribir, pero el final no puede perderse:
@@ -369,9 +369,9 @@ namespace Fishy.Finales
                 || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame);
         }
 
-        private static NPC BuscarPanel()
+        private static DialogoNeutroNPC BuscarPanel()
         {
-            foreach (var npc in FindObjectsByType<NPC>(FindObjectsInactive.Include))
+            foreach (var npc in FindObjectsByType<DialogoNeutroNPC>(FindObjectsInactive.Include))
                 if (npc != null && npc.dialoguePanel != null && npc.dialogueText != null)
                     return npc;
             return null;

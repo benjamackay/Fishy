@@ -206,8 +206,11 @@ namespace Fishy.Detective
             // Cuenta como intento aunque no haya aprobado: el objetivo de misión
             // 'completar_caso_detective' no exige superar el umbral (ver
             // documentacion/README_CATALOGO_MISIONES.md), sólo haber jugado el caso.
+            HistorialDeObjetivos.AnotarCasoDetective(CasoId);
+
             if (desafioAsociado != null)
-                MissionManager.Instance?.CompletarDesafio(desafioAsociado);
+                MissionManager.Instance?.CompletarDesafio(desafioAsociado,
+                    $"el Modo Detective: se cerró el caso '{CasoId}' (aprobado: {caseManager?.UltimoAprobado})");
 
             onCasoResuelto?.Invoke();
 

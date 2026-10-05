@@ -3,23 +3,14 @@
 Cómo llega a la base de datos lo que el niño/a hace en la partida: **cuándo se sube,
 por dónde pasa, qué se pierde si algo falla y cómo comprobarlo.**
 
-En una línea: **nada se sube en el momento en que ocurre, y nada se pierde.** Los
-cambios se acumulan en una cola, que se va vaciando cada pocos segundos mientras se
-juega y además al cambiar de zona y al cerrar. Lo que no alcanza a subir queda **anotado
-en disco** y sale al volver a entrar.
+En una línea: **nada se sube en el momento en que ocurre.** Los cambios se acumulan en
+una cola en memoria y salen todos juntos en dos momentos — al cambiar de zona y al
+cerrar el juego.
 
 > Antes cada cosa se mandaba en cuanto pasaba: un POST por objeto recogido, otro por NPC
 > terminado, uno por **cada línea de chat**, más el PATCH de posición y el PUT de
 > inventario. Contra Supabase cada petición cuesta **600-800 ms**
 > (`Backend/README.md`), así que el juego se pasaba la partida goteando tráfico.
-
-> **Y la cola, en su primera versión, vivía solo en memoria**, con la pérdida de un
-> cierre sucio asumida como aceptable. No lo era. Medido sobre los logs del 25 de
-> septiembre de 2026, cuatro paradas del Play en una tarde se llevaron **19 cambios**; y
-> como las misiones se recuperaban solas por el PlayerPrefs de `MissionManager` pero los
-> objetivos no tenían red, la base acabó afirmando que una misión estaba completa con
-> **1 de 3** objetivos hechos. Para siempre: el chat que marca el objetivo no se vuelve a
-> disparar. De ahí el diario (§2).
 
 ---
 
@@ -27,40 +18,49 @@ en disco** y sale al volver a entrar.
 
 | Momento | Quién lo dispara | Tope | Reintenta |
 |---|---|---|---|
-| **En segundo plano** | `ColaDeCambios.GotearDeFondo()`, cada `intervaloDeFondo` = 10 s | `topeDeFondo` = 15 s | Sí |
-| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | Sí |
-| **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s | No: no hay otra oportunidad **en esta sesión** (pero lo anotado vuelve en la siguiente) |
-| **Manual** | Una prueba, o el menú de pausa | `topeNormal` | Sí |
-| **Pedido del jugador** | El botón «Intentar ahora» de `AvisoDeGuardado` → `ColaDeCambios.ReintentarAhora()` | `topeDeFondo` | Sí |
+| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | **Insiste hasta vaciar la cola** |
+| **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s, y después **pregunta** | Sí, y el juego no cierra hasta vaciar |
+| **Manual** | Una prueba (el menú de pausa usa el del cierre, ver §5) | `topeNormal` | Sí |
+| **Disparador** | Un `GuardarPartida` en la escena, enganchado a un evento | el `tope` del componente (10 s) | Sí |
 
-**Por qué hay uno de fondo, si ya había dos.** Los dos momentos son *instantes*, y entre
-uno y otro puede pasar media partida: quien se queda cuarenta minutos en la misma zona no
-guardaba nada en cuarenta minutos. Con el goteo, la ventana deja de ser una lista de
-instantes y pasa a ser «siempre, unos segundos por detrás».
+**No hay tope de intentos.** El que manda es el plazo: mientras quede, se insiste. Antes
+había un `maxIntentos = 3` y lo que lo agotaba **se abandonaba**, con el agravante de que
+los dedup (§4) ya lo daban por encolado y no se volvía a intentar en toda la sesión.
 
-**Y no vuelve al goteo de una petición por evento**, que es lo que esta cola vino a
-quitar: dentro del intervalo los cambios se siguen agrupando por clave, así que el número
-de peticiones es el mismo, repartido en vez de en bloque.
+Y **solo** esos. Hubo además un guardado periódico y otro al terminar cada interacción;
+se quitaron a propósito. Si vuelven a hacer falta, lo que hay que añadir es un valor
+nuevo en `SaveManager.Motivo`, no reabrir los de antes.
 
-> Vale decirlo, porque este documento antes afirmaba lo contrario: la primera versión quitó
-> a propósito un guardado periódico que existía, y el de fondo lo reintroduce. La
-> diferencia es que aquel guardaba *cada cosa* en cuanto pasaba y este vacía *la cola
-> agrupada*. Lo que se quitó fue el goteo, no la periodicidad.
+> Se probó un tercer momento —un goteo de fondo cada 10 s mientras se juega— y **se
+> retiró**: la decisión es que la partida se guarde en esos dos momentos y en ningún otro.
+> Lo que cubre el hueco no es guardar más seguido, sino insistir hasta vaciar la cola
+> cuando sí toca guardar.
 
-> «Pedido del jugador» **no pasa por `momentosActivos`**, a diferencia de los demás. Ese
-> interruptor es para los momentos automáticos, y `Manual` viene apagado de fábrica, así
-> que pedirlo por ese camino no habría hecho nada. `ReintentarAhora()` vacía la cola
-> directamente.
+### `Disparador`: cuando la historia necesita la nube al día
+
+El **Disparador** no es un tercer momento fijo: solo guarda donde la escena tenga un
+`GuardarPartida` enganchado a algo, y por eso viene encendido por defecto sin cambiar
+nada de lo anterior. Existe para el final del juego: el final se calcula con las
+decisiones guardadas en la nube, y al terminar la última misión las de la Zona 3
+siguen en la cola —se cerraría con un final que ignora la zona entera—.
+
+- **Se engancha** `GuardarPartida.Guardar` a cualquier evento (el `alCompletar` de un
+  `AlCompletarMision`, un botón…).
+- **Quien necesite los datos al día** se engancha a su `alGuardar`, no al mismo evento:
+  ahí todavía no subió nada. Si no se pudo subir todo —sin conexión, sin sesión, plazo
+  vencido— sale `alQuedarPendiente` en su lugar.
+- **Espera un frame antes de vaciar**: los otros oyentes del mismo evento suelen encolar
+  cambios (registrar la zona completada), y el vaciado toma una foto de la cola al
+  empezar.
+- **No lo frena la espera mínima**, igual que al cierre: está para agrupar cambios de zona
+  en ráfaga, y uno pedido por la historia es puntual y tiene a alguien esperando.
 
 ### Encenderlos y apagarlos sin tocar código
 
 `SaveManager.momentosActivos` es un `[Flags]` visible en el Inspector:
 
 ```csharp
-[Flags] public enum Momentos
-{
-    Ninguno = 0, CambioDeZona = 1, CierreDeAplicacion = 2, Manual = 4, EnSegundoPlano = 8
-}
+[Flags] public enum Momentos { Ninguno = 0, CambioDeZona = 1, CierreDeAplicacion = 2, Manual = 4, Disparador = 8 }
 ```
 
 Los valores de `Motivo` son las mismas potencias de dos, así que `Preparar()` pregunta
@@ -74,73 +74,43 @@ con un `&` y no hay ningún `switch` que haya que acordarse de ampliar. Dejarlo 
 
 ---
 
-## 2. El recorrido de un cambio, y el diario
+## 2. El recorrido de un cambio
 
 ```
   algo pasa en el juego
           │
           ▼
-  XxxSync.Marcar…()                      ← no llama al backend
+  XxxSync.Marcar…()                    ← no llama al backend
           │
           ▼
-  ColaDeCambios.Encolar…(clave, …)       ← coalesce por clave
-          │
-          ├──────────────▶ DiarioDeCambios.Anotar()   ← a disco, YA
-          │                (PlayerPrefs "Fishy.Cola.Diario")
+  ColaDeCambios.Encolar…(clave, …)     ← coalesce por clave
           │
           │   … el niño/a sigue jugando …
           │
           ▼
-  Vaciar()  ← fondo cada 10 s / zona / cierre / «Intentar ahora»
+  SaveManager.Guardar(motivo)          ← cambio de zona / cierre
           │
           ▼
-  ApiManager.Send<T>()                   ← la petición de verdad
-          │
-          ├─ salió bien ──▶ DiarioDeCambios.Confirmar()  ← recién ahora se borra
-          └─ falló ───────▶ se queda anotado, con retardo creciente
+  ColaDeCambios.Vaciar(motivo, tope)   ← sale todo, en orden
+          │                              y se repite mientras quede algo
+          ▼                              y quede plazo
+  ApiManager.Send<T>()                 ← las peticiones de verdad
 ```
 
-### Datos y receta, no un closure
+### Insistir, no dar una pasada
 
-Un cambio **no puede llevar un `Action`** si se quiere anotar: un closure no se escribe en
-disco. Así que lleva **(nombre de receta, argumentos)**:
+`Vaciar()` no recorre la cola una vez: la recorre **en rondas**, hasta que quede vacía o se
+acabe el plazo. Lo que falla vuelve a la cola y se reintenta en la ronda siguiente, dentro
+del mismo vaciado.
 
-```
-antes:   objeto:FLOR → closure
-ahora:   objeto:FLOR → "objeto" + { ObjetoId: "FLOR" }
-```
+Hacía falta justamente porque los momentos son dos y nada más: antes, lo que fallaba se
+quedaba esperando al siguiente momento de guardado, y ese siguiente podía estar a media
+partida de distancia. Un fallo de red de un segundo dejaba el cambio sin subir media hora.
 
-El patrón no es nuevo: `EncolarZona` ya guardaba un valor y una función para rehacer el
-envío al vaciar. Lo único que cambió es que **la función pasa a tener nombre**.
-
-Las ocho recetas viven juntas en `RecetasDeCola.cs`: `mision`, `objetivo`, `zona`,
-`objeto`, `npc`, `detective`, `chat`, `progreso`. **En un solo archivo a propósito.** Si
-cada sincronizador registrara la suya al despertar, reproducir el diario dependería de qué
-componentes se crearon ya, y una receta sin registrar dejaría su cambio muerto en
-silencio.
-
-Los argumentos van como JSON anidado dentro del sobre, y no como objeto: primero se lee el
-sobre, y el nombre de la receta dice de qué tipo son los argumentos de dentro. Eso evita
-resolver tipos polimórficos al deserializar. La familia va como **texto** para que añadir
-una familia mañana no corrompa un diario escrito hoy.
-
-### Lo que NO se anota
-
-`inventario` y `personaje`. Son los dos *thunks* de verdad —leen el estado vivo al
-subir— y además los únicos **reconstruibles**: el siguiente vaciado manda la mochila y la
-posición completas de todas formas. Anotarlos sería guardar una foto vieja de algo que se
-puede volver a mirar. Es la línea que mantuvo el cambio acotado, y el log lo dice cuando
-entra uno: `Sin diario: no sobrevive al cierre.`
-
-### Cada entrada se sube a SU partida
-
-Todos los métodos de escritura del `ApiManager` aceptan `int? partidaId` y los endpoints
-son por partida, así que **un objetivo anotado en la partida 3 se sube a la 3 aunque ahora
-se juegue la 4**, y el servidor comprueba que esa partida sea de este adulto. Por eso el
-diario no tiene que descartar nada al cambiar de perfil (§7).
-
-`ActualizarPartida` y `RegistrarChatCompleto` eran los dos que fijaban `PartidaId` en la
-ruta en vez de recibirlo; ahora lo reciben.
+Si una ronda entera no consigue subir nada, se esperan `EsperaEntreRondas` = 0,5 s antes de
+la siguiente: contra un servidor que no contesta, repetir sin pausa solo quemaría frames
+hasta agotar el plazo. La espera va en **realtime**, porque `MenuPausa` pone
+`Time.timeScale = 0`.
 
 ---
 
@@ -151,7 +121,7 @@ tres tratos distintos:
 
 | Familia | Qué es | Al reencolar la misma clave | Ejemplos |
 |---|---|---|---|
-| **Snapshot** | Solo importa el último estado | Pisa | `personaje`, `inventario` (la orden de leer el estado vivo), `partida.progreso` (que sí lleva datos, y se anota) |
+| **Snapshot** | Solo importa el último estado | Pisa. **No guarda datos**: guarda la orden de leerlos | `personaje`, `inventario`, `partida.progreso` |
 | **Append** | Un hecho idempotente por clave | Pisa con el valor nuevo | `objeto:{id}`, `npc:{id}`, `mision:{id}`, `zona:{slug}`, `detective:{caso}` |
 | **Cadena** | Varias peticiones que dependen unas de otras | Pisa | `chat:{n}` |
 
@@ -164,20 +134,12 @@ intermedio.
 `ApiManager.NpcId` y `ChatId` son estado global mutable y dos cadenas a la vez se
 pisarían. Hoy solo la usa el respaldo del chat (ver §12).
 
-> Ojo a la diferencia entre familia y diario: la **familia** decide la coalescencia y el
-> paralelismo; lo que decide si algo se anota es tener **receta**. `partida.progreso` es
-> `Snapshot` y se anota; `inventario` es `Snapshot` y no.
-
 Reencolar una clave **reemplaza el contenido pero conserva su posición original**. Si no,
 un snapshot que se repite mucho —la posición de Otto, que se marca en cada guardado— se
 iría colando por delante de hechos más viejos, y esos serían justo los que se quedan
 fuera cuando vence el plazo.
 
 ### Las dos excepciones que fusionan en vez de pisar
-
-`RecetasDeCola.FusionDe(receta)` dice cómo, y la fusión se aplica en **tres** sitios: al
-encolar, al reencolar un fallo y **al escribir en el diario**. Ese tercero no es
-paranoia — ver el aviso al final de esta sección.
 
 **`zona:{slug}` fusiona por OR.** Hay dos escritores con significados opuestos:
 `MisionBackendSync` manda `completada: false` al desbloquearla y
@@ -189,36 +151,21 @@ en el reporte del adulto**. Completar es un camino de ida.
 Si dos se cerraran entre dos vaciados y la segunda tuviera un valor menor, el progreso
 del niño/a retrocedería.
 
-> ⚠️ **Fusionar solo en memoria no alcanzaba, y esto costó una prueba en rojo.** La zona
-> queda «completada» y no alcanza a subirse; a la sesión siguiente, al recalcular, se
-> encola como «desbloqueada». En memoria no hay nada —la cola arrancó vacía—, así que sin
-> fusionar **contra el diario** se escribiría «desbloqueada» encima de la «completada»
-> anotada, y el reporte del adulto pasaría a mostrar como pendiente una zona ya terminada.
-> Por eso `DiarioDeCambios.Anotar()` recibe la fusión. Fusionar dos veces no molesta: OR y
-> máximo dan lo mismo repetidos. Lo cubre
-> `FishyPruebasCola.ProbarDiarioNoDegradaUnaZona`.
-
 ---
 
 ## 4. Qué se encola, quién lo encola y dónde acaba
 
-| Clave | Familia | Receta | Lo pone | Acaba en |
-|---|---|---|---|---|
-| `personaje` | Snapshot | — *(no se anota)* | `PersonajeBackendSync.MarcarSucio()` | `PATCH /partidas/{id}/personaje/` |
-| `inventario` | Snapshot | — *(no se anota)* | `InventarioBackendSync.MarcarSucio()` | `PUT /partidas/{id}/inventario/` |
-| `partida.progreso` | Snapshot | `progreso` (máx.) | `ColaDeCambios.EncolarProgreso()` | `PATCH /partidas/{id}/` |
-| `objeto:{id}` | Append | `objeto` | `ObjetosRecogidosSync.Marcar()` | `POST /partidas/{id}/objetos-recogidos/` |
-| `npc:{id}` | Append | `npc` | `NpcTematicaSync.Marcar()` | `POST /partidas/{id}/progreso-npcs/` |
-| `mision:{id}` | Append | `mision` | `MisionBackendSync` | `POST /partidas/{id}/misiones/` |
-| `objetivo:{mision}:{orden}` | Append | `objetivo` | `ObjetivosBackendSync` | `POST /partidas/{id}/objetivos/` |
-| `zona:{slug}` | Append | `zona` (OR) | `MisionBackendSync`, `BosqueDesconocidosManager`, `RegistrarZonaCompletada` | `POST /partidas/{id}/zonas/` |
-| `detective:{caso}` | Append | `detective` | `DetectiveCaseManager` | `POST /casos-detective/{caso}/progreso/` |
-| `chat:{n}` | Cadena | `chat` | `ChatBackendLogger.LogEnd()` | `POST /partidas/{id}/chats/completo/` (y la cadena antigua como respaldo, §12) |
-
-Cada sincronizador tiene su método de encolar (`EncolarMision`, `EncolarObjetivo`,
-`EncolarObjeto`, `EncolarNpc`, `EncolarDetective`, `EncolarChat`, `EncolarZona`,
-`EncolarProgreso`), así que el sitio que provoca el cambio no arma cuerpos de peticiones:
-solo dice qué pasó.
+| Clave | Familia | Lo pone | Acaba en |
+|---|---|---|---|
+| `personaje` | Snapshot | `PersonajeBackendSync.MarcarSucio()` | `PATCH /partidas/{id}/personaje/` |
+| `inventario` | Snapshot | `InventarioBackendSync.MarcarSucio()` | `PUT /partidas/{id}/inventario/` |
+| `partida.progreso` | Snapshot | `ColaDeCambios.EncolarProgreso()` | `PATCH /partidas/{id}/` |
+| `objeto:{id}` | Append | `ObjetosRecogidosSync.Marcar()` | `POST /partidas/{id}/objetos-recogidos/` |
+| `npc:{id}` | Append | `NpcTematicaSync.Marcar()` | `POST /partidas/{id}/progreso-npcs/` |
+| `mision:{id}` | Append | `MisionBackendSync` | `POST /partidas/{id}/misiones/` |
+| `zona:{slug}` | Append (OR) | `MisionBackendSync`, `BosqueDesconocidosManager`, `RegistrarZonaCompletada` | `POST /partidas/{id}/zonas/` |
+| `detective:{caso}` | Append | `DetectiveCaseManager` | `POST /casos-detective/{caso}/progreso/` |
+| `chat:{n}` | Cadena | `ChatBackendLogger.LogEnd()` | `POST /partidas/{id}/npcs/` + `POST /chats/` + N × `POST /chats/{id}/mensajes/registrar/` + `POST /chats/{id}/finalizar/` |
 
 ### El chat es el caso especial
 
@@ -243,11 +190,6 @@ desaparece.
 filtra nada, porque el `onSuccess` llega al vaciar. Ahora quieren decir **"encolado o
 confirmado"** y se escriben al encolar.
 
-> Ese cambio tenía un agujero mientras la cola era volátil: un cambio que se **abandonaba**
-> tras `maxIntentos` dejaba el dedup diciendo «ya está» y no se volvía a encolar en toda la
-> sesión. Se cerró por construcción al dejar de abandonar (§7): «encolado» ya quiere decir
-> duradero.
-
 ---
 
 ## 5. El cierre del juego
@@ -262,37 +204,51 @@ wantsToQuit  →  ¿ya vaciamos?        → sí: cerrar
              →  arrancar CerrarCuandoTermine() y cancelar este cierre
 ```
 
-`CerrarCuandoTermine()` vacía con tope de 10 s. Si al vencer quedan cambios **pregunta en
-vez de decidir**: `MenuPausa.PreguntarSiEsperar()` muestra *"No se pudo conectar con el
-servidor"*, cuántos cambios quedan, y dos botones — **"Seguir esperando"** (otros 10 s,
-repetible) y el de cerrar. Mientras el cartel está a la vista el cierre sigue cancelado;
-no hay prisa. Lo que no vale es cerrar en silencio.
+**El juego no se cierra hasta que la cola esté vacía.** `CerrarCuandoTermine()` vacía
+insistiendo, con tope de 10 s por vuelta, y repite mientras quede algo.
 
-**El cartel cambia según si hay algo que lamentar**, que es `ColaDeCambios.TodoAnotado`:
+Si al vencer los 10 s todavía quedan cambios, **pregunta en vez de decidir**:
 
 ```
-todo anotado:   "Quedan 3 cambio(s) por subir, y se guardan solos
-                 la próxima vez que entres."          [Cerrar]
+              Guardando
 
-algo sin anotar: "Quedan 3 cambio(s) sin guardar."    [Cerrar de todas formas]
+  El guardado del juego está tardando más de lo esperado
+  ¿Salir ahora? Se perderán datos
+
+       [ Seguir esperando ]    [ Salir ahora ]
 ```
 
-Antes decía siempre lo segundo. Confundir «no se subió» con «se perdió» es justo lo que
-hizo creer durante semanas que el guardado estaba roto, así que la distinción va en el
-texto y también en el nivel de los logs (§10).
+«Seguir esperando» da otros 10 s, y es repetible sin límite: mientras el cartel está a la
+vista el cierre sigue cancelado y la cola sigue insistiendo. «Salir ahora» cierra
+perdiendo lo que quede, y lo dice en el log. Lo que no vale es cerrar en silencio.
 
-**Y al cerrar no se respeta el retardo.** `Vaciar()` salta lo que está esperando su turno
-o atascado, salvo cuando el motivo es el cierre: es la última oportunidad de la sesión, así
-que se intenta todo. El propio `reintentarSiFalla` distingue los dos casos, sin otro
-parámetro.
+El cartel no dice cuántos cambios faltan: a un niño/a no le dice nada. El número sí va al
+log, para quien tenga que diagnosticarlo.
 
-Los tres caminos de salida terminan en el mismo sitio:
+Los tres caminos para dejar de jugar guardan igual:
 
-| Camino | Pasa por | Quién pregunta |
-|---|---|---|
-| Botón "Guardar y salir" | `MenuPausa.GuardarYSalir()` | El propio menú; después llama a `SaveManager.MarcarCierreListo()` para que no se arranque un segundo vaciado |
-| Aspa de la ventana | `wantsToQuit` | `SaveManager` se lo pide a `MenuPausa` |
-| Alt+F4 | `wantsToQuit` | ídem |
+| Camino | Pasa por | Quién pregunta | Termina en |
+|---|---|---|---|
+| Botón "Guardar y volver al menú" (Esc) | `MenuPausa.GuardarYSalir()` | El propio menú | La escena `MenuDos`, con la aplicación abierta |
+| Aspa de la ventana | `wantsToQuit` | `SaveManager` se lo pide a `MenuPausa` | Se cierra el juego |
+| Alt+F4 | `wantsToQuit` | ídem | ídem |
+
+**Volver al menú cuenta como cierre** (`Motivo.CierreDeAplicacion`): se deja de jugar la
+partida, así que se guarda igual que al cerrar. Tres cosas que lo distinguen del cierre de
+verdad, porque la aplicación sigue viva:
+
+- **No marca el cierre como listo.** El aspa desde el menú tiene que seguir guardando.
+- **Si el jugador eligió «Salir ahora», lo pendiente se descarta**
+  (`ColaDeCambios.DescartarTodo`, con `LogError` y las claves). Al cerrar la aplicación eso
+  muere con el proceso; aquí se quedaría en la cola sin partida a la que subir, y el aspa
+  desde el menú preguntaría una y otra vez.
+- **Cierra la partida** (`ApiManager.CerrarPartida`). Los sincronizadores restauran cuando
+  *cambia* la partida, así que sin esto volver a entrar en la misma no restauraba nada
+  sobre la escena recién cargada: Otto en el punto de inicio —y el siguiente guardado
+  pisaba la posición buena—, zonas cerradas otra vez. Al cerrarla, cada sincronizador
+  olvida lo restaurado (`OnPartidaCerrada`) y volver a entrar recorre el camino de la
+  primera vez. `MissionTracker`, por su parte, vuelve a enganchar los objetivos a los NPCs
+  de cada escena que carga.
 
 `OnApplicationPause` se queda como estaba: en móvil el sistema mata la app pausada sin
 avisar y es la única señal fiable. No se puede retrasar, así que es best-effort.
@@ -320,26 +276,24 @@ La cola lo fija antes de cada envío y lo devuelve a `null` en un `finally`: es 
 global, y si un fallo lo dejara puesto, **todas** las peticiones del resto de la sesión
 heredarían un timeout de segundos y empezarían a fallar sin motivo aparente.
 
-### Los cinco finales de un vaciado
+### Los cuatro finales de un vaciado
 
 | Estado | Qué pasó |
 |---|---|
-| **Subido** | Entró. Se borra del diario |
-| **Fallido** | Se intentó y el servidor dijo que no. Vuelve a la cola con retardo |
-| **Sin respuesta** | Salió y venció el plazo sin que contestara, ni bien ni mal |
+| **Subido** | Entró |
+| **Fallido** | Se intentó y el servidor dijo que no |
+| **Sin respuesta** | Salió y venció el plazo sin que contestara, ni bien ni mal. **No se reencola**: puede que haya llegado, y repetirlo duplicaría el cambio |
 | **Sin intentar** | Se quedó en la cola sin llegar a salir |
-| **Esperando** | Se saltó a propósito: aguardaba su retardo, o está atascado |
 
-`TodoBien` exige que fallido, sin respuesta y sin intentar estén en cero. **«Esperando» no
-cuenta**: no es una pérdida, es que no era su momento, y si contara el cartel del cierre
-saltaría cada vez que algo estuviera en pleno retardo.
+`TodoBien` exige que **«sin respuesta» y «sin intentar» estén en cero**, y no mira los
+fallidos. Con la insistencia, «fallido» pasó a contar *intentos* y no *cambios*: si algo
+falló dos veces y a la tercera entró, que haya fallado no es un problema; y si no entró, ya
+está contado en «sin intentar», que es lo que sigue en la cola al terminar. Sumar las dos
+cosas contaría el mismo cambio dos veces.
 
 Esa categoría de «sin respuesta» existe porque sin ella un envío que no llamara nunca a su
 callback no aparecía en ningún lado: el resultado decía *"todo bien"* y el cierre daba por
-guardado un cambio recién perdido. **Lo que cambió con el diario:** ya no se da por
-perdido, porque sigue anotado y vuelve en la sesión siguiente. Puede que hubiera llegado y
-se mande dos veces — y da igual, porque todas las escrituras son idempotentes a propósito
-(`get_or_create` + camino de ida en el backend).
+guardado un cambio recién perdido.
 
 ---
 
@@ -359,49 +313,26 @@ a propósito.
 
 ---
 
-## 7. Qué se pierde y qué ya no
+## 7. Lo que se pierde, y por qué se aceptó
 
-**Nada de lo que está anotado se pierde.** Ni parando el Play, ni con un crash, ni
-quedándose sin batería. Vuelve a la cola al arrancar (`ColaDeCambios.Reproducir()`), y como
-cada entrada lleva su partida, vuelve también si entretanto se cambió de perfil.
+1. **La cola vive solo en memoria y no se persiste a disco.** Un cierre sucio —crash,
+   batería, matar el proceso— pierde lo acumulado desde el último vaciado, o sea lo de la
+   zona actual. El cierre normal no pierde nada, porque se retiene la aplicación hasta
+   que la cola termina.
+2. **Un chat abandonado a medias ya no queda ni a medias.** Antes el backend conservaba
+   los mensajes ya enviados con `fecha_termino` en NULL — a medias, pero visible en el
+   reporte del adulto. Ahora: o la conversación entera o nada. Es consecuencia directa
+   de (1).
+3. **El aspa ahora retrasa el cierre.** Si el vaciado tiene un fallo, el juego parece
+   colgado unos segundos. Por eso el tope es duro sobre `realtimeSinceStartup` y un
+   segundo Alt+F4 cierra en seco.
 
-**Nada se abandona, tampoco.** `maxIntentos` dejó de significar «se tira» y pasó a
-significar «deja de insistir solo»: el cambio queda **atascado**, sigue en el diario, sale
-en el aviso de pantalla y vuelve con «Intentar ahora» o en la sesión siguiente. Los
-retardos entre intentos son 10 s, 30 s, 60 s y después 120 s, porque insistir cada pocos
-segundos contra un servidor caído no arregla nada y llena el log.
+### El sello de partida
 
-Y al reponer del diario los intentos **arrancan de cero**: algo que se atascó ayer merece
-sus intentos completos hoy, cuando el servidor caído o el wifi del colegio ya pueden no ser
-el problema.
-
-### Lo que sí se queda en el camino
-
-1. **La mochila y la posición de Otto**, si el proceso muere. No se anotan a propósito
-   (§2): el siguiente guardado las manda completas, así que se recalculan solas. Es el
-   único caso que todavía provoca un `LogError`.
-2. **Un chat abandonado a medias no queda ni a medias.** Antes el backend conservaba los
-   mensajes ya enviados con `fecha_termino` en NULL — a medias, pero visible en el reporte
-   del adulto. Ahora: o la conversación entera o nada. Es consecuencia de encolar solo en
-   `LogEnd()`, no del diario.
-3. **El aspa retrasa el cierre.** Si el vaciado tiene un fallo, el juego parece colgado
-   unos segundos. Por eso el tope es duro sobre `realtimeSinceStartup` y un segundo Alt+F4
-   cierra en seco.
-4. **El diario crece si el servidor está caído mucho tiempo.** `avisarPorEncimaDe` lo
-   advierte por consola, y el aviso de pantalla lo hace visible para quien juega.
-
-### El sello de partida ya no descarta
-
-Cada entrada sigue sellada con la partida en que ocurrió, pero el sello pasó de **descartar
-a dirigir**: se usa para subir el cambio a su partida, no para tirarlo.
-
-Antes era lo único que evitaba escribirle el avance de un hermano al otro —este proyecto ya
-se quemó con eso—, y el precio era perder el cambio. Ahora no hay precio: los endpoints de
-escritura son todos por partida y el servidor comprueba que la partida sea de este adulto,
-así que el cambio va donde debe.
-
-Lo que **no** está anotado sí se sigue descartando si es de otra partida: un snapshot lee
-el estado vivo, y ese estado ya es de la partida de ahora.
+Cada entrada se sella con `ApiManager.PartidaId` al encolar. Al vaciar, si no coincide con
+la partida activa, se descarta con un aviso que la nombra. Este proyecto ya se quemó con
+la contaminación entre perfiles de hermanos; con una cola que sobrevive a un cambio de
+perfil, el riesgo vuelve. Descartar **no** cuenta como cambio perdido.
 
 ---
 
@@ -411,7 +342,7 @@ el estado vivo, y ese estado ya es de la partida de ahora.
 
 | Campo | Por defecto | Qué hace |
 |---|---|---|
-| `momentosActivos` | `CambioDeZona \| CierreDeAplicacion \| EnSegundoPlano` | En qué momentos se vacía |
+| `momentosActivos` | `CambioDeZona \| CierreDeAplicacion` | En qué momentos se vacía |
 | `esperaMinima` | 1 s | Mínimo entre dos guardados. Caminar sobre el borde de dos zonas dispara cambios en cadena; esto los agrupa. **El cierre se la salta** |
 | `topeNormal` | 8 s | Plazo de un vaciado por cambio de zona |
 | `topeDeCierre` | 10 s | Cuánto se retiene el cierre antes de preguntar |
@@ -422,19 +353,8 @@ el estado vivo, y ese estado ya es de la partida de ahora.
 | Campo | Por defecto | Qué hace |
 |---|---|---|
 | `paralelismo` | 4 | Peticiones a la vez. Las cadenas van de una en una pase lo que pase |
-| `maxIntentos` | 6 | Intentos antes de dejar de insistir solo. **No se pierde**: queda atascado y anotado |
-| `intervaloDeFondo` | 10 s | Cada cuánto se vacía la cola mientras se juega |
-| `topeDeFondo` | 15 s | Plazo de un vaciado de fondo o de un «Intentar ahora» |
 | `avisarPorEncimaDe` | 200 | Avisa si la cola crece tanto sin vaciarse: señal de que algún vaciado dejó de ocurrir |
 | `verboseLogs` | true | Escribe cada cambio que entra y cada vaciado |
-
-### `AvisoDeGuardado`
-
-| Campo | Por defecto | Qué hace |
-|---|---|---|
-| `segundosAntesDeAvisar` | 30 s | Cuánto tiene que llevar algo sin subir antes de avisar en pantalla. Por debajo no se dice nada: la cola se vacía sola cada 10 s y un pendiente de paso no significa nada |
-| `cadaCuantoSeRevisa` | 0,5 s | Cada cuánto se mira si hay algo pendiente |
-| `iconoPlaceholder` | vacío | **PLACEHOLDER.** Vacío dibuja un círculo con un `!`. Poner aquí el sprite definitivo es todo lo que hace falta para reemplazarlo |
 
 Ambos se autocrean con `[RuntimeInitializeOnLoadMethod(AfterSceneLoad)]` +
 `DontDestroyOnLoad`, y un segundo `SubsystemRegistration` limpia los estáticos entre
@@ -452,32 +372,21 @@ corridas del editor. **Para tocar los campos hay que ponerlos en la escena.**
   -executeMethod Fishy.EditorTools.FishyPruebasCola.Ejecutar -logFile -
 ```
 
-`Assets/Editor/FishyPruebasCola.cs` — **37 comprobaciones** sobre lo que **no se ve en un
-log de red**: las dos fusiones, el orden, que reencolar no adelante, el sello de partida,
-los reintentos con su retardo, que el tope de tiempo se restaure, que el thunk lea al
-vaciar y no al encolar, los interruptores de `momentosActivos`, y que lo que sale y no
-contesta cuente como pendiente y no como guardado.
+`Assets/Editor/FishyPruebasCola.cs` — 26 comprobaciones sobre lo que **no se ve en un log
+de red**: las dos fusiones, el orden, que reencolar no adelante, el sello de partida, que
+el tope de tiempo se restaure, que el thunk lea al vaciar y no al encolar, los
+interruptores de `momentosActivos`, y que lo que sale y no contesta cuente como perdido y
+no como guardado.
 
-Las del diario, en particular:
+De la insistencia, tres:
 
 | Prueba | Qué fija |
 |---|---|
-| `ProbarDiarioSobreviveAlReinicio` | El caso que costó 19 cambios: se vacía la cola en memoria y lo anotado vuelve con sus datos |
-| `ProbarSnapshotsNoSeAnotan` | La mochila y la posición no se anotan; el objeto recogido sí |
-| `ProbarDiarioConservaSuPartida` | Lo anotado vuelve con **su** partida, no con la que se juega |
-| `ProbarIdaYVueltaDeLasRecetas` | Las ocho recetas sobreviven al viaje por disco con sus argumentos. Es la red de la conversión de closures a datos, que tocó nueve sitios |
-| `ProbarDiarioNoDegradaUnaZona` | Reponer no degrada una zona ya completada (§3) |
-| `ProbarFalloSeReintentaConRetardo` | Tras fallar espera; tras `maxIntentos` se atasca **sin perderse**; «Intentar ahora» lo desatasca |
+| `ProbarInsisteHastaVaciarLaCola` | Un cambio que falla dos veces y entra a la tercera sale **en el mismo** cambio de zona, y los fallos del camino no ensucian el veredicto |
+| `ProbarInsistirTienePlazo` | Insistir se acaba con el plazo; lo que no salga sigue en la cola para el siguiente cambio de zona |
+| `ProbarCierreTambienInsiste` | Al cerrar también se insiste, en vez de rendirse al primer fallo |
 
-También están `FishyPruebasPartida` (guardado e inventario en modo local),
-`FishyPruebasChat`, `FishyPruebasObjetivos` y `FishyPruebasDetectiveRecompensa`.
-
-> ⚠️ **Si las pruebas se corren sobre una copia del proyecto, comparten PlayerPrefs con el
-> juego de verdad.** Se indexa por company/product name, no por la ruta del proyecto, así
-> que las dos escriben en `~/.config/unity3d/DefaultCompany/Fishy!/prefs`. Como encolar
-> ahora escribe el diario, una prueba que no limpiara le dejaría al juego real cambios
-> inventados para subir al backend. El arnés limpia en `Vaciar()`, y conviene comprobarlo
-> con un `grep Fishy.Cola.Diario` al archivo de prefs al terminar.
+También está `FishyPruebasPartida.Ejecutar` (guardado e inventario en modo local).
 
 > **Trampa del modo edición:** Unity no llama a `Awake` fuera del Play, así que los
 > singletons están en null y una prueba mal montada pasa en verde sin haber vaciado nada.
@@ -490,22 +399,18 @@ También están `FishyPruebasPartida` (guardado e inventario en modo local),
 bash Backend/run.sh --local     # SQLite, no necesita la clave de Supabase
 ```
 
-Con `verboseLogs` puesto, las entradas salen **a los pocos segundos y sin cambiar de
-zona**, y la clave del diario queda vacía. Después: matar el servidor a media partida, ver
-el retardo creciente y el aviso en pantalla, levantarlo otra vez y comprobar que se pone al
-día **sin tocar nada**.
-
-**La prueba decisiva**, que es exactamente el caso que originó todo esto: parar el Play con
-cambios pendientes, volver a darle Play y comprobar en la base que se subieron.
-
-```sql
-SELECT mision_id, orden FROM api_objetivoprogreso WHERE partida_id = <N> ORDER BY orden;
-```
+Con `verboseLogs` puesto, contar las líneas `[API] POST` / `[API] PUT` entre dos cambios
+de zona: **cero durante el juego**, todas de golpe en el instante del vaciado.
 
 ### A mano
 
 Los tres caminos de salida —botón, aspa, Alt+F4— cada uno con el backend arriba y abajo.
 Son seis casos. Con el backend abajo tiene que salir el cartel a los 10 s.
+
+Y la vuelta desde el menú: Esc → «Guardar y volver al menú» → «Continuar» con la misma
+partida. Otto tiene que aparecer donde quedó, las zonas abiertas seguir abiertas, los
+objetos recogidos seguir fuera del mapa, y un objetivo de "hablar con" pendiente tiene que
+poder cumplirse.
 
 > En el editor, que `wantsToQuit` cancele la salida del Play Mode **hay que verificarlo en
 > la máquina, no asumirlo**: ha cambiado entre versiones de Unity. El camino que sí se
@@ -517,42 +422,28 @@ Son seis casos. Con el backend abajo tiene que salir el cartel a los 10 s.
 
 ```
 [Cola] +{clave} ({familia}) — {n} pendientes.          (solo con verboseLogs)
-[Cola] +{clave} … Sin diario: no sobrevive al cierre.  (la mochila y la posición)
-[Cola] {n} cambio(s) quedaron sin subir la última vez y vuelven a la cola.
 [Cola] Vaciando por {motivo}: {n} cambios.
-[Cola] ✓ {qué}                                         (uno por cambio confirmado)
-[Cola] Vaciada en {t} s: {n} subidos. {m} esperan su turno.
+[Cola] Vaciada en {t} s: {n} subidos.
+[Cola] Descartado '{qué}' de la partida {x}: ahora se juega la {y}.
 ```
 
-El `✓` reemplazó los `LogWarning` casi idénticos que tenía cada sincronizador. Informa la
-cola, que es la única que sabe si algo se va a reintentar ahora, dentro de un rato o en la
-sesión siguiente.
-
-**El nivel del aviso distingue retraso de pérdida**, que es el punto:
+Y cuando un vaciado no llega a terminar, **`LogError` y no `LogWarning`, listando las
+claves y el último error de red**:
 
 ```
-# hay pendientes, pero todos anotados → LogWarning
-[Cola] Vaciada por CierreDeAplicacion en 10,1 s: 3 subidos, 1 fallidos, …
+[Cola] Vaciada por CierreDeAplicacion en 10,1 s SIN terminar:
+       3 subidos, 7 intento(s) fallido(s), 1 sin respuesta,
+       2 todavia en la cola (10 intento(s) en total).
        Quedan: objeto:FLOR_03, chat:2
-       Todo lo que queda está anotado: se sube solo en cuanto haya conexión,
-       o al volver a entrar al juego.
-
-# algo sin anotar → LogError
-[Cola] Vaciada por CierreDeAplicacion en 10,1 s: 3 subidos, 1 fallidos, …
-       1 cambio(s) NO están anotados y se pierden (la mochila y la posición
-       de Otto, que se recalculan solas al siguiente guardado).
+       Ultimo error: No se pudo conectar (Cannot connect to destination host)
 ```
 
-En un build el log es lo único que queda en `Player.log`, así que reservar `LogError` para
-lo que de verdad se pierde es lo que lo mantiene útil.
+Los «intentos fallidos» son más que los cambios porque se insiste; el número que dice qué
+falta es **«todavía en la cola»**. Y el último error está ahí porque saber *cuántos* faltan
+sin saber *por qué* no sirve para arreglar nada.
 
-Y al parar el Play en el editor, `SaveManager.AlCambiarElPlay` dice qué pasó. Antes era un
-`LogError` porque los cambios se perdían; ahora solo se retrasan:
-
-```
-[SaveManager] Se paró el Play con 6 cambio(s) en la cola. No se pierden: están
-              anotados en el diario y se suben al volver a darle Play.
-```
+En un build eso es lo único que queda en `Player.log`, y es la diferencia entre *"no se
+guardó y nadie sabe por qué"* y un diagnóstico.
 
 ---
 
@@ -560,13 +451,10 @@ Y al parar el Play en el editor, `SaveManager.AlCambiarElPlay` dice qué pasó. 
 
 | Archivo | Rol |
 |---|---|
-| `ColaDeCambios.cs` | La cola: el almacén, las tres familias, el vaciado, el goteo de fondo |
-| `RecetasDeCola.cs` | Nombre de receta → la llamada al backend, y sus argumentos serializables |
-| `DiarioDeCambios.cs` | Lo pendiente, escrito en disco. Anota al encolar, borra al confirmar |
-| `UI/AvisoDeGuardado.cs` | El aviso en pantalla y el botón «Intentar ahora» |
+| `ColaDeCambios.cs` | La cola: el almacén, las tres familias, el vaciado |
 | `SaveManager.cs` | Los momentos, `wantsToQuit`, el cierre retenido |
 | `ApiManager.cs` | `PeticionesEnVuelo` y `TopeDeTiempoParaPeticiones` en `Send<T>` |
-| `UI/MenuPausa.cs` | El botón de salir y el cartel de "sin conexión", que ahora distingue retraso de pérdida |
+| `UI/MenuPausa.cs` | El botón de volver al menú y el cartel de "sin conexión" |
 | `Chat/ChatBackendLogger.cs` | Graba la conversación y la manda entera, en un POST atómico |
 | `ObjetivosBackendSync.cs` | Guarda y restaura el avance por objetivo |
 | `PersonajeBackendSync.cs`, `InventarioBackendSync.cs`, `ObjetosRecogidosSync.cs`, `NpcTematicaSync.cs`, `MisionBackendSync.cs` | Encolan en vez de llamar |
@@ -591,18 +479,4 @@ se aplica a `MissionTracker`. `recoger_objeto` queda fuera a propósito: se reca
 mochila.
 
 **También pendiente:** arrastrar el `SaveManager` a MainScene para que sus campos del
-Inspector manden (ver §1). Hoy no está en ninguna escena, así que los valores efectivos son
-los del inicializador — lo cual, de momento, es justo lo que se quiere: es lo que hace que
-`EnSegundoPlano` esté encendido sin tocar ninguna escena.
-
-**Reemplazar el icono del aviso.** `AvisoDeGuardado.iconoPlaceholder` está vacío y se
-dibuja un círculo con un `!`. El panel y el botón ya están con la tipografía y los colores
-del juego; falta solo el sprite.
-
-**Sin conexión, todavía no.** El diario recoge únicamente lo que hoy se encola, o sea el
-modo conectado: en modo local los sincronizadores cortan antes de encolar y escriben en
-PlayerPrefs por su cuenta. Con el diario ya en disco, hacer que el modo local encole y
-sincronice al reconectar es un paso corto, y arreglaría de paso que hoy el avance **por
-objetivo** no se guarde en absoluto sin servidor (`ObjetivosBackendSync.AlCumplirObjetivo`
-corta por `IsLocalMode`). Queda fuera a propósito: habría que decidir qué pasa si se juega
-en local y luego se entra con otra cuenta.
+Inspector manden (ver §1).

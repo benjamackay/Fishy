@@ -37,8 +37,12 @@ namespace Fishy.Net
         public static ApiManager Instance { get; private set; }
 
         [Header("Configuracion")]
-        [Tooltip("URL base del backend Django, sin slash final. Ej: http://127.0.0.1:8000/api")]
-        [SerializeField] private string baseUrl = "http://127.0.0.1:8000/api";
+        // El ApiManager no está en ninguna escena: lo crean por código AuthScreen e
+        // iniciar.cs, así que este valor por defecto es el que vale. Cambiarlo en el
+        // Inspector durante el Play no sobrevive al siguiente arranque.
+        [Tooltip("URL base del backend Django, sin slash final. Servidor de pruebas: " +
+                 "https://fishy-test.up.railway.app/api. Local: http://127.0.0.1:8000/api")]
+        [SerializeField] private string baseUrl = "https://fishy-test.up.railway.app/api";
 
         [Tooltip("Timeout por peticion en segundos.")]
         [SerializeField] private int timeoutSeconds = 15;
@@ -407,6 +411,36 @@ namespace Fishy.Net
             return true;
         }
 
+        /// <summary>
+        /// Se dejó de jugar la partida sin cerrar la aplicación: el jugador volvió al
+        /// menú. Ya no hay <see cref="PartidaId"/>, y quien restauró algo de ella tiene
+        /// que olvidarlo.
+        /// </summary>
+        public static event Action OnPartidaCerrada;
+
+        /// <summary>
+        /// Suelta la partida activa, conservando la sesión y el perfil para que el menú
+        /// pueda ofrecer seguir.
+        ///
+        /// Los sincronizadores restauran cuando <i>cambia</i> la partida. Sin esto, volver
+        /// a entrar en la misma desde el menú no restauraba nada sobre la escena recién
+        /// cargada: Otto aparecía en el punto de inicio —y el siguiente guardado pisaba
+        /// la posición buena— y las zonas abiertas volvían a estar cerradas. Al soltarla,
+        /// volver a entrar recorre el mismo camino que la primera vez.
+        /// </summary>
+        public void CerrarPartida()
+        {
+            if (PartidaId == null) return;
+
+            int cerrada = PartidaId.Value;
+            PartidaId = null;
+            NpcId = null;
+            ChatId = null;
+
+            if (verboseLogs) Debug.Log($"[API] Partida {cerrada} cerrada: se volvió al menú.");
+            OnPartidaCerrada?.Invoke();
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  PARTIDA (HDU-2)                                                        ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
@@ -437,22 +471,17 @@ namespace Fishy.Net
 
         /// <summary>Actualiza progreso (0-100) y/o nivel_riesgo de la partida activa.</summary>
         public void ActualizarPartida(float? progreso = null, int? nivelRiesgo = null,
-            int? partidaId = null,
             Action<PartidaDto> onSuccess = null, Action<string> onError = null)
         {
             if (useLocalMode) { LocalActualizarPartida(progreso, nivelRiesgo, onSuccess, onError); return; }
 
-            // La partida va como argumento, igual que en el resto de las escrituras: el
-            // diario de la cola puede subir un cambio anotado en otra partida, y hacerlo
-            // contra la que se juega ahora le escribiría el avance al perfil equivocado.
-            int? pId = partidaId ?? PartidaId;
-            if (!RequireId(pId, "PartidaId", onError)) return;
+            if (!RequireId(PartidaId, "PartidaId", onError)) return;
 
             var body = new Dictionary<string, object>();
             if (progreso.HasValue) body["progreso"] = progreso.Value;
             if (nivelRiesgo.HasValue) body["nivel_riesgo"] = nivelRiesgo.Value;
 
-            StartCoroutine(Send<PartidaDto>("PATCH", $"/partidas/{pId}/", body, auth: true,
+            StartCoroutine(Send<PartidaDto>("PATCH", $"/partidas/{PartidaId}/", body, auth: true,
                 onSuccess: onSuccess, onError: onError));
         }
 
@@ -602,7 +631,6 @@ namespace Fishy.Net
         /// </summary>
         public void RegistrarChatCompleto(string nombreNpc, string area, string tipoNpc,
             string categoriaRiesgo, List<Dictionary<string, object>> mensajes, string respuestaFinal = "",
-            int? partidaId = null,
             Action<ChatCompletoDto> onSuccess = null, Action<string> onError = null)
         {
             if (useLocalMode)
@@ -611,10 +639,7 @@ namespace Fishy.Net
                 return;
             }
 
-            // Ver la nota de ActualizarPartida: una conversación anotada en el diario
-            // tiene que subir a la partida en la que ocurrió, no a la que se juega ahora.
-            int? pId = partidaId ?? PartidaId;
-            if (!RequireId(pId, "PartidaId", onError)) return;
+            if (!RequireId(PartidaId, "PartidaId", onError)) return;
 
             var body = new Dictionary<string, object>
             {
@@ -624,7 +649,7 @@ namespace Fishy.Net
                 { "finalizar", true },
                 { "respuesta_final", respuestaFinal ?? "" },
             };
-            StartCoroutine(Send<ChatCompletoDto>("POST", $"/partidas/{pId}/chats/completo/", body,
+            StartCoroutine(Send<ChatCompletoDto>("POST", $"/partidas/{PartidaId}/chats/completo/", body,
                 auth: true, onSuccess: onSuccess, onError: onError));
         }
 

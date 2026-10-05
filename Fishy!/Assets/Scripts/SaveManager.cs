@@ -45,9 +45,10 @@ namespace Fishy.World
             /// <summary>Alguien pidió guardar a mano: una prueba, o el menú de pausa
             /// antes de salir.</summary>
             Manual             = 4,
-
-            /// <summary>El goteo de fondo: la cola se va subiendo mientras se juega.</summary>
-            EnSegundoPlano     = 8,
+            /// <summary>Lo pidió la historia, desde la escena: un <see cref="GuardarPartida"/>
+            /// enganchado a un disparador (p. ej. al completar la última misión, para que
+            /// el final se calcule con todas las decisiones ya en la nube).</summary>
+            Disparador         = 8,
         }
 
         /// <summary>En qué momentos se sube de verdad. Ver <see cref="momentosActivos"/>.</summary>
@@ -58,17 +59,7 @@ namespace Fishy.World
             CambioDeZona       = 1,
             CierreDeAplicacion = 2,
             Manual             = 4,
-
-            /// <summary>
-            /// La cola se va vaciando cada pocos segundos mientras se juega, sin esperar
-            /// a un cambio de zona.
-            ///
-            /// No multiplica las peticiones: dentro del intervalo los cambios siguen
-            /// agrupándose por clave igual que antes, así que sale el mismo número,
-            /// repartido en vez de en bloque. Lo que cambia es el tamaño de la ventana en
-            /// la que un cierre sucio te puede pillar.
-            /// </summary>
-            EnSegundoPlano     = 8,
+            Disparador         = 8,
         }
 
         public static SaveManager Instance { get; private set; }
@@ -80,14 +71,15 @@ namespace Fishy.World
         [Min(0f)]
         public float esperaMinima = 1f;
 
-        [Tooltip("En qué momentos se vacía la cola hacia el backend.\n\n" +
-                 "EnSegundoPlano es el que hace que se guarde mientras se juega; sin él " +
-                 "solo se sube al cambiar de zona y al cerrar. Quitarlos todos significa " +
-                 "que no se guarda nunca, y se avisa al arrancar.\n\n" +
+        [Tooltip("En qué momentos se vacía la cola hacia el backend. Quitar " +
+                 "CierreDeAplicacion deja que solo se guarde al cambiar de zona; " +
+                 "quitar los dos significa que no se guarda nunca, y se avisa al arrancar.\n\n" +
+                 "Disparador solo guarda donde la escena tenga un GuardarPartida " +
+                 "enganchado a algo, así que encendido no agrega guardados por su cuenta.\n\n" +
                  "Para que este campo sirva hay que poner el SaveManager en la escena: " +
                  "si no existe, se autocrea por código y manda el valor de aquí abajo.")]
         public Momentos momentosActivos =
-            Momentos.CambioDeZona | Momentos.CierreDeAplicacion | Momentos.EnSegundoPlano;
+            Momentos.CambioDeZona | Momentos.CierreDeAplicacion | Momentos.Disparador;
 
         [Tooltip("Segundos máximos que puede tardar un vaciado normal (cambio de zona).")]
         [Min(0f)]
@@ -201,9 +193,8 @@ namespace Fishy.World
                 var menu = Fishy.UI.MenuPausa.Instance;
                 if (menu == null)
                 {
-                    Debug.LogWarning($"[SaveManager] Se cierra con {ColaDeCambios.Pendientes} " +
-                                     "cambio(s) sin subir y no hay menú para preguntar. " +
-                                     "Quedan anotados para la próxima sesión.");
+                    Debug.LogError($"[SaveManager] Se cierra con {ColaDeCambios.Pendientes} " +
+                                   "cambios sin guardar: no hay menú para preguntar.");
                     break;
                 }
 
@@ -216,9 +207,8 @@ namespace Fishy.World
                 while (!respondido) yield return null;
                 if (!seguirEsperando)
                 {
-                    Debug.Log($"[SaveManager] El jugador eligió cerrar con " +
-                              $"{ColaDeCambios.Pendientes} cambio(s) sin subir. " +
-                              $"Anotados: {ColaDeCambios.TodoAnotado}.");
+                    Debug.LogError($"[SaveManager] El jugador eligió cerrar con " +
+                                   $"{ColaDeCambios.Pendientes} cambios sin guardar.");
                     break;
                 }
 
@@ -333,24 +323,12 @@ namespace Fishy.World
             int pendientes = ColaDeCambios.Pendientes;
             if (pendientes <= 0) return;
 
-            // Antes esto era un LogError porque los cambios se perdían de verdad: en el
-            // editor no se puede retrasar la salida del Play como se retrasa el cierre de
-            // un build. Con el diario ya no se pierden, solo se retrasan, así que el
-            // aviso baja de tono. Lo que NO está anotado —la mochila y la posición— sí se
-            // queda en el camino, pero se recalcula solo en el guardado siguiente.
-            if (ColaDeCambios.TodoAnotado)
-            {
-                Debug.Log(
-                    $"[SaveManager] Se paró el Play con {pendientes} cambio(s) en la cola. " +
-                    "No se pierden: están anotados en el diario y se suben al volver a " +
-                    "darle Play.");
-                return;
-            }
-
-            Debug.LogWarning(
-                $"[SaveManager] Se paró el Play con {pendientes} cambio(s) en la cola. Los " +
-                "anotados se suben al volver a entrar; la mochila y la posición de Otto no " +
-                "se anotan, así que esas dos se vuelven a calcular en el siguiente guardado.");
+            Debug.LogError(
+                $"[SaveManager] Se paró el Play con {pendientes} cambio(s) todavía en la " +
+                "cola, y se pierden. NO es que el guardado falle: en el editor no se " +
+                "puede retrasar la salida como se retrasa el cierre de un build.\n" +
+                "Para probar el guardado de verdad: cruzar de zona antes de parar, o " +
+                "salir con «Guardar y salir» del menú de pausa (Esc).");
         }
 #endif
 
@@ -402,8 +380,11 @@ namespace Fishy.World
                 return false;
             }
 
-            // El cierre nunca se frena: es la última oportunidad que hay.
-            bool urgente = motivo == Motivo.CierreDeAplicacion;
+            // El cierre nunca se frena: es la última oportunidad que hay. El disparador
+            // tampoco: la espera mínima está para agrupar los cambios de zona en ráfaga,
+            // y uno pedido por la historia es puntual y alguien está esperando el
+            // resultado. Frenado, el final se calcularía sin la última zona.
+            bool urgente = motivo == Motivo.CierreDeAplicacion || motivo == Motivo.Disparador;
             if (!urgente && Time.unscaledTime - _ultimoGuardado < esperaMinima) return false;
 
             var api = ApiManager.Instance;
@@ -437,10 +418,14 @@ namespace Fishy.World
             var cola = ColaDeCambios.Instance;
             if (cola != null)
             {
-                // Al cambiar de zona sí se reintenta: habrá otra oportunidad. Al cerrar
-                // no la hay, y reintentar solo gastaría el plazo que queda.
-                bool reintentar = motivo != Motivo.CierreDeAplicacion;
-                yield return cola.Vaciar(motivo.ToString(), tope, reintentar);
+                // Se reintenta SIEMPRE, también al cerrar.
+                //
+                // Antes al cerrar no se reintentaba, con el argumento de que no habría
+                // otra oportunidad y reintentar gastaría el plazo. Es al revés: como no
+                // hay otra oportunidad, el plazo hay que gastarlo justamente en insistir.
+                // El juego no se cierra hasta que la cola esté vacía o hasta que el
+                // jugador diga que se va.
+                yield return cola.Vaciar(motivo.ToString(), tope, reintentarSiFalla: true);
             }
 
             OnGuardado?.Invoke(motivo);

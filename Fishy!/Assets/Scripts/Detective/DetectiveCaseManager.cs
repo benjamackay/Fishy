@@ -166,11 +166,30 @@ namespace Fishy.Detective
             var api = ApiManager.Instance;
             if (api == null || api.IsLocalMode || !api.IsLoggedIn || api.PartidaId == null) return;
 
-            // Los marcados los copia EncolarDetective, y hace falta: el jugador puede
-            // reabrir el caso antes de que la cola se vacíe, y entonces `_marcados` ya
-            // sería otra cosa. Esto es un hecho que ocurrió, no el estado actual.
-            ColaDeCambios.EncolarDetective(_caso.caseId, _marcados,
-                resultado.aciertos, resultado.totalRiesgo, resultado.porcentaje);
+            // Los marcados se copian AHORA: el jugador puede reabrir el caso antes de
+            // que la cola se vacíe, y entonces `_marcados` ya sería otra cosa. Esto es
+            // un hecho que ocurrió, no un snapshot del estado actual.
+            string casoId = _caso.caseId;
+            var marcados = new List<string>(_marcados);
+            int aciertos = resultado.aciertos;
+            int total = resultado.totalRiesgo;
+            float porcentaje = resultado.porcentaje;
+
+            ColaDeCambios.EncolarAppend($"detective:{casoId}",
+                (ok, error) =>
+                {
+                    var actual = ApiManager.Instance;
+                    if (actual == null || actual.PartidaId == null) { error("No hay partida."); return; }
+
+                    actual.RegistrarProgresoDetective(casoId, marcados, aciertos, total, porcentaje,
+                        onSuccess: _ => ok(),
+                        onError: e =>
+                        {
+                            Debug.LogWarning($"[Detective] No se pudo registrar el progreso: {e}");
+                            error(e);
+                        });
+                },
+                $"caso {casoId}");
         }
     }
 }

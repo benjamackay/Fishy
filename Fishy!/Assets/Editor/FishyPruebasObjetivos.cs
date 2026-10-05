@@ -79,6 +79,9 @@ namespace Fishy.EditorTools
                 ProbarQueSeguirEnciendeElProgreso(log, tracker);
                 ProbarQueSeguirNoPisaLoQueYaHabia(log, tracker);
                 ProbarNombreDeUnObjetivoYaCumplido(log);
+                ProbarHistorialCumpleObjetivosDeAntes(log);
+                ProbarHistorialYElCambioDePartida(log);
+                ProbarObjetivosDelInspectorSeNumeran(log, tracker);
             }
             finally
             {
@@ -101,6 +104,187 @@ namespace Fishy.EditorTools
         }
 
         // ── Las pruebas ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Los objetivos armados a mano en el Inspector reciben número, para que su
+        /// avance se pueda guardar.
+        ///
+        /// Es el caso de «Las llaves del cofre»: sus cuatro objetivos vivían en el prefab
+        /// de la Foca con `ordenCatalogo = 0`, y ese cero los dejaba fuera del guardado
+        /// por dos puertas —ObjetivosBackendSync no los sube y MarcarGuardados no los
+        /// restaura—. Ninguno llegó nunca a la base.
+        /// </summary>
+        private static void ProbarObjetivosDelInspectorSeNumeran(
+            StringBuilder log, MissionTracker tracker)
+        {
+            tracker.Reiniciar();
+
+            var ficha = ScriptableObject.CreateInstance<DesafioData>();
+            ficha.desafioId = "MISION_DE_PRUEBA_INSPECTOR";
+            ficha.titulo = "Armada a mano";
+
+            // Como los deja el Inspector: sin ordenCatalogo.
+            var objetivos = new List<ObjetivoMision>
+            {
+                new ObjetivoMision { tipo = TipoObjetivo.ChatearPorTelefono, escenarioIds = "A" },
+                new ObjetivoMision { tipo = TipoObjetivo.ChatearPorTelefono, escenarioIds = "B" },
+                new ObjetivoMision { tipo = TipoObjetivo.ChatearPorTelefono, escenarioIds = "C" },
+            };
+
+            Comprobar(log, "Los objetivos del Inspector llegan sin número de catálogo",
+                objetivos.TrueForAll(o => o.ordenCatalogo == 0), "");
+
+            tracker.Seguir(ficha, objetivos);
+
+            Comprobar(log, "Al seguirlos se numeran por posición, para poder guardarlos",
+                objetivos[0].ordenCatalogo == 1 &&
+                objetivos[1].ordenCatalogo == 2 &&
+                objetivos[2].ordenCatalogo == 3,
+                $"quedaron en {objetivos[0].ordenCatalogo}, {objetivos[1].ordenCatalogo}, " +
+                $"{objetivos[2].ordenCatalogo}");
+
+            // Y una lista que SÍ viene del catálogo no se toca: inventarle números encima
+            // pisaría los suyos y el avance guardado dejaría de corresponder.
+            tracker.Reiniciar();
+
+            var delCatalogo = ScriptableObject.CreateInstance<DesafioData>();
+            delCatalogo.desafioId = "MISION_DE_PRUEBA_CATALOGO";
+            delCatalogo.titulo = "Del catálogo";
+
+            var conNumeros = new List<ObjetivoMision>
+            {
+                new ObjetivoMision { tipo = TipoObjetivo.ChatearPorTelefono, escenarioIds = "A", ordenCatalogo = 7 },
+                new ObjetivoMision { tipo = TipoObjetivo.ChatearPorTelefono, escenarioIds = "B", ordenCatalogo = 9 },
+            };
+
+            tracker.Seguir(delCatalogo, conNumeros);
+
+            Comprobar(log, "Una lista que ya trae números del catálogo no se renumera",
+                conNumeros[0].ordenCatalogo == 7 && conNumeros[1].ordenCatalogo == 9,
+                $"quedaron en {conNumeros[0].ordenCatalogo}, {conNumeros[1].ordenCatalogo}");
+
+            tracker.Reiniciar();
+            Object.DestroyImmediate(ficha);
+            Object.DestroyImmediate(delCatalogo);
+        }
+
+        /// <summary>
+        /// Lo que se hizo ANTES de recibir la misión cuenta.
+        ///
+        /// El caso real: el niño/a explora por su cuenta, habla con el Huemul, y recién
+        /// después le encargan la misión de hablar con el Huemul. Antes ese objetivo
+        /// nacía pendiente y había que repetir la conversación. Con los chats del celular
+        /// era peor: un PhoneChatLauncher sin 'repetible' no se vuelve a abrir, así que
+        /// el objetivo quedaba imposible de cumplir.
+        /// </summary>
+        private static void ProbarHistorialCumpleObjetivosDeAntes(StringBuilder log)
+        {
+            HistorialDeObjetivos.Limpiar();
+
+            // Primero se comprueba que SIN historial el objetivo está pendiente. Sin
+            // esto la prueba podría pasar por estar mirando un true de otra cosa.
+            var hablar = new ObjetivoMision
+            {
+                tipo = TipoObjetivo.HablarConNpc,
+                dialogoNpcId = "HDU1_NPC_HUEMUL",
+            };
+            Comprobar(log, "Sin historial, «hablar con» nace pendiente",
+                !hablar.Evaluar(), $"cumplido = {hablar.cumplido}");
+
+            // Ahora el jugador habla con él, y RECIÉN DESPUÉS llega la misión.
+            HistorialDeObjetivos.AnotarDialogo("HDU1_NPC_HUEMUL");
+
+            var recibidaDespues = new ObjetivoMision
+            {
+                tipo = TipoObjetivo.HablarConNpc,
+                dialogoNpcId = "HDU1_NPC_HUEMUL",
+            };
+            Comprobar(log, "Haber hablado antes de recibir la misión cuenta",
+                recibidaDespues.Evaluar() && recibidaDespues.cumplido,
+                $"cumplido = {recibidaDespues.cumplido}");
+
+            // Y no se cumple cualquier cosa: otro NPC sigue pendiente.
+            var otro = new ObjetivoMision
+            {
+                tipo = TipoObjetivo.HablarConNpc,
+                dialogoNpcId = "HDU1_NPC_COIPO",
+            };
+            Comprobar(log, "El historial no da por cumplido a un NPC distinto",
+                !otro.Evaluar(), $"cumplido = {otro.cumplido}");
+
+            // El chat del celular, que es el caso que quedaba imposible.
+            HistorialDeObjetivos.AnotarChats(new[] { "M1_CHAT01" });
+
+            var chat = new ObjetivoMision
+            {
+                tipo = TipoObjetivo.ChatearPorTelefono,
+                escenarioIds = "M1_CHAT01",
+            };
+            Comprobar(log, "Un chat ya atendido cumple el objetivo aunque el lanzador no se repita",
+                chat.Evaluar() && chat.cumplido, $"cumplido = {chat.cumplido}");
+
+            // Un objetivo que nombra varias fases se cumple con una: es el mismo criterio
+            // con el que ObjetivoMision busca el lanzador.
+            var variasFases = new ObjetivoMision
+            {
+                tipo = TipoObjetivo.ChatearPorTelefono,
+                escenarioIds = "M4_FASE01, M1_CHAT01",
+            };
+            Comprobar(log, "Con varias fases basta haber hecho una",
+                variasFases.Evaluar(), $"cumplido = {variasFases.cumplido}");
+
+            // Y el caso de detective.
+            HistorialDeObjetivos.AnotarCasoDetective("DC_CASO_01");
+            var caso = new ObjetivoMision
+            {
+                tipo = TipoObjetivo.CompletarCasoDetective,
+                casoDetectiveId = "DC_CASO_01",
+            };
+            Comprobar(log, "Un caso de detective ya jugado cumple su objetivo",
+                caso.Evaluar() && caso.cumplido, $"cumplido = {caso.cumplido}");
+
+            HistorialDeObjetivos.Limpiar();
+        }
+
+        /// <summary>
+        /// Lo anotado antes de que llegara el PartidaId no se pierde, y lo de otra
+        /// partida no se hereda.
+        ///
+        /// Entre que arranca la escena y que el login deja el PartidaId puesto pasan
+        /// segundos, y en esa ventana el niño/a ya puede haber hablado con alguien. La
+        /// primera versión de esto lo perdía: `Cargar` hacía `Clear()` antes de leer lo
+        /// guardado, así que ataba la partida y de paso borraba lo de esa ventana.
+        /// </summary>
+        private static void ProbarHistorialYElCambioDePartida(StringBuilder log)
+        {
+            const int PartidaA = 990101;
+            const int PartidaB = 990102;
+
+            HistorialDeObjetivos.Limpiar();
+
+            // Se habla con alguien ANTES de que el login deje la partida puesta.
+            HistorialDeObjetivos.AnotarDialogo("HDU1_NPC_HUEMUL");
+            HistorialDeObjetivos.ConfigurarParaPartida(PartidaA);
+
+            Comprobar(log, "Lo anotado antes de que llegara la partida no se pierde",
+                HistorialDeObjetivos.HabloCon("HDU1_NPC_HUEMUL"), "");
+
+            // Otro perfil en el mismo equipo no hereda nada.
+            HistorialDeObjetivos.ConfigurarParaPartida(PartidaB);
+            Comprobar(log, "Al cambiar de partida no se hereda lo del perfil anterior",
+                !HistorialDeObjetivos.HabloCon("HDU1_NPC_HUEMUL"), "");
+
+            // Y al volver a la primera, lo suyo sigue ahí.
+            HistorialDeObjetivos.ConfigurarParaPartida(PartidaA);
+            Comprobar(log, "Al volver a la partida de antes, su historial sigue guardado",
+                HistorialDeObjetivos.HabloCon("HDU1_NPC_HUEMUL"), "");
+
+            // Limpieza: Limpiar() solo borra las claves de la partida atada, así que hay
+            // que pasar por las dos para no dejarle nada puesto al juego de verdad.
+            HistorialDeObjetivos.Limpiar();
+            HistorialDeObjetivos.ConfigurarParaPartida(PartidaB);
+            HistorialDeObjetivos.Limpiar();
+        }
 
         /// <summary>Los objetivos salen del catálogo y en el orden que dice `orden`,
         /// no en el que vinieron escritos.</summary>

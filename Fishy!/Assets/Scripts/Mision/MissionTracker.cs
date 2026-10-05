@@ -5,6 +5,7 @@ using Fishy.Net;
 using Fishy.World;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Vigila los objetivos de las misiones entregadas y marca la misión como
@@ -18,10 +19,13 @@ using UnityEngine.Events;
 /// las zonas, escuchando <see cref="ZonaActual.OnZonaCambiada"/>;
 /// las conversaciones, suscribiéndose al evento que las cierra: el
 /// <c>onDialogueEnded</c> del NPC, o el <c>onChatClosed</c> del PhoneChatLauncher
-/// cuando el objetivo es un chat de celular. Ojo: haber hablado (o haber atendido
-/// el chat) ANTES de recibir la misión no cuenta —no hay historial—, hay que
-/// volver a hacerlo; y si el launcher no tiene 'repetible' activo y ya se disparó, no
-/// se volverá a abrir solo.
+/// cuando el objetivo es un chat de celular.
+///
+/// <b>Y haberlo hecho ANTES de recibir la misión sí cuenta.</b> Lo lleva
+/// <see cref="HistorialDeObjetivos"/>, al que <c>ObjetivoMision.Evaluar</c> pregunta, así
+/// que una misión entregada después de la conversación nace ya cumplida. Antes había que
+/// repetirla, y con un PhoneChatLauncher sin 'repetible' —que no se vuelve a abrir solo—
+/// el objetivo quedaba directamente imposible.
 /// </summary>
 public class MissionTracker : MonoBehaviour
 {
@@ -91,8 +95,11 @@ public class MissionTracker : MonoBehaviour
         {
             if (o == null || o.cumplido || o.ordenCatalogo <= 0) continue;
             if (!yaCumplido(s.desafio.desafioId, o.ordenCatalogo)) continue;
-            o.cumplido = true;
+            if (!o.Cumplir($"servidor: guardado como cumplido (#{o.ordenCatalogo})")) continue;
             cambio = true;
+
+            if (Instance != null && Instance.verboseLogs)
+                Debug.Log($"[Misiones] {s.desafio.desafioId} #{o.ordenCatalogo} ← {o.PorQue}");
         }
         return cambio;
     }
@@ -113,6 +120,24 @@ public class MissionTracker : MonoBehaviour
         // exista todavía cuando el rastreador arranca.
         ZonaActual.OnZonaCambiada += AlCambiarDeZona;
         MissionManager.OnPartidaCambiada += Reiniciar;
+        SceneManager.sceneLoaded += AlCargarEscena;
+    }
+
+    /// <summary>
+    /// Escena nueva, NPCs nuevos. Los objetivos que se cumplen por evento estaban
+    /// enganchados a los de la escena anterior, ya destruidos, y <see cref="_suscritos"/>
+    /// impedía volver a engancharlos: al volver del menú a la partida, "hablar con" o
+    /// "chatear" no se podían cumplir nunca más. Se olvida lo enganchado y se vuelve a
+    /// resolver contra la escena que acaba de cargar; la generación nueva deja mudos los
+    /// oyentes viejos, por si alguno sobrevivió al cambio.
+    /// </summary>
+    private void AlCargarEscena(Scene escena, LoadSceneMode modo)
+    {
+        if (modo != LoadSceneMode.Single) return;
+
+        _generacion++;
+        _suscritos.Clear();
+        RevisarTodo();
     }
 
     /// <summary>
@@ -136,6 +161,7 @@ public class MissionTracker : MonoBehaviour
 
         ZonaActual.OnZonaCambiada -= AlCambiarDeZona;
         MissionManager.OnPartidaCambiada -= Reiniciar;
+        SceneManager.sceneLoaded -= AlCargarEscena;
     }
 
     private void AlCambiarDeZona(string anterior, string nueva) => RevisarTodo();
@@ -165,6 +191,10 @@ public class MissionTracker : MonoBehaviour
         };
         seguimientos.Add(seguimiento);
 
+        // Antes que nada: numerar los que vienen del Inspector. Tiene que ir ANTES de
+        // MarcarGuardados, que salta los que no tienen número.
+        NumerarLosDelInspector(seguimiento);
+
         // Lo que el servidor ya sabe de esta misión, antes de enganchar eventos: un
         // objetivo cumplido en una sesión anterior no tiene que volver a hacerse.
         MarcarGuardados(seguimiento, ObjetivosBackendSync.YaCumplido);
@@ -182,6 +212,23 @@ public class MissionTracker : MonoBehaviour
         // Puede que el objeto ya estuviera en la mochila antes de aceptar la misión.
         Revisar(seguimiento);
 
+        // El inventario de lo que se está siguiendo, con el estado de salida de cada
+        // objetivo. Es lo que permite ver de un vistazo si una misión nació medio hecha
+        // y por qué, en vez de descubrirlo cuando ya se completó sola.
+        if (verboseLogs)
+        {
+            Debug.Log($"[Misiones] Empiezo a seguir '{desafio.desafioId}' con " +
+                      $"{seguimiento.objetivos.Count} objetivo(s):", this);
+            foreach (ObjetivoMision o in seguimiento.objetivos)
+            {
+                if (o == null) continue;
+                string estado = o.cumplido
+                    ? $"YA CUMPLIDO ← {o.PorQue ?? "(sin motivo anotado)"}"
+                    : "pendiente";
+                Debug.Log($"[Misiones]    #{o.ordenCatalogo} {o.tipo} — {o.Describir()} — {estado}", this);
+            }
+        }
+
         // Quien entrega la misión la registra en el MissionManager antes de llamar
         // aquí, así que el cartel ya se pintó con ella pero sin objetivos. Sin este
         // aviso se quedaba así hasta el siguiente cambio de zona o de inventario.
@@ -189,6 +236,46 @@ public class MissionTracker : MonoBehaviour
     }
 
     /// <summary>Objetivos de una misión, para pintarlos en el panel. Vacío si no se sigue.</summary>
+    /// <summary>
+    /// Les da número a los objetivos armados a mano en el Inspector.
+    ///
+    /// <b>Por qué.</b> <c>ordenCatalogo</c> es la mitad de la clave con la que el backend
+    /// guarda el avance: <c>(mision_id, orden)</c>. Los que vienen del catálogo la traen;
+    /// los armados en la escena llegan con 0, y eso los dejaba <b>fuera del guardado por
+    /// dos puertas</b>: <c>ObjetivosBackendSync</c> no los sube (<c>ordenCatalogo &lt;= 0</c>)
+    /// y <see cref="MarcarGuardados"/> no los restaura. Su avance se perdía entero en cada
+    /// recarga, y como además no se restauraban, lo único que sobrevivía era el historial
+    /// de lo ya hecho — que al no saber de misiones completaba de más.
+    ///
+    /// Es lo que le pasaba a «Las llaves del cofre»: sus cuatro objetivos estaban en el
+    /// prefab de la Foca y ninguno llegó nunca a la base.
+    ///
+    /// <b>La posición no es tan buena como el orden del catálogo</b>, porque reordenar la
+    /// lista en el Inspector mueve la clave y el avance guardado deja de corresponder. Es
+    /// estable mientras nadie la toque, y la alternativa era no guardarlos nunca. Lo
+    /// correcto de verdad es que la misión tenga sus objetivos en el catálogo.
+    ///
+    /// Solo numera si <b>ninguno</b> trae orden: una lista con números es una del
+    /// catálogo, e inventarlos encima los pisaría.
+    /// </summary>
+    private void NumerarLosDelInspector(Seguimiento seguimiento)
+    {
+        List<ObjetivoMision> objetivos = seguimiento.objetivos;
+        if (objetivos == null || objetivos.Count == 0) return;
+
+        foreach (ObjetivoMision o in objetivos)
+            if (o != null && o.ordenCatalogo > 0) return;
+
+        for (int i = 0; i < objetivos.Count; i++)
+            if (objetivos[i] != null) objetivos[i].ordenCatalogo = i + 1;
+
+        if (verboseLogs)
+            Debug.Log($"[Misiones] '{seguimiento.desafio.desafioId}': sus {objetivos.Count} " +
+                      "objetivo(s) venían del Inspector sin número de catálogo. Se numeran por " +
+                      "posición para que su avance se pueda guardar y restaurar. Lo correcto " +
+                      "es ponerlos en el catálogo de misiones.", this);
+    }
+
     public IReadOnlyList<ObjetivoMision> Objetivos(string desafioId)
     {
         Seguimiento seguimiento = Buscar(desafioId);
@@ -274,9 +361,11 @@ public class MissionTracker : MonoBehaviour
                 if (generacion != _generacion) return;   // de una partida anterior
                 if (capturado.cumplido) return;
                 if (!capturado.AceptaElEvento()) return;   // otro diálogo del mismo NPC
-                capturado.cumplido = true;
+                if (!capturado.Cumplir($"evento del mundo ({capturado.tipo})")) return;
                 if (verboseLogs)
-                    Debug.Log($"[Misiones] Objetivo cumplido: {capturado.Describir()}", this);
+                    Debug.Log($"[Misiones] Objetivo cumplido ← {capturado.PorQue}: " +
+                              $"{capturado.Describir()}  [{desafioDelObjetivo.desafioId} " +
+                              $"#{capturado.ordenCatalogo}]", this);
                 OnObjetivoCumplido?.Invoke(desafioDelObjetivo, capturado);
                 OnProgresoCambiado?.Invoke();
                 RevisarTodo();
@@ -315,6 +404,10 @@ public class MissionTracker : MonoBehaviour
             if (!estabaCumplido && objetivo.cumplido)
             {
                 avanzo = true;
+                if (verboseLogs)
+                    Debug.Log($"[Misiones] Objetivo cumplido ← {objetivo.PorQue}: " +
+                              $"{objetivo.Describir()}  [{seguimiento.desafio.desafioId} " +
+                              $"#{objetivo.ordenCatalogo}]", this);
                 OnObjetivoCumplido?.Invoke(seguimiento.desafio, objetivo);
             }
         }
@@ -329,9 +422,17 @@ public class MissionTracker : MonoBehaviour
         if (!todos || seguimiento.objetivos.Count == 0) return;
 
         seguimiento.completado = true;
-        MissionManager.GetOrCreate().CompletarDesafio(seguimiento.desafio);
 
         if (verboseLogs)
-            Debug.Log($"[Misiones] Misión completada: {seguimiento.desafio.titulo}", this);
+        {
+            Debug.Log($"[Misiones] Misión completada: {seguimiento.desafio.titulo} " +
+                      $"({seguimiento.desafio.desafioId}). Sus {seguimiento.objetivos.Count} " +
+                      "objetivo(s) salieron de:", this);
+            foreach (ObjetivoMision o in seguimiento.objetivos)
+                if (o != null)
+                    Debug.Log($"[Misiones]    #{o.ordenCatalogo} ← {o.PorQue ?? "(sin motivo anotado)"}", this);
+        }
+
+        MissionManager.GetOrCreate().CompletarDesafio(seguimiento.desafio, "el rastreador: se cumplieron todos sus objetivos");
     }
 }

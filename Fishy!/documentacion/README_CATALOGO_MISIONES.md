@@ -108,7 +108,7 @@ contradigan.
 | `tipo` | Campos que usa | Cómo se resuelve contra la escena |
 |---|---|---|
 | `recoger_objeto` | `item_id`, `cantidad` | `CatalogoItems.Buscar(item_id)` |
-| `hablar_npc` | `dialogo_id` | El `NPC` del mapa cuyo `dialogoId` coincide |
+| `hablar_npc` | `dialogo_id` | El `DialogoNeutroNPC` del mapa cuyo `dialogoId` coincide |
 | `chatear_telefono` | `escenario_ids` | El `PhoneChatLauncher` que tenga ese escenario |
 | `llegar_zona` | `zona_id` | No hace falta resolver nada: el dato es el id |
 | `completar_caso_detective` | `caso_id` | El `DetectiveLauncher` cuyo `CasoId` coincide |
@@ -135,7 +135,7 @@ necesitan: `recoger_objeto` se resuelve con una consulta al catálogo de objetos
 ### Lo del Inspector siempre manda
 
 Ni `MissionGiver` ni `ObjetivoMision` pisan nada puesto a mano. Una ficha
-arrastrada, una lista de objetivos con algo dentro, un `NPC` asignado: se
+arrastrada, una lista de objetivos con algo dentro, un `DialogoNeutroNPC` asignado: se
 respetan. El catálogo sólo rellena huecos. Así conviven las misiones cableadas a
 mano —que apuntan a objetos concretos de la escena— con las que vienen de datos.
 
@@ -157,7 +157,21 @@ dejaría el panel enseñando "(desafío desconocido)" para una misión en curso.
 
 ## Configurar un NPC que entregue una misión del catálogo
 
-En el `MissionGiver` del NPC, dejar `Desafio` vacío y escribir el id en
+`MissionGiver` va en el mismo objeto que la interacción del NPC y entrega la
+misión cuando esa interacción termina. Sirve cualquiera de las tres:
+
+| Interacción | Componente | Entrega al… |
+|---|---|---|
+| NPC neutro | `DialogoNeutroNPC` | cerrar el diálogo |
+| NPC sospechoso | `PhoneChatLauncher` o `ChatModuleLauncher` | cerrar el chat |
+| Caso detective | `DetectiveLauncher` | cerrar el caso, lo apruebe o no |
+
+Si el objeto no tiene ninguna, avisa en consola, y se puede llamar a `Entregar`
+desde cualquier evento del Inspector. "Entrega al volver" necesita que la
+interacción se pueda repetir: un chat sin `repetible` y un caso ya aprobado no
+se vuelven a abrir.
+
+En el `MissionGiver`, dejar `Desafio` vacío y escribir el id en
 **`Mision Id`**:
 
 ```
@@ -189,15 +203,15 @@ arrancar y revisa el catálogo cada vez que el panel se actualiza:
 
 ```json
 {
-  "mision_id": "MISION_NPC_03",
+  "mision_id": "Z1_03_CHAT_PUMA",
   "...": "...",
-  "desbloquea_mision": "MISION_NPC_04",
+  "desbloquea_mision": "Z1_04_CHAT_PUMY",
   "recompensa_item_id": "ITEM_BRUJULA",
   "recompensa_cantidad": 1
 }
 ```
 
-Al completarse `MISION_NPC_03`, sola: se entrega `MISION_NPC_04` (por
+Al completarse `Z1_03_CHAT_PUMA`, sola: se entrega `Z1_04_CHAT_PUMY` (por
 `EntregarMisionDelCatalogo.EntregarPorId`, la misma lógica que ya usaban los
 disparadores de escena) y se agrega `ITEM_BRUJULA` al inventario (con el
 mismo guard de `CatalogoRecompensasDetective` — `GetQuantity` antes de
@@ -208,9 +222,80 @@ duplica al repetir").
 `EntregarMisionAlEntrarZona`.** Esos siguen siendo el camino para lo que
 necesita algo más que "dar esta misión" o "dar este ítem" —cinemática,
 desbloqueo de zona, mensaje propio—. Dejar los dos campos vacíos es la forma
-de decir "esta misión se conecta a mano, en la escena", y ninguna misión
-existente se tocó: los dos campos están vacíos en todo `misiones.json` hoy,
-así que nada de lo ya cableado a mano cambió de comportamiento.
+de decir "esta misión se conecta a mano, en la escena". La cadena principal
+de `misiones.json` usa `desbloquea_mision` en todos sus pasos (ver la sección
+siguiente); `recompensa_item_id` no lo usa ninguna misión todavía.
+
+### Bifurcación: `desbloquea_si_acepta`
+
+Un tercer campo convierte el encadenado en una bifurcación según **cómo terminó el
+reto** de la misión: si el jugador acabó **rechazando** (su última elección en el
+chat fue segura) sigue `desbloquea_mision`; si acabó aceptando o dudando, sigue
+`desbloquea_si_acepta`. Vacío = sin bifurcación.
+
+```json
+{
+  "mision_id": "Z3_03_PRIMER_RETO",
+  "desbloquea_mision":    "Z3_04_SEGUNDO_RETO",
+  "desbloquea_si_acepta": "Z3_05_RETO_FINAL"
+}
+```
+
+Es el "paso 4 solo si Otto rechazó el paso 3" del orden de narración. "Rechazar"
+es la misma regla del contador de presión social del backend (última decisión del
+reto: segura = rechazo, insegura = aceptó, dudosa = corta la racha), pero **se
+calcula en Unity, en el momento**: las decisiones del chat no llegan al servidor
+hasta el siguiente guardado, así que preguntarle a él justo al terminar el reto
+daría siempre "no rechazó". Lo anota `RechazosEnChats` desde `PhoneChatLauncher`,
+antes de avisar que el chat cerró, y lo guarda por partida en PlayerPrefs.
+
+`ConexionAutomaticaMisiones.ElegirSiguiente` decide en este orden:
+
+1. Si una de las dos ramas **ya se entregó**, esa. La decisión se toma una vez y
+   queda guardada en el propio progreso; sin esto, al restaurar se podrían entregar
+   las dos.
+2. Si se sabe cómo terminó el reto, la rama que corresponda.
+3. Si no se sabe y **la partida se está restaurando**, espera: al cargar, la misión
+   completada puede registrarse antes que la rama que ya se había elegido.
+4. Si no se sabe y no queda nada por llegar (chat cerrado sin elegir, o partida
+   retomada en otro equipo justo después del reto), la rama de "no rechazó": las
+   escenas de la otra dan por hecho el rechazo ("ya van dos veces que dices que no").
+
+La tabla `Mision` no tiene este campo. Si algún día `cargar_banco` sube estas
+misiones a la base, `CatalogoMisiones` lo sigue tomando del archivo cuando la base
+lo trae vacío, para que la bifurcación no desaparezca en silencio.
+
+## La cadena del orden de narración
+
+`misiones.json` sigue el documento *Fishy! – Orden de Narración en Unity*: **una
+misión por paso, con un solo objetivo**, encadenadas con `desbloquea_mision`. Como
+el panel muestra solo la misión disponible de menor `orden`, eso da "un objetivo
+activo a la vez, que se reemplaza al completar" sin tocar la UI.
+
+- **Ids:** zona y paso del documento — `Z2_03_TESTIMONIOS` es la Zona 2, paso 3.
+  `Z2_03B_DECIDE_RUMOR` es la confrontación del rumor (`M3_DECISION01`), que el
+  documento incluye en el paso 3 pero su tabla de panel no lista aparte.
+- **`orden`:** la posición en la cadena (1 a 18). Las secundarias van desde 901 para
+  no quitarle nunca el panel a un paso principal.
+- **Título y línea:** el título es el nombre narrativo ("Una amistad inesperada") y
+  la descripción del objetivo es el texto de panel del documento ("Atiende el chat
+  de Puma"), así no se repite el mismo texto dos veces en el HUD.
+- **Testimonios (0/3):** tres objetivos `hablar_npc` con la misma descripción, que
+  el panel junta en una línea con contador. Los diálogos son
+  `HDU3_M3_TESTIMONIO_FLAMENCO`, `_PATO` y `_COIPO` del banco v2.6. Flamenco y Pato
+  tienen un NPC propio para el testimonio; el de Coipo es su segundo diálogo
+  (`dialogosSiguientes`), así que la presentación cumple `Z2_02_HABLA_COIPO` y la
+  conversación siguiente, el testimonio.
+- **Reto final:** dos misiones, `Z3_05_RETO_FINAL` (escenario `M6_DECISION01_BASE`)
+  y `Z3_05_RETO_FINAL_INTENSO` (`M6_DECISION01`), elegidas por las bifurcaciones de
+  los dos retos anteriores: dos rechazos seguidos llevan a la intensa.
+- **Fuera de la cadena:** el Diccionario de cada zona (paso 1), que todavía no
+  existe, y el Sistema de Finales (`Finales/SistemaDeFinales.cs`), que no es una
+  misión: se dispara al llegar a cualquier FIN de la Misión 6.
+
+`Fishy ▸ Probar cadena de misiones` comprueba que todo destino exista, que todo paso
+sea alcanzable, que el `orden` siempre avance y que cada diálogo y escenario esté en
+el banco: un error de tipeo en un id corta la cadena sin dar ningún error.
 
 ## La misión inicial: que Otto arranque con algo que hacer
 
@@ -224,7 +309,7 @@ ese componente, y ya.
 
 ```
 Mision:       (vacío)
-Mision Id:    MISION_EXPLORACION_01     ← o vacío, y toma la primera del catálogo
+Mision Id:    Z1_02_HABLA_HUEMUL        ← o vacío, y toma la primera del catálogo
 Objetivos:    1 entrada
   └ Tipo:     Hablar Con Npc
     Npc:      (arrastrar el NPC)   ← o dejarlo vacío y poner Dialogo Npc Id
@@ -258,14 +343,11 @@ entregue.
 
 ### Ojo con el objetivo "hablar con NPC"
 
-Se resuelve buscando el `NPC` del mapa cuyo `dialogoId` coincida. **Hoy ninguno de
-los NPCs de `MainScene` tiene `dialogoId` puesto**, así que por la vía de datos no
-resuelve nada. Dos salidas:
-
-- **Arrastrar el NPC** al campo `Npc` del objetivo. Funciona ya, sin tocar datos.
-- **Rellenar el `dialogoId`** del NPC en la escena (`HDU1_NPC_HUEMUL` para el
-  Huemul guía) y dejar el objetivo apuntando a ese id. Es la vía que escala al
-  catálogo.
+Se resuelve buscando el `DialogoNeutroNPC` del mapa cuyo `dialogoId` coincida, así que el NPC
+tiene que tenerlo puesto. En `MainScene` lo tienen los tres guías (Huemul, Coipo,
+Foca); los de los testimonios de la Zona 2 (`HDU3_M3_TESTIMONIO_*`) los arma
+**Fishy → Configurar testimonios del pantano**. Un objetivo puesto a mano en el Inspector también puede
+arrastrar el NPC al campo `Npc`, sin tocar datos.
 
 ## Probar el respaldo sin apagar el servidor
 
@@ -276,14 +358,13 @@ está en memoria (`Ninguno` · `Archivo` · `Base`).
 
 ## Pendiente
 
-- **Los objetivos del archivo están vacíos.** El banco no los trae: una misión
-  ahí es un id y un nombre, y lo que hay que hacer está contado en prosa. Hay que
-  escribirlos como contenido nuevo, en la base o aquí.
-- **El `orden` del archivo es una suposición**: progresión de zonas, y dentro de
-  cada una la de exploración antes que las secundarias. Nadie lo ha confirmado
-  como el orden narrativo.
-- **El título de `MISION_EXPLORACION_01` es un relleno**, porque en el banco esa
-  misión no tiene nombre.
+- **Los objetivos de las seis secundarias están vacíos.** Se completan a mano o
+  quedan informativas hasta que se escriban como contenido.
+- **El Diccionario de cada zona y el Sistema de Finales** no existen todavía. La
+  cadena termina en `Z3_06_CASO_3`, que es donde habría que engancharlos.
+- **Partidas viejas:** las que se jugaron con el catálogo anterior
+  (`MISION_EXPLORACION_*`, `MISION_NPC_03`, `MISION_PANTANO_CRIATURAS`) conservan
+  esas misiones en su progreso. Para probar la cadena, partida nueva.
 - **`GET /misiones/` ya existe** en `dev` (migración 0016, ver `REQUISITOS_BD.md`).
   Si la base compartida todavía no la tiene aplicada, o no hay sesión, el juego corre
   con este archivo de respaldo y lo dice en consola.

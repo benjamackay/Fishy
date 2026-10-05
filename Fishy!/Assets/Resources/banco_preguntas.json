@@ -1911,7 +1911,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] El cofre se abre. La evaluación del recorrido completo dispara el Sistema de Finales.",
+      "mensaje_npc": "[SISTEMA] El cofre se abre y Otto recupera la brújula dorada de su abuelo.",
       "etiquetas_ml": [
         "fin_npc",
         "exito"
@@ -2088,7 +2088,7 @@
       "es_fin_de_npc": true,
       "es_fin_de_zona": false,
       "historial_previo": [],
-      "mensaje_npc": "[SISTEMA] El cofre se abre. La evaluación del recorrido completo dispara el Sistema de Finales.",
+      "mensaje_npc": "[SISTEMA] El cofre se abre y Otto recupera la brújula dorada de su abuelo.",
       "etiquetas_ml": [
         "fin_npc",
         "exito"

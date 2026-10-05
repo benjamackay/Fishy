@@ -98,6 +98,17 @@ namespace Fishy.Chat
         /// </summary>
         public static int PuntosEnLaSesion { get; private set; }
 
+        /// <summary>
+        /// Seguridad de la última respuesta que eligió el jugador en esta sesión, o null
+        /// si cerró sin elegir ninguna. Se conserva hasta que se abre la siguiente sesión,
+        /// así que quien se entera de que el chat terminó todavía puede leerla.
+        ///
+        /// La última y no un promedio: un reto se gana o se pierde por cómo TERMINA. Es la
+        /// misma regla que usa el backend para el contador de rechazos, donde una duda
+        /// seguida de un "no" cuenta como rechazo.
+        /// </summary>
+        public OptionSafety? UltimaEleccion { get; private set; }
+
         private ChatModuleUI ui;
         private OttoMoodController ottoMood;
         private readonly Queue<ChatConversation> queue = new Queue<ChatConversation>();
@@ -144,6 +155,7 @@ namespace Fishy.Chat
             ottoMood = otto != null ? otto : FindAnyObjectByType<OttoMoodController>();
             safeCount = 0;
             unsafeCount = 0;
+            UltimaEleccion = null;
 
             desafioActual = desafio;
             if (desafioActual != null)
@@ -297,7 +309,7 @@ namespace Fishy.Chat
         /// Muestra "Continuar" y no sigue hasta que el niño/a lo toque o pulse E.
         /// Antes esto era un tiempo fijo —"iba demasiado rápido" para quien lee más
         /// despacio—; ahora el ritmo lo pone quien juega, igual que ya pasa con el
-        /// diálogo de un NPC neutro (ver <see cref="NPC.Interact"/>).
+        /// diálogo de un NPC neutro (ver <see cref="DialogoNeutroNPC.Interact"/>).
         /// </summary>
         private IEnumerator EsperarContinuar()
         {
@@ -364,6 +376,7 @@ namespace Fishy.Chat
             ui.ClearOptions();
 
             PuntosEnLaSesion += option.impacto;
+            UltimaEleccion = option.safety;
 
             if (option.CountsForScore)
             {
@@ -476,7 +489,8 @@ namespace Fishy.Chat
 
             if (desafioActual != null)
             {
-                MissionManager.Instance?.CompletarDesafio(desafioActual);
+                MissionManager.Instance?.CompletarDesafio(desafioActual,
+                    "el módulo de chat: se cerró la conversación asociada a la misión");
                 desafioActual = null;
             }
 

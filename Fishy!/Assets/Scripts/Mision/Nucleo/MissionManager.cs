@@ -391,7 +391,16 @@ namespace Fishy.Mision
         /// Llamar cuando el niño/a termina ese desafío. Es idempotente: completar dos
         /// veces el mismo desafío no produce errores ni eventos duplicados.
         /// </summary>
-        public bool CompletarDesafio(string desafioId)
+        /// <param name="porQue">
+        /// Quién la está completando y con qué argumento. Va al log.
+        ///
+        /// Hay TRES caminos que completan una misión y hasta ahora el log no los
+        /// distinguía: el rastreador cuando se cumplen todos los objetivos, el módulo de
+        /// chat al cerrar una conversación asociada, y el Modo Detective al cerrar un
+        /// caso. Una misión que se completaba sola era indistinguible de una completada
+        /// bien, y eso convirtió más de un diagnóstico en conjetura.
+        /// </param>
+        public bool CompletarDesafio(string desafioId, string porQue = null)
         {
             if (string.IsNullOrEmpty(desafioId)) return false;
 
@@ -420,13 +429,14 @@ namespace Fishy.Mision
             onDesafioCompletado?.Invoke(runtime);
             onPanelActualizado?.Invoke();
 
-            Debug.Log($"[MissionManager] Desafío '{runtime.Titulo}' completado.");
+            Debug.Log($"[MissionManager] Desafío '{runtime.Titulo}' ({desafioId}) completado" +
+                      (string.IsNullOrEmpty(porQue) ? " (nadie dijo por qué)." : $" ← {porQue}."));
             return true;
         }
 
         /// <summary>Overload de conveniencia: completar pasando la ficha en vez del id.</summary>
-        public bool CompletarDesafio(DesafioData data) =>
-            data != null && CompletarDesafio(data.desafioId);
+        public bool CompletarDesafio(DesafioData data, string porQue = null) =>
+            data != null && CompletarDesafio(data.desafioId, porQue);
 
         /// <summary>Estado actual de un desafío, o null si nunca fue registrado.</summary>
         public EstadoDesafio? GetEstado(string desafioId) =>

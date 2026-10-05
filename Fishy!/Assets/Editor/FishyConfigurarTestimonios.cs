@@ -68,10 +68,10 @@ namespace Fishy.EditorTools
             var escena = EditorSceneManager.OpenScene(Escena, OpenSceneMode.Single);
             var log = new System.Text.StringBuilder("TESTIMONIOS DEL PANTANO\n");
 
-            var npcs = Object.FindObjectsByType<NPC>(FindObjectsInactive.Include);
+            var npcs = Object.FindObjectsByType<DialogoNeutroNPC>(FindObjectsInactive.Include);
 
             // ── Coipo: presentación y después testimonio ──────────────────────
-            NPC coipo = npcs.FirstOrDefault(n => n.dialogoId == IntroCoipo);
+            DialogoNeutroNPC coipo = npcs.FirstOrDefault(n => n.dialogoId == IntroCoipo);
             if (coipo == null)
             {
                 log.AppendLine($"  ERROR  no hay ningún NPC con dialogoId {IntroCoipo}");
@@ -106,7 +106,7 @@ namespace Fishy.EditorTools
                 if (sprite == null)
                     log.AppendLine($"  AVISO  no encontré el sprite {rutaSprite}");
 
-                NPC existente = npcs.FirstOrDefault(n => n.DiceDialogo(dialogo));
+                DialogoNeutroNPC existente = npcs.FirstOrDefault(n => n.DiceDialogo(dialogo));
                 if (existente != null)
                 {
                     // Ya existe: solo se completa el dibujo si quedó sin uno.
@@ -155,7 +155,7 @@ namespace Fishy.EditorTools
                     }
                 }
 
-                var npc = go.GetComponent<NPC>();
+                var npc = go.GetComponent<DialogoNeutroNPC>();
                 npc.dialogoId = dialogo;
                 npc.dialogueData = null;   // las líneas salen del banco
                 npc.dialoguePanel = coipo.dialoguePanel;

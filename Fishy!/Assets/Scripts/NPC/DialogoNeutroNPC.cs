@@ -6,7 +6,16 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-public class NPC : MonoBehaviour, IInteractable
+/// <summary>
+/// El NPC neutro: el que cuenta su texto línea a línea en el panel de diálogo y no
+/// tiene opciones de respuesta. Se habla con él acercándose y pulsando E.
+///
+/// Es uno de los tres tipos de interacción con un NPC, junto con el NPC sospechoso
+/// (<see cref="Fishy.Phone.PhoneChatLauncher"/>, un chat con respuestas) y el de caso
+/// detective (<see cref="Fishy.Detective.DetectiveLauncher"/>). No hace falta para
+/// entregar misiones: <see cref="MissionGiver"/> funciona con cualquiera de los tres.
+/// </summary>
+public class DialogoNeutroNPC : MonoBehaviour, IInteractable
 {
     // Las secciones y sus nombres son los mismos que en PhoneChatLauncher (el NPC
     // sospechoso), a propósito: quien configura un NPC encuentra lo mismo en el mismo
@@ -144,7 +153,7 @@ public class NPC : MonoBehaviour, IInteractable
         // la misión sin poder completarse y la zona sin abrirse.
         if (!repetible && yaSeConto)
         {
-            onDialogueEnded?.Invoke();
+            DispararFinDeDialogo();
             return;
         }
 
@@ -296,6 +305,23 @@ public class NPC : MonoBehaviour, IInteractable
         UltimoDialogoTerminado = DialogoActualId;
 
         //pausa
+        DispararFinDeDialogo();
+    }
+
+    /// <summary>
+    /// Da la conversación por terminada: la anota en el historial y avisa.
+    ///
+    /// Las dos cosas juntas y en un solo sitio a propósito. Hay dos caminos que dan una
+    /// conversación por hablada —terminarla, y volver a hablarle a un NPC que ya contó lo
+    /// suyo— y si uno anotara y el otro no, un objetivo de "hablar con" se cumpliría o no
+    /// según por dónde hubiera pasado el jugador.
+    ///
+    /// El historial es lo que permite que una misión recibida DESPUÉS de haber hablado
+    /// nazca ya cumplida, en vez de obligar a repetir la conversación.
+    /// </summary>
+    private void DispararFinDeDialogo()
+    {
+        HistorialDeObjetivos.AnotarDialogo(dialogoId);
         onDialogueEnded?.Invoke();
 
         // Se avanza DESPUÉS de avisar: quien escucha onDialogueEnded tiene que ver

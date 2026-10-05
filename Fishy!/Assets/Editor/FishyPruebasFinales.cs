@@ -167,10 +167,10 @@ namespace Fishy.EditorTools
 
         // ── Testimonios ───────────────────────────────────────────────────────
 
-        private static NPC CoipoDePrueba(out GameObject go)
+        private static DialogoNeutroNPC CoipoDePrueba(out GameObject go)
         {
             go = new GameObject("Coipo de prueba");
-            var npc = go.AddComponent<NPC>();
+            var npc = go.AddComponent<DialogoNeutroNPC>();
             npc.dialogoId = "HDU1_NPC_COIPO";
             npc.dialogosSiguientes.Add("HDU3_M3_TESTIMONIO_COIPO");
             return npc;

@@ -14,7 +14,7 @@ using UnityEngine.Events;
 ///
 /// Vive en el ensamblado por defecto (Assembly-CSharp) y NO dentro de la carpeta
 /// Scripts/Mision, porque esa tiene el asmdef "Fishy.Mision" y desde ahí no se
-/// pueden ver ni <see cref="ItemData"/> ni <see cref="NPC"/>. Las fichas de datos
+/// pueden ver ni <see cref="ItemData"/> ni <see cref="DialogoNeutroNPC"/>. Las fichas de datos
 /// de misión (DesafioData) siguen viviendo allá; esto es sólo el pegamento con
 /// el mundo.
 /// </summary>
@@ -49,7 +49,7 @@ public class ObjetivoMision
 
     [Header("Si el tipo es Hablar Con Npc")]
     [Tooltip("Con quién hay que conversar para cumplirlo.")]
-    public NPC npc;
+    public DialogoNeutroNPC npc;
 
     [Header("Si el tipo es Chatear Por Telefono")]
     [Tooltip("Qué conversación de celular hay que atender. Cuenta igual que hablar " +
@@ -98,6 +98,26 @@ public class ObjetivoMision
     /// lo guarda MissionManager en PlayerPrefs, los objetivos sueltos no.
     /// </summary>
     [NonSerialized] public bool cumplido;
+
+    /// <summary>
+    /// De dónde salió el <see cref="cumplido"/>. Solo para el log.
+    ///
+    /// Existe porque diagnosticar una misión que se completa sola era imposible: el log
+    /// decía "Objetivo cumplido: X" sin decir quién lo marcó, y los caminos son cuatro
+    /// —el evento del NPC o del chat, el mundo (mochila/zona), el historial de lo ya
+    /// hecho, y lo que vino guardado del servidor—. Sin saber cuál fue, cada diagnóstico
+    /// era una conjetura.
+    /// </summary>
+    [NonSerialized] public string PorQue;
+
+    /// <summary>Marca el objetivo dejando dicho por qué. Devuelve true si cambió.</summary>
+    public bool Cumplir(string porQue)
+    {
+        if (cumplido) return false;
+        cumplido = true;
+        PorQue = porQue;
+        return true;
+    }
 
     /// <summary>
     /// Posición del objetivo en el catálogo (<see cref="ObjetivoRegistro.orden"/>): la
@@ -228,9 +248,9 @@ public class ObjetivoMision
     /// los NPCs de zonas todavía cerradas suelen estar apagados, y un objetivo que
     /// apunta a uno de ellos tiene que poder resolverse antes de que la zona se abra.
     /// </summary>
-    private static NPC BuscarNpcPorDialogo(string dialogoId)
+    private static DialogoNeutroNPC BuscarNpcPorDialogo(string dialogoId)
     {
-        foreach (NPC candidato in UnityEngine.Object.FindObjectsByType<NPC>(
+        foreach (DialogoNeutroNPC candidato in UnityEngine.Object.FindObjectsByType<DialogoNeutroNPC>(
                      FindObjectsInactive.Include))
         {
             if (candidato == null) continue;
@@ -443,12 +463,12 @@ public class ObjetivoMision
     /// <summary>
     /// Cómo se llama este NPC para el niño/a, o null si no hay NPC.
     ///
-    /// Se prefiere el nombre del diálogo —que <c>NPC.Awake</c> rellena desde el banco,
+    /// Se prefiere el nombre del diálogo —que <c>DialogoNeutroNPC.Awake</c> rellena desde el banco,
     /// así que dice "Huemul"— antes que el nombre del GameObject, que dice cosas como
     /// "Neutral_NPC (1)". En el cartel de misión lo lee un niño/a, no quien montó la
     /// escena.
     /// </summary>
-    private static string NombreVisibleDe(NPC npc)
+    private static string NombreVisibleDe(DialogoNeutroNPC npc)
     {
         if (npc == null) return null;
 
@@ -463,12 +483,47 @@ public class ObjetivoMision
     {
         if (cumplido) return true;
 
-        // "Hablar con" y "chatear por teléfono" no se pueden consultar: son hechos
-        // puntuales, los marca MissionTracker cuando se cierra el diálogo o el chat.
-        // Tampoco se intenta resolverlos aquí: buscarlos es recorrer la escena, y esto
-        // se llama en cada cambio de inventario. De reintentar ESOS se encarga
-        // MissionTracker, que es quien necesita el resultado para suscribirse.
-        if (tipo == TipoObjetivo.RecogerObjeto)
+        // Los hechos puntuales —hablar, chatear, cerrar un caso— se preguntan al
+        // historial.
+        //
+        // Antes no se podían consultar y solo los marcaba MissionTracker al dispararse
+        // su evento, así que haberlos hecho ANTES de recibir la misión no contaba y había
+        // que repetirlos. Con los chats del celular eso era peor que molesto: un
+        // PhoneChatLauncher sin 'repetible' no se vuelve a abrir, así que el objetivo
+        // quedaba imposible.
+        //
+        // Es una consulta a un HashSet, así que sale barato aunque esto se llame en cada
+        // cambio de inventario. Y no hace falta resolver la referencia del mundo: se
+        // pregunta por id. Cuando el objetivo viene armado a mano en el Inspector no hay
+        // id, así que se saca de la referencia, que ahí sí está puesta.
+        if (tipo == TipoObjetivo.HablarConNpc)
+        {
+            string id = !string.IsNullOrWhiteSpace(dialogoNpcId)
+                ? dialogoNpcId
+                : (npc != null ? npc.dialogoId : null);
+
+            if (HistorialDeObjetivos.HabloCon(id)) Cumplir($"historial: ya habló con '{id}'");
+        }
+
+        else if (tipo == TipoObjetivo.ChatearPorTelefono)
+        {
+            string ids = !string.IsNullOrWhiteSpace(escenarioIds)
+                ? escenarioIds
+                : (telefono != null ? telefono.escenarioIds : null);
+
+            if (HistorialDeObjetivos.AtendioElChat(ids)) Cumplir($"historial: ya atendió el chat '{ids}'");
+        }
+
+        else if (tipo == TipoObjetivo.CompletarCasoDetective)
+        {
+            string id = !string.IsNullOrWhiteSpace(casoDetectiveId)
+                ? casoDetectiveId
+                : (detective != null ? detective.CasoId : null);
+
+            if (HistorialDeObjetivos.ResolvioElCaso(id)) Cumplir($"historial: ya jugó el caso '{id}'");
+        }
+
+        else if (tipo == TipoObjetivo.RecogerObjeto)
         {
             // Resolver el objeto sí es barato —es una consulta al catálogo— y hace
             // falta en cada intento: puede que el catálogo no estuviera cargado cuando
@@ -476,7 +531,10 @@ public class ObjetivoMision
             if (objeto == null) Resolver();
 
             if (objeto != null && InventoryManager.Instance != null)
-                cumplido = InventoryManager.Instance.GetQuantity(objeto) >= cantidad;
+            {
+                int tiene = InventoryManager.Instance.GetQuantity(objeto);
+                if (tiene >= cantidad) Cumplir($"mochila: tiene {tiene} de {cantidad}");
+            }
         }
 
         // Llegar a una zona sí se puede consultar, y por eso se consulta: preguntarle
@@ -486,7 +544,8 @@ public class ObjetivoMision
         else if (tipo == TipoObjetivo.LlegarAZona && !string.IsNullOrWhiteSpace(zonaDestino))
         {
             ZonaActual zonas = ZonaActual.Instance;
-            if (zonas != null) cumplido = zonas.Actual == zonaDestino.Trim();
+            if (zonas != null && zonas.Actual == zonaDestino.Trim())
+                Cumplir($"zona: Otto está en '{zonas.Actual}'");
         }
 
         return cumplido;

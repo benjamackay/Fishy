@@ -4649,7 +4649,7 @@ PrefabInstance:
       objectReference: {fileID: -167164456610951095, guid: bd29d4dbcec8bb94faafc5ea8c894378, type: 3}
     - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_SortingLayer
-      value: 5
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 1801623071781312534, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_SortingLayerID
@@ -4803,6 +4803,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1855939100}
+    - targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1855939107}
   m_SourcePrefab: {fileID: 100100000, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
 --- !u!1001 &1108575987
 PrefabInstance:
@@ -10938,6 +10941,22 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &1855939107
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1855939093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1aaba9c0ded40f6b7cffbac7f4026cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PresenciaSegunMision
+  mision: {fileID: 0}
+  misionId: MISION_NPC_03
+  visibleEn: 1
+  verboseLogs: 0
 --- !u!1001 &1887548408
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -105,8 +105,21 @@ namespace Fishy.Net
             misiones.onDesafioCompletado.AddListener(AlCompletarDesafio);
             BlockedZone.OnZonaDesbloqueada += AlDesbloquearZona;
             CatalogoMisiones.OnCatalogoCambiado += SeguirObjetivosDeLoGuardado;
+            ApiManager.OnPartidaCerrada += AlCerrarPartida;
 
             StartCoroutine(EsperarPartidaYBajarProgreso());
+        }
+
+        /// <summary>
+        /// Volver a entrar en la misma partida tiene que bajar el progreso otra vez: las
+        /// zonas abiertas se abren sobre los BlockedZone de la escena, y la escena es
+        /// nueva.
+        /// </summary>
+        private void AlCerrarPartida()
+        {
+            partidaAtada = null;
+            partidaDescargada = null;
+            ProgresoDeMisionesAplicado = false;
         }
 
         private void OnDisable()
@@ -118,6 +131,7 @@ namespace Fishy.Net
             }
             BlockedZone.OnZonaDesbloqueada -= AlDesbloquearZona;
             CatalogoMisiones.OnCatalogoCambiado -= SeguirObjetivosDeLoGuardado;
+            ApiManager.OnPartidaCerrada -= AlCerrarPartida;
         }
 
         // ── 1. Bajar lo que ya estaba hecho ──────────────────────────────────
@@ -211,6 +225,7 @@ namespace Fishy.Net
         {
             MissionManager.GetOrCreate().ConfigurarPersistenciaParaPartida(partidaId);
             InventoryManager.ConfigurarParaPartida(partidaId);
+            HistorialDeObjetivos.ConfigurarParaPartida(partidaId);
         }
 
         /// <summary>Pide misiones y zonas de la partida activa y las aplica al juego.</summary>
@@ -411,9 +426,27 @@ namespace Fishy.Net
 
             misionesEnServidor[misionId] = completada;
 
-            // De informar de cómo fue se encarga la cola, que es la única que sabe si
-            // esto va a salir ahora, dentro de un rato o al volver a entrar al juego.
-            ColaDeCambios.EncolarMision(misionId, completada);
+            ColaDeCambios.EncolarAppend($"mision:{misionId}",
+                (ok, error) =>
+                {
+                    var actual = ApiManager.Instance;
+                    if (actual == null || actual.PartidaId == null) { error("No hay partida."); return; }
+
+                    actual.RegistrarProgresoMision(misionId, completada,
+                        onSuccess: dto =>
+                        {
+                            misionesEnServidor[misionId] = dto != null && dto.Completada;
+                            Debug.Log($"[MisionBackendSync] Misión '{misionId}' guardada como " +
+                                      $"{(completada ? "completada" : "disponible")}.");
+                            ok();
+                        },
+                        onError: e =>
+                        {
+                            Debug.LogWarning($"[MisionBackendSync] No se pudo guardar '{misionId}': {e}");
+                            error(e);
+                        });
+                },
+                $"misión {misionId}");
         }
 
         private void AlDesbloquearZona(BlockedZone zona)

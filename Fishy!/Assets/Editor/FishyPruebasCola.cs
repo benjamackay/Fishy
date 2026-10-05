@@ -72,18 +72,14 @@ namespace Fishy.EditorTools
             ProbarOrdenDeSalida(log, cola);
             ProbarCadenaVaSola(log, cola);
             ProbarElThunkLeeAlVaciar(log, cola);
-            ProbarFalloSeReintentaConRetardo(log, cola);
-            ProbarCierreNoReintenta(log, cola);
+            ProbarInsisteHastaVaciarLaCola(log, cola);
+            ProbarInsistirTienePlazo(log, cola);
+            ProbarCierreTambienInsiste(log, cola);
             ProbarSinRespuestaNoEsTodoBien(log, cola);
+            ProbarNoSeGuardaLaPosicionAntesDeRestaurar(log, cola, api);
+            ProbarVolverAlMenuNoPisaLaPosicion(log, cola, api);
             ProbarSelloDePartida(log, cola, api);
             ProbarTopeDeTiempoSeRestaura(log, cola, api);
-
-            // ── El diario: que nada se pierda al morir el proceso ──
-            ProbarDiarioSobreviveAlReinicio(log);
-            ProbarSnapshotsNoSeAnotan(log);
-            ProbarDiarioConservaSuPartida(log, api);
-            ProbarDiarioNoDegradaUnaZona(log);
-            ProbarIdaYVueltaDeLasRecetas(log);
 
             // ── Los interruptores de SaveManager ──
             ProbarInterruptorDeMomentos(log, cola);
@@ -129,12 +125,6 @@ namespace Fishy.EditorTools
                 subido == "segundo", $"subió '{subido}'");
         }
 
-        /// <summary>El valor fusionado de una entrada de zona dice "completada".
-        /// Antes el valor era un bool a secas; ahora es el objeto de argumentos de la
-        /// receta, que es lo que permite anotarlo en el diario.</summary>
-        private static bool ZonaCompletada(ColaDeCambios.CambioPendiente cambio)
-            => cambio != null && cambio.Valor is RecetasDeCola.ArgsZona z && z.Completada;
-
         private static void ProbarZonaFusionaPorOr(StringBuilder log)
         {
             // El caso real: BosqueDesconocidosManager marca la zona completada y después
@@ -145,7 +135,7 @@ namespace Fishy.EditorTools
             ColaDeCambios.EncolarZona("desconocidos", completada: false);
 
             Comprobar(log, "Completar una zona no se puede deshacer con un desbloqueo",
-                ColaDeCambios.Pendientes == 1 && ZonaCompletada(Primero()),
+                ColaDeCambios.Pendientes == 1 && Primero().Valor is bool b && b,
                 $"valor = {Primero().Valor}");
 
             // Y al revés también: primero desbloquear, después completar.
@@ -153,7 +143,7 @@ namespace Fishy.EditorTools
             ColaDeCambios.EncolarZona("retos", completada: false);
             ColaDeCambios.EncolarZona("retos", completada: true);
             Comprobar(log, "Y completarla después del desbloqueo sí cuenta",
-                ZonaCompletada(Primero()), $"valor = {Primero().Valor}");
+                Primero().Valor is bool c && c, $"valor = {Primero().Valor}");
         }
 
         private static void ProbarProgresoFusionaPorMaximo(StringBuilder log)
@@ -163,9 +153,7 @@ namespace Fishy.EditorTools
             ColaDeCambios.EncolarProgreso(10f);
 
             Comprobar(log, "El progreso de la partida nunca retrocede",
-                ColaDeCambios.Pendientes == 1 &&
-                Primero().Valor is RecetasDeCola.ArgsProgreso v &&
-                Mathf.Approximately(v.Progreso, 25f),
+                ColaDeCambios.Pendientes == 1 && Primero().Valor is float v && Mathf.Approximately(v, 25f),
                 $"valor = {Primero().Valor}");
         }
 
@@ -210,7 +198,7 @@ namespace Fishy.EditorTools
             almacen.Reencolar(zonaVieja);
 
             Comprobar(log, "Una zona 'desbloqueada' que falló no borra la 'completada' posterior",
-                ColaDeCambios.Pendientes == 1 && ZonaCompletada(Primero()),
+                ColaDeCambios.Pendientes == 1 && Primero().Valor is bool b && b,
                 $"valor = {(ColaDeCambios.Pendientes > 0 ? Primero().Valor : null)}");
 
             // Tomar saca lo que hay AHORA, no una copia vieja.
@@ -312,215 +300,188 @@ namespace Fishy.EditorTools
                 subido == "tres flores y un caracol", $"subió '{subido}'");
         }
 
-        private static void ProbarFalloSeReintentaConRetardo(StringBuilder log, ColaDeCambios cola)
+        private static void ProbarInsisteHastaVaciarLaCola(StringBuilder log, ColaDeCambios cola)
         {
-            // Esto es lo que antes hacían por su cuenta ObjetosRecogidosSync y
-            // NpcTematicaSync con sus propias listas de pendientes.
+            // El contrato nuevo: un cambio de zona no da UNA pasada, insiste hasta vaciar
+            // la cola. Antes lo que fallaba esperaba al siguiente momento de guardado, y
+            // como los momentos son solo dos ese siguiente podía estar a media partida.
             Vaciar();
-            cola.maxIntentos = 3;
             int intentos = 0;
-            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) => { intentos++; error("cae"); });
+            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) =>
+            {
+                intentos++;
+                if (intentos < 3) error("la red falló");
+                else ok();
+            });
 
             Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
-            Comprobar(log, "Un fallo al cambiar de zona vuelve a la cola",
-                ColaDeCambios.Pendientes == 1 && cola.UltimoResultado.Fallidos == 1,
+
+            Comprobar(log, "Un cambio de zona insiste hasta vaciar la cola",
+                intentos == 3 && ColaDeCambios.Pendientes == 0 && cola.UltimoResultado.TodoBien,
+                $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes, " +
+                $"fallidos = {cola.UltimoResultado.Fallidos}");
+
+            // Y los fallos del camino no ensucian el veredicto: si al final entró, entró.
+            Comprobar(log, "Haber fallado en el camino no impide que el vaciado sea correcto",
+                cola.UltimoResultado.Fallidos == 2 && cola.UltimoResultado.TodoBien,
+                $"fallidos = {cola.UltimoResultado.Fallidos}, " +
+                $"todo bien = {cola.UltimoResultado.TodoBien}");
+        }
+
+        private static void ProbarInsistirTienePlazo(StringBuilder log, ColaDeCambios cola)
+        {
+            // Insistir no puede ser para siempre: contra un servidor caído el plazo es lo
+            // que evita que el juego se quede dando vueltas. Lo que no salga se queda en
+            // la cola para el siguiente cambio de zona.
+            Vaciar();
+            int intentos = 0;
+            ColaDeCambios.EncolarAppend("objeto:IMPOSIBLE", (ok, error) => { intentos++; error("cae"); });
+
+            Correr(cola.Vaciar("zona", 1f, reintentarSiFalla: true));
+
+            Comprobar(log, "Insistir se acaba con el plazo y lo pendiente sigue en la cola",
+                intentos > 1 && ColaDeCambios.Pendientes == 1 && !cola.UltimoResultado.TodoBien,
                 $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes");
-
-            // El siguiente vaciado NO lo toca: tras fallar espera antes de reintentar.
-            // Contra un servidor caído, insistir cada pocos segundos solo llena el log.
-            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
-            Comprobar(log, "Tras fallar, espera su retardo antes de volver a intentarlo",
-                intentos == 1 && cola.UltimoResultado.Esperando == 1,
-                $"{intentos} intento(s), {cola.UltimoResultado.Esperando} esperando");
-
-            // Se simula que pasó el rato y se agotan los intentos.
-            for (int i = 0; i < 5; i++)
-            {
-                foreach (var c in ColaDeCambios.AlmacenParaPruebas.Instantanea()) c.NoAntesDe = 0f;
-                Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
-            }
-
-            // El contrato cambió a propósito: antes esto se ABANDONABA, y con ello se
-            // perdía de verdad. Ahora deja de reintentarse solo, pero sigue en la cola.
-            Comprobar(log, "Tras maxIntentos deja de insistir solo pero NO se pierde",
-                intentos == cola.maxIntentos && ColaDeCambios.Pendientes == 1 &&
-                ColaDeCambios.HayAtasco,
-                $"{intentos} intentos, {ColaDeCambios.Pendientes} pendientes, " +
-                $"atasco = {ColaDeCambios.HayAtasco}");
-
-            // Y el jugador puede desatascarlo.
-            ColaDeCambios.ReintentarAhora();
-            Comprobar(log, "«Intentar ahora» desatasca lo que había dejado de reintentarse",
-                !ColaDeCambios.HayAtasco && ColaDeCambios.Pendientes == 1,
-                $"atasco = {ColaDeCambios.HayAtasco}, {ColaDeCambios.Pendientes} pendientes");
         }
 
-        // ── El diario ─────────────────────────────────────────────────────────
-
-        private static void ProbarDiarioSobreviveAlReinicio(StringBuilder log)
+        private static void ProbarCierreTambienInsiste(StringBuilder log, ColaDeCambios cola)
         {
-            // El caso real, y el que costó 19 cambios en una tarde: se para el Play (o se
-            // cae el juego) con la cola a medias. Antes eso era una pérdida definitiva de
-            // los objetivos, porque el chat que los marca no se vuelve a disparar.
-            Vaciar();
-            ColaDeCambios.EncolarMision("MISION_NPC_03", completada: true);
-            ColaDeCambios.EncolarObjetivo("MISION_NPC_03", 2);
-
-            // "Se murió el proceso": la cola en memoria desaparece, el diario no.
-            ColaDeCambios.AlmacenParaPruebas.Limpiar();
-            Comprobar(log, "Al morir el proceso la cola en memoria queda vacía",
-                ColaDeCambios.Pendientes == 0, $"{ColaDeCambios.Pendientes} pendientes");
-
-            ColaDeCambios.Reproducir();
-
-            bool volvioLaMision = false, volvioElObjetivo = false;
-            foreach (var c in ColaDeCambios.AlmacenParaPruebas.Instantanea())
-            {
-                if (c.Valor is RecetasDeCola.ArgsMision m && m.MisionId == "MISION_NPC_03" && m.Completada)
-                    volvioLaMision = true;
-                if (c.Valor is RecetasDeCola.ArgsObjetivo o && o.MisionId == "MISION_NPC_03" && o.Orden == 2)
-                    volvioElObjetivo = true;
-            }
-
-            Comprobar(log, "Al volver a entrar, lo anotado vuelve a la cola con sus datos",
-                ColaDeCambios.Pendientes == 2 && volvioLaMision && volvioElObjetivo,
-                $"{ColaDeCambios.Pendientes} pendientes, misión = {volvioLaMision}, " +
-                $"objetivo = {volvioElObjetivo}");
-        }
-
-        private static void ProbarSnapshotsNoSeAnotan(StringBuilder log)
-        {
-            // La mochila y la posición leen el estado vivo al subir, así que el siguiente
-            // guardado los manda completos igual. Anotarlos sería guardar una foto vieja
-            // de algo que se puede volver a mirar.
-            Vaciar();
-            ColaDeCambios.EncolarSnapshot("inventario", Bien());
-            ColaDeCambios.EncolarSnapshot("personaje", Bien());
-            ColaDeCambios.EncolarObjeto("ITEM_FLOR_01");
-
-            ColaDeCambios.AlmacenParaPruebas.Limpiar();
-            ColaDeCambios.Reproducir();
-
-            var claves = Claves();
-            Comprobar(log, "La mochila y la posición no se anotan; el objeto recogido sí",
-                claves.Count == 1 && claves[0] == "objeto:ITEM_FLOR_01",
-                claves.Count == 0 ? "(ninguna)" : string.Join(", ", claves));
-        }
-
-        private static void ProbarDiarioConservaSuPartida(StringBuilder log, ApiManager api)
-        {
-            // Un cambio anotado en la partida 3 se sube A LA 3, aunque ahora se juegue la
-            // 4. Antes esto se descartaba, y era lo único que evitaba escribirle el
-            // avance de un hermano al otro; ahora no hay que tirar nada, porque todos los
-            // endpoints de escritura reciben la partida.
-            Vaciar();
-            UsarPartida(api, PartidaA);
-            ColaDeCambios.EncolarObjetivo("MISION_NPC_03", 3);
-
-            ColaDeCambios.AlmacenParaPruebas.Limpiar();
-            UsarPartida(api, PartidaB);
-            ColaDeCambios.Reproducir();
-
-            var repuesto = Primero();
-            Comprobar(log, "Lo anotado vuelve con SU partida, no con la que se juega ahora",
-                repuesto != null && repuesto.Partida == PartidaA,
-                $"partida del cambio = {repuesto?.Partida}, partida activa = {api.PartidaId}");
-
-            UsarPartida(api, PartidaA);
-        }
-
-        private static void ProbarDiarioNoDegradaUnaZona(StringBuilder log)
-        {
-            // El caso: la zona quedó COMPLETADA la sesión pasada y no alcanzó a subirse.
-            // Esta sesión, al recalcular, MisionBackendSync la manda como "desbloqueada".
-            // Si al reponer el diario ganara sin más el valor de ahora, el reporte del
-            // adulto pasaría a mostrar como pendiente una zona ya terminada.
-            //
-            // Se prueba en el orden que de verdad rompe: primero lo de esta sesión y
-            // después la reposición. En el juego el orden normal es el contrario, así que
-            // este es el camino que se escapa sin querer.
-            Vaciar();
-            ColaDeCambios.EncolarZona("ciberacoso", completada: true);
-
-            var anotado = DiarioDeCambios.Leer();
-            ColaDeCambios.AlmacenParaPruebas.Limpiar();
-
-            ColaDeCambios.EncolarZona("ciberacoso", completada: false);
-            ColaDeCambios.Reproducir();
-
-            Comprobar(log, "Reponer del diario no degrada una zona ya completada",
-                ColaDeCambios.Pendientes == 1 && ZonaCompletada(Primero()),
-                $"anotadas {anotado.Count}, valor = {Primero()?.Valor}");
-        }
-
-        private static void ProbarIdaYVueltaDeLasRecetas(StringBuilder log)
-        {
-            // La conversión de closures a (receta, argumentos) tocó nueve sitios, y un
-            // cuerpo mal armado ahí es una escritura silenciosamente equivocada. Esto
-            // comprueba que cada receta sobrevive al viaje por disco con sus datos.
-            Vaciar();
-            ColaDeCambios.EncolarMision("MISION_X", completada: true);
-            ColaDeCambios.EncolarObjetivo("MISION_X", 7);
-            ColaDeCambios.EncolarZona("ciberacoso", completada: true);
-            ColaDeCambios.EncolarObjeto("ITEM_ROCA");
-            ColaDeCambios.EncolarNpc("NPC_ALEX", exito: true);
-            ColaDeCambios.EncolarDetective("DC_CASO_01",
-                new List<string> { "m1", "m2" }, 4, 5, 80f);
-            ColaDeCambios.EncolarProgreso(42f);
-            ColaDeCambios.EncolarChat("chat:0", "Puma", "zona_2", "desconocidos",
-                new List<RecetasDeCola.MensajeDeChat>
-                {
-                    new RecetasDeCola.MensajeDeChat { Tipo = "chain", Texto = "hola", Calidad = "segura" },
-                },
-                "cerrado");
-
-            ColaDeCambios.AlmacenParaPruebas.Limpiar();
-            ColaDeCambios.Reproducir();
-
-            var porClave = new Dictionary<string, object>();
-            foreach (var c in ColaDeCambios.AlmacenParaPruebas.Instantanea())
-                porClave[c.Clave] = c.Valor;
-
-            Comprobar(log, "Las ocho recetas vuelven del diario",
-                porClave.Count == 8, $"{porClave.Count} de 8");
-
-            Comprobar(log, "Una misión vuelve con su id y su estado",
-                porClave.TryGetValue("mision:MISION_X", out var vm) &&
-                vm is RecetasDeCola.ArgsMision m && m.MisionId == "MISION_X" && m.Completada,
-                Describir(porClave, "mision:MISION_X"));
-
-            Comprobar(log, "Un objetivo vuelve con su orden",
-                porClave.TryGetValue("objetivo:MISION_X:7", out var vo) &&
-                vo is RecetasDeCola.ArgsObjetivo o && o.Orden == 7,
-                Describir(porClave, "objetivo:MISION_X:7"));
-
-            Comprobar(log, "Un caso de detective vuelve con sus marcados y su puntaje",
-                porClave.TryGetValue("detective:DC_CASO_01", out var vd) &&
-                vd is RecetasDeCola.ArgsDetective d && d.Marcados != null &&
-                d.Marcados.Count == 2 && d.Aciertos == 4 && Mathf.Approximately(d.Porcentaje, 80f),
-                Describir(porClave, "detective:DC_CASO_01"));
-
-            Comprobar(log, "Una conversación vuelve con sus mensajes",
-                porClave.TryGetValue("chat:0", out var vc) &&
-                vc is RecetasDeCola.ArgsChat ch && ch.Contacto == "Puma" &&
-                ch.Mensajes != null && ch.Mensajes.Count == 1 && ch.Mensajes[0].Texto == "hola",
-                Describir(porClave, "chat:0"));
-        }
-
-        private static string Describir(Dictionary<string, object> porClave, string clave)
-            => porClave.TryGetValue(clave, out var v) && v != null ? v.GetType().Name : "(no volvió)";
-
-        private static void ProbarCierreNoReintenta(StringBuilder log, ColaDeCambios cola)
-        {
+            // Antes al cerrar NO se reintentaba, con el argumento de que no habría otra
+            // oportunidad. Es al revés: como no hay otra, el plazo hay que gastarlo
+            // justamente en insistir. El juego no cierra hasta que la cola esté vacía o
+            // hasta que el jugador diga que se va.
             Vaciar();
             int intentos = 0;
-            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) => { intentos++; error("cae"); });
+            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) =>
+            {
+                intentos++;
+                if (intentos < 2) error("la red falló");
+                else ok();
+            });
 
-            Correr(cola.Vaciar("CierreDeAplicacion", 5f, reintentarSiFalla: false));
+            Correr(cola.Vaciar("CierreDeAplicacion", 5f, reintentarSiFalla: true));
 
-            Comprobar(log, "Al cerrar no se reintenta: no hay otra oportunidad que esperar",
-                intentos == 1 && ColaDeCambios.Pendientes == 0 && !cola.UltimoResultado.TodoBien,
-                $"{intentos} intento(s), fallidos = {cola.UltimoResultado.Fallidos}");
+            Comprobar(log, "Al cerrar también se insiste, en vez de rendirse al primer fallo",
+                intentos == 2 && ColaDeCambios.Pendientes == 0 && cola.UltimoResultado.TodoBien,
+                $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes");
+        }
+
+        private static void ProbarNoSeGuardaLaPosicionAntesDeRestaurar(
+            StringBuilder log, ColaDeCambios cola, ApiManager api)
+        {
+            // El bug del 29 de septiembre, visto en la partida 6: Otto aparece en el
+            // spawnPoint y la resolución inicial de zona —de null a zona_1— cuenta como
+            // cambio de zona. Así que el PRIMER guardado salía antes de que llegara la
+            // respuesta del GET y escribía el spawnPoint encima de la posición guardada;
+            // el GET leía después lo que ese PATCH acababa de pisar y "restauraba" a Otto
+            // justo donde empieza. En el log salía como
+            // `Otto restaurado en (0,0, -8,0)` con la base diciendo (-5,89, 51,44).
+            Vaciar();
+            UsarPartida(api, PartidaA);
+
+            // Donde quedó Otto la vez anterior.
+            api.GuardarPersonaje("MainScene", -5.89f, 51.44f, "zona_3");
+
+            // Otto acaba de aparecer en el spawnPoint, y todavía no se restauró nada.
+            //
+            // OJO: sin HideAndDontSave. `BuscarOtto` usa FindAnyObjectByType, que NO ve
+            // los objetos ocultos, así que con esa bandera la prueba pasaría por el
+            // motivo equivocado —no encontraría a Otto y se saldría por "escena de menú"—.
+            var ottoGO = new GameObject("OttoDePrueba");
+            ottoGO.transform.position = new Vector3(0f, -8f, 0f);
+            ottoGO.AddComponent<Fishy.World.OttoController>();
+
+            var syncGO = new GameObject("PersonajeSyncDePrueba");
+            var sync = syncGO.AddComponent<PersonajeBackendSync>();
+
+            sync.MarcarSucio();
+            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: false));
+
+            PersonajeDto leido = null;
+            api.ObtenerPersonaje(onSuccess: d => leido = d);
+
+            bool intacta = leido != null && leido.tiene_posicion &&
+                           leido.pos_x.HasValue && Mathf.Approximately(leido.pos_x.Value, -5.89f);
+
+            Comprobar(log, "No se guarda la posición antes de haberla restaurado",
+                intacta,
+                leido == null ? "no se pudo leer"
+                              : $"quedó en ({leido.pos_x}, {leido.pos_y}), zona {leido.zona_actual}");
+
+            UnityEngine.Object.DestroyImmediate(ottoGO);
+            UnityEngine.Object.DestroyImmediate(syncGO);
+            SoltarInstancia(typeof(PersonajeBackendSync));
+        }
+
+        private static void ProbarVolverAlMenuNoPisaLaPosicion(
+            StringBuilder log, ColaDeCambios cola, ApiManager api)
+        {
+            // Esc → volver al menú → Continuar con la misma partida. PersonajeBackendSync
+            // recordaba "ya restaurado en MainScene para esta partida", así que al volver
+            // dejaba a Otto en el spawnPoint y daba por abierto el candado de no guardar
+            // antes de restaurar: el siguiente guardado pisaba la posición buena.
+            Vaciar();
+            UsarPartida(api, PartidaA);
+            api.GuardarPersonaje("MainScene", -5.89f, 51.44f, "zona_3");
+
+            var ottoGO = new GameObject("OttoDePrueba");
+            ottoGO.transform.position = new Vector3(0f, -8f, 0f);
+            ottoGO.AddComponent<Fishy.World.OttoController>();
+
+            var syncGO = new GameObject("PersonajeSyncDePrueba");
+            var sync = syncGO.AddComponent<PersonajeBackendSync>();
+
+            // Quien estaba jugando: la posición de esta partida ya se restauró en esta escena.
+            var tipo = typeof(PersonajeBackendSync);
+            const BindingFlags privado = BindingFlags.Instance | BindingFlags.NonPublic;
+            tipo.GetField("partidaAtendida", privado).SetValue(sync, (int?)PartidaA);
+            tipo.GetField("escenaAtendida", privado)
+                .SetValue(sync, UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+
+            // Control: con eso puesto el guardado SÍ sale. Si no saliera, la comprobación
+            // de abajo pasaría por el motivo equivocado.
+            sync.MarcarSucio();
+            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: false));
+            PersonajeDto control = null;
+            api.ObtenerPersonaje(onSuccess: d => control = d);
+            bool controlOk = control != null && control.pos_x.HasValue &&
+                             Mathf.Approximately(control.pos_x.Value, 0f);
+            Comprobar(log, "Con la posición ya restaurada, el guardado sí la sube (control)",
+                controlOk, control == null ? "no se pudo leer" : $"quedó en ({control.pos_x}, {control.pos_y})");
+
+            api.GuardarPersonaje("MainScene", -5.89f, 51.44f, "zona_3");
+
+            // En modo edición no corre OnEnable, que es donde se suscribe.
+            var alCerrar = (Action)Delegate.CreateDelegate(typeof(Action), sync,
+                tipo.GetMethod("AlCerrarPartida", privado));
+            ApiManager.OnPartidaCerrada += alCerrar;
+            try
+            {
+                api.CerrarPartida();
+                UsarPartida(api, PartidaA);
+
+                // La escena volvió a cargar y Otto está otra vez en el spawnPoint.
+                sync.MarcarSucio();
+                Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: false));
+            }
+            finally
+            {
+                ApiManager.OnPartidaCerrada -= alCerrar;
+            }
+
+            PersonajeDto leido = null;
+            api.ObtenerPersonaje(onSuccess: d => leido = d);
+            bool intacta = leido != null && leido.tiene_posicion &&
+                           leido.pos_x.HasValue && Mathf.Approximately(leido.pos_x.Value, -5.89f);
+
+            Comprobar(log, "Volver al menú y entrar a la misma partida no pisa la posición",
+                intacta,
+                leido == null ? "no se pudo leer"
+                              : $"quedó en ({leido.pos_x}, {leido.pos_y}), zona {leido.zona_actual}");
+
+            UnityEngine.Object.DestroyImmediate(ottoGO);
+            UnityEngine.Object.DestroyImmediate(syncGO);
+            SoltarInstancia(typeof(PersonajeBackendSync));
         }
 
         private static void ProbarSinRespuestaNoEsTodoBien(StringBuilder log, ColaDeCambios cola)
@@ -709,18 +670,8 @@ namespace Fishy.EditorTools
             return claves;
         }
 
-        /// <summary>
-        /// Deja la cola limpia entre prueba y prueba: el almacén es estático.
-        ///
-        /// <b>Y el diario también</b>, que es lo importante: ahora encolar escribe en
-        /// PlayerPrefs, así que sin esto una corrida de pruebas le dejaría al juego de
-        /// verdad un puñado de cambios inventados para subir al backend.
-        /// </summary>
-        private static void Vaciar()
-        {
-            ColaDeCambios.AlmacenParaPruebas.Limpiar();
-            DiarioDeCambios.Limpiar();
-        }
+        /// <summary>Deja la cola limpia entre prueba y prueba: el almacén es estático.</summary>
+        private static void Vaciar() => ColaDeCambios.AlmacenParaPruebas.Limpiar();
 
         /// <summary>
         /// Barre los objetos de una corrida anterior que se cortó a medias.
