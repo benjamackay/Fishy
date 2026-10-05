@@ -4,7 +4,7 @@ Aviso de Fishy
 
 {% if varios %}Desde ahora forman parte del curso{% else %}Desde ahora forma parte del curso{% endif %}: el profesor podrá ver {% if varios %}sus nombres{% else %}su nombre{% endif %}, tu correo y el resumen de su avance en Fishy, para coordinar el acompañamiento. No verá conversaciones ni respuestas literales.
 {% if enlace %}
-Puedes revisar el avance de tus hijos en el portal:
+Puedes revisar {% if varios %}el avance de tus hijos{% else %}su avance{% endif %} en el portal:
 {{ enlace }}
 {% endif %}
 Si no reconoces al profesor o al curso, contáctate con el colegio o escríbele al profesor para que lo corrija.
