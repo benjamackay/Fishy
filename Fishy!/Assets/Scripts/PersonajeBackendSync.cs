@@ -345,6 +345,42 @@ namespace Fishy.Net
             Vector2 ahora = otto.transform.position;
             string escena = SceneManager.GetActiveScene().name;
 
+            // ── No se guarda antes de haber restaurado ──────────────────────
+            //
+            // Otto aparece en el spawnPoint, y la resolución inicial de zona —de null a
+            // zona_1— cuenta como cambio de zona. Así que el PRIMER guardado de la
+            // sesión salía antes de que llegara la respuesta del GET, y escribía el
+            // spawnPoint encima de la posición guardada. Acto seguido el GET leía lo que
+            // ese PATCH acababa de pisar y "restauraba" a Otto justo donde empieza.
+            //
+            // En el log del 29 de septiembre se ve en este orden, con la partida 6:
+            //
+            //   [Cola] +personaje (Snapshot)
+            //   [SaveManager] Guardado #1 por CambioDeZona (zona: zona_1)
+            //   PATCH /partidas/6/personaje/      ← pisa lo guardado
+            //   GET   /partidas/6/personaje/      ← lee lo recién pisado
+            //   [PersonajeBackendSync] Otto restaurado en (0,0, -8,0)
+            //
+            // Y la posición real de esa partida se había guardado bien: el bug no estaba
+            // en el guardado sino en el orden. Escribir antes de leer destruye el dato.
+            //
+            // `partidaAtendida` y `escenaAtendida` son exactamente "ya se decidió la
+            // posición de esta partida en esta escena": se ponen justo antes de aplicar,
+            // por los dos caminos (LateUpdate y el bucle de medio segundo).
+            //
+            // Se llama a `ok()` y no a `error()`: no es un fallo que todavía no hayamos
+            // restaurado, y tratarlo como tal haría que la cola lo reintentara y lo
+            // contara como avance perdido. No hay nada que guardar todavía, y la
+            // posición es un snapshot: el siguiente vaciado manda la de ese momento.
+            if (partidaAtendida != api.PartidaId || escenaAtendida != escena)
+            {
+                Debug.Log("[PersonajeBackendSync] Todavía no se ha restaurado la posición de " +
+                          "esta partida, así que no se guarda: escribir ahora pisaría el sitio " +
+                          "donde quedó Otto la última vez.");
+                ok();
+                return;
+            }
+
             // La zona viaja en la MISMA peticion que la posicion, no en otra: asi no
             // pueden contradecirse ni queda una a medias si la segunda no sale.
             api.GuardarPersonaje(escena, ahora.x, ahora.y, ZonaDeOtto(),

@@ -1,6 +1,6 @@
 # Requisitos de datos — Fishy!
 
-Estado al **2026-09-20**. Este documento nació como la lista de pedidos para Óscar
+Estado al **2026-09-29**. Este documento nació como la lista de pedidos para Óscar
 (guardado, misiones, recompensas). Óscar ya los implementó en `dev` (commits
 `cf3f435`, `f016f27`, `39e24a4`) y Unity ya los consume, así que ahora es el
 **registro de lo que se construyó** más lo poco que sigue abierto.
@@ -22,6 +22,8 @@ Migraciones nuevas en `dev`: `0013_adulto_rol`, `0014_grupos_invitaciones`
 (portal web, no afectan al juego), `0015_recompensa_caso_detective`,
 `0016_catalogo_misiones_y_objetivos`. Todas con `db_default`, porque la base de
 Supabase es compartida con ramas que todavía no conocen las columnas nuevas.
+
+Los pedidos **nuevos** del 29 de septiembre están en la sección D, al final.
 
 ## Lo que sigue abierto
 
@@ -175,3 +177,163 @@ caso sin bloque `recompensa` queda con los campos vacíos y usa el catálogo loc
 El álbum mínimo (`ITEM_ALBUM_EVIDENCIAS`, adelanto de HDU-12) es un ítem más de
 mochila y no necesita backend. No hay endpoint para "reclamar" el pin: entra por el
 guardado normal de la mochila.
+
+---
+
+## D. Pedidos nuevos (2026-09-29)
+
+Salen de revisar los criterios de aceptación de "continuar partida" contra el código y
+contra la base local. Cada uno trae la evidencia que lo motiva.
+
+**Ninguno necesita migración de esquema salvo D.3**, que solo cambia `Meta.ordering`.
+
+### D.1 — `fecha_update` no dice cuándo se guardó por última vez
+
+**Es el único CA que falla hoy.** El CA pide que la lista de sesiones muestre *"la fecha
+y hora asociadas al último guardado de cada una"*, y muestra la de creación.
+
+`Partida.fecha_update` es `auto_now=True`, así que solo se actualiza **cuando se guarda la
+fila `Partida`**. Durante la partida no se guarda nunca: todas las escrituras van a otras
+tablas (`api_personajejugador`, `api_misionprogreso`, `api_objetivoprogreso`…). La única
+que toca esa fila es `PATCH /partidas/{id}/`, que Unity solo llama cuando cambia
+`progreso` — y `progreso` casi nunca cambia (ver D.2).
+
+Medido en la base local, partida 6, jugada anoche:
+
+```
+api_partida.fecha_update              2026-09-29 22:25:48   ← cuando se creó
+api_personajejugador.fecha_actualiz.  2026-09-29 23:30:05   ← el último guardado real
+```
+
+Una hora de diferencia. Las seis partidas de la base tienen `fecha_update` a microsegundos
+de `fecha_inicio`, o sea que ninguna se ha actualizado nunca.
+
+**Arrastra dos cosas más**, porque `partidas_jugador` ordena por `-fecha_update`
+(`views.py:133`):
+
+- La lista sale ordenada por cuándo se **creó** cada sesión, no por cuándo se jugó.
+- La etiqueta "Seguir donde quedaste" se la lleva la sesión equivocada.
+
+Afecta a las dos puertas de entrada: `AuthScreen` (Boot) y el panel de `MenuDos` pintan la
+misma `TextoDePartida`.
+
+**Pedido:** que escribir cualquier progreso de una partida toque su `fecha_update`. Basta
+un `partida.save(update_fields=["fecha_update"])` —`auto_now` hace el resto— en los
+endpoints que ya reciben la partida:
+
+| Vista | `views.py` |
+|---|---|
+| `personaje_partida` (PATCH) | 1224 |
+| `inventario_partida` (PUT) | 1116 |
+| `misiones_partida` (POST) | 993 |
+| `objetivos_partida` (POST) | 778 |
+| `zonas_partida` (POST) | 1063 |
+| `objetos_recogidos_partida` (POST) | 1262 |
+| `progreso_npcs_partida` (POST) | 1316 |
+| `chat_completo` (POST) | 306 |
+| `registrar_progreso_detective` (POST) | 913 — la partida viene en el cuerpo |
+
+Sin migración: la columna ya existe con la semántica correcta, solo no se la estaba
+tocando.
+
+> Se descartó la alternativa de que Unity leyera `personaje.fecha_actualizacion`: el
+> serializer no lo expone —habría que tocar el backend igual— y no arreglaría el orden,
+> que se decide en el servidor.
+
+### D.2 — `progreso` no mide nada, y hay que decidir qué debería medir
+
+Las seis partidas de la base tienen `progreso = 0.0`. La partida 6 completó **cinco
+misiones** y sigue en 0.
+
+El campo solo lo mueve `BosqueDesconocidosManager` al cerrar su zona. El propio código de
+Unity ya lo da por perdido: `TextoDePartida` esconde el dato si es 0 *"porque un 0%
+explorado no informa"*.
+
+Esto no es un bug con arreglo obvio, es una definición que falta. Dos caminos:
+
+1. **Derivarlo en el backend** —por ejemplo, porcentaje de misiones del catálogo
+   completadas en esa partida— y dejar de aceptarlo desde el cliente. Ventaja: deja de
+   depender de que Unity se acuerde de mandarlo, y vale para el reporte del adulto.
+2. **Mantenerlo escrito por el cliente** y definir qué lo mueve además del Bosque.
+
+Recomendación: la 1. Es un dato que el servidor ya tiene entero y el cliente solo en
+parte.
+
+Relacionado, del lado de Unity: `WorldZoneManager.SetProgress()` **no lo llama nadie**, así
+que la regla `progresoRequerido` de las zonas nunca se dispara. Hoy no rompe nada porque
+todas están en `-1`, pero configurar una zona con umbral de progreso no la abriría jamás.
+
+### D.3 — `PreguntaBanco.Meta.ordering` no es determinista entre motores
+
+Único pedido con migración, y es de una línea.
+
+```python
+ordering = ["zona", "npc_id", "fase", "orden_en_fase", "escenario_id"]
+```
+
+`fase` y `orden_en_fase` son `null=True`. **SQLite ordena los NULL primero y PostgreSQL
+los ordena últimos**, así que el mismo banco sale en orden distinto según el motor. Ya
+costó un bug real: en local los chats con personajes sospechosos no se mostraban completos
+—solo los neutros y los de detective— porque la conversación empezaba por su propio nodo
+de cierre.
+
+**Pedido:** ordenar con nulos explícitos.
+
+```python
+from django.db.models import F
+ordering = [
+    "zona", "npc_id",
+    F("fase").asc(nulls_last=True),
+    F("orden_en_fase").asc(nulls_last=True),
+    "escenario_id",
+]
+```
+
+Genera un `AlterModelOptions` (no toca datos ni columnas). Comprobado que la versión de
+SQLite y el Django del venv lo soportan.
+
+Opcional, del mismo viaje: mover `npc_id` después de `fase`. Hoy un mismo `npc_id` se
+repite entre conversaciones distintas, así que ordenar por él antes que por la fase mezcla
+conversaciones.
+
+> Unity ya no depende de este orden —`BancoPreguntasLoader` deduce el arranque de la
+> conversación por estructura, no por posición—, así que esto es defensa en profundidad.
+> Pero la API sigue devolviendo un orden engañoso a cualquier otro consumidor.
+
+### D.4 — Datos de catálogo que hay que cargar después de cada despliegue
+
+**`api_casodetective` vacía.** En la base local estaba sin cargar, y el efecto era que
+**todos** los vaciados de la cola reportaban un fallo: `POST
+/casos-detective/DC_CASO_01/progreso/` devolvía 404 *"No CasoDetective matches the given
+query"*. Se había corrido `cargar_banco` pero no `cargar_detective`. Ya corregido en local
+(3 casos, 26 mensajes); **falta confirmar en Supabase**.
+
+**Seis de las doce misiones no tienen ningún objetivo** en `api_objetivomision`:
+
+| Misión | Objetivos |
+|---|---|
+| `MISION_EXPLORACION_01` / `_02` | 1 |
+| `MISION_NPC_03` | 3 |
+| `MISION_NPC_04` | 1 |
+| `MISION_PANTANO_CRIATURAS` | 4 |
+| `MISION_EXPLORACION_03` | **0** |
+| `MISION_SEC_*` (las cinco) | **0** |
+
+El panel las muestra como título suelto, sin contador, porque no hay nada que contar. Es
+contenido que falta en `banco_preguntas`, no un bug: se arregla escribiendo los objetivos
+y recargando.
+
+### D.5 — Estado de migraciones en la base compartida
+
+`0017_adulto_rol_admin` y `0018_miembro_un_curso_por_jugador` estaban **sin aplicar** en la
+base local hasta hoy. En Supabase no se puede ver desde el código.
+
+Ojo con la **0018**: cambia la restricción de única-por-(grupo, jugador) a **única por
+jugador**. Si en la base compartida hay algún jugador en dos cursos, la migración **falla a
+mitad**. Conviene comprobarlo antes:
+
+```sql
+SELECT jugador_id, COUNT(*) FROM api_miembrogrupo GROUP BY jugador_id HAVING COUNT(*) > 1;
+```
+
+En local daba cero filas (la tabla estaba vacía) y la migración pasó limpia.
