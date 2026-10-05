@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useSesion } from '@/auth/contexto'
 import { usePanel } from '@/hooks/usePanel'
 import { useDatosVivos } from '@/hooks/useDatosVivos'
@@ -12,9 +12,9 @@ import { comoError } from '@/lib/errores'
 export default function GruposPage() {
   const { perfil } = useSesion()
   const panel = usePanel()
-  const navegar = useNavigate()
   const estado = useDatosVivos(signal => panel.listarGrupos({ signal }), 'grupos:' + perfil?.id)
   const [crear, setCrear] = useState(false)
+  const [grupoCreado, setGrupoCreado] = useState<string | null>(null)
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -26,11 +26,13 @@ export default function GruposPage() {
     setOcupado(true); setError(null)
     try {
       const grupo = await panel.crearGrupo({ nombre: nombre.trim(), descripcion: descripcion.trim() })
-      navegar('/admin/grupos/' + grupo.id, { state: { creado: true } })
+      setCrear(false)
+      setGrupoCreado(grupo.nombre)
+      estado.recargar()
     } catch (e) { setError(comoError(e)) } finally { setOcupado(false) }
   }
   return <>
-    <div className="encabezado"><div><h1>Mis grupos</h1></div><button type="button" className="boton boton--primario" onClick={abrir}><Icono nombre="mas" />Crear grupo</button></div>
+    <div className="encabezado"><div><h1>Panel de administración</h1><p>Crea y administra tus grupos, agrega integrantes y consulta sus reportes.</p></div><button type="button" className="boton boton--primario" onClick={abrir}><Icono nombre="mas" />Crear grupo</button></div>
     {estado.cargando && <Cargando mensaje="Cargando tus grupos…" />}
     {estado.error && <ErrorAviso error={estado.error} onReintentar={estado.recargar} />}
     {estado.datos && <>
@@ -39,9 +41,13 @@ export default function GruposPage() {
         <div className="rejilla grupos-grid">{estado.datos.map(g => <article className="card group-card" key={g.id}>
           <div className="pila"><span className="avatar square"><Icono nombre="grupo" /></span><div><h3>{g.nombre}</h3><span className="mini muted">{g.total_miembros} {g.total_miembros === 1 ? 'integrante' : 'integrantes'}</span></div></div>
           {g.descripcion && <p className="mini muted">{g.descripcion}</p>}
-          <div className="group-footer"><Link className="text-link" to={'/admin/grupos/' + g.id} aria-label={'Gestionar ' + g.nombre}>Gestionar grupo<Icono nombre="flecha" /></Link><Link className="boton" to={'/admin/grupos/' + g.id + '/reporte'} aria-label={'Ver reporte de ' + g.nombre}>Ver reporte</Link></div>
+          <div className="group-footer"><Link className="text-link" to={'/admin/grupos/' + g.id} aria-label={'Detalle de ' + g.nombre}>Detalle<Icono nombre="flecha" /></Link><Link className="boton" to={'/admin/grupos/' + g.id + '/reporte'} aria-label={'Ver reporte de ' + g.nombre}>Ver reporte</Link></div>
         </article>)}</div>}
     </>}
+    {grupoCreado !== null && <Modal titulo="Grupo creado correctamente" cerrar={() => setGrupoCreado(null)}>
+      <p>El grupo <strong>{grupoCreado}</strong> se creó correctamente. Puedes acceder a su detalle desde el panel de administración para gestionar sus integrantes.</p>
+      <div className="modal-actions"><button type="button" className="boton boton--primario" autoFocus onClick={() => setGrupoCreado(null)}>Entendido</button></div>
+    </Modal>}
     {crear && <Modal titulo="Crear grupo" cerrar={() => setCrear(false)} ocupado={ocupado}>
       <form onSubmit={enviar}>
         <label className="campo"><span>Nombre del grupo</span><input autoFocus value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. 5° Básico A" required maxLength={80} disabled={ocupado} /></label>

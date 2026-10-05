@@ -53,15 +53,15 @@ export default function GrupoPage() {
       <div className="encabezado"><div><h1>{g.nombre}</h1>{g.descripcion && <p className="muted">{g.descripcion}</p>}</div><div className="grupo-acciones"><Link className="boton boton--primario" to={'/admin/grupos/' + id + '/reporte'}><Icono nombre="reportes" />Ver reporte</Link><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar('grupo')}><Icono nombre="borrar" />Eliminar grupo</button></div></div>
       {exito && <Exito>{exito}</Exito>}
       <section className="card">
-        <div className="pila spread"><div><h2>Niños del curso</h2><span className="mini muted">{g.miembros.length} {g.miembros.length === 1 ? 'perfil vinculado' : 'perfiles vinculados'}</span></div><button type="button" className="boton" disabled={ocupado} onClick={() => { setError(null); setExito(''); setAgregarNinos(true) }}><Icono nombre="mas" />Agregar</button>
+        <div className="pila spread"><div><h2>Niños del curso</h2><span className="mini muted">{g.miembros.length} {g.miembros.length === 1 ? 'perfil vinculado' : 'perfiles vinculados'}</span></div><button type="button" className="boton" disabled={ocupado} onClick={() => { setError(null); setExito(''); setAgregarNinos(true) }}><Icono nombre="mas" />Agregar usuario</button>
         </div>
         {g.miembros.length === 0 ? <div className="empty-state" style={{ marginTop: 22 }}><Icono nombre="grupo" /><h3>Agrega a los primeros niños</h3><p>Busca el correo de su apoderado y selecciona los perfiles que corresponden a este curso.</p></div> :
-          <ul className="members">{g.miembros.map(m => <li className="member" key={m.id}><span className="avatar small"><Icono nombre="grupo" /></span><div className="member-content"><strong>{m.nombre_nino}</strong><p>{m.email}</p><p>Vinculado el {fechaActualizacion(m.fecha_ingreso)}</p></div><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar({ miembro: m })} aria-label={'Eliminar integrante ' + m.nombre_nino}><Icono nombre="borrar" />Eliminar</button></li>)}</ul>}
+          <ul className="members">{g.miembros.map(m => <li className="member" key={m.id}><span className="avatar small"><Icono nombre="grupo" /></span><div className="member-content"><strong>{m.nombre_nino}</strong><p>{m.email}</p><p>Vinculado el {fechaActualizacion(m.fecha_ingreso)}</p></div><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar({ miembro: m })} aria-label={'Eliminar usuario ' + m.nombre_nino}><Icono nombre="borrar" />Eliminar usuario</button></li>)}</ul>}
       </section>
     </>}
     {agregarNinos && <AgregarNinos key={id} id={id} cerrar={() => setAgregarNinos(false)} alGuardar={() => {
       setAgregarNinos(false)
-      setConfirmacion({ titulo: 'Niños agregados al curso', mensaje: 'Los niños seleccionados ya forman parte del curso.' })
+      setConfirmacion({ titulo: 'Niño(s) agregado(s) al curso', mensaje: 'Se agregó correctamente al niño o a los niños seleccionados. Ya forman parte del curso.' })
       estado.recargar()
       window.dispatchEvent(new Event(EVENTO_DATOS))
     }} />}
