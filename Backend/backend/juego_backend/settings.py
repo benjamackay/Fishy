@@ -181,13 +181,17 @@ FISHY_SEGUIMIENTO = {
     "dias_datos_antiguos": 30,
 }
 
+# El token de sesión vence a los N días de creado (api/autenticacion.py).
+# El login lo renueva al pasar la mitad: nunca entrega uno a punto de vencer.
+FISHY_TOKEN_DIAS = int(os.environ.get("FISHY_TOKEN_DIAS", "30"))
+
 # ─── Django REST Framework ────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
+        "api.autenticacion.TokenConVencimiento",
         "rest_framework.authentication.SessionAuthentication",
     ],
 }

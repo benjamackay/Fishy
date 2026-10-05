@@ -4,13 +4,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 
+from .autenticacion import token_para
 from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
@@ -57,7 +57,7 @@ def registro(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     adulto = serializer.save()
-    token, _ = Token.objects.get_or_create(user=adulto)
+    token = token_para(adulto)
     return Response({"token": token.key, "adulto_id": adulto.pk}, status=status.HTTP_201_CREATED)
 
 
@@ -69,7 +69,7 @@ def auth_login(request):
     adulto = authenticate(request, username=nombre, password=password)
     if adulto is None:
         return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
-    token, _ = Token.objects.get_or_create(user=adulto)
+    token = token_para(adulto)
     return Response({"token": token.key, "adulto_id": adulto.pk})
 
 

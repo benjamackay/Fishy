@@ -131,6 +131,8 @@ menores no tienen credenciales propias.
 
 El token recibido se almacena en `ApiManager.Token` y se adjunta a todos los requests posteriores.
 
+**El token vence** a los `FISHY_TOKEN_DIAS` días de creado (30 por defecto); con uno vencido, cualquier endpoint responde `401` con `{"detail": "La sesión venció. Vuelve a iniciar sesión."}` y el cliente debe volver al login. Es un solo token por cuenta, compartido por el juego y el portal: el login devuelve el mismo mientras no haya pasado la mitad de su vida y uno nuevo después (el anterior deja de servir), así que un login siempre entrega al menos 15 días por delante.
+
 ---
 
 ## Perfiles de menores
@@ -1331,7 +1333,7 @@ Los archivos relevantes para este modo están en `ApiManager.cs` en las funcione
 |---|---|---|
 | `400` | registro | falta el `email`, o el nombre/email ya existen |
 | `400` | crear perfil | ya tienes otro perfil con ese nombre |
-| `401` | cualquier endpoint | falta el header `Authorization: Token ...`, o el token no vale |
+| `401` | cualquier endpoint | falta el header `Authorization: Token ...`, el token no vale o ya venció |
 | `404` | crear partida | falta `usuario_jugador_id`, o el perfil es de otro adulto |
 | `404` | partida / npc / chat | el recurso es de otro adulto |
 
