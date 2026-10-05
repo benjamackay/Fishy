@@ -44,26 +44,27 @@ class CatalogoDesdeElArchivoTests(TestCase):
             self.assertEqual(obj.zona_objetivo, m.get("zona_objetivo", ""))
             self.assertEqual(obj.zona, m.get("zona", ""))
 
-    def test_el_titulo_del_archivo_gana_cuando_el_banco_no_trae_nombre(self):
-        """`MISION_EXPLORACION_01` no tiene nombre en el banco. Si el título del
-        archivo no llegara, el cartel saldría con el id crudo."""
-        obj = Mision.objects.get(mision_id="MISION_EXPLORACION_01")
-        self.assertEqual(obj.nombre, "Conoce el Bosque")
+    def test_el_titulo_del_archivo_llega_a_cada_mision(self):
+        """Los pasos de la cadena (`Z1_02_HABLA_HUEMUL`...) no existen en el banco:
+        el título solo viene del archivo. Si no llegara, el panel mostraría el id crudo."""
+        for m in self.archivo:
+            obj = Mision.objects.get(mision_id=m["mision_id"])
+            self.assertEqual(obj.nombre, m["titulo"], m["mision_id"])
 
     def test_los_objetivos_llegan_con_los_campos_de_su_tipo(self):
         esperados = sum(len(m.get("objetivos") or []) for m in self.archivo)
         self.assertEqual(ObjetivoMision.objects.count(), esperados)
 
         # Una de cada tipo que hoy existe en el archivo.
-        chat = ObjetivoMision.objects.get(mision__mision_id="MISION_NPC_03", orden=1)
+        chat = ObjetivoMision.objects.get(mision__mision_id="Z1_03_CHAT_PUMA", orden=1)
         self.assertEqual(chat.tipo, "chatear_telefono")
         self.assertEqual(chat.escenario_ids, "M1_CHAT01")
 
-        caso = ObjetivoMision.objects.get(mision__mision_id="MISION_NPC_03", orden=3)
+        caso = ObjetivoMision.objects.get(mision__mision_id="Z1_05_CASO_1", orden=1)
         self.assertEqual(caso.tipo, "completar_caso_detective")
         self.assertEqual(caso.caso_id, "DC_CASO_01")
 
-        npc = ObjetivoMision.objects.get(mision__mision_id="MISION_EXPLORACION_01", orden=1)
+        npc = ObjetivoMision.objects.get(mision__mision_id="Z1_02_HABLA_HUEMUL", orden=1)
         self.assertEqual(npc.tipo, "hablar_npc")
         self.assertEqual(npc.dialogo_id, "HDU1_NPC_HUEMUL")
 
@@ -104,11 +105,11 @@ class RecargaNoDestruyeTests(TestCase):
         )
 
     def test_borrar_misiones_sigue_disponible_cuando_se_pide_a_proposito(self):
-        """El borrado no desaparece, pasa a ser explícito. Se nota en que las 3
-        misiones que solo existen en el archivo no vuelven: las del banco sí,
-        porque las recrean sus diálogos en la misma corrida."""
+        """El borrado no desaparece, pasa a ser explícito. Se nota en que las
+        misiones que solo existen en el archivo (los pasos de la cadena) no
+        vuelven: las del banco sí, porque las recrean sus diálogos en la misma corrida."""
         cargar()
-        solo_del_archivo = "MISION_PANTANO_CRIATURAS"
+        solo_del_archivo = "Z1_02_HABLA_HUEMUL"
         self.assertTrue(Mision.objects.filter(mision_id=solo_del_archivo).exists())
 
         salida = cargar(borrar_misiones=True, sin_misiones=True)
@@ -142,7 +143,7 @@ class ApiCatalogoTests(TestCase):
     def test_los_campos_que_no_aplican_van_vacios_y_no_ausentes(self):
         """JsonUtility no distingue ausente de vacío: el contrato es mandarlos
         siempre (B.2)."""
-        detalle = self.client.get("/api/misiones/MISION_NPC_03/").data
+        detalle = self.client.get("/api/misiones/Z1_03_CHAT_PUMA/").data
         objetivo = detalle["objetivos"][0]
         for campo in ("item_id", "dialogo_id", "escenario_ids", "zona_id", "caso_id",
                       "descripcion", "cantidad", "orden", "tipo"):
@@ -150,9 +151,9 @@ class ApiCatalogoTests(TestCase):
         self.assertEqual(objetivo["dialogo_id"], "")
 
     def test_el_detalle_trae_titulo_y_nombre_por_compatibilidad(self):
-        detalle = self.client.get("/api/misiones/MISION_EXPLORACION_01/").data
+        detalle = self.client.get("/api/misiones/Z1_02_HABLA_HUEMUL/").data
         self.assertEqual(detalle["titulo"], detalle["nombre"])
-        self.assertEqual(detalle["titulo"], "Conoce el Bosque")
+        self.assertEqual(detalle["titulo"], "Bosque de los Desconocidos")
 
     def test_un_id_que_no_existe_da_404(self):
         self.assertEqual(self.client.get("/api/misiones/NO_EXISTE/").status_code, 404)
@@ -172,7 +173,7 @@ class AvancePorObjetivoTests(TestCase):
 
     def test_marcar_un_objetivo_lo_guarda(self):
         resp = self.client.post(
-            self.ruta, {"mision_id": "MISION_NPC_03", "orden": 1, "cumplido": True},
+            self.ruta, {"mision_id": "Z1_03_CHAT_PUMA", "orden": 1, "cumplido": True},
             format="json",
         )
         self.assertEqual(resp.status_code, 200)
@@ -182,7 +183,7 @@ class AvancePorObjetivoTests(TestCase):
     def test_repetir_el_mismo_aviso_no_duplica_ni_falla(self):
         """La cola de Unity reintenta hasta 3 veces y puede reenviar un cambio
         cuya respuesta nunca llegó."""
-        cuerpo = {"mision_id": "MISION_NPC_03", "orden": 1, "cumplido": True}
+        cuerpo = {"mision_id": "Z1_03_CHAT_PUMA", "orden": 1, "cumplido": True}
         for _ in range(3):
             self.assertEqual(
                 self.client.post(self.ruta, cuerpo, format="json").status_code, 200
@@ -193,11 +194,11 @@ class AvancePorObjetivoTests(TestCase):
         """Los avisos no llegan en orden garantizado: uno viejo no puede
         deshacer uno nuevo."""
         self.client.post(
-            self.ruta, {"mision_id": "MISION_NPC_03", "orden": 1, "cumplido": True},
+            self.ruta, {"mision_id": "Z1_03_CHAT_PUMA", "orden": 1, "cumplido": True},
             format="json",
         )
         resp = self.client.post(
-            self.ruta, {"mision_id": "MISION_NPC_03", "orden": 1, "cumplido": False},
+            self.ruta, {"mision_id": "Z1_03_CHAT_PUMA", "orden": 1, "cumplido": False},
             format="json",
         )
         self.assertTrue(resp.data["cumplido"])
@@ -216,7 +217,7 @@ class AvancePorObjetivoTests(TestCase):
         """La razón por la que ObjetivoProgreso no tiene FK: el cargador borra y
         recrea los objetivos en cada corrida."""
         self.client.post(
-            self.ruta, {"mision_id": "MISION_NPC_03", "orden": 1, "cumplido": True},
+            self.ruta, {"mision_id": "Z1_03_CHAT_PUMA", "orden": 1, "cumplido": True},
             format="json",
         )
         cargar()
@@ -224,17 +225,17 @@ class AvancePorObjetivoTests(TestCase):
 
     def test_el_get_devuelve_lo_guardado(self):
         self.client.post(
-            self.ruta, {"mision_id": "MISION_NPC_03", "orden": 2, "cumplido": True},
+            self.ruta, {"mision_id": "Z1_03_CHAT_PUMA", "orden": 2, "cumplido": True},
             format="json",
         )
         datos = self.client.get(self.ruta).data
         self.assertEqual(len(datos), 1)
-        self.assertEqual(datos[0]["mision_id"], "MISION_NPC_03")
+        self.assertEqual(datos[0]["mision_id"], "Z1_03_CHAT_PUMA")
         self.assertEqual(datos[0]["orden"], 2)
 
     def test_falta_el_orden_es_400(self):
         resp = self.client.post(
-            self.ruta, {"mision_id": "MISION_NPC_03", "cumplido": True}, format="json",
+            self.ruta, {"mision_id": "Z1_03_CHAT_PUMA", "cumplido": True}, format="json",
         )
         self.assertEqual(resp.status_code, 400)
 
@@ -242,7 +243,7 @@ class AvancePorObjetivoTests(TestCase):
         otra = crear_partida(nombre="Hija de otra cuenta")
         resp = self.client.post(
             f"/api/partidas/{otra.pk}/objetivos/",
-            {"mision_id": "MISION_NPC_03", "orden": 1, "cumplido": True}, format="json",
+            {"mision_id": "Z1_03_CHAT_PUMA", "orden": 1, "cumplido": True}, format="json",
         )
         self.assertEqual(resp.status_code, 404)
         self.assertEqual(ObjetivoProgreso.objects.count(), 0)
