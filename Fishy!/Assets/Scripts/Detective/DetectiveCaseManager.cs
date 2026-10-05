@@ -11,7 +11,12 @@ namespace Fishy.Detective
         public int totalRiesgo;
         public float porcentaje;
         public List<(DetectiveMessage mensaje, string explicacion)> noIdentificados;
-        public bool DebeOfrecerRepetir => porcentaje < 0.5f;
+
+        /// <summary>Aciertos que hay que <b>superar</b> para aprobar: con la mitad justa
+        /// todavía se repite.</summary>
+        public const float UmbralAprobacion = 0.5f;
+
+        public bool DebeOfrecerRepetir => porcentaje <= UmbralAprobacion;
     }
 
     public class DetectiveCaseManager : MonoBehaviour
@@ -20,7 +25,7 @@ namespace Fishy.Detective
         private HashSet<string> _marcados = new HashSet<string>();
 
         /// <summary>
-        /// Si el último <see cref="CalcularResultado"/> llegó al umbral de aprobación.
+        /// Si el último <see cref="CalcularResultado"/> superó el umbral de aprobación.
         /// Empieza en true a propósito: si se cierra el modo Detective sin haber
         /// confirmado ninguna respuesta —el jugador se arrepiente y sale— no hay
         /// resultado reprobado que justifique bloquear el reintento más adelante.
@@ -88,8 +93,8 @@ namespace Fishy.Detective
         }
 
         /// <summary>
-        /// HDU-11 — Entrega el pin del caso si el jugador llegó al umbral de
-        /// aciertos. La recompensa se busca primero en <see cref="_caso"/> (lo que
+        /// HDU-11 — Entrega el pin del caso si el jugador superó el umbral de
+        /// aciertos —igual que para aprobar, la mitad justa no alcanza—. La recompensa se busca primero en <see cref="_caso"/> (lo que
         /// haya traído el backend con el caso) y, si no vino nada ahí, se cae al
         /// catálogo local <see cref="CatalogoRecompensasDetective"/> — el mismo
         /// contenido, pero embebido en el juego. Cubre tres situaciones con el
@@ -104,7 +109,7 @@ namespace Fishy.Detective
         private void OtorgarRecompensaSiCorresponde(float porcentaje)
         {
             var recompensa = ResolverRecompensa(_caso);
-            if (recompensa == null || porcentaje < recompensa.umbralAciertos) return;
+            if (recompensa == null || porcentaje <= recompensa.umbralAciertos) return;
 
             var item = CatalogoItems.Buscar(recompensa.itemId);
             if (item == null)

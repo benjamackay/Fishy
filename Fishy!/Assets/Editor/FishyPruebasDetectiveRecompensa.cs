@@ -53,6 +53,8 @@ namespace Fishy.EditorTools
 
             ProbarOtorgaElPinAlLlegarAlUmbral(log);
             ProbarNoOtorgaNadaBajoElUmbral(log);
+            ProbarLaMitadJustaNoAlcanza(log);
+            ProbarMasDeLaMitadApruebaYDaElPin(log);
             ProbarRepetirElCasoNoDuplica(log);
             ProbarAlbumLlegaConElPrimerPinYNoSeDuplica(log);
             ProbarCasoSinRecompensaNoRevienta(log);
@@ -132,6 +134,45 @@ namespace Fishy.EditorTools
             var pin = CatalogoItems.Buscar("PIN_VIGIA_SILENCIOSO");
             Comprobar(log, "no otorga nada por debajo del umbral",
                 InventoryManager.Instance.GetQuantity(pin) == 0,
+                $"cantidad={InventoryManager.Instance.GetQuantity(pin)}");
+
+            Object.DestroyImmediate(manager.gameObject);
+        }
+
+        private static void ProbarLaMitadJustaNoAlcanza(StringBuilder log)
+        {
+            InventoryManager.Instance.Vaciar();
+
+            var manager = NuevoManager();
+            manager.CargarCaso(CasoDePrueba("DC_CASO_01", 2));
+            manager.ToggleMarca("MSG_RIESGO_0");   // 1/2 = 50%: hay que superarlo
+            var resultado = manager.CalcularResultado();
+
+            var pin = CatalogoItems.Buscar("PIN_VIGIA_SILENCIOSO");
+            Comprobar(log, "con la mitad justa no se aprueba ni se da el pin",
+                resultado.DebeOfrecerRepetir && !manager.UltimoAprobado &&
+                InventoryManager.Instance.GetQuantity(pin) == 0,
+                $"repetir={resultado.DebeOfrecerRepetir}, aprobado={manager.UltimoAprobado}, " +
+                $"cantidad={InventoryManager.Instance.GetQuantity(pin)}");
+
+            Object.DestroyImmediate(manager.gameObject);
+        }
+
+        private static void ProbarMasDeLaMitadApruebaYDaElPin(StringBuilder log)
+        {
+            InventoryManager.Instance.Vaciar();
+
+            var manager = NuevoManager();
+            manager.CargarCaso(CasoDePrueba("DC_CASO_01", 3));
+            manager.ToggleMarca("MSG_RIESGO_0");
+            manager.ToggleMarca("MSG_RIESGO_1");   // 2/3 = 67%
+            var resultado = manager.CalcularResultado();
+
+            var pin = CatalogoItems.Buscar("PIN_VIGIA_SILENCIOSO");
+            Comprobar(log, "con más de la mitad se aprueba y se da el pin",
+                !resultado.DebeOfrecerRepetir && manager.UltimoAprobado &&
+                InventoryManager.Instance.GetQuantity(pin) == 1,
+                $"repetir={resultado.DebeOfrecerRepetir}, aprobado={manager.UltimoAprobado}, " +
                 $"cantidad={InventoryManager.Instance.GetQuantity(pin)}");
 
             Object.DestroyImmediate(manager.gameObject);
