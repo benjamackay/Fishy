@@ -168,6 +168,14 @@ namespace Fishy.Phone
             else
                 yield return PhoneSequenceDirecta();
 
+            // Antes de avisar: quien escuche el evento puede preguntar por el historial
+            // en el mismo frame, y tiene que encontrarlo ya puesto.
+            //
+            // Importa especialmente aquí: sin `repetible` este lanzador NO se vuelve a
+            // abrir, así que un objetivo de misión que llegara después de la conversación
+            // se quedaba imposible de cumplir.
+            HistorialDeObjetivos.AnotarChats(EscenariosPedidos());
+
             // Antes de avisar: al cerrar el chat se completa su misión, y si esa misión
             // se bifurca según cómo terminó el reto, la decisión se toma en este mismo
             // frame (ver MisionRegistro.desbloquea_si_acepta).

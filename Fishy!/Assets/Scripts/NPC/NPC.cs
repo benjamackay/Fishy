@@ -97,7 +97,7 @@ public class NPC : MonoBehaviour, IInteractable
         // la misión sin poder completarse y la zona sin abrirse.
         if (!repetible && yaSeConto)
         {
-            onDialogueEnded?.Invoke();
+            DispararFinDeDialogo();
             return;
         }
 
@@ -247,6 +247,23 @@ public class NPC : MonoBehaviour, IInteractable
         CerrarDialogo();
 
         //pausa
+        DispararFinDeDialogo();
+    }
+
+    /// <summary>
+    /// Da la conversación por terminada: la anota en el historial y avisa.
+    ///
+    /// Las dos cosas juntas y en un solo sitio a propósito. Hay dos caminos que dan una
+    /// conversación por hablada —terminarla, y volver a hablarle a un NPC que ya contó lo
+    /// suyo— y si uno anotara y el otro no, un objetivo de "hablar con" se cumpliría o no
+    /// según por dónde hubiera pasado el jugador.
+    ///
+    /// El historial es lo que permite que una misión recibida DESPUÉS de haber hablado
+    /// nazca ya cumplida, en vez de obligar a repetir la conversación.
+    /// </summary>
+    private void DispararFinDeDialogo()
+    {
+        HistorialDeObjetivos.AnotarDialogo(dialogoId);
         onDialogueEnded?.Invoke();
     }
 

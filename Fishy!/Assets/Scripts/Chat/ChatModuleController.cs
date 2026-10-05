@@ -464,7 +464,8 @@ namespace Fishy.Chat
 
             if (desafioActual != null)
             {
-                MissionManager.Instance?.CompletarDesafio(desafioActual);
+                MissionManager.Instance?.CompletarDesafio(desafioActual,
+                    "el módulo de chat: se cerró la conversación asociada a la misión");
                 desafioActual = null;
             }
 
