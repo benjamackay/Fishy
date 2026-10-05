@@ -76,12 +76,7 @@ public class PresenciaSegunMision : MonoBehaviour
         _manager = MissionManager.GetOrCreate();
         _manager.onPanelActualizado.AddListener(Revisar);
 
-        // El catálogo puede llegar después de que cargue la escena, y hasta entonces
-        // 'misionId' no resuelve a ninguna ficha. Sin esto, un NPC que mira una misión
-        // del catálogo se quedaría con el estado de arranque toda la partida.
-        CatalogoMisiones.OnCatalogoCambiado += Revisar;
-
-        ResolverMision();
+        AvisarSiNoSeVaAMoverNunca();
 
         // El primer reparto es inmediato y sin preguntarle a las condiciones: al
         // arrancar no hay nada que disimular —nadie vio aparecer al NPC— y esperar a
@@ -93,7 +88,6 @@ public class PresenciaSegunMision : MonoBehaviour
     private void OnDisable()
     {
         if (_manager != null) _manager.onPanelActualizado.RemoveListener(Revisar);
-        CatalogoMisiones.OnCatalogoCambiado -= Revisar;
     }
 
     private void Update()
@@ -102,19 +96,45 @@ public class PresenciaSegunMision : MonoBehaviour
         if (RetiradaPendiente) IntentarRetirar();
     }
 
-    /// <summary>Rellena la ficha desde el catálogo si solo se dio el id. Lo puesto a
-    /// mano manda, igual que en <see cref="DisparadorDeMision"/>.</summary>
-    private void ResolverMision()
+    /// <summary>
+    /// El id de la misión que se mira: el de la ficha si se arrastró una, si no el
+    /// escrito. El estado se pregunta por id y no a través de la ficha a propósito:
+    /// antes, si el catálogo no fabricaba la ficha, el componente no sabía qué mirar y
+    /// dejaba el NPC como estaba, sin decir nada.
+    /// </summary>
+    private string IdMirado =>
+        mision != null && !string.IsNullOrWhiteSpace(mision.desafioId)
+            ? mision.desafioId.Trim()
+            : (misionId ?? "").Trim();
+
+    /// <summary>
+    /// Avisa de las dos configuraciones con las que este NPC no va a cambiar nunca,
+    /// que de otra forma solo se notan porque "no desaparece": sin misión, o con una
+    /// misión que nadie conoce —típicamente un id viejo que ya no está en el
+    /// catálogo—, que por tanto nadie va a entregar y se queda en Sin Entregar.
+    /// </summary>
+    private void AvisarSiNoSeVaAMoverNunca()
     {
-        if (mision != null) return;
-        if (string.IsNullOrWhiteSpace(misionId)) return;
-        mision = CatalogoMisiones.Ficha(misionId.Trim());
+        string id = IdMirado;
+        if (string.IsNullOrEmpty(id))
+        {
+            Debug.LogWarning($"[PresenciaSegunMision] '{name}' no mira ninguna misión: " +
+                             "rellena 'Mision Id'. El NPC se queda como está en la escena.", this);
+            return;
+        }
+
+        bool laConoceAlguien = mision != null ||
+                               CatalogoMisiones.Buscar(id) != null ||
+                               CatalogoDesafios.Buscar(id) != null;
+        if (!laConoceAlguien)
+            Debug.LogWarning($"[PresenciaSegunMision] '{name}' mira '{id}', que no está en el " +
+                             "catálogo de misiones ni hay ficha con ese id. Si nadie la entrega, se " +
+                             "queda en 'Sin Entregar' para siempre y este NPC no va a cambiar. " +
+                             "¿Es un id del catálogo viejo?", this);
     }
 
     private void Revisar()
     {
-        ResolverMision();
-
         bool deberia = DeberiaEstar();
         if (deberia == Presente)
         {
@@ -136,14 +156,15 @@ public class PresenciaSegunMision : MonoBehaviour
     /// <summary>En qué estado está la misión, traducido a bandera.</summary>
     private bool DeberiaEstar()
     {
-        if (_manager == null || mision == null || string.IsNullOrEmpty(mision.desafioId))
+        string id = IdMirado;
+        if (_manager == null || string.IsNullOrEmpty(id))
         {
             // Sin saber qué mirar, se deja como está en la escena: equivocarse hacia
             // "no se ve" escondería contenido sin que nadie se entere.
             return Presente;
         }
 
-        EstadoDesafio? estado = _manager.GetEstado(mision.desafioId);
+        EstadoDesafio? estado = _manager.GetEstado(id);
         Estados ahora = estado == null              ? Estados.SinEntregar
                       : estado == EstadoDesafio.Completado ? Estados.Completada
                                                     : Estados.Disponible;
@@ -194,6 +215,6 @@ public class PresenciaSegunMision : MonoBehaviour
             Debug.Log($"[PresenciaSegunMision] '{name}' " +
                       (presente ? "aparece" : "se retira") +
                       $" ({(inmediato ? "al instante" : "con permiso de las condiciones")}), " +
-                      $"misión '{mision?.desafioId ?? misionId}'.", this);
+                      $"misión '{IdMirado}'.", this);
     }
 }
