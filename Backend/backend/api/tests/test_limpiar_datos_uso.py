@@ -59,6 +59,17 @@ class LimpiarDatosUsoTests(TestCase):
         self.assertTrue(GrupoTutor.objects.filter(tutor=self.profe).exists())
         self.assertFalse(AdultoResponsable.objects.filter(pk=self.padre.pk).exists())
 
+    def test_sin_partidas_deja_la_cuenta_y_los_ninos(self):
+        self.correr("--sin-partidas", "dani", "--confirmar")
+        self.assertTrue(AdultoResponsable.objects.filter(pk=self.django_admin.pk).exists())
+        self.assertTrue(UsuarioJugador.objects.filter(pk=self.nino_admin.pk).exists())
+        self.assertFalse(Partida.objects.exists())
+
+    def test_sin_partidas_de_una_cuenta_no_conservada_no_borra_nada(self):
+        with self.assertRaisesMessage(CommandError, "olaola"):
+            self.correr("--sin-partidas", "olaola", "--confirmar")
+        self.assertEqual(Partida.objects.count(), 2)
+
     def test_nombre_mal_escrito_no_borra_nada(self):
         with self.assertRaisesMessage(CommandError, "profe_prueva"):
             self.correr("--conservar", "profe_prueva", "--confirmar")
