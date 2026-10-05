@@ -77,6 +77,7 @@ namespace Fishy.EditorTools
             ProbarCierreTambienInsiste(log, cola);
             ProbarSinRespuestaNoEsTodoBien(log, cola);
             ProbarNoSeGuardaLaPosicionAntesDeRestaurar(log, cola, api);
+            ProbarVolverAlMenuNoPisaLaPosicion(log, cola, api);
             ProbarSelloDePartida(log, cola, api);
             ProbarTopeDeTiempoSeRestaura(log, cola, api);
 
@@ -403,6 +404,77 @@ namespace Fishy.EditorTools
                            leido.pos_x.HasValue && Mathf.Approximately(leido.pos_x.Value, -5.89f);
 
             Comprobar(log, "No se guarda la posición antes de haberla restaurado",
+                intacta,
+                leido == null ? "no se pudo leer"
+                              : $"quedó en ({leido.pos_x}, {leido.pos_y}), zona {leido.zona_actual}");
+
+            UnityEngine.Object.DestroyImmediate(ottoGO);
+            UnityEngine.Object.DestroyImmediate(syncGO);
+            SoltarInstancia(typeof(PersonajeBackendSync));
+        }
+
+        private static void ProbarVolverAlMenuNoPisaLaPosicion(
+            StringBuilder log, ColaDeCambios cola, ApiManager api)
+        {
+            // Esc → volver al menú → Continuar con la misma partida. PersonajeBackendSync
+            // recordaba "ya restaurado en MainScene para esta partida", así que al volver
+            // dejaba a Otto en el spawnPoint y daba por abierto el candado de no guardar
+            // antes de restaurar: el siguiente guardado pisaba la posición buena.
+            Vaciar();
+            UsarPartida(api, PartidaA);
+            api.GuardarPersonaje("MainScene", -5.89f, 51.44f, "zona_3");
+
+            var ottoGO = new GameObject("OttoDePrueba");
+            ottoGO.transform.position = new Vector3(0f, -8f, 0f);
+            ottoGO.AddComponent<Fishy.World.OttoController>();
+
+            var syncGO = new GameObject("PersonajeSyncDePrueba");
+            var sync = syncGO.AddComponent<PersonajeBackendSync>();
+
+            // Quien estaba jugando: la posición de esta partida ya se restauró en esta escena.
+            var tipo = typeof(PersonajeBackendSync);
+            const BindingFlags privado = BindingFlags.Instance | BindingFlags.NonPublic;
+            tipo.GetField("partidaAtendida", privado).SetValue(sync, (int?)PartidaA);
+            tipo.GetField("escenaAtendida", privado)
+                .SetValue(sync, UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+
+            // Control: con eso puesto el guardado SÍ sale. Si no saliera, la comprobación
+            // de abajo pasaría por el motivo equivocado.
+            sync.MarcarSucio();
+            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: false));
+            PersonajeDto control = null;
+            api.ObtenerPersonaje(onSuccess: d => control = d);
+            bool controlOk = control != null && control.pos_x.HasValue &&
+                             Mathf.Approximately(control.pos_x.Value, 0f);
+            Comprobar(log, "Con la posición ya restaurada, el guardado sí la sube (control)",
+                controlOk, control == null ? "no se pudo leer" : $"quedó en ({control.pos_x}, {control.pos_y})");
+
+            api.GuardarPersonaje("MainScene", -5.89f, 51.44f, "zona_3");
+
+            // En modo edición no corre OnEnable, que es donde se suscribe.
+            var alCerrar = (Action)Delegate.CreateDelegate(typeof(Action), sync,
+                tipo.GetMethod("AlCerrarPartida", privado));
+            ApiManager.OnPartidaCerrada += alCerrar;
+            try
+            {
+                api.CerrarPartida();
+                UsarPartida(api, PartidaA);
+
+                // La escena volvió a cargar y Otto está otra vez en el spawnPoint.
+                sync.MarcarSucio();
+                Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: false));
+            }
+            finally
+            {
+                ApiManager.OnPartidaCerrada -= alCerrar;
+            }
+
+            PersonajeDto leido = null;
+            api.ObtenerPersonaje(onSuccess: d => leido = d);
+            bool intacta = leido != null && leido.tiene_posicion &&
+                           leido.pos_x.HasValue && Mathf.Approximately(leido.pos_x.Value, -5.89f);
+
+            Comprobar(log, "Volver al menú y entrar a la misma partida no pisa la posición",
                 intacta,
                 leido == null ? "no se pudo leer"
                               : $"quedó en ({leido.pos_x}, {leido.pos_y}), zona {leido.zona_actual}");

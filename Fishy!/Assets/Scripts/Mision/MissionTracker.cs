@@ -5,6 +5,7 @@ using Fishy.Net;
 using Fishy.World;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Vigila los objetivos de las misiones entregadas y marca la misión como
@@ -119,6 +120,24 @@ public class MissionTracker : MonoBehaviour
         // exista todavía cuando el rastreador arranca.
         ZonaActual.OnZonaCambiada += AlCambiarDeZona;
         MissionManager.OnPartidaCambiada += Reiniciar;
+        SceneManager.sceneLoaded += AlCargarEscena;
+    }
+
+    /// <summary>
+    /// Escena nueva, NPCs nuevos. Los objetivos que se cumplen por evento estaban
+    /// enganchados a los de la escena anterior, ya destruidos, y <see cref="_suscritos"/>
+    /// impedía volver a engancharlos: al volver del menú a la partida, "hablar con" o
+    /// "chatear" no se podían cumplir nunca más. Se olvida lo enganchado y se vuelve a
+    /// resolver contra la escena que acaba de cargar; la generación nueva deja mudos los
+    /// oyentes viejos, por si alguno sobrevivió al cambio.
+    /// </summary>
+    private void AlCargarEscena(Scene escena, LoadSceneMode modo)
+    {
+        if (modo != LoadSceneMode.Single) return;
+
+        _generacion++;
+        _suscritos.Clear();
+        RevisarTodo();
     }
 
     /// <summary>
@@ -142,6 +161,7 @@ public class MissionTracker : MonoBehaviour
 
         ZonaActual.OnZonaCambiada -= AlCambiarDeZona;
         MissionManager.OnPartidaCambiada -= Reiniciar;
+        SceneManager.sceneLoaded -= AlCargarEscena;
     }
 
     private void AlCambiarDeZona(string anterior, string nueva) => RevisarTodo();

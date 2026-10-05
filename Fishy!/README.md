@@ -523,7 +523,7 @@ Assets/
     └── UI/                           ← arranque y HUD
         ├── AuthScreen.cs             ← login en 3 pasos (cuenta → perfil → partida) + health check
         ├── LoadingScreen.cs, UiBootstrap.cs
-        ├── MenuPausa.cs              ← salir del juego, cartel de "sin conexión" al cerrar
+        ├── MenuPausa.cs              ← Esc: guardar y volver al menú, cartel de "sin conexión" al cerrar
         ├── MarcoTelefono.cs          ← chrome de teléfono compartido (Chat, Detective)
         └── DialogoNeutroSkin.cs, DialogoNeutroTheme.cs  ← aspecto compartido del panel "cara a cara"
 ```

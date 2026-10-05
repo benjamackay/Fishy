@@ -5,18 +5,21 @@ using Fishy.World;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Fishy.UI
 {
     /// <summary>
-    /// Menú de pausa: Esc para abrirlo, y desde ahí se sale del juego guardando.
+    /// Menú de pausa: Esc para abrirlo, y desde ahí se vuelve al menú principal
+    /// (<see cref="escenaMenu"/>) guardando.
     ///
     /// Existe porque cerrar la ventana a lo bruto era la única forma de salir, y
     /// desde que el guardado periódico y el de cada interacción ya no están, el
     /// cierre es uno de los <b>dos</b> momentos en que se guarda (ver
-    /// <see cref="SaveManager"/>). Convenía que hubiera una puerta de salida
-    /// explícita y no solo el aspa de la ventana.
+    /// <see cref="SaveManager"/>). Volver al menú cuenta como ese cierre: se deja de
+    /// jugar la partida, así que se guarda igual que al cerrar. Cerrar la aplicación
+    /// sigue siendo cosa del aspa o del botón Salir de los menús.
     ///
     /// Se crea sola y sobrevive entre escenas, igual que el SaveManager: no hay
     /// nada que arrastrar en el editor. La UI no se construye hasta el primer Esc,
@@ -32,6 +35,10 @@ namespace Fishy.UI
                  "hay una partida que pausar. Con esto Esc no hace nada en el login ni " +
                  "en los menús, que ya tienen su propio botón de salir.")]
         public bool soloDuranteElJuego = true;
+
+        [Tooltip("Escena a la que lleva el botón de salir. Tiene que estar en Build " +
+                 "Settings; si no está, el botón cierra el juego como antes.")]
+        public string escenaMenu = "MenuDos";
 
         [Tooltip("Segundos que se espera tras pedir el guardado antes de cerrar. " +
                  "Guardar solo LANZA las peticiones al backend; si se cierra en el " +
@@ -126,7 +133,7 @@ namespace Fishy.UI
 
         // ── Salir ─────────────────────────────────────────────────────────────
 
-        /// <summary>Guarda y cierra el juego. Es lo que hace el botón "Guardar y salir".</summary>
+        /// <summary>Guarda y vuelve al menú. Es lo que hace el botón "Guardar y volver al menú".</summary>
         public void Salir()
         {
             if (_saliendo) return;
@@ -164,30 +171,51 @@ namespace Fishy.UI
                 if (cola == null) break;
                 yield return cola.Vaciar("CierreDeAplicacion",
                                          save != null ? save.topeDeCierre : esperaAntesDeSalir,
-                                         reintentarSiFalla: false);
+                                         reintentarSiFalla: true);
             }
 
+            bool quedoAlgo = ColaDeCambios.Pendientes > 0;
             if (_estado != null)
-                _estado.text = ColaDeCambios.Pendientes == 0
-                    ? "Listo, ya se guardó."
-                    : "No se pudo guardar todo. Cerrando…";
+                _estado.text = quedoAlgo
+                    ? "No se pudo guardar todo. Volviendo al menú…"
+                    : "Listo, ya se guardó.";
 
-            // Que quede a 1 pase lo que pase: en el editor el proceso sigue vivo
-            // después de parar el Play y timeScale es global.
+            // El jugador ya eligió irse sabiendo que se perdía. La aplicación sigue
+            // abierta, así que esto no muere con el proceso: hay que tirarlo a mano.
+            if (quedoAlgo) ColaDeCambios.DescartarTodo("se volvió al menú sin esperar");
+
+            // Que quede a 1 pase lo que pase: timeScale es global y el menú no lo toca.
             Time.timeScale = _timeScalePrevio;
 
             // Un frame para que se lea el mensaje final antes de que desaparezca todo.
             yield return new WaitForSecondsRealtime(0.4f);
 
-            // Marcar el cierre como listo evita que `SaveManager.wantsToQuit` arranque
-            // un segundo vaciado: este ya lo hizo, y con su propio diálogo.
-            SaveManager.MarcarCierreListo();
-
+            if (!Application.CanStreamedLevelBeLoaded(escenaMenu))
+            {
+                Debug.LogError($"[MenuPausa] La escena '{escenaMenu}' no está en Build " +
+                               "Settings: se cierra el juego en vez de volver al menú.");
+                SaveManager.MarcarCierreListo();
 #if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
+                UnityEditor.EditorApplication.isPlaying = false;
 #else
-            Application.Quit();
+                Application.Quit();
 #endif
+                yield break;
+            }
+
+            // Va ANTES de cambiar de escena: los sincronizadores olvidan lo restaurado
+            // en esta, y volver a entrar a la partida la restaura como la primera vez.
+            // No se llama a SaveManager.MarcarCierreListo: la aplicación sigue abierta,
+            // y el aspa desde el menú tiene que seguir guardando.
+            ApiManager.Instance?.CerrarPartida();
+
+            // El menú se rehace entero en el próximo Esc: si se preguntó por la
+            // conexión, los botones quedaron con otros textos y otras acciones.
+            if (_raiz != null) Destroy(_raiz);
+            _raiz = null;
+            _saliendo = false;
+
+            SceneManager.LoadScene(escenaMenu);
         }
 
         // ── El cartel de "el servidor no responde" ─────────────────────────────
@@ -250,7 +278,7 @@ namespace Fishy.UI
         /// <summary>
         /// Apaga los dos botones y dice qué se está haciendo.
         ///
-        /// Los botones NO vuelven a ser "Seguir jugando" / "Guardar y salir": una vez que
+        /// Los botones NO vuelven a ser "Seguir jugando" / "Guardar y volver al menú": una vez que
         /// se preguntó, el juego se está cerrando por un camino o por otro. Devolverlos a
         /// su estado de menú dejaba un "Seguir jugando" pulsable en mitad del cierre por
         /// el aspa —donde `_saliendo` es false—, y pulsarlo escondía el menú mientras
@@ -319,7 +347,7 @@ namespace Fishy.UI
             _btnSeguir = FishyUIKit.Boton(tarjetaGO.transform, "Seguir jugando",
                 Paleta.Verde, 34f, 88f, Cerrar);
 
-            _btnSalir = FishyUIKit.Boton(tarjetaGO.transform, "Guardar y salir",
+            _btnSalir = FishyUIKit.Boton(tarjetaGO.transform, "Guardar y volver al menú",
                 Paleta.Rojo, 34f, 88f, Salir);
 
             _raiz = canvasGO;

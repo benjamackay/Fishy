@@ -411,6 +411,36 @@ namespace Fishy.Net
             return true;
         }
 
+        /// <summary>
+        /// Se dejó de jugar la partida sin cerrar la aplicación: el jugador volvió al
+        /// menú. Ya no hay <see cref="PartidaId"/>, y quien restauró algo de ella tiene
+        /// que olvidarlo.
+        /// </summary>
+        public static event Action OnPartidaCerrada;
+
+        /// <summary>
+        /// Suelta la partida activa, conservando la sesión y el perfil para que el menú
+        /// pueda ofrecer seguir.
+        ///
+        /// Los sincronizadores restauran cuando <i>cambia</i> la partida. Sin esto, volver
+        /// a entrar en la misma desde el menú no restauraba nada sobre la escena recién
+        /// cargada: Otto aparecía en el punto de inicio —y el siguiente guardado pisaba
+        /// la posición buena— y las zonas abiertas volvían a estar cerradas. Al soltarla,
+        /// volver a entrar recorre el mismo camino que la primera vez.
+        /// </summary>
+        public void CerrarPartida()
+        {
+            if (PartidaId == null) return;
+
+            int cerrada = PartidaId.Value;
+            PartidaId = null;
+            NpcId = null;
+            ChatId = null;
+
+            if (verboseLogs) Debug.Log($"[API] Partida {cerrada} cerrada: se volvió al menú.");
+            OnPartidaCerrada?.Invoke();
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  PARTIDA (HDU-2)                                                        ║
         // ╚═══════════════════════════════════════════════════════════════════════╝

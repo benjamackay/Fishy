@@ -69,8 +69,20 @@ namespace Fishy.Net
             _partidaDeLosDatos = partida;
         }
 
-        private void OnEnable()  => MissionTracker.OnObjetivoCumplido += AlCumplirObjetivo;
-        private void OnDisable() => MissionTracker.OnObjetivoCumplido -= AlCumplirObjetivo;
+        private void OnEnable()
+        {
+            MissionTracker.OnObjetivoCumplido += AlCumplirObjetivo;
+            ApiManager.OnPartidaCerrada += AlCerrarPartida;
+        }
+
+        private void OnDisable()
+        {
+            MissionTracker.OnObjetivoCumplido -= AlCumplirObjetivo;
+            ApiManager.OnPartidaCerrada -= AlCerrarPartida;
+        }
+
+        /// <summary>Al volver a entrar se baja otra vez, como la primera vez.</summary>
+        private void AlCerrarPartida() => _partidaDescargada = null;
 
         private void Start() => StartCoroutine(EsperarPartidaYBajar());
 

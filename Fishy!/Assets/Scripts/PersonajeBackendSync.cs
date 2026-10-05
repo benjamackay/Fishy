@@ -104,12 +104,31 @@ namespace Fishy.Net
         private void OnEnable()
         {
             SceneManager.sceneLoaded += AlCargarEscena;
+            ApiManager.OnPartidaCerrada += AlCerrarPartida;
             StartCoroutine(EsperarPartidaYOtto());
         }
 
         private void OnDisable()
         {
             SceneManager.sceneLoaded -= AlCargarEscena;
+            ApiManager.OnPartidaCerrada -= AlCerrarPartida;
+        }
+
+        /// <summary>
+        /// Se volvió al menú. Lo restaurado era para la escena que se acaba de dejar, y
+        /// la posición en caché es la del principio de la sesión, no la de ahora.
+        ///
+        /// Sin esto, volver a la misma partida encontraba "ya restaurado en MainScene"
+        /// y dejaba a Otto en el punto de inicio; y como el candado de no guardar antes
+        /// de restaurar también se daba por abierto, el siguiente guardado escribía ese
+        /// punto de inicio encima de la posición buena.
+        /// </summary>
+        private void AlCerrarPartida()
+        {
+            partidaAtendida = null;
+            escenaAtendida = null;
+            partidaPrecargada = null;
+            enCache = null;
         }
 
         private void AlCargarEscena(Scene escena, LoadSceneMode modo)

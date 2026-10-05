@@ -105,8 +105,21 @@ namespace Fishy.Net
             misiones.onDesafioCompletado.AddListener(AlCompletarDesafio);
             BlockedZone.OnZonaDesbloqueada += AlDesbloquearZona;
             CatalogoMisiones.OnCatalogoCambiado += SeguirObjetivosDeLoGuardado;
+            ApiManager.OnPartidaCerrada += AlCerrarPartida;
 
             StartCoroutine(EsperarPartidaYBajarProgreso());
+        }
+
+        /// <summary>
+        /// Volver a entrar en la misma partida tiene que bajar el progreso otra vez: las
+        /// zonas abiertas se abren sobre los BlockedZone de la escena, y la escena es
+        /// nueva.
+        /// </summary>
+        private void AlCerrarPartida()
+        {
+            partidaAtada = null;
+            partidaDescargada = null;
+            ProgresoDeMisionesAplicado = false;
         }
 
         private void OnDisable()
@@ -118,6 +131,7 @@ namespace Fishy.Net
             }
             BlockedZone.OnZonaDesbloqueada -= AlDesbloquearZona;
             CatalogoMisiones.OnCatalogoCambiado -= SeguirObjetivosDeLoGuardado;
+            ApiManager.OnPartidaCerrada -= AlCerrarPartida;
         }
 
         // ── 1. Bajar lo que ya estaba hecho ──────────────────────────────────

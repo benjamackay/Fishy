@@ -20,7 +20,7 @@ cerrar el juego.
 |---|---|---|---|
 | **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | **Insiste hasta vaciar la cola** |
 | **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s, y después **pregunta** | Sí, y el juego no cierra hasta vaciar |
-| **Manual** | Una prueba, o el menú de pausa | `topeNormal` | Sí |
+| **Manual** | Una prueba (el menú de pausa usa el del cierre, ver §5) | `topeNormal` | Sí |
 | **Disparador** | Un `GuardarPartida` en la escena, enganchado a un evento | el `tope` del componente (10 s) | Sí |
 
 **No hay tope de intentos.** El que manda es el plazo: mientras quede, se insiste. Antes
@@ -225,13 +225,30 @@ perdiendo lo que quede, y lo dice en el log. Lo que no vale es cerrar en silenci
 El cartel no dice cuántos cambios faltan: a un niño/a no le dice nada. El número sí va al
 log, para quien tenga que diagnosticarlo.
 
-Los tres caminos de salida terminan en el mismo sitio:
+Los tres caminos para dejar de jugar guardan igual:
 
-| Camino | Pasa por | Quién pregunta |
-|---|---|---|
-| Botón "Guardar y salir" | `MenuPausa.GuardarYSalir()` | El propio menú; después llama a `SaveManager.MarcarCierreListo()` para que no se arranque un segundo vaciado |
-| Aspa de la ventana | `wantsToQuit` | `SaveManager` se lo pide a `MenuPausa` |
-| Alt+F4 | `wantsToQuit` | ídem |
+| Camino | Pasa por | Quién pregunta | Termina en |
+|---|---|---|---|
+| Botón "Guardar y volver al menú" (Esc) | `MenuPausa.GuardarYSalir()` | El propio menú | La escena `MenuDos`, con la aplicación abierta |
+| Aspa de la ventana | `wantsToQuit` | `SaveManager` se lo pide a `MenuPausa` | Se cierra el juego |
+| Alt+F4 | `wantsToQuit` | ídem | ídem |
+
+**Volver al menú cuenta como cierre** (`Motivo.CierreDeAplicacion`): se deja de jugar la
+partida, así que se guarda igual que al cerrar. Tres cosas que lo distinguen del cierre de
+verdad, porque la aplicación sigue viva:
+
+- **No marca el cierre como listo.** El aspa desde el menú tiene que seguir guardando.
+- **Si el jugador eligió «Salir ahora», lo pendiente se descarta**
+  (`ColaDeCambios.DescartarTodo`, con `LogError` y las claves). Al cerrar la aplicación eso
+  muere con el proceso; aquí se quedaría en la cola sin partida a la que subir, y el aspa
+  desde el menú preguntaría una y otra vez.
+- **Cierra la partida** (`ApiManager.CerrarPartida`). Los sincronizadores restauran cuando
+  *cambia* la partida, así que sin esto volver a entrar en la misma no restauraba nada
+  sobre la escena recién cargada: Otto en el punto de inicio —y el siguiente guardado
+  pisaba la posición buena—, zonas cerradas otra vez. Al cerrarla, cada sincronizador
+  olvida lo restaurado (`OnPartidaCerrada`) y volver a entrar recorre el camino de la
+  primera vez. `MissionTracker`, por su parte, vuelve a enganchar los objetivos a los NPCs
+  de cada escena que carga.
 
 `OnApplicationPause` se queda como estaba: en móvil el sistema mata la app pausada sin
 avisar y es la única señal fiable. No se puede retrasar, así que es best-effort.
@@ -390,6 +407,11 @@ de zona: **cero durante el juego**, todas de golpe en el instante del vaciado.
 Los tres caminos de salida —botón, aspa, Alt+F4— cada uno con el backend arriba y abajo.
 Son seis casos. Con el backend abajo tiene que salir el cartel a los 10 s.
 
+Y la vuelta desde el menú: Esc → «Guardar y volver al menú» → «Continuar» con la misma
+partida. Otto tiene que aparecer donde quedó, las zonas abiertas seguir abiertas, los
+objetos recogidos seguir fuera del mapa, y un objetivo de "hablar con" pendiente tiene que
+poder cumplirse.
+
 > En el editor, que `wantsToQuit` cancele la salida del Play Mode **hay que verificarlo en
 > la máquina, no asumirlo**: ha cambiado entre versiones de Unity. El camino que sí se
 > comprueba en editor es el botón de `MenuPausa`.
@@ -432,7 +454,7 @@ guardó y nadie sabe por qué"* y un diagnóstico.
 | `ColaDeCambios.cs` | La cola: el almacén, las tres familias, el vaciado |
 | `SaveManager.cs` | Los momentos, `wantsToQuit`, el cierre retenido |
 | `ApiManager.cs` | `PeticionesEnVuelo` y `TopeDeTiempoParaPeticiones` en `Send<T>` |
-| `UI/MenuPausa.cs` | El botón de salir y el cartel de "sin conexión" |
+| `UI/MenuPausa.cs` | El botón de volver al menú y el cartel de "sin conexión" |
 | `Chat/ChatBackendLogger.cs` | Graba la conversación y la manda entera, en un POST atómico |
 | `ObjetivosBackendSync.cs` | Guarda y restaura el avance por objetivo |
 | `PersonajeBackendSync.cs`, `InventarioBackendSync.cs`, `ObjetosRecogidosSync.cs`, `NpcTematicaSync.cs`, `MisionBackendSync.cs` | Encolan en vez de llamar |

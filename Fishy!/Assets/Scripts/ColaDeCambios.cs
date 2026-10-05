@@ -385,6 +385,22 @@ namespace Fishy.Net
         /// <summary>Saca un cambio de la cola sin mandarlo. Para deshacer un encolado.</summary>
         public static void Olvidar(string clave) => _almacen.Quitar(clave);
 
+        /// <summary>
+        /// Tira todo lo pendiente, dejando escrito qué. Es para cuando el jugador eligió
+        /// irse sin esperar —"Se perderán datos"— y la aplicación sigue abierta: si se
+        /// quedara en la cola, el cierre desde el menú, donde ya no hay partida a la que
+        /// subirlo, volvería a preguntar una y otra vez por cambios que nunca pueden salir.
+        /// </summary>
+        public static void DescartarTodo(string porQue)
+        {
+            List<string> claves = _almacen.Claves();
+            if (claves.Count == 0) return;
+
+            _almacen.Limpiar();
+            Debug.LogError($"[Cola] Descartados {claves.Count} cambio(s) sin subir ({porQue}): " +
+                           string.Join(", ", claves));
+        }
+
         private static void Meter(string clave, Familia familia,
             Action<Action, Action<string>> enviar, string descripcion,
             object valor = null,
