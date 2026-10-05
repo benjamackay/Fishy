@@ -285,7 +285,7 @@ namespace Fishy.Chat
         /// Muestra "Continuar" y no sigue hasta que el niño/a lo toque o pulse E.
         /// Antes esto era un tiempo fijo —"iba demasiado rápido" para quien lee más
         /// despacio—; ahora el ritmo lo pone quien juega, igual que ya pasa con el
-        /// diálogo de un NPC neutro (ver <see cref="NPC.Interact"/>).
+        /// diálogo de un NPC neutro (ver <see cref="DialogoNeutroNPC.Interact"/>).
         /// </summary>
         private IEnumerator EsperarContinuar()
         {

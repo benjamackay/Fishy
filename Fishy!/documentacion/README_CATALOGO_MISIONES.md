@@ -108,7 +108,7 @@ contradigan.
 | `tipo` | Campos que usa | Cómo se resuelve contra la escena |
 |---|---|---|
 | `recoger_objeto` | `item_id`, `cantidad` | `CatalogoItems.Buscar(item_id)` |
-| `hablar_npc` | `dialogo_id` | El `NPC` del mapa cuyo `dialogoId` coincide |
+| `hablar_npc` | `dialogo_id` | El `DialogoNeutroNPC` del mapa cuyo `dialogoId` coincide |
 | `chatear_telefono` | `escenario_ids` | El `PhoneChatLauncher` que tenga ese escenario |
 | `llegar_zona` | `zona_id` | No hace falta resolver nada: el dato es el id |
 | `completar_caso_detective` | `caso_id` | El `DetectiveLauncher` cuyo `CasoId` coincide |
@@ -135,7 +135,7 @@ necesitan: `recoger_objeto` se resuelve con una consulta al catálogo de objetos
 ### Lo del Inspector siempre manda
 
 Ni `MissionGiver` ni `ObjetivoMision` pisan nada puesto a mano. Una ficha
-arrastrada, una lista de objetivos con algo dentro, un `NPC` asignado: se
+arrastrada, una lista de objetivos con algo dentro, un `DialogoNeutroNPC` asignado: se
 respetan. El catálogo sólo rellena huecos. Así conviven las misiones cableadas a
 mano —que apuntan a objetos concretos de la escena— con las que vienen de datos.
 
@@ -157,7 +157,21 @@ dejaría el panel enseñando "(desafío desconocido)" para una misión en curso.
 
 ## Configurar un NPC que entregue una misión del catálogo
 
-En el `MissionGiver` del NPC, dejar `Desafio` vacío y escribir el id en
+`MissionGiver` va en el mismo objeto que la interacción del NPC y entrega la
+misión cuando esa interacción termina. Sirve cualquiera de las tres:
+
+| Interacción | Componente | Entrega al… |
+|---|---|---|
+| NPC neutro | `DialogoNeutroNPC` | cerrar el diálogo |
+| NPC sospechoso | `PhoneChatLauncher` o `ChatModuleLauncher` | cerrar el chat |
+| Caso detective | `DetectiveLauncher` | cerrar el caso, lo apruebe o no |
+
+Si el objeto no tiene ninguna, avisa en consola, y se puede llamar a `Entregar`
+desde cualquier evento del Inspector. "Entrega al volver" necesita que la
+interacción se pueda repetir: un chat sin `repetible` y un caso ya aprobado no
+se vuelven a abrir.
+
+En el `MissionGiver`, dejar `Desafio` vacío y escribir el id en
 **`Mision Id`**:
 
 ```
@@ -325,7 +339,7 @@ entregue.
 
 ### Ojo con el objetivo "hablar con NPC"
 
-Se resuelve buscando el `NPC` del mapa cuyo `dialogoId` coincida, así que el NPC
+Se resuelve buscando el `DialogoNeutroNPC` del mapa cuyo `dialogoId` coincida, así que el NPC
 tiene que tenerlo puesto. En `MainScene` lo tienen los tres guías (Huemul, Coipo,
 Foca); los NPCs de los testimonios de la Zona 2 necesitan el suyo
 (`HDU1_TESTIMONIO_*`). Un objetivo puesto a mano en el Inspector también puede

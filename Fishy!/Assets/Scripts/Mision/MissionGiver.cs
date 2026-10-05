@@ -1,21 +1,33 @@
 using System.Collections.Generic;
+using Fishy.Chat;
+using Fishy.Detective;
 using Fishy.Mision;
+using Fishy.Phone;
 using Fishy.World;
 using UnityEngine;
 
 /// <summary>
-/// Hace que un NPC entregue una misión al terminar de conversar con él.
+/// Hace que un NPC entregue una misión cuando termina la interacción con él.
 ///
-/// Va en el MISMO GameObject que el <see cref="NPC"/>. Se engancha a su
-/// <c>onDialogueEnded</c>, así que la misión aparece cuando el niño/a cerró el
-/// diálogo, no al primer "hola": si se registrara en Interact() bastaría con
-/// rozar al NPC para llenar el panel de misiones.
+/// Va en el MISMO GameObject que la interacción, sea cual sea, y se engancha solo a
+/// la que encuentre:
+/// <list type="bullet">
+/// <item>NPC neutro (<see cref="DialogoNeutroNPC"/>): al cerrar el diálogo.</item>
+/// <item>NPC sospechoso (<see cref="PhoneChatLauncher"/> o <see cref="ChatModuleLauncher"/>):
+/// al cerrar el chat.</item>
+/// <item>Caso detective (<see cref="DetectiveLauncher"/>): al cerrar el caso, lo
+/// apruebe o no.</item>
+/// </list>
+/// Siempre al terminar, nunca al empezar: si se registrara en Interact() bastaría
+/// con rozar al NPC para llenar el panel de misiones.
+///
+/// Si el objeto no tiene ninguna de las tres, <see cref="Entregar"/> se puede llamar
+/// desde cualquier evento del Inspector.
 ///
 /// La ficha de la misión es un <see cref="DesafioData"/>
 /// (Assets → Create → Fishy → Mision → Nuevo Desafio) y los objetivos se
 /// configuran aquí en el inspector.
 /// </summary>
-[RequireComponent(typeof(NPC))]
 public class MissionGiver : MonoBehaviour
 {
     [Header("Misión que entrega")]
@@ -40,7 +52,10 @@ public class MissionGiver : MonoBehaviour
 
     [Header("Entrega al volver")]
     [Tooltip("Si está activo, al hablar nuevamente con este NPC después de completar " +
-             "la misión se entrega la recompensa y se desbloquea la zona indicada.")]
+             "la misión se entrega la recompensa y se desbloquea la zona indicada. " +
+             "Necesita que la interacción se pueda repetir: un chat sin 'repetible' y un " +
+             "caso detective ya aprobado no se vuelven a abrir, así que nunca llegaría a " +
+             "entregarla.")]
     public bool requiereVolverParaEntregar;
 
     [Tooltip("Zona que se desbloquea al entregar la misión completada.")]
@@ -52,13 +67,19 @@ public class MissionGiver : MonoBehaviour
     public string mensajeDesbloqueo = "✨ ¡Nueva zona desbloqueada!";
     public string mensajeMisionPendiente = "Aún no has completado la misión.";
 
-    private NPC npc;
+    private DialogoNeutroNPC npc;
+    private PhoneChatLauncher chatPorTelefono;
+    private ChatModuleLauncher chatCaraACara;
+    private DetectiveLauncher casoDetective;
     private bool entregada;
     private bool recompensaEntregada;
 
     private void Awake()
     {
-        npc = GetComponent<NPC>();
+        npc             = GetComponent<DialogoNeutroNPC>();
+        chatPorTelefono = GetComponent<PhoneChatLauncher>();
+        chatCaraACara   = GetComponent<ChatModuleLauncher>();
+        casoDetective   = GetComponent<DetectiveLauncher>();
 
         ResolverDesdeCatalogo();
 
@@ -66,8 +87,19 @@ public class MissionGiver : MonoBehaviour
             Debug.LogWarning($"[{name}] MissionGiver sin 'Desafio' ni 'Mision Id' válido: " +
                              "no va a entregar nada.", this);
 
-        npc.onDialogueEnded.AddListener(Entregar);
+        if (npc != null)             npc.onDialogueEnded.AddListener(Entregar);
+        if (chatPorTelefono != null) chatPorTelefono.onChatClosed.AddListener(Entregar);
+        if (chatCaraACara != null)   chatCaraACara.OnSesionFinalizada += AlCerrarChatCaraACara;
+        if (casoDetective != null)   casoDetective.onCasoResuelto.AddListener(Entregar);
+
+        if (npc == null && chatPorTelefono == null && chatCaraACara == null && casoDetective == null)
+            Debug.LogWarning($"[{name}] MissionGiver no encuentra en este objeto ninguna " +
+                             "interacción (diálogo neutro, chat o caso detective), así que " +
+                             "nada le avisa de cuándo entregar. Llama a 'Entregar' desde un " +
+                             "evento del Inspector o ponlo junto a la interacción.", this);
     }
+
+    private void AlCerrarChatCaraACara(float _) => Entregar();
 
     /// <summary>
     /// Rellena la ficha y los objetivos desde el catálogo cuando no están puestos a
@@ -146,11 +178,14 @@ public class MissionGiver : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (npc != null) npc.onDialogueEnded.RemoveListener(Entregar);
+        if (npc != null)             npc.onDialogueEnded.RemoveListener(Entregar);
+        if (chatPorTelefono != null) chatPorTelefono.onChatClosed.RemoveListener(Entregar);
+        if (chatCaraACara != null)   chatCaraACara.OnSesionFinalizada -= AlCerrarChatCaraACara;
+        if (casoDetective != null)   casoDetective.onCasoResuelto.RemoveListener(Entregar);
     }
 
     /// <summary>
-    /// En la primera conversación registra la misión. En las siguientes, si la
+    /// En la primera interacción registra la misión. En las siguientes, si la
     /// misión está completa, permite entregarla y desbloquea su zona.
     /// </summary>
     public void Entregar()

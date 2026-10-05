@@ -6,7 +6,16 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-public class NPC : MonoBehaviour, IInteractable
+/// <summary>
+/// El NPC neutro: el que cuenta su texto línea a línea en el panel de diálogo y no
+/// tiene opciones de respuesta. Se habla con él acercándose y pulsando E.
+///
+/// Es uno de los tres tipos de interacción con un NPC, junto con el NPC sospechoso
+/// (<see cref="Fishy.Phone.PhoneChatLauncher"/>, un chat con respuestas) y el de caso
+/// detective (<see cref="Fishy.Detective.DetectiveLauncher"/>). No hace falta para
+/// entregar misiones: <see cref="MissionGiver"/> funciona con cualquiera de los tres.
+/// </summary>
+public class DialogoNeutroNPC : MonoBehaviour, IInteractable
 {
     // Las secciones y sus nombres son los mismos que en PhoneChatLauncher (el NPC
     // sospechoso), a propósito: quien configura un NPC encuentra lo mismo en el mismo

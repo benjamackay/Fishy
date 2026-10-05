@@ -17,7 +17,7 @@ using UnityEngine.InputSystem;
 ///
 /// Detalle importante: una vez iniciada la conversación el objetivo NO se suelta
 /// aunque su CanInteract() pase a false, porque es la misma tecla la que avanza
-/// las líneas de diálogo (ver <see cref="NPC.Interact"/>). Lo que sí se esconde
+/// las líneas de diálogo (ver <see cref="DialogoNeutroNPC.Interact"/>). Lo que sí se esconde
 /// es el aviso, que con el panel abierto ya no aporta nada.
 /// </summary>
 public class InteractionDetector : MonoBehaviour
@@ -107,7 +107,7 @@ public class InteractionDetector : MonoBehaviour
             // con isDialogueActive en true, su CanInteract() no vuelve a ser true y
             // deja de poder hablarse en toda la partida (además de dejar a Otto sin
             // movimiento, que se le devuelve ahí dentro).
-            if (interactable is NPC npc) npc.AbandonarDialogo();
+            if (interactable is DialogoNeutroNPC npc) npc.AbandonarDialogo();
             objetivo = null;
         }
     }

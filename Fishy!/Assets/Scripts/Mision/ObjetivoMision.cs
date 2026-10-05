@@ -14,7 +14,7 @@ using UnityEngine.Events;
 ///
 /// Vive en el ensamblado por defecto (Assembly-CSharp) y NO dentro de la carpeta
 /// Scripts/Mision, porque esa tiene el asmdef "Fishy.Mision" y desde ahí no se
-/// pueden ver ni <see cref="ItemData"/> ni <see cref="NPC"/>. Las fichas de datos
+/// pueden ver ni <see cref="ItemData"/> ni <see cref="DialogoNeutroNPC"/>. Las fichas de datos
 /// de misión (DesafioData) siguen viviendo allá; esto es sólo el pegamento con
 /// el mundo.
 /// </summary>
@@ -49,7 +49,7 @@ public class ObjetivoMision
 
     [Header("Si el tipo es Hablar Con Npc")]
     [Tooltip("Con quién hay que conversar para cumplirlo.")]
-    public NPC npc;
+    public DialogoNeutroNPC npc;
 
     [Header("Si el tipo es Chatear Por Telefono")]
     [Tooltip("Qué conversación de celular hay que atender. Cuenta igual que hablar " +
@@ -248,9 +248,9 @@ public class ObjetivoMision
     /// los NPCs de zonas todavía cerradas suelen estar apagados, y un objetivo que
     /// apunta a uno de ellos tiene que poder resolverse antes de que la zona se abra.
     /// </summary>
-    private static NPC BuscarNpcPorDialogo(string dialogoId)
+    private static DialogoNeutroNPC BuscarNpcPorDialogo(string dialogoId)
     {
-        foreach (NPC candidato in UnityEngine.Object.FindObjectsByType<NPC>(
+        foreach (DialogoNeutroNPC candidato in UnityEngine.Object.FindObjectsByType<DialogoNeutroNPC>(
                      FindObjectsInactive.Include))
         {
             if (candidato == null) continue;
@@ -461,12 +461,12 @@ public class ObjetivoMision
     /// <summary>
     /// Cómo se llama este NPC para el niño/a, o null si no hay NPC.
     ///
-    /// Se prefiere el nombre del diálogo —que <c>NPC.Awake</c> rellena desde el banco,
+    /// Se prefiere el nombre del diálogo —que <c>DialogoNeutroNPC.Awake</c> rellena desde el banco,
     /// así que dice "Huemul"— antes que el nombre del GameObject, que dice cosas como
     /// "Neutral_NPC (1)". En el cartel de misión lo lee un niño/a, no quien montó la
     /// escena.
     /// </summary>
-    private static string NombreVisibleDe(NPC npc)
+    private static string NombreVisibleDe(DialogoNeutroNPC npc)
     {
         if (npc == null) return null;
 

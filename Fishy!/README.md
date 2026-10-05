@@ -278,7 +278,7 @@ Resources/banco_preguntas.json
 
 #### El banco también trae diálogos de NPCs neutros
 
-Además de `preguntas`, el JSON tiene un arreglo `dialogos_npc_neutros` (cargado por `DialogoNpcLoader.cs`, `Scripts/NPC/`) con las líneas de los NPCs que no son de riesgo. Cada entrada puede traer un campo opcional `mision_desbloquea`: si el `NPC` de la escena tiene su `dialogoId` puesto y coincide con el `id` de esa entrada, `MissionGiver` puede resolver solo qué misión entregar sin que nadie escriba el id a mano (ver [Sistema de Misiones](#sistema-de-misiones)).
+Además de `preguntas`, el JSON tiene un arreglo `dialogos_npc_neutros` (cargado por `DialogoNpcLoader.cs`, `Scripts/NPC/`) con las líneas de los NPCs que no son de riesgo. Cada entrada puede traer un campo opcional `mision_desbloquea`: si el `DialogoNeutroNPC` de la escena tiene su `dialogoId` puesto y coincide con el `id` de esa entrada, `MissionGiver` puede resolver solo qué misión entregar sin que nadie escriba el id a mano (ver [Sistema de Misiones](#sistema-de-misiones)).
 
 ---
 
@@ -296,7 +296,7 @@ Un NPC también puede resolver sola la misión que entrega: si su `MissionGiver`
 | `CatalogoDesafios.cs` | `Scripts/Mision/Nucleo/` | Registro de fichas fabricadas en memoria para las misiones que no son un asset |
 | `MisionCatalogoSync.cs` | `Scripts/Mision/` | Espera a que haya sesión y baja el catálogo desde el backend |
 | `ConexionAutomaticaMisiones.cs` | `Scripts/Mision/` | Encadena misiones y entrega recompensas automáticamente según el catálogo |
-| `MissionGiver.cs` | `Scripts/Mision/` | Entrega una misión (de un NPC), tomando ficha/objetivos del catálogo si no están cableados a mano |
+| `MissionGiver.cs` | `Scripts/Mision/` | Entrega una misión al terminar la interacción con un NPC —diálogo neutro, chat sospechoso o caso detective, el que haya en el mismo objeto—, tomando ficha/objetivos del catálogo si no están cableados a mano |
 | `MissionManager.cs` | `Scripts/Mision/Nucleo/` | Progreso de misiones de la partida actual |
 | `MissionTracker.cs` | `Scripts/Mision/` | Sigue el progreso de los objetivos de una misión activa |
 | `ObjetivoMision.cs` | `Scripts/Mision/` | Resuelve identificadores del catálogo a objetos concretos de la escena |
@@ -490,7 +490,7 @@ Assets/
     │   └── Triangulator.cs
     │
     ├── NPC/                          ← diálogo de NPCs neutros (unificado con el chat, ver arriba)
-    │   ├── NPC.cs, NPCDialogue.cs
+    │   ├── DialogoNeutroNPC.cs, NPCDialogue.cs
     │   ├── DialogoNpcLoader.cs       ← carga `dialogos_npc_neutros` del banco
     │   └── InteractionDetector.cs
     │
