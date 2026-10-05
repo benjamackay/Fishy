@@ -18,7 +18,7 @@ export default function InvitacionPage() {
 }
 
 function ContenidoInvitacion({ token }: { token: string }) {
-  const { perfil, autenticado, cargando, esProfesor, modoDemo, salir } = useSesion()
+  const { perfil, autenticado, cargando, esProfesor, salir } = useSesion()
   const [datos, setDatos] = useState<InvitacionPublica | null>(null)
   const [jugadores, setJugadores] = useState<UsuarioJugador[] | null>(null)
   const [error, setError] = useState<Error | null>(null)
@@ -35,11 +35,11 @@ function ContenidoInvitacion({ token }: { token: string }) {
     if (cargando || !/^[A-Za-z0-9_-]{43}$/.test(token)) return
     consultarInvitacion(token, controller.signal).then(async invitacion => {
       let perfiles: UsuarioJugador[] | null = null
-      if (autenticado && !esProfesor && !modoDemo && perfil?.email.toLowerCase() === invitacion.email.toLowerCase()) perfiles = await listarJugadores({ signal: controller.signal })
+      if (autenticado && perfil?.rol === 'padre' && perfil.email.toLowerCase() === invitacion.email.toLowerCase()) perfiles = await listarJugadores({ signal: controller.signal })
       if (!controller.signal.aborted) { setDatos(invitacion); setJugadores(perfiles) }
     }).catch(e => { if (!controller.signal.aborted) setError(comoError(e)) })
     return () => controller.abort()
-  }, [token, autenticado, cargando, esProfesor, modoDemo, perfil?.id, perfil?.email, intento])
+  }, [token, autenticado, cargando, esProfesor, perfil?.rol, perfil?.id, perfil?.email, intento])
   useEffect(() => { if (aceptada) exito.current?.focus() }, [aceptada])
 
   async function aceptar(e: React.FormEvent) {
@@ -56,12 +56,12 @@ function ContenidoInvitacion({ token }: { token: string }) {
   if (!datos || cargando) return <Cargando mensaje="Comprobando la invitación…" />
   if (!autenticado) return <LoginPage invitacion={datos} />
   if (aceptada) return <section className="card invitation-card" ref={exito} tabIndex={-1}><Exito>Invitación aceptada</Exito><h1>{datos.nombre_nino} ya está vinculado a {aceptada.grupo}.</h1><p>Sus demás hermanos no se agregaron al curso. El perfil conserva su progreso y sigue perteneciendo a tu cuenta.</p><Link className="boton boton--primario" to={'/reportes/' + aceptada.jugador_id}>Ver su reporte</Link></section>
-  const cuentaIncorrecta = modoDemo || esProfesor || perfil?.email.toLowerCase() !== datos.email.toLowerCase()
+  const cuentaIncorrecta = perfil?.rol !== 'padre' || perfil?.email.toLowerCase() !== datos.email.toLowerCase()
   const candidatos = jugadores?.filter(j => j.adulto === perfil?.id && claveNombre(j.nombre) === claveNombre(datos.nombre_nino)) ?? []
   return <section className="card invitation-card">
     <div className="brand"><Marca /></div><span className="eyebrow">INVITACIÓN A UN CURSO</span><h1>Confirma el perfil del niño</h1>
     <dl className="invitation-summary"><dt>Niño o niña</dt><dd>{datos.nombre_nino}</dd><dt>Curso</dt><dd>{datos.grupo}</dd><dt>Profesor</dt><dd>{datos.profesor}</dd><dt>Cuenta destinataria</dt><dd>{datos.email}</dd></dl>
-    {cuentaIncorrecta ? <><p className="aviso" role="alert">{modoDemo ? 'Las cuentas de demostración no pueden aceptar invitaciones reales.' : 'Esta invitación debe aceptarse con la cuenta del padre o madre que recibió el correo.'}</p><button className="boton" onClick={salir}>Usar la cuenta destinataria</button></> : <form onSubmit={aceptar}>
+    {cuentaIncorrecta ? <><p className="aviso" role="alert">Esta invitación debe aceptarse con la cuenta del padre o madre que recibió el correo.</p><button className="boton" onClick={salir}>Usar la cuenta destinataria</button></> : <form onSubmit={aceptar}>
       <p className="muted">Solo se vinculará {datos.nombre_nino}. El profesor podrá ver su nombre y tu correo en la lista de integrantes, además del resumen agregado del grupo. No verá conversaciones ni respuestas literales. Tus otros hijos quedarán fuera de este curso.</p>
       <label className="campo"><span>Perfil que corresponde a {datos.nombre_nino}</span><select value={seleccion} onChange={e => { setSeleccion(e.target.value); setConfirmar(false) }} required disabled={ocupado}>
         <option value="">Selecciona una opción</option>

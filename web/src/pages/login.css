@@ -27,8 +27,6 @@
   box-shadow: 0 0 18px #d6af7c70; animation: auth-scan 1s ease-out both; }
 .auth-topline { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
 .auth-topline .brand { width: 126px; }
-.auth-caption { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .8125rem; }
-.auth-caption .icon { width: 17px; height: 17px; color: var(--cafe-oscuro); }
 .auth-tabs { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 5px;
   border: 1px solid #e8ded4; border-radius: 13px; background: #f4efe9; margin-bottom: 24px; }
 .auth-tab-indicator { position: absolute; inset: 5px auto 5px 5px; width: calc((100% - 10px) / 2);
@@ -79,15 +77,6 @@
 .auth-submit:hover:not(:disabled)::after, .auth-submit:focus-visible::after { transform: translateX(130%) skewX(-20deg); }
 .auth-submit:active:not(:disabled) { transform: translateY(0); }
 .auth-submit .spinner { border-color: #ffffff50; border-top-color: white; width: 17px; height: 17px; }
-.auth-demo { margin-top: 25px; }
-.auth-divider { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: .8125rem; white-space: nowrap; }
-.auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: var(--linea); }
-.auth-demo-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
-.auth-demo-actions .boton { font-size: .8125rem; font-weight: 500; padding-inline: 10px; }
-.auth-demo p { color: var(--muted); font-size: .75rem; text-align: center; margin: 12px 0 0; }
-.auth-privacy { display: flex; align-items: flex-start; gap: 9px; color: var(--muted); font-size: .8125rem;
-  margin: 24px 0 0; border-top: 1px solid var(--linea); padding-top: 18px; }
-.auth-privacy .icon { width: 15px; height: 15px; margin-top: 2px; }
 .auth-success { padding: 20px 0 8px; text-align: center; animation: auth-panel-in .5s ease-out both; }
 .auth-success:focus { outline: none; }
 .auth-success h1 { font-size: 1.8rem; }
@@ -105,14 +94,11 @@
   .auth-card { padding: 25px 22px 20px; border-radius: 20px; }
   .auth-topline { gap: 12px; margin-bottom: 23px; }
   .auth-topline .brand { width: 108px; }
-  .auth-caption { font-size: .75rem; gap: 5px; }
-  .auth-caption .icon { display: none; }
   .auth-fields--register { grid-template-columns: minmax(0, 1fr); }
   .auth-tabs button { font-size: .875rem; }
 }
 @media (max-width: 360px) {
   .auth-card { padding-inline: 17px; }
-  .auth-demo-actions { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-card, .auth-panel, .auth-fields > .campo, .auth-success, .auth-success-icon, .auth-scan { animation: none !important; filter: none; transform: none; }

@@ -28,7 +28,7 @@ export function useDatosVivos<T>(cargar: (signal: AbortSignal) => Promise<T>, cl
       } catch (e) {
         const error = comoError(e)
         if (vigente && !pendiente) setEstado(prev => ({
-          clave, datos: error instanceof ErrorUsuario || (error instanceof ApiError && [401, 403, 404].includes(error.status)) ? null : prev?.clave === clave ? prev.datos : null,
+          clave, datos: (error instanceof ErrorUsuario && (error.status === undefined || [401, 403, 404].includes(error.status))) || (error instanceof ApiError && [401, 403, 404].includes(error.status)) ? null : prev?.clave === clave ? prev.datos : null,
           error, actualizando: false,
         }))
       } finally {

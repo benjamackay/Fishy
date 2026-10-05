@@ -4,8 +4,8 @@
 reportes reales. El backend los reincorporó con la migración
 `0014_grupos_invitaciones`, sobre el esquema de `dev`. Invitar y reenviar
 responden 503 mientras no se configure el proveedor de correo; lo demás funciona.
-La demostración continúa separada: un fallo del servidor jamás activa datos
-ficticios.
+El portal no incluye demostraciones ni sesiones ficticias. Un fallo del servidor
+se informa al usuario sin sustituir los datos.
 
 El contrato de dominio está en `src/types/panel.ts` y el adaptador en
 `src/api/panelReal.ts`. La implementación y la configuración del servidor están
@@ -83,10 +83,10 @@ Repetir un agregado no duplica: los que ya estaban se saltan sin error.
   descarta la selección y repite la búsqueda; si falla, exige buscar otra vez.
 - Al guardar, el detalle del grupo se reconsulta automáticamente. Las
   respuestas 200 y 201 se consideran éxito; no se promete envío de correo.
-- `INVITACIONES_VISIBLES = false` mantiene ocultos botón, modal y listado de
-  invitaciones. El código, los métodos y la ruta de aceptación se conservan.
-- La demo replica selección de hermanos, unicidad entre cursos, reintentos sin
-  duplicar y operaciones todo-o-nada. No usa la red.
+- El detalle del grupo no ofrece botón, modal ni listado de invitaciones.
+  Los métodos de API y la ruta de aceptación se conservan.
+- Las fixtures de `tests/fixtures` permiten verificar selección de hermanos,
+  unicidad entre cursos y reintentos sin duplicar, sin incluirse en el sitio.
 - Pruebas: `npm test`, `npm run build`, `npm run lint`. Las solicitudes del
   adaptador se verifican con respuestas simuladas, sin modificar Supabase.
 
@@ -133,11 +133,10 @@ su pertenencia al curso, conservando la cuenta, el perfil y el juego.
 | eliminarGrupo | Elimina grupo y enlaces; conserva perfiles |
 | obtenerReporteGrupo | Agregado de los niños vinculados, sin filas individuales |
 
-Los errores previstos del nuevo contrato se muestran con mensajes aptos para las
-familias y profesores. Un fallo de correo no muestra éxito: la fila conserva
-`estado_envio: fallido` y puede reenviarse. Sin proveedor configurado se informa
-que el envío no está disponible. La demo solo simula creación, reenvío y cancelación;
-no envía correos ni genera enlaces reales de aceptación.
+Los errores previstos del contrato se muestran con mensajes para familias y
+profesores. La interfaz actual agrega por correo del apoderado; no ofrece envío
+ni reenvío de invitaciones. La ruta de aceptación sigue disponible para enlaces
+existentes. Las pruebas de estos contratos no envían correos.
 
 ## Roles y privacidad
 

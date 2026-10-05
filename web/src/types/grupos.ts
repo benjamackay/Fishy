@@ -30,7 +30,7 @@ export interface NuevaInvitacion { email: string; nombre_nino: string }
 export interface InvitacionGrupo extends NuevaInvitacion {
   id: string
   estado: 'pendiente' | 'aceptada' | 'cancelada' | 'vencida'
-  estado_envio: 'enviando' | 'enviado' | 'fallido' | 'simulado'
+  estado_envio: 'enviando' | 'enviado' | 'fallido'
   fecha_creacion: string
   vence_en: string
   enviada_en: string | null

@@ -9,6 +9,7 @@ export function aplicarPermisosPanel(fuente: FuentePanel, perfil: AdultoResponsa
   function comprobarPadre(usuario: AdultoResponsable | null): asserts usuario is AdultoResponsable {
     if (!usuario) throw new ErrorUsuario('Inicia sesión para consultar tus reportes.')
     if (usuario.rol === 'profesor') throw new ErrorUsuario('Los tutores administradores solo tienen acceso a grupos y reportes grupales.')
+    if (usuario.rol !== 'padre') throw new ErrorUsuario('Esta cuenta no tiene acceso a reportes individuales.')
   }
   async function soloAdministrador<T>(operacion: () => Promise<T>): Promise<T> {
     if (perfil?.rol !== 'profesor') throw new ErrorUsuario('Solo los tutores administradores pueden gestionar grupos y consultar sus reportes.')
@@ -21,8 +22,6 @@ export function aplicarPermisosPanel(fuente: FuentePanel, perfil: AdultoResponsa
     },
     obtenerReporteNino: async (id, opciones) => {
       comprobarPadre(perfil)
-      const ninos = await fuente.listarNinos(opciones)
-      if (!ninos.some(n => n.id === id && n.adulto_id === perfil.id)) throw new ErrorUsuario('No tienes acceso a este reporte.')
       const reporte = await fuente.obtenerReporteNino(id, opciones)
       if (reporte.nino.id !== id || reporte.nino.adulto_id !== perfil.id) throw new ErrorUsuario('No tienes acceso a este reporte.')
       return reporte

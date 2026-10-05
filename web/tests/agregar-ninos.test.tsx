@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { AgregarNinos } from '@/components/AgregarNinos'
 import * as hooks from '@/hooks/usePanel'
 import { panelReal } from '@/api/panelReal'
-import { crearPanelDemo } from '@/mocks/gruposMock'
+import { crearPanelDemo } from './fixtures/gruposMock'
 import type { PerfilFamilia } from '@/types/grupos'
 
 const perfiles: PerfilFamilia[] = [
@@ -19,7 +19,7 @@ function abrir() {
   vi.spyOn(hooks, 'usePanel').mockReturnValue(panelReal)
   const guardar = vi.fn()
   const cerrar = vi.fn()
-  const vista = render(<AgregarNinos id="curso" modoDemo={false} cerrar={cerrar} alGuardar={guardar} />)
+  const vista = render(<AgregarNinos id="curso" cerrar={cerrar} alGuardar={guardar} />)
   const user = userEvent.setup()
   return { ...vista, user, guardar, cerrar, buscar: async (correo = 'FAMILIA@example.com') => {
     await user.type(screen.getByLabelText('Correo del apoderado'), correo)

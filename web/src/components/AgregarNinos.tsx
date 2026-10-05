@@ -12,8 +12,8 @@ const MAXIMO = 20
 type Campos = Partial<Record<'email' | 'jugador_ids', string[]>>
 
 /** El correo de la búsqueda queda fijado junto a sus perfiles hasta cambiar de familia. */
-export function AgregarNinos({ id, modoDemo, cerrar, alGuardar }: {
-  id: string; modoDemo: boolean; cerrar: () => void; alGuardar: (grupo: GrupoDetalle) => void
+export function AgregarNinos({ id, cerrar, alGuardar }: {
+  id: string; cerrar: () => void; alGuardar: (grupo: GrupoDetalle) => void
 }) {
   const panel = usePanel()
   const [email, setEmail] = useState('')
@@ -80,8 +80,7 @@ export function AgregarNinos({ id, modoDemo, cerrar, alGuardar }: {
     setFamilia(null); setSeleccionados([]); setError(null); setErrorRecarga(null); setCampos({})
   }
   return <Modal titulo="Agregar niños" cerrar={cerrar} ocupado={ocupado}>
-    <p className="mini muted">{familia ? 'Solo se incorporarán los perfiles que marques.' : 'Busca el correo del apoderado y selecciona solo a los niños de este curso. Se incorporarán al confirmar.'}</p>
-    {modoDemo && (familia ? <span className="badge">Demostración · datos ficticios</span> : <p className="aviso">Demostración con datos ficticios. Prueba con <strong>familia.silva@example.com</strong>.</p>)}
+    <p className="mini muted">{familia ? 'Selecciona los niños que deseas agregar.' : 'Busca a los niños por el correo de su apoderado.'}</p>
     <form onSubmit={familia ? agregar : buscar} aria-busy={ocupado}>
       {!familia ? <label className="campo"><span>Correo del apoderado</span>
         <input autoFocus type="email" autoComplete="email" inputMode="email" required maxLength={254} value={email}

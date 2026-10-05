@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { crearPanelDemo } from '@/mocks/gruposMock'
+import { crearPanelDemo } from './fixtures/gruposMock'
 describe('gestión de grupos', () => {
   it('crea grupos con UUID distintos y persiste los cambios', async () => {
     const panel = crearPanelDemo(1001)
@@ -32,8 +32,8 @@ describe('gestión de grupos', () => {
     const g = await panel.crearGrupo({ nombre: 'Grupo' })
     await expect(panel.invitarFamilia(g.id, { email: 'invalido', nombre_nino: 'Martina' })).rejects.toThrow('válido')
     const inv = await panel.invitarFamilia(g.id, { email: 'nueva@example.com', nombre_nino: 'Martina' })
-    expect(inv.estado_envio).toBe('simulado')
-    expect((await panel.reenviarInvitacion(g.id, inv.id)).estado_envio).toBe('simulado')
+    expect(inv.estado_envio).toBe('enviado')
+    expect((await panel.reenviarInvitacion(g.id, inv.id)).estado_envio).toBe('enviado')
     await panel.cancelarInvitacion(g.id, inv.id)
     await expect(panel.reenviarInvitacion(g.id, inv.id)).rejects.toThrow('ya no está disponible')
     expect((await panel.obtenerGrupo(g.id)).miembros).toHaveLength(0)

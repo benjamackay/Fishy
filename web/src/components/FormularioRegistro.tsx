@@ -75,7 +75,7 @@ export function FormularioRegistro({ ocupado, cambiarOcupado, volverAlLogin, ema
   </div>
 
   return <>
-    <div className="auth-heading"><span className="eyebrow">COMIENZA TU RECORRIDO</span><h1>Crea tu cuenta.</h1><p className="muted">Completa tus datos para comenzar.</p></div>
+    <div className="auth-heading"><h1>Crea tu cuenta.</h1></div>
     <form onSubmit={enviar} aria-label="Crear una cuenta" aria-busy={ocupado}>
       <div className="auth-fields auth-fields--register">
         <div className="campo auth-wide"><label htmlFor="registro-nombre">Nombre de usuario</label><input id="registro-nombre" ref={nombreInput} value={nombre} onChange={e => setNombre(e.target.value)} autoComplete="username" required maxLength={150} disabled={ocupado} aria-describedby="registro-nombre-ayuda" /><small id="registro-nombre-ayuda">Lo usarás para iniciar sesión.</small></div>
@@ -85,7 +85,7 @@ export function FormularioRegistro({ ocupado, cambiarOcupado, volverAlLogin, ema
         <CampoContrasena id="registro-password" etiqueta="Contraseña" valor={password} cambiar={setPassword} ocupado={ocupado} nueva />
         <CampoContrasena id="registro-confirmacion" etiqueta="Confirmar contraseña" valor={confirmacion} cambiar={setConfirmacion} ocupado={ocupado} nueva error={errorConfirmacion} inputRef={confirmacionInput} />
       </div>
-      <p className="auth-password-hint">Usa al menos 4 caracteres; una frase larga será más fácil de recordar.</p>
+      <p className="auth-password-hint">Mínimo 4 caracteres.</p>
       {error && <ErrorAviso error={error} />}
       <button className="boton boton--primario auth-submit full-width" disabled={ocupado}>{ocupado ? 'Creando tu cuenta…' : 'Crear cuenta'}{ocupado ? <span className="spinner" aria-hidden="true" /> : <Icono nombre="flecha" />}</button>
     </form>

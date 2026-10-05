@@ -195,7 +195,7 @@ export function crearPanelDemo(adultoId: number): FuentePanel {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new ErrorUsuario('Ingresa un correo electrónico válido.')
       if (grupo.miembros.some(m => normalizarCorreo(m.email) === email && claveNombre(m.nombre_nino) === claveNombre(nombre))) throw new ErrorUsuario('Ese niño ya forma parte del grupo con este padre o madre.')
       if (grupo.invitaciones.some(i => i.email === email && claveNombre(i.nombre_nino) === claveNombre(nombre) && i.estado === 'pendiente')) throw new ErrorUsuario('Ya existe una invitación para ese niño y correo. Reenvíala o cancélala desde el grupo.')
-      const invitacion: InvitacionGrupo = { id: crypto.randomUUID(), email, nombre_nino: nombre, estado: 'pendiente', estado_envio: 'simulado', fecha_creacion: new Date().toISOString(), enviada_en: null, vence_en: new Date(Date.now() + 7 * 86400000).toISOString() }
+      const invitacion: InvitacionGrupo = { id: crypto.randomUUID(), email, nombre_nino: nombre, estado: 'pendiente', estado_envio: 'enviado', fecha_creacion: new Date().toISOString(), enviada_en: null, vence_en: new Date(Date.now() + 7 * 86400000).toISOString() }
       grupo.invitaciones.unshift(invitacion)
       return copia(invitacion)
     }),
@@ -203,7 +203,7 @@ export function crearPanelDemo(adultoId: number): FuentePanel {
       const inv = buscarGrupo(almacen, id).invitaciones.find(i => i.id === invitacionId)
       if (!inv || inv.estado !== 'pendiente') throw new ErrorUsuario('Esta invitación ya no está disponible.')
       inv.vence_en = new Date(Date.now() + 7 * 86400000).toISOString()
-      inv.estado_envio = 'simulado'
+      inv.estado_envio = 'enviado'
       return copia(inv)
     }),
     cancelarInvitacion: (id, invitacionId) => mutar(adultoId, almacen => {
@@ -243,7 +243,7 @@ export function crearPanelDemo(adultoId: number): FuentePanel {
     },
   }
 }
-/** Simula un registro del juego. Solo se invoca desde controles rotulados como demostración. */
+/** Simula un registro del juego. Solo se invoca desde las pruebas automatizadas. */
 export function simularProgreso(adultoId: number, ninoId: number, tematica: TematicaId): Promise<void> {
   return mutar(adultoId, almacen => {
     const r = almacen.ninos.find(r => r.nino.id === ninoId && r.nino.adulto_id === adultoId)

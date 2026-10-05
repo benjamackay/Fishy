@@ -12,9 +12,9 @@ import { comoError } from '@/lib/errores'
 
 export default function ReporteGrupoPage() {
   const { id = '' } = useParams()
-  const { perfil, modoDemo } = useSesion()
+  const { perfil } = useSesion()
   const panel = usePanel()
-  const estado = useDatosVivos(signal => panel.obtenerReporteGrupo(id, { signal }), 'reporte-grupo:' + perfil?.id + ':' + modoDemo + ':' + id)
+  const estado = useDatosVivos(signal => panel.obtenerReporteGrupo(id, { signal }), 'reporte-grupo:' + perfil?.id + ':' + id)
   const [descargando, setDescargando] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [exito, setExito] = useState(false)
@@ -27,7 +27,7 @@ export default function ReporteGrupoPage() {
       // Reconsulta antes de exportar: el archivo usa el último agregado disponible.
       const ultimo = await panel.obtenerReporteGrupo(id)
       const { descargarPdfGrupo } = await import('@/lib/pdf')
-      descargarPdfGrupo(ultimo, modoDemo)
+      descargarPdfGrupo(ultimo)
       setExito(true)
       estado.recargar()
     } catch (e) { setError(comoError(e)) } finally { setDescargando(false) }
@@ -37,10 +37,10 @@ export default function ReporteGrupoPage() {
     {estado.cargando && <Cargando mensaje="Cargando el reporte grupal…" />}
     {estado.error && <ErrorAviso error={estado.error} onReintentar={estado.recargar} />}
     {r && <>
-      <div className="encabezado"><div><span className="eyebrow">UNA MIRADA AL APRENDIZAJE COLECTIVO</span><h1>{r.nombre_grupo}</h1><p className="muted">Reporte grupal · Resumen de decisiones seguras por temática.</p></div><button type="button" className="boton boton--primario" disabled={!disponible || descargando || !!estado.error} onClick={descargar}><Icono nombre="descargar" />{descargando ? 'Generando PDF…' : 'Descargar reporte'}</button></div>
-      {error && <ErrorAviso error={error} />}{exito && <Exito>PDF generado. La descarga está lista en tu navegador.</Exito>}
+      <div className="encabezado"><div><h1>{r.nombre_grupo}</h1><p className="muted">Reporte grupal</p></div><button type="button" className="boton boton--primario" disabled={!disponible || descargando || !!estado.error} onClick={descargar}><Icono nombre="descargar" />{descargando ? 'Generando PDF…' : 'Descargar reporte'}</button></div>
+      {error && <ErrorAviso error={error} />}{exito && <Exito>PDF generado. Revisa las descargas de tu navegador.</Exito>}
       {disponible ? <>
-        <div className="kpis"><Estadistica etiqueta="Integrantes del grupo" valor={r.total_integrantes} pie="en este grupo" /><Estadistica etiqueta="Con resultados" valor={r.participantes_con_resultados} pie="aportan al resumen agregado" /><Estadistica etiqueta="Temáticas disponibles" valor={tematicasCompletas(r.tematicas).filter(t => t.metricas).length + ' de 3'} pie="con datos suficientes" /></div>
+        <div className="kpis"><Estadistica etiqueta="Integrantes del grupo" valor={r.total_integrantes} /><Estadistica etiqueta="Con resultados" valor={r.participantes_con_resultados} /><Estadistica etiqueta="Temáticas disponibles" valor={tematicasCompletas(r.tematicas).filter(t => t.metricas).length + ' de 3'} /></div>
         <div className="section-heading"><h2>Decisiones seguras por temática</h2><Sincronizacion actualizando={estado.actualizando} actualizado={r.actualizado_en} error={!!estado.error} /></div>
         <Tematicas resultados={r.tematicas} grupal />
         <p className="report-method">Se suman las decisiones seguras y evaluadas del grupo por temática. Cada temática necesita al menos {Math.max(3, r.minimo_participantes)} participantes con resultados para mostrarse.</p>

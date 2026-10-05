@@ -14,30 +14,10 @@ npm run dev
 ```
 
 En Windows, si PowerShell bloquea npm.ps1, usar `npm.cmd` en los comandos.
-Abrir la URL que muestra Vite y seleccionar **Probar como padre** o
-**Probar como profesor**. No requiere
-backend ni contraseña y siempre muestra una etiqueta de datos ficticios.
-
-- Camila, tutora madre: reportes de Martina (resultados parciales) y Tomás
-  (sin actividad), sin acceso a grupos.
-- Diego, tutor administrador/profesor: únicamente creación, gestión y reportes
-  de grupos. No tiene niños asociados ni acceso a reportes individuales.
-- La demo de profesor abre Mis grupos, con un grupo con resultados y otro sin datos.
-- En el grupo, “Agregar” busca el correo del apoderado y permite seleccionar uno
-  o varios niños. Se incorporan al confirmar, sin enviar correos ni esperar aceptación.
-  Los perfiles de este curso se ven marcados y deshabilitados; los de otro curso
-  quedan deshabilitados sin revelar el curso ni su profesor.
-- Para probar en la demo de profesor, busca `familia.silva@example.com`: Sofía ya
-  tiene curso; Valentina y Mateo empiezan disponibles. Solo entran los elegidos.
-  Las invitaciones anteriores no se muestran, pero su código y datos se conservan.
-- En un reporte individual, “Probar la actualización automática” simula un
-  nivel completado. El cambio también afecta al agregado del grupo cuando
-  ese perfil participa en él.
-- Los cambios de la demo se guardan en este navegador, separados por cuenta.
-  Con almacenamiento bloqueado permanecen en memoria durante esa sesión.
-  Las pestañas del mismo origen se notifican sus cambios.
-- Si se usó la demo anterior del profesor, se elimina su vínculo individual
-  antiguo conservando grupos, integrantes y resultados agregados.
+Abrir la URL que muestra Vite e iniciar sesión con una cuenta de Django.
+El portal usa únicamente la API configurada: no incluye accesos de demostración,
+simuladores de progreso ni datos de prueba. Los errores del servicio no activan
+datos alternativos. Las fixtures están en `tests/fixtures`, fuera del código publicado.
 
 ```sh
 npm test
@@ -54,7 +34,7 @@ con el juego y los endpoints reales.
 
 | Ruta | Vista |
 |---|---|
-| /login | Inicio de sesión existente y entrada separada a demo |
+| /login | Inicio de sesión y registro |
 | /invitacion#token | Registro/login y aceptación de una invitación para un niño |
 | / | Reportes de los hijos para padres; redirección a grupos para profesores |
 | /reportes/:id | Resumen individual por temática, exclusivo de padres |
@@ -95,9 +75,7 @@ mensaje claro. Las invitaciones exigen aceptación con el correo destinatario y
 vinculan solo un perfil infantil.
 **No se reemplaza una respuesta fallida del servicio real por datos ficticios.**
 
-La demo está disponible por defecto solo en desarrollo. `VITE_DEMO=true` la
-ofrece explícitamente en un build de demostración; `VITE_DEMO=false` la oculta.
-`VITE_GRUPOS_MOCK` y `VITE_FORZAR_ADMIN` no activan las nuevas pantallas.
+Las variables antiguas `VITE_DEMO`, `VITE_GRUPOS_MOCK` y `VITE_FORZAR_ADMIN` no habilitan accesos ni cambian permisos.
 
 ## Reportes y privacidad
 
@@ -141,14 +119,14 @@ confirma únicamente una respuesta válida. Tras crear la cuenta permite volver
 al login con el usuario rellenado. Los permisos siguen viniendo del perfil real.
 
 Café claro `#b78e70`, café pastel `#f0e4d9` y blanco. El café oscuro se utiliza
-en texto y controles para legibilidad. Navegación lateral en escritorio y
-horizontal en móvil, rejillas adaptables, formularios con etiquetas, estados
+en texto y controles para legibilidad. Encabezado horizontal superior en escritorio y
+navegación adaptada en filas para móvil, rejillas adaptables, formularios con etiquetas, estados
 accesibles y ventanas de confirmación mediante `dialog` nativo.
 Tipografías DM Sans / Manrope, con fuentes del sistema como respaldo.
 
 El logo oficial de texto se conserva sin modificaciones en
 `src/assets/fishy-text-logo.png` y se utiliza en el acceso, la navegación,
-el pie de página, el icono del sitio y el PDF. Mantiene proporciones y
+el icono del sitio y el PDF. Mantiene proporciones y
 transparencia originales. El logo está incluido en la aplicación, sin
 descargas externas adicionales al generar el documento.
 

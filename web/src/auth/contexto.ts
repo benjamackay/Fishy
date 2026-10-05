@@ -6,8 +6,6 @@ export interface Sesion {
   /** true mientras se resuelve el token guardado al arrancar la app. */
   cargando: boolean
   autenticado: boolean
-  modoDemo: boolean
-  entrarDemo: (cuenta?: 'principal' | 'alternativa') => void
   /** Solo true si el perfil declara explícitamente rol: 'profesor'. */
   esProfesor: boolean
   entrar: (nombre: string, password: string) => Promise<void>

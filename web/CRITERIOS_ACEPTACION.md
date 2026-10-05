@@ -18,20 +18,20 @@ La interfaz oculta la navegación de grupos para padres, bloquea sus accesos
 directos a `/admin` y rechaza todas las operaciones grupales antes de invocar
 el servicio. También se prueban perfiles sin rol, cambio entre ambos tipos de
 tutor, sesión real de profesor, bloqueo de lecturas individuales y corrección
-de asociaciones antiguas en la demo sin perder grupos. La API debe repetir
+de asociaciones antiguas en fixtures aisladas sin perder grupos. La API debe repetir
 estas validaciones y corregir las asociaciones reales antiguas si existen.
 
 | CA | Comportamiento implementado | Validación frontend / dependencia real |
 |---|---|---|
 | 1 | Reportes solo de niños vinculados; acceso directo ajeno rechazado | Pruebas de cuenta y ruta. El servidor debe autorizar y filtrar. |
 | 2 | Reporte individual organizado por temática | Pruebas de pantalla con las tres temáticas. |
-| 3 | Recepción de cambios y reconsulta automática; simulación de nivel | Pruebas de eventos y datos. Registrar progreso real corresponde al juego/backend. |
+| 3 | Recepción de cambios y reconsulta automática | Pruebas de eventos y datos. Registrar progreso real corresponde al juego/backend. |
 | 4 | Reconsulta al volver a la vista, foco y visibilidad; sondeo de 15 s | Pruebas de regreso, reloj, reconexión y respuestas tardías. |
 | 5 | Sin conversaciones ni decisiones textuales | Nueva presentación agregada; vista antigua redirigida y sin consultas textuales. |
 | 6 | Porcentaje y contadores de decisiones seguras por las tres temáticas | Pruebas de valores válidos, cero seguro y métricas de grupo. |
 | 7 | Sin datos: sin porcentaje ni barra | Pruebas por temática y niño sin actividad. |
 | 8 | Crear grupo abre formulario con nombre y descripción | Prueba del flujo de creación y validación. |
-| 9 | Confirmación de creación e identificador único | Prueba de UUID y persistencia de demo. UUID definitivo lo asigna el servidor. |
+| 9 | Confirmación de creación e identificador único | Prueba de UUID y persistencia en fixtures aisladas. UUID definitivo lo asigna el servidor. |
 | 10 | Detalle con gestión habilitada tras crear | Prueba del flujo completo. |
 | 11 | Agregar abre la búsqueda de perfiles por correo del apoderado | Prueba de formulario y búsqueda POST. |
 | 12 | Incorpora únicamente los perfiles seleccionados al confirmar | Pruebas de selección, estados de pertenencia, conflictos y exclusión de hermanos. |

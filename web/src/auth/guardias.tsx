@@ -12,9 +12,14 @@ export function RequiereSesion() {
 
 /** Los profesores no tienen perfiles infantiles asociados ni vistas individuales. */
 export function RequierePadre() {
-  const { esProfesor, cargando } = useSesion()
+  const { esProfesor, cargando, perfil, salir } = useSesion()
   if (cargando) return <Cargando mensaje="Comprobando permisos…" />
   if (esProfesor) return <Navigate to="/admin/grupos" replace />
+  if (perfil?.rol !== 'padre') return <section className="card">
+    <h1>{perfil?.rol === 'admin' ? 'Cuenta administradora de Fishy' : 'Acceso no disponible'}</h1>
+    <p>Esta cuenta no tiene reportes individuales. Inicia sesión con una cuenta de padre o madre para consultarlos, o de profesor para gestionar sus grupos.</p>
+    <button type="button" className="boton" onClick={salir}>Cambiar de cuenta</button>
+  </section>
   return <Outlet />
 }
 
@@ -24,8 +29,8 @@ export function RequiereAdmin() {
   if (cargando) return <Cargando mensaje="Comprobando permisos…" />
   if (!esProfesor) return <section className="card" role="alert">
     <h1>Acceso exclusivo para profesores</h1>
-    <p className="muted">La creación y gestión de grupos está disponible para tutores administradores. Como padre o madre, puedes consultar los reportes de tus hijos.</p>
-    <Link className="boton" to="/">Ver los reportes de mis hijos</Link>
+    <p className="muted">Necesitas una cuenta de profesor para gestionar grupos.</p>
+    <Link className="boton" to="/">Volver al inicio</Link>
   </section>
   return <Outlet />
 }

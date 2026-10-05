@@ -8,6 +8,7 @@ function explicarError(error: Error): string {
     if (error.status === 404) return 'No encontramos el elemento solicitado.'
     if (error.status === 409) return 'El usuario ya forma parte del grupo.'
     if (error.status === 400) return 'Revisa los datos ingresados e inténtalo nuevamente.'
+    if (error.status === 429) return 'Se realizaron demasiados intentos. Espera un momento y vuelve a intentar.'
     if (error.status >= 500) return 'El servicio no está disponible en este momento. Inténtalo nuevamente.'
   }
   return 'No pudimos completar la operación. Revisa tu conexión e inténtalo nuevamente.'
