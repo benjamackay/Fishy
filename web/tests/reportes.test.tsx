@@ -7,6 +7,31 @@ import { crearPdfGrupo } from '@/lib/pdf'
 import type { ReporteGrupo } from '@/types/reportes'
 
 describe('reportes y privacidad', () => {
+  it('muestra subcategorías en cero y distingue las que tienen muestra insuficiente o ningún resultado', () => {
+    render(<Tematicas resultados={[{ tematica: 'desconocidos', metricas: { decisiones_seguras: 0, decisiones_evaluadas: 5, completada: false }, subcategorias: [
+      { id: 'datos', nombre: 'Protección de datos personales', metricas: { decisiones_seguras: 0, decisiones_evaluadas: 5 } },
+      { id: 'secretos', nombre: 'Secretos y aislamiento', metricas: null, motivo: 'muestra_insuficiente' },
+      { id: 'encuentros', nombre: 'Propuestas de encuentro', metricas: null, motivo: 'sin_resultados' },
+    ] }]} grupal />)
+    const region = screen.getByRole('region', { name: 'Desconocidos' })
+    expect(within(region).getByRole('meter', { name: 'Decisiones seguras: Protección de datos personales' }).getAttribute('aria-valuenow')).toBe('0')
+    expect(within(region).queryByRole('meter', { name: 'Decisiones seguras: Secretos y aislamiento' })).toBeNull()
+    expect(region.textContent).toContain('Aún no hay suficientes participantes')
+    expect(region.textContent).toContain('Sin decisiones registradas')
+    expect(region.textContent).toContain('Sus resultados no se suman entre sí')
+  })
+  it('exporta el desglose agregado en páginas adicionales y respeta las subcategorías suprimidas', async () => {
+    const reporte = await crearPanelDemo(1001).obtenerReporteGrupo('grupo-demo-1001-a')
+    reporte.tematicas[0].subcategorias = [
+      { id: 'datos', nombre: 'Datos personales', metricas: { decisiones_seguras: 4, decisiones_evaluadas: 5 } },
+      { id: 'secretos', nombre: 'Secretos', metricas: null, motivo: 'muestra_insuficiente' },
+    ]
+    const doc = crearPdfGrupo(reporte)
+    expect(doc.getNumberOfPages()).toBe(2)
+    expect(doc.output()).toContain('Datos personales')
+    expect(doc.output()).toContain('4 de 5 decisiones evaluadas')
+    expect(doc.output()).toContain('Sin participantes suficientes')
+  })
   it('solo lista niños de la cuenta y rechaza el acceso directo a otro niño', async () => {
     const camila = crearPanelDemo(1001)
     const diego = crearPanelDemo(1002)

@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from .invitaciones import grupo_visible
 from .models import Mensaje, OpcionBanco, UsuarioJugador, ZonaProgreso
+from .subcategorias_reportes import SUBCATEGORIAS, clasificar
 
 TEMAS = ("desconocidos", "ciberacoso", "retos_virales")
 TIPOS = {"segura_basica", "segura_optima", "insegura"}
@@ -28,18 +29,24 @@ def calcular(jugadores, minimo):
     mensajes = list(Mensaje.objects.filter(chat__partida__usuario_jugador_id__in=ids)
                     .exclude(opcion_banco_id__isnull=True).exclude(opcion_banco_id="")
                     .values_list("chat__partida__usuario_jugador_id", "opcion_banco_id", "timestamp"))
-    opciones = {o.opcion_id: (tema_portal(o.pregunta.zona), o.tipo) for o in OpcionBanco.objects
+    opciones = {o.opcion_id: (tema_portal(o.pregunta.zona), o.tipo,
+                            clasificar(tema_portal(o.pregunta.zona), o.pregunta.categoria, o.pregunta.etiquetas_ml)) for o in OpcionBanco.objects
                 .filter(opcion_id__in={m[1] for m in mensajes}, tipo__in=TIPOS, pregunta__zona__in=ZONAS_BD)
                 .select_related("pregunta")}
     resultados = defaultdict(lambda: defaultdict(lambda: [0, 0]))
+    desglose = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [0, 0])))
     actualizada = None
     for jugador_id, opcion_id, fecha in mensajes:
         if opcion_id not in opciones:
             continue
-        tema, tipo = opciones[opcion_id]
+        tema, tipo, subcategorias = opciones[opcion_id]
         resultado = resultados[tema][jugador_id]
         resultado[0] += int(tipo in {"segura_basica", "segura_optima"})
         resultado[1] += 1
+        for subcategoria in subcategorias:
+            parcial = desglose[tema][subcategoria][jugador_id]
+            parcial[0] += int(tipo in {"segura_basica", "segura_optima"})
+            parcial[1] += 1
         actualizada = max(actualizada, fecha) if actualizada else fecha
     completadas = set()
     for jugador_id, zona, fecha in ZonaProgreso.objects.filter(partida__usuario_jugador_id__in=ids, fecha_completada__isnull=False).values_list("partida__usuario_jugador_id", "zona", "fecha_completada"):
@@ -48,6 +55,14 @@ def calcular(jugadores, minimo):
     tematicas = []
     for tema in TEMAS:
         valores = resultados[tema]
+        subcategorias = []
+        for id_, nombre, _ in SUBCATEGORIAS[tema]:
+            parciales = desglose[tema][id_]
+            visible = len(parciales) >= minimo
+            subcategorias.append({"id": id_, "nombre": nombre,
+                                  "metricas": {"decisiones_seguras": sum(v[0] for v in parciales.values()),
+                                               "decisiones_evaluadas": sum(v[1] for v in parciales.values())} if visible else None,
+                                  **({} if visible else {"motivo": "muestra_insuficiente" if parciales else "sin_resultados"})})
         if len(valores) < minimo:
             tematicas.append({"tematica": tema, "metricas": None, "motivo": "muestra_insuficiente" if valores else "sin_resultados"})
         else:
@@ -56,6 +71,7 @@ def calcular(jugadores, minimo):
                 "decisiones_evaluadas": sum(v[1] for v in valores.values()),
                 "completada": all((i, tema) in completadas for i in ids),
             }})
+        tematicas[-1]["subcategorias"] = subcategorias
     participantes = len({i for valores in resultados.values() for i in valores})
     return tematicas, participantes, actualizada
 

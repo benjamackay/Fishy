@@ -43,7 +43,7 @@ export default function ReporteGrupoPage() {
         <div className="kpis"><Estadistica etiqueta="Integrantes del grupo" valor={r.total_integrantes} /><Estadistica etiqueta="Con resultados" valor={r.participantes_con_resultados} /><Estadistica etiqueta="Temáticas disponibles" valor={tematicasCompletas(r.tematicas).filter(t => t.metricas).length + ' de 3'} /></div>
         <div className="section-heading"><h2>Decisiones seguras por temática</h2><Sincronizacion actualizando={estado.actualizando} actualizado={r.actualizado_en} error={!!estado.error} /></div>
         <Tematicas resultados={r.tematicas} grupal />
-        <p className="report-method">Se suman las decisiones seguras y evaluadas del grupo por temática. Cada temática necesita al menos {Math.max(3, r.minimo_participantes)} participantes con resultados para mostrarse.</p>
+        <p className="report-method">Se suman las decisiones seguras y evaluadas del grupo por temática. Cada temática y subcategoría necesita al menos {Math.max(3, r.minimo_participantes)} participantes con resultados para mostrarse. Una decisión puede trabajar varias subcategorías; sus totales no se suman entre sí.</p>
       </> : <section className="empty-state"><Icono nombre="reportes" /><h2>Aún no hay datos disponibles para el análisis grupal</h2><p>El reporte aparecerá automáticamente cuando al menos {Math.max(3, r.minimo_participantes)} participantes tengan resultados en una misma temática.</p><Link className="boton" to={'/admin/grupos/' + id}>Gestionar integrantes</Link></section>}
       <Privacidad grupal />
     </>}

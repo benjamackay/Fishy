@@ -4,15 +4,24 @@ export const TEMATICAS = [
   { id: 'retos_virales', nombre: 'Retos Virales', descripcion: 'Evaluar los riesgos antes de aceptar un reto.', icono: 'alerta' },
 ] as const
 export type TematicaId = typeof TEMATICAS[number]['id']
-export interface MetricasTematica {
+export interface MetricasDecisiones {
   decisiones_seguras: number
   decisiones_evaluadas: number
+}
+export interface MetricasTematica extends MetricasDecisiones {
   completada: boolean
+}
+export interface ResultadoSubcategoria {
+  id: string
+  nombre: string
+  metricas: MetricasDecisiones | null
+  motivo?: 'sin_resultados' | 'muestra_insuficiente'
 }
 export interface ResultadoTematica {
   tematica: TematicaId
   metricas: MetricasTematica | null
   motivo?: 'sin_resultados' | 'muestra_insuficiente'
+  subcategorias?: ResultadoSubcategoria[]
 }
 export interface NinoResumen {
   id: number

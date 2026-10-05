@@ -166,6 +166,34 @@ export function crearPdfGrupo(reporte: ReporteGrupo): jsPDF {
   texto('Documento privado del grupo.', pie + 7, 9, 'bold', true)
   texto('Para el tutor administrador autorizado. No contiene datos personales ni resultados individuales de integrantes.', pie + 12, 9, 'normal', true)
   texto('Generado el ' + fechaPdf(new Date().toISOString()), pie + 19, 8, 'italic', true)
+  const desgloses = temas.filter(t => porcentajeSeguro(t.metricas) !== null && t.subcategorias?.length)
+  if (desgloses.length) {
+    doc.addPage()
+    let fila = texto('Desglose por subcategoría', 20, 18, 'bold')
+    fila = texto('Resultados agregados del grupo. Una decisión puede trabajar varias subcategorías; sus totales no se suman entre sí.', fila + 3, 10)
+    function espacio(alto: number) {
+      if (fila + alto > 270) { doc.addPage(); fila = texto('Subcategorías (continuación)', 20, 15, 'bold') + 6 }
+    }
+    for (const tema of desgloses) {
+      espacio(28)
+      fila = texto(TEMATICAS.find(t => t.id === tema.tematica)!.nombre, fila + 7, 13, 'bold') + 3
+      for (const sub of tema.subcategorias!) {
+        const porcentaje = porcentajeSeguro(sub.metricas)
+        const detalle = porcentaje === null
+          ? sub.motivo === 'muestra_insuficiente' ? 'Sin participantes suficientes para mostrar resultados.' : 'Sin decisiones registradas.'
+          : `${porcentaje}% de decisiones seguras (${sub.metricas!.decisiones_seguras} de ${sub.metricas!.decisiones_evaluadas} decisiones evaluadas).`
+        doc.setFontSize(10.5)
+        const alto = (doc.splitTextToSize(sub.nombre, ancho).length + doc.splitTextToSize(detalle, ancho).length) * 5 + 6
+        espacio(alto)
+        fila = texto(sub.nombre, fila, 10.5, 'bold')
+        fila = texto(detalle, fila + 1, 10) + 5
+      }
+    }
+    for (let pagina = 2; pagina <= doc.getNumberOfPages(); pagina++) {
+      doc.setPage(pagina)
+      texto('Documento privado del grupo. Solo resultados agregados.', 285, 9, 'italic', true)
+    }
+  }
   return doc
 }
 

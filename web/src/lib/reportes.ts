@@ -1,7 +1,7 @@
 import { TEMATICAS } from '@/types/reportes'
-import type { MetricasTematica, ResultadoTematica } from '@/types/reportes'
+import type { MetricasDecisiones, ResultadoTematica } from '@/types/reportes'
 
-export function porcentajeSeguro(metricas: MetricasTematica | null | undefined): number | null {
+export function porcentajeSeguro<T extends MetricasDecisiones>(metricas: T | null | undefined): number | null {
   if (!metricas) return null
   const { decisiones_seguras: seguras, decisiones_evaluadas: total } = metricas
   if (!Number.isSafeInteger(seguras) || !Number.isSafeInteger(total) || total <= 0 || seguras < 0 || seguras > total) return null

@@ -1,5 +1,5 @@
 import { TEMATICAS } from '@/types/reportes'
-import type { ResultadoTematica } from '@/types/reportes'
+import type { ResultadoTematica, ResultadoSubcategoria } from '@/types/reportes'
 import { fechaActualizacion, porcentajeSeguro, tematicasCompletas } from '@/lib/reportes'
 import { Icono } from './Icono'
 
@@ -11,6 +11,22 @@ export function Privacidad({ grupal = false }: { grupal?: boolean }) {
 }
 export function Sincronizacion({ actualizando, actualizado, error = false }: { actualizando: boolean; actualizado: string | null; error?: boolean }) {
   return <div className="sync-status"><Icono nombre="reloj" /><span role="status">{error ? 'Actualización pendiente' : actualizando ? 'Consultando resultados…' : 'Actualización automática'}</span><span>· {fechaActualizacion(actualizado)}</span></div>
+}
+function Subcategorias({ resultados }: { resultados: ResultadoSubcategoria[] }) {
+  return <details className="topic-subcategories">
+    <summary>Ver subcategorías</summary>
+    <p className="mini muted">Una decisión puede trabajar varias subcategorías. Sus resultados no se suman entre sí.</p>
+    <ul>{resultados.map(s => {
+      const valor = porcentajeSeguro(s.metricas)
+      return <li key={s.id}>
+        <strong>{s.nombre}</strong>
+        {valor === null ? <p className="mini muted">{s.motivo === 'muestra_insuficiente' ? 'Aún no hay suficientes participantes para mostrar estos resultados.' : 'Sin decisiones registradas.'}</p> : <>
+          <div className="subcategory-score"><span>{valor}% de decisiones seguras</span><span>{s.metricas!.decisiones_seguras} de {s.metricas!.decisiones_evaluadas}</span></div>
+          <div className="meter" role="meter" aria-label={'Decisiones seguras: ' + s.nombre} aria-valuenow={valor} aria-valuemin={0} aria-valuemax={100}><span style={{ width: valor + '%' }} /></div>
+        </>}
+      </li>
+    })}</ul>
+  </details>
 }
 export function Tematicas({ resultados, grupal = false }: { resultados: ResultadoTematica[]; grupal?: boolean }) {
   const temas = tematicasCompletas(resultados)
@@ -24,6 +40,7 @@ export function Tematicas({ resultados, grupal = false }: { resultados: Resultad
         <p className="topic-score">{valor}<small>%</small></p><span className="mini muted">de decisiones seguras{grupal ? ' del grupo' : ''}</span>
         <div className="meter" role="meter" aria-label={'Decisiones seguras: ' + t.nombre} aria-valuenow={valor} aria-valuemin={0} aria-valuemax={100}><span style={{ width: valor + '%' }} /></div>
         <p className="topic-note">{resultado.metricas!.decisiones_seguras} de {resultado.metricas!.decisiones_evaluadas} decisiones evaluadas</p>
+        {resultado.subcategorias?.length ? <Subcategorias resultados={resultado.subcategorias} /> : <p className="mini muted" style={{ marginTop: 18 }}>El desglose por subcategoría aún no está disponible.</p>}
       </div>}
     </section>
   })}</div>
