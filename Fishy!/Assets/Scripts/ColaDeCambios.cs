@@ -201,8 +201,18 @@ namespace Fishy.Net
 
             public float Segundos;
 
-            public bool TodoBien => Fallidos == 0 && SinRespuesta == 0 && SinIntentar == 0;
-            public int Pendientes => Fallidos + SinRespuesta + SinIntentar;
+            /// <summary>
+            /// No queda nada por subir.
+            ///
+            /// <b>Los fallos no cuentan.</b> Con la insistencia, un cambio que falla
+            /// vuelve a la cola y se reintenta dentro del mismo vaciado: si al final
+            /// entro, que haya fallado tres veces en el camino no es un problema, y si no
+            /// entro ya esta contado en <see cref="SinIntentar"/>. Sumar las dos cosas
+            /// contaria el mismo cambio dos veces.
+            /// </summary>
+            public bool TodoBien => SinRespuesta == 0 && SinIntentar == 0;
+
+            public int Pendientes => SinRespuesta + SinIntentar;
         }
 
         // ── Configuracion ─────────────────────────────────────────────────────
@@ -211,10 +221,6 @@ namespace Fishy.Net
         [Tooltip("Cuántas peticiones se mandan a la vez al vaciar. Las cadenas (el chat) " +
                  "siempre van de una en una, sin importar este valor.")]
         [Min(1)] public int paralelismo = 4;
-
-        [Tooltip("Veces que se reintenta un cambio que falló, cuando el vaciado admite " +
-                 "reintento (el del cambio de zona). El del cierre no reintenta: no hay tiempo.")]
-        [Min(0)] public int maxIntentos = 3;
 
         [Tooltip("Avisar por consola si la cola crece por encima de esto sin vaciarse. " +
                  "Señal de que algún vaciado dejó de ocurrir.")]
@@ -230,6 +236,12 @@ namespace Fishy.Net
         /// </summary>
         private const float Gracia = 0.5f;
 
+        /// <summary>
+        /// Lo que se espera antes de repetir una ronda que no consiguio subir nada.
+        /// Contra un servidor que no contesta, insistir sin pausa solo quema frames.
+        /// </summary>
+        private const float EsperaEntreRondas = 0.5f;
+
         // ── Estado ────────────────────────────────────────────────────────────
 
         public static ColaDeCambios Instance { get; private set; }
@@ -242,6 +254,13 @@ namespace Fishy.Net
         private int _fallidos;
         private int _intentados;
         private int _descartados;
+
+        /// <summary>El ultimo error de red del vaciado, para poder decir por que no
+        /// termino en vez de solo cuantos quedan.</summary>
+        private string _ultimoError;
+
+        /// <summary>Por que no se pudo terminar el ultimo vaciado, o cadena vacia.</summary>
+        public static string UltimoError => Instance != null ? Instance._ultimoError : null;
 
         /// <summary>Claves que salieron y todavia no contestaron. Solo sirve para poder
         /// nombrarlas si el plazo vence con alguna en vuelo.</summary>
@@ -442,6 +461,7 @@ namespace Fishy.Net
             _fallidos = 0;
             _intentados = 0;
             _descartados = 0;
+            _ultimoError = null;
 
             // Todo el tiempo va en realtime: MenuPausa pone Time.timeScale = 0 al
             // abrirse, y un WaitForSeconds aqui dejaria el juego colgado para siempre.
@@ -454,6 +474,16 @@ namespace Fishy.Net
 
             try
             {
+              // Se insiste hasta VACIAR la cola, o hasta que se acabe el plazo.
+              //
+              // Antes se daba una sola pasada y lo que fallaba se quedaba esperando al
+              // siguiente momento de guardado. Como los momentos son solo dos, ese
+              // siguiente podia estar a media partida de distancia: un fallo de red de un
+              // segundo dejaba el cambio sin subir durante media hora.
+              while (_almacen.Cuenta > 0 && Time.realtimeSinceStartup < limite)
+              {
+                int subidosAlEmpezarLaRonda = _subidos;
+
                 foreach (var previsto in _almacen.Instantanea())
                 {
                     if (Time.realtimeSinceStartup >= limite) break;
@@ -506,15 +536,16 @@ namespace Fishy.Net
                             _enVueloCola--;
                             _enVueloClaves.Remove(c.Clave);
                             _fallidos++;
-                            if (!reintentar || c.Intentos + 1 >= maxIntentos)
-                            {
-                                if (reintentar)
-                                    Debug.LogWarning($"[Cola] '{c.Descripcion}' falló " +
-                                                     $"{c.Intentos + 1} veces, se abandona: {error}");
-                                return;
-                            }
+
+                            // Vuelve a la cola siempre. No hay tope de intentos: el que
+                            // manda es el plazo del vaciado, y mientras quede plazo se
+                            // insiste. Lo que no salga sigue en la cola para el siguiente
+                            // cambio de zona.
+                            if (!reintentar) return;
+
                             c.Intentos++;
                             _almacen.Reencolar(c);
+                            _ultimoError = error;
                         });
 
                     // La cadena se espera entera antes de seguir.
@@ -523,13 +554,27 @@ namespace Fishy.Net
                             yield return null;
                 }
 
-                // Que no quede nada en el aire antes de decir que terminamos. Se mira
-                // tambien el contador de ApiManager porque una operacion puede haber
-                // llamado a su callback con otra peticion encadenada todavia viva.
-                float conGracia = limite + Gracia;
+                // La ronda no ha terminado hasta que contesten todas sus peticiones: sin
+                // esto, la siguiente ronda volveria a mandar lo que todavia esta en el
+                // aire. Se mira tambien el contador de ApiManager porque una operacion
+                // puede haber llamado a su callback con otra peticion encadenada viva.
                 while ((_enVueloCola > 0 || api.PeticionesEnVuelo > 0) &&
-                       Time.realtimeSinceStartup < conGracia)
+                       Time.realtimeSinceStartup < limite + Gracia)
                     yield return null;
+
+                if (_almacen.Cuenta == 0 || !reintentarSiFalla) break;
+
+                // Una ronda entera sin subir nada significa que el servidor no esta
+                // contestando. Repetir sin pausa solo quemaria frames hasta agotar el
+                // plazo, asi que se espera un poco -en realtime, que MenuPausa pone el
+                // timeScale en cero- y se vuelve a probar.
+                if (_subidos == subidosAlEmpezarLaRonda)
+                {
+                    float queda = limite - Time.realtimeSinceStartup;
+                    if (queda <= 0f) break;
+                    yield return new WaitForSecondsRealtime(Mathf.Min(EsperaEntreRondas, queda));
+                }
+              }
             }
             finally
             {
@@ -550,10 +595,12 @@ namespace Fishy.Net
                 // que se acababa de perder.
                 SinRespuesta = Mathf.Max(0, _enVueloCola),
 
-                // De los que habia al empezar, los que ni salieron. No se mira el tamano
-                // del almacen: los fallidos que se reencolan para la proxima estan ahi
-                // dentro y se contarian dos veces, una como fallo y otra como no intento.
-                SinIntentar = Mathf.Max(0, alEmpezar - _intentados - _descartados),
+                // Lo que sigue en la cola al terminar. Antes se calculaba restando los
+                // intentos a los que habia al empezar, porque un fallido reencolado se
+                // habria contado dos veces; con la insistencia esa resta ya no vale -se
+                // reintenta dentro del mismo vaciado, asi que los intentos pueden ser mas
+                // que los cambios- y lo que queda es mirar el almacen directamente.
+                SinIntentar = _almacen.Cuenta,
 
                 Segundos = Time.realtimeSinceStartup - arranque,
             };
@@ -583,10 +630,13 @@ namespace Fishy.Net
                 if (!claves.Contains(enVuelo)) claves.Add(enVuelo);
 
             Debug.LogError(
-                $"[Cola] Vaciada por {motivo} en {r.Segundos:F1} s con cambios sin guardar: " +
-                $"{r.Subidos} subidos, {r.Fallidos} fallidos, " +
-                $"{r.SinRespuesta} sin respuesta, {r.SinIntentar} sin intentar." +
-                (claves.Count > 0 ? $"\nQuedan: {string.Join(", ", claves)}" : ""));
+                $"[Cola] Vaciada por {motivo} en {r.Segundos:F1} s SIN terminar: " +
+                $"{r.Subidos} subidos, {r.Fallidos} intento(s) fallido(s), " +
+                $"{r.SinRespuesta} sin respuesta, {r.SinIntentar} todavia en la cola" +
+                $" ({_intentados} intento(s) en total" +
+                (_descartados > 0 ? $", {_descartados} descartado(s) de otra partida" : "") + ")." +
+                (claves.Count > 0 ? $"\nQuedan: {string.Join(", ", claves)}" : "") +
+                (string.IsNullOrEmpty(_ultimoError) ? "" : $"\nUltimo error: {_ultimoError}"));
         }
     }
 }

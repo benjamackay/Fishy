@@ -18,13 +18,22 @@ cerrar el juego.
 
 | Momento | Quién lo dispara | Tope | Reintenta |
 |---|---|---|---|
-| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | Sí, hasta `maxIntentos` = 3 |
-| **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s | No: no hay otra oportunidad |
+| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | **Insiste hasta vaciar la cola** |
+| **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s, y después **pregunta** | Sí, y el juego no cierra hasta vaciar |
 | **Manual** | Una prueba, o el menú de pausa | `topeNormal` | Sí |
+
+**No hay tope de intentos.** El que manda es el plazo: mientras quede, se insiste. Antes
+había un `maxIntentos = 3` y lo que lo agotaba **se abandonaba**, con el agravante de que
+los dedup (§4) ya lo daban por encolado y no se volvía a intentar en toda la sesión.
 
 Y **solo** esos. Hubo además un guardado periódico y otro al terminar cada interacción;
 se quitaron a propósito. Si vuelven a hacer falta, lo que hay que añadir es un valor
 nuevo en `SaveManager.Motivo`, no reabrir los de antes.
+
+> Se probó un tercer momento —un goteo de fondo cada 10 s mientras se juega— y **se
+> retiró**: la decisión es que la partida se guarde en esos dos momentos y en ningún otro.
+> Lo que cubre el hueco no es guardar más seguido, sino insistir hasta vaciar la cola
+> cuando sí toca guardar.
 
 ### Encenderlos y apagarlos sin tocar código
 
@@ -63,10 +72,25 @@ con un `&` y no hay ningún `switch` que haya que acordarse de ampliar. Dejarlo 
           │
           ▼
   ColaDeCambios.Vaciar(motivo, tope)   ← sale todo, en orden
-          │
-          ▼
+          │                              y se repite mientras quede algo
+          ▼                              y quede plazo
   ApiManager.Send<T>()                 ← las peticiones de verdad
 ```
+
+### Insistir, no dar una pasada
+
+`Vaciar()` no recorre la cola una vez: la recorre **en rondas**, hasta que quede vacía o se
+acabe el plazo. Lo que falla vuelve a la cola y se reintenta en la ronda siguiente, dentro
+del mismo vaciado.
+
+Hacía falta justamente porque los momentos son dos y nada más: antes, lo que fallaba se
+quedaba esperando al siguiente momento de guardado, y ese siguiente podía estar a media
+partida de distancia. Un fallo de red de un segundo dejaba el cambio sin subir media hora.
+
+Si una ronda entera no consigue subir nada, se esperan `EsperaEntreRondas` = 0,5 s antes de
+la siguiente: contra un servidor que no contesta, repetir sin pausa solo quemaría frames
+hasta agotar el plazo. La espera va en **realtime**, porque `MenuPausa` pone
+`Time.timeScale = 0`.
 
 ---
 
@@ -160,11 +184,26 @@ wantsToQuit  →  ¿ya vaciamos?        → sí: cerrar
              →  arrancar CerrarCuandoTermine() y cancelar este cierre
 ```
 
-`CerrarCuandoTermine()` vacía con tope de 10 s. Si al vencer quedan cambios **pregunta en
-vez de decidir**: `MenuPausa.PreguntarSiEsperar()` muestra *"No se pudo conectar con el
-servidor"*, cuántos cambios quedan, y dos botones — **"Seguir esperando"** (otros 10 s,
-repetible) y **"Cerrar de todas formas"**. Mientras el cartel está a la vista el cierre
-sigue cancelado; no hay prisa. Lo que no vale es cerrar en silencio.
+**El juego no se cierra hasta que la cola esté vacía.** `CerrarCuandoTermine()` vacía
+insistiendo, con tope de 10 s por vuelta, y repite mientras quede algo.
+
+Si al vencer los 10 s todavía quedan cambios, **pregunta en vez de decidir**:
+
+```
+              Guardando
+
+  El guardado del juego está tardando más de lo esperado
+  ¿Salir ahora? Se perderán datos
+
+       [ Seguir esperando ]    [ Salir ahora ]
+```
+
+«Seguir esperando» da otros 10 s, y es repetible sin límite: mientras el cartel está a la
+vista el cierre sigue cancelado y la cola sigue insistiendo. «Salir ahora» cierra
+perdiendo lo que quede, y lo dice en el log. Lo que no vale es cerrar en silencio.
+
+El cartel no dice cuántos cambios faltan: a un niño/a no le dice nada. El número sí va al
+log, para quien tenga que diagnosticarlo.
 
 Los tres caminos de salida terminan en el mismo sitio:
 
@@ -209,9 +248,15 @@ heredarían un timeout de segundos y empezarían a fallar sin motivo aparente.
 | **Sin respuesta** | Salió y venció el plazo sin que contestara, ni bien ni mal. **No se reencola**: puede que haya llegado, y repetirlo duplicaría el cambio |
 | **Sin intentar** | Se quedó en la cola sin llegar a salir |
 
-`TodoBien` exige que los tres últimos estén en cero. Esa cuarta categoría existe porque
-sin ella un envío que no llamara nunca a su callback no aparecía en ningún lado: el
-resultado decía *"todo bien"* y el cierre daba por guardado un cambio recién perdido.
+`TodoBien` exige que **«sin respuesta» y «sin intentar» estén en cero**, y no mira los
+fallidos. Con la insistencia, «fallido» pasó a contar *intentos* y no *cambios*: si algo
+falló dos veces y a la tercera entró, que haya fallado no es un problema; y si no entró, ya
+está contado en «sin intentar», que es lo que sigue en la cola al terminar. Sumar las dos
+cosas contaría el mismo cambio dos veces.
+
+Esa categoría de «sin respuesta» existe porque sin ella un envío que no llamara nunca a su
+callback no aparecía en ningún lado: el resultado decía *"todo bien"* y el cierre daba por
+guardado un cambio recién perdido.
 
 ---
 
@@ -271,7 +316,6 @@ perfil, el riesgo vuelve. Descartar **no** cuenta como cambio perdido.
 | Campo | Por defecto | Qué hace |
 |---|---|---|
 | `paralelismo` | 4 | Peticiones a la vez. Las cadenas van de una en una pase lo que pase |
-| `maxIntentos` | 3 | Reintentos de un cambio que falló, cuando el vaciado admite reintento |
 | `avisarPorEncimaDe` | 200 | Avisa si la cola crece tanto sin vaciarse: señal de que algún vaciado dejó de ocurrir |
 | `verboseLogs` | true | Escribe cada cambio que entra y cada vaciado |
 
@@ -291,11 +335,19 @@ corridas del editor. **Para tocar los campos hay que ponerlos en la escena.**
   -executeMethod Fishy.EditorTools.FishyPruebasCola.Ejecutar -logFile -
 ```
 
-`Assets/Editor/FishyPruebasCola.cs` — 22 comprobaciones sobre lo que **no se ve en un log
-de red**: las dos fusiones, el orden, que reencolar no adelante, el sello de partida, los
-reintentos, que el tope de tiempo se restaure, que el thunk lea al vaciar y no al encolar,
-los interruptores de `momentosActivos`, y que lo que sale y no contesta cuente como
-perdido y no como guardado.
+`Assets/Editor/FishyPruebasCola.cs` — 26 comprobaciones sobre lo que **no se ve en un log
+de red**: las dos fusiones, el orden, que reencolar no adelante, el sello de partida, que
+el tope de tiempo se restaure, que el thunk lea al vaciar y no al encolar, los
+interruptores de `momentosActivos`, y que lo que sale y no contesta cuente como perdido y
+no como guardado.
+
+De la insistencia, tres:
+
+| Prueba | Qué fija |
+|---|---|
+| `ProbarInsisteHastaVaciarLaCola` | Un cambio que falla dos veces y entra a la tercera sale **en el mismo** cambio de zona, y los fallos del camino no ensucian el veredicto |
+| `ProbarInsistirTienePlazo` | Insistir se acaba con el plazo; lo que no salga sigue en la cola para el siguiente cambio de zona |
+| `ProbarCierreTambienInsiste` | Al cerrar también se insiste, en vez de rendirse al primer fallo |
 
 También está `FishyPruebasPartida.Ejecutar` (guardado e inventario en modo local).
 
@@ -333,13 +385,20 @@ Son seis casos. Con el backend abajo tiene que salir el cartel a los 10 s.
 [Cola] Descartado '{qué}' de la partida {x}: ahora se juega la {y}.
 ```
 
-Y cuando se pierde algo, **`LogError` y no `LogWarning`, listando las claves**:
+Y cuando un vaciado no llega a terminar, **`LogError` y no `LogWarning`, listando las
+claves y el último error de red**:
 
 ```
-[Cola] Vaciada por CierreDeAplicacion en 10,1 s con cambios sin guardar:
-       3 subidos, 1 fallidos, 1 sin respuesta, 2 sin intentar.
-       Quedan: objeto:FLOR_03, chat:2, inventario
+[Cola] Vaciada por CierreDeAplicacion en 10,1 s SIN terminar:
+       3 subidos, 7 intento(s) fallido(s), 1 sin respuesta,
+       2 todavia en la cola (10 intento(s) en total).
+       Quedan: objeto:FLOR_03, chat:2
+       Ultimo error: No se pudo conectar (Cannot connect to destination host)
 ```
+
+Los «intentos fallidos» son más que los cambios porque se insiste; el número que dice qué
+falta es **«todavía en la cola»**. Y el último error está ahí porque saber *cuántos* faltan
+sin saber *por qué* no sirve para arreglar nada.
 
 En un build eso es lo único que queda en `Player.log`, y es la diferencia entre *"no se
 guardó y nadie sabe por qué"* y un diagnóstico.

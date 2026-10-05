@@ -407,10 +407,14 @@ namespace Fishy.World
             var cola = ColaDeCambios.Instance;
             if (cola != null)
             {
-                // Al cambiar de zona sí se reintenta: habrá otra oportunidad. Al cerrar
-                // no la hay, y reintentar solo gastaría el plazo que queda.
-                bool reintentar = motivo != Motivo.CierreDeAplicacion;
-                yield return cola.Vaciar(motivo.ToString(), tope, reintentar);
+                // Se reintenta SIEMPRE, también al cerrar.
+                //
+                // Antes al cerrar no se reintentaba, con el argumento de que no habría
+                // otra oportunidad y reintentar gastaría el plazo. Es al revés: como no
+                // hay otra oportunidad, el plazo hay que gastarlo justamente en insistir.
+                // El juego no se cierra hasta que la cola esté vacía o hasta que el
+                // jugador diga que se va.
+                yield return cola.Vaciar(motivo.ToString(), tope, reintentarSiFalla: true);
             }
 
             OnGuardado?.Invoke(motivo);

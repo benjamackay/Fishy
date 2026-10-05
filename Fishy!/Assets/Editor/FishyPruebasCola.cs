@@ -72,9 +72,11 @@ namespace Fishy.EditorTools
             ProbarOrdenDeSalida(log, cola);
             ProbarCadenaVaSola(log, cola);
             ProbarElThunkLeeAlVaciar(log, cola);
-            ProbarFalloSeReintentaHastaElTope(log, cola);
-            ProbarCierreNoReintenta(log, cola);
+            ProbarInsisteHastaVaciarLaCola(log, cola);
+            ProbarInsistirTienePlazo(log, cola);
+            ProbarCierreTambienInsiste(log, cola);
             ProbarSinRespuestaNoEsTodoBien(log, cola);
+            ProbarNoSeGuardaLaPosicionAntesDeRestaurar(log, cola, api);
             ProbarSelloDePartida(log, cola, api);
             ProbarTopeDeTiempoSeRestaura(log, cola, api);
 
@@ -297,39 +299,117 @@ namespace Fishy.EditorTools
                 subido == "tres flores y un caracol", $"subió '{subido}'");
         }
 
-        private static void ProbarFalloSeReintentaHastaElTope(StringBuilder log, ColaDeCambios cola)
+        private static void ProbarInsisteHastaVaciarLaCola(StringBuilder log, ColaDeCambios cola)
         {
-            // Esto es lo que antes hacían por su cuenta ObjetosRecogidosSync y
-            // NpcTematicaSync con sus propias listas de pendientes.
+            // El contrato nuevo: un cambio de zona no da UNA pasada, insiste hasta vaciar
+            // la cola. Antes lo que fallaba esperaba al siguiente momento de guardado, y
+            // como los momentos son solo dos ese siguiente podía estar a media partida.
             Vaciar();
-            cola.maxIntentos = 3;
             int intentos = 0;
-            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) => { intentos++; error("cae"); });
+            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) =>
+            {
+                intentos++;
+                if (intentos < 3) error("la red falló");
+                else ok();
+            });
 
             Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
-            Comprobar(log, "Un fallo al cambiar de zona vuelve a la cola",
-                ColaDeCambios.Pendientes == 1 && cola.UltimoResultado.Fallidos == 1,
-                $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes");
 
-            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
-            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: true));
+            Comprobar(log, "Un cambio de zona insiste hasta vaciar la cola",
+                intentos == 3 && ColaDeCambios.Pendientes == 0 && cola.UltimoResultado.TodoBien,
+                $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes, " +
+                $"fallidos = {cola.UltimoResultado.Fallidos}");
 
-            Comprobar(log, "Tras maxIntentos se abandona en vez de reintentar para siempre",
-                intentos == 3 && ColaDeCambios.Pendientes == 0,
-                $"{intentos} intentos, {ColaDeCambios.Pendientes} pendientes");
+            // Y los fallos del camino no ensucian el veredicto: si al final entró, entró.
+            Comprobar(log, "Haber fallado en el camino no impide que el vaciado sea correcto",
+                cola.UltimoResultado.Fallidos == 2 && cola.UltimoResultado.TodoBien,
+                $"fallidos = {cola.UltimoResultado.Fallidos}, " +
+                $"todo bien = {cola.UltimoResultado.TodoBien}");
         }
 
-        private static void ProbarCierreNoReintenta(StringBuilder log, ColaDeCambios cola)
+        private static void ProbarInsistirTienePlazo(StringBuilder log, ColaDeCambios cola)
         {
+            // Insistir no puede ser para siempre: contra un servidor caído el plazo es lo
+            // que evita que el juego se quede dando vueltas. Lo que no salga se queda en
+            // la cola para el siguiente cambio de zona.
             Vaciar();
             int intentos = 0;
-            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) => { intentos++; error("cae"); });
+            ColaDeCambios.EncolarAppend("objeto:IMPOSIBLE", (ok, error) => { intentos++; error("cae"); });
 
-            Correr(cola.Vaciar("CierreDeAplicacion", 5f, reintentarSiFalla: false));
+            Correr(cola.Vaciar("zona", 1f, reintentarSiFalla: true));
 
-            Comprobar(log, "Al cerrar no se reintenta: no hay otra oportunidad que esperar",
-                intentos == 1 && ColaDeCambios.Pendientes == 0 && !cola.UltimoResultado.TodoBien,
-                $"{intentos} intento(s), fallidos = {cola.UltimoResultado.Fallidos}");
+            Comprobar(log, "Insistir se acaba con el plazo y lo pendiente sigue en la cola",
+                intentos > 1 && ColaDeCambios.Pendientes == 1 && !cola.UltimoResultado.TodoBien,
+                $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes");
+        }
+
+        private static void ProbarCierreTambienInsiste(StringBuilder log, ColaDeCambios cola)
+        {
+            // Antes al cerrar NO se reintentaba, con el argumento de que no habría otra
+            // oportunidad. Es al revés: como no hay otra, el plazo hay que gastarlo
+            // justamente en insistir. El juego no cierra hasta que la cola esté vacía o
+            // hasta que el jugador diga que se va.
+            Vaciar();
+            int intentos = 0;
+            ColaDeCambios.EncolarAppend("objeto:TERCO", (ok, error) =>
+            {
+                intentos++;
+                if (intentos < 2) error("la red falló");
+                else ok();
+            });
+
+            Correr(cola.Vaciar("CierreDeAplicacion", 5f, reintentarSiFalla: true));
+
+            Comprobar(log, "Al cerrar también se insiste, en vez de rendirse al primer fallo",
+                intentos == 2 && ColaDeCambios.Pendientes == 0 && cola.UltimoResultado.TodoBien,
+                $"{intentos} intento(s), {ColaDeCambios.Pendientes} pendientes");
+        }
+
+        private static void ProbarNoSeGuardaLaPosicionAntesDeRestaurar(
+            StringBuilder log, ColaDeCambios cola, ApiManager api)
+        {
+            // El bug del 29 de septiembre, visto en la partida 6: Otto aparece en el
+            // spawnPoint y la resolución inicial de zona —de null a zona_1— cuenta como
+            // cambio de zona. Así que el PRIMER guardado salía antes de que llegara la
+            // respuesta del GET y escribía el spawnPoint encima de la posición guardada;
+            // el GET leía después lo que ese PATCH acababa de pisar y "restauraba" a Otto
+            // justo donde empieza. En el log salía como
+            // `Otto restaurado en (0,0, -8,0)` con la base diciendo (-5,89, 51,44).
+            Vaciar();
+            UsarPartida(api, PartidaA);
+
+            // Donde quedó Otto la vez anterior.
+            api.GuardarPersonaje("MainScene", -5.89f, 51.44f, "zona_3");
+
+            // Otto acaba de aparecer en el spawnPoint, y todavía no se restauró nada.
+            //
+            // OJO: sin HideAndDontSave. `BuscarOtto` usa FindAnyObjectByType, que NO ve
+            // los objetos ocultos, así que con esa bandera la prueba pasaría por el
+            // motivo equivocado —no encontraría a Otto y se saldría por "escena de menú"—.
+            var ottoGO = new GameObject("OttoDePrueba");
+            ottoGO.transform.position = new Vector3(0f, -8f, 0f);
+            ottoGO.AddComponent<Fishy.World.OttoController>();
+
+            var syncGO = new GameObject("PersonajeSyncDePrueba");
+            var sync = syncGO.AddComponent<PersonajeBackendSync>();
+
+            sync.MarcarSucio();
+            Correr(cola.Vaciar("zona", 5f, reintentarSiFalla: false));
+
+            PersonajeDto leido = null;
+            api.ObtenerPersonaje(onSuccess: d => leido = d);
+
+            bool intacta = leido != null && leido.tiene_posicion &&
+                           leido.pos_x.HasValue && Mathf.Approximately(leido.pos_x.Value, -5.89f);
+
+            Comprobar(log, "No se guarda la posición antes de haberla restaurado",
+                intacta,
+                leido == null ? "no se pudo leer"
+                              : $"quedó en ({leido.pos_x}, {leido.pos_y}), zona {leido.zona_actual}");
+
+            UnityEngine.Object.DestroyImmediate(ottoGO);
+            UnityEngine.Object.DestroyImmediate(syncGO);
+            SoltarInstancia(typeof(PersonajeBackendSync));
         }
 
         private static void ProbarSinRespuestaNoEsTodoBien(StringBuilder log, ColaDeCambios cola)

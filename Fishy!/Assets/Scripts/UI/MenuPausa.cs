@@ -203,6 +203,12 @@ namespace Fishy.UI
         /// que prefiera irse sabiendo lo que pierde. Lo que no vale es cerrar en
         /// silencio, que es lo que hacía antes.
         /// </summary>
+        /// <remarks>
+        /// <paramref name="cambiosPendientes"/> ya no sale en el texto: el cartel dice qué
+        /// está pasando, no cuántas filas de base de datos faltan, que a un niño/a no le
+        /// dice nada. Se conserva en la firma porque es lo que el llamador sabe y lo que
+        /// se escribe en el log cuando alguien elige salir.
+        /// </remarks>
         public void PreguntarSiEsperar(int cambiosPendientes, Action alEsperar, Action alCerrar)
         {
             if (_raiz == null) Construir();
@@ -211,20 +217,20 @@ namespace Fishy.UI
             Time.timeScale = 0f;
             _raiz.SetActive(true);
 
-            if (_titulo != null) _titulo.text = "Sin conexión";
+            if (_titulo != null) _titulo.text = "Guardando";
             if (_estado != null)
-                _estado.text = $"No se pudo conectar con el servidor.\n" +
-                               $"Quedan {cambiosPendientes} cambio(s) sin guardar.";
+                _estado.text = "El guardado del juego está tardando más de lo esperado\n" +
+                               "¿Salir ahora? Se perderán datos";
 
             Reemplazar(_btnSeguir, "Seguir esperando", () =>
             {
-                Congelar("Reintentando…");
+                Congelar("Guardando…");
                 alEsperar?.Invoke();
             });
 
-            Reemplazar(_btnSalir, "Cerrar de todas formas", () =>
+            Reemplazar(_btnSalir, "Salir ahora", () =>
             {
-                Congelar("Cerrando sin guardar…");
+                Congelar("Saliendo sin guardar…");
                 alCerrar?.Invoke();
             });
         }
