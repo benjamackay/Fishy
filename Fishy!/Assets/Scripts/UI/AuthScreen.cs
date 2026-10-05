@@ -24,8 +24,8 @@ namespace Fishy.UI
     ///     Cada hermano conserva su propio avance.
     ///
     /// Al arrancar hace un ping al backend (CheckHealth). Si el servidor no
-    /// responde, activa el modo local (PlayerPrefs) de forma automática y el
-    /// juego sigue funcionando sin conexión, perfiles incluidos.
+    /// responde, informa el fallo. Las cuentas y el progreso usan el servidor
+    /// remoto; un corte de red nunca activa una simulación local.
     /// </summary>
     public class AuthScreen : MonoBehaviour
     {
@@ -127,8 +127,7 @@ namespace Fishy.UI
             if (!autoLogin) Show();   // en auto-login no se muestra la UI en absoluto
 
             // Bloquear formulario mientras se verifica la conexión con el backend.
-            // Esto también decide useLocalMode, así que el auto-login funciona
-            // igual de bien sin servidor (cae al modo local simulado).
+            // Un fallo no cambia a simulación local.
             SetBusy(true);
             SetStatus("Conectando con el servidor…", false);
 
@@ -137,7 +136,7 @@ namespace Fishy.UI
                 backendReady = ok;
                 SetBusy(false);
                 UpdateConnectionBadge(ok);
-                SetStatus("", false);
+                SetStatus(ok ? "" : "No se pudo conectar. Comprueba tu conexión e intenta de nuevo.", !ok);
 
                 if (autoLogin) IniciarAutoLogin();
             });
@@ -634,7 +633,7 @@ namespace Fishy.UI
         private void UpdateConnectionBadge(bool connected)
         {
             if (connectionBadge == null) return;
-            connectionBadge.text  = connected ? "🟢 Conectado"         : "🔴 Sin conexión (modo local)";
+            connectionBadge.text  = connected ? "🟢 Conectado"         : "🔴 Sin conexión";
             connectionBadge.color = connected ? new Color(0.4f, 0.9f, 0.5f) : new Color(1f, 0.6f, 0.3f);
         }
 

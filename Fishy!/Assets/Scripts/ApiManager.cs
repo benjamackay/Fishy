@@ -37,8 +37,9 @@ namespace Fishy.Net
         public static ApiManager Instance { get; private set; }
 
         [Header("Configuracion")]
-        [Tooltip("URL base del backend Django, sin slash final. Ej: http://127.0.0.1:8000/api")]
-        [SerializeField] private string baseUrl = "http://127.0.0.1:8000/api";
+        // Una sola dirección para salud, autenticación y progreso. No se serializa:
+        // una escena antigua no puede sobrescribirla con su URL de localhost.
+        public const string BaseUrl = "https://fishy-test.up.railway.app/api";
 
         [Tooltip("Timeout por peticion en segundos.")]
         [SerializeField] private int timeoutSeconds = 15;
@@ -53,10 +54,10 @@ namespace Fishy.Net
         [SerializeField] private bool verboseLogs = false;
 #endif
 
-        [Header("Modo local (sin servidor)")]
+        [Header("Simulación explícita (solo Editor)")]
         [Tooltip("Si esta activo, NO se conecta al backend: simula todo localmente " +
                  "(usuarios en PlayerPrefs, partidas/NPCs/chats en memoria). " +
-                 "Se activa automaticamente si el servidor no responde.")]
+                 "Solo para pruebas del Editor. Nunca se activa por fallos de conexión.")]
         [SerializeField] private bool useLocalMode = false;
 
         /// <summary>True si se esta simulando todo localmente (sin servidor).</summary>
@@ -128,6 +129,12 @@ namespace Fishy.Net
                 return;
             }
             Instance = this;
+#if !UNITY_EDITOR
+            // Los builds siempre usan el servidor, aunque una escena de pruebas
+            // haya guardado estos campos activados en el Inspector.
+            useLocalMode = false;
+            verboseLogs = false;
+#endif
             DontDestroyOnLoad(gameObject);
         }
 
@@ -136,8 +143,8 @@ namespace Fishy.Net
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
         /// <summary>
-        /// Hace un ping a /health/ con timeout corto (4 s).
-        /// Si el servidor no responde, activa el modo local automáticamente.
+        /// Comprueba /health/ por HTTPS. Un fallo no cambia el origen de los datos
+        /// ni activa la simulación local. Da margen al arranque del servicio remoto.
         /// onResult recibe true si el backend está disponible.
         /// </summary>
         public void CheckHealth(Action<bool> onResult)
@@ -147,14 +154,8 @@ namespace Fishy.Net
         }
 
         /// <summary>
-        /// Vuelve a preguntarle al backend si esta vivo, saliendo del modo local si
-        /// se habia activado. Hace falta para poder REINTENTAR: una vez que
-        /// HealthRoutine prende useLocalMode, CheckHealth corta antes de llegar a la
-        /// red y siempre devuelve false, asi que la sesion se quedaria pegada en
-        /// PlayerPrefs aunque el servidor ya hubiera vuelto.
-        ///
-        /// La usa la pantalla de ingreso, que exige backend real: sin el, los datos
-        /// no llegarian a Supabase.
+        /// Reconsulta el servicio remoto. También permite salir de una simulación
+        /// iniciada explícitamente en el Editor. Nunca crea una sesión local.
         /// </summary>
         public void ReintentarConexion(Action<bool> onResult)
         {
@@ -164,23 +165,30 @@ namespace Fishy.Net
 
         private IEnumerator HealthRoutine(Action<bool> onResult)
         {
-            string url = baseUrl + "/health/";
+            string url = BaseUrl + "/health/";
             using var req = UnityWebRequest.Get(url);
-            req.timeout = 4;
+            req.timeout = 30;
             yield return req.SendWebRequest();
 
-            bool ok = req.result == UnityWebRequest.Result.Success;
+            bool ok = req.result == UnityWebRequest.Result.Success &&
+                      RespuestaSaludValida(req.downloadHandler.text);
             if (!ok)
             {
                 Debug.LogWarning($"[API] Backend no disponible ({req.error}). " +
-                                 "Activando modo local automáticamente.");
-                useLocalMode = true;
+                                 "Los datos no se simularán localmente. Puedes reintentar la conexión.");
             }
             else
             {
-                Debug.Log($"[API] Backend disponible en {baseUrl}.");
+                Debug.Log($"[API] Backend disponible en {BaseUrl}.");
             }
             onResult?.Invoke(ok);
+        }
+
+        internal static bool RespuestaSaludValida(string cuerpo)
+        {
+            // Un proxy puede devolver HTML con HTTP 200. Eso no confirma Django.
+            try { return (string)JObject.Parse(cuerpo)["status"] == "ok"; }
+            catch (Exception) { return false; }
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -1362,7 +1370,7 @@ namespace Fishy.Net
             _enVuelo++;
             try
             {
-                string url = baseUrl + path;
+                string url = BaseUrl + path;
 
                 using var req = new UnityWebRequest(url, method);
                 req.timeout = TopeDeTiempoParaPeticiones ?? timeoutSeconds;
