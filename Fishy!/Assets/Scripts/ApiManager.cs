@@ -37,8 +37,12 @@ namespace Fishy.Net
         public static ApiManager Instance { get; private set; }
 
         [Header("Configuracion")]
-        [Tooltip("URL base del backend Django, sin slash final. Ej: http://127.0.0.1:8000/api")]
-        [SerializeField] private string baseUrl = "http://127.0.0.1:8000/api";
+        // El ApiManager no está en ninguna escena: lo crean por código AuthScreen e
+        // iniciar.cs, así que este valor por defecto es el que vale. Cambiarlo en el
+        // Inspector durante el Play no sobrevive al siguiente arranque.
+        [Tooltip("URL base del backend Django, sin slash final. Servidor de pruebas: " +
+                 "https://fishy-test.up.railway.app/api. Local: http://127.0.0.1:8000/api")]
+        [SerializeField] private string baseUrl = "https://fishy-test.up.railway.app/api";
 
         [Tooltip("Timeout por peticion en segundos.")]
         [SerializeField] private int timeoutSeconds = 15;

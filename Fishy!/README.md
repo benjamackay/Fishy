@@ -686,7 +686,7 @@ Existe también `docker-compose up --build` para correr el servicio `web` en Doc
 ### Unity
 
 1. Abrir el proyecto en Unity 6000.4.9f1.
-2. En el `ApiManager` del Inspector, verificar que `Base Url` apunta a `http://127.0.0.1:8000/api` y que `Use Local Mode` está **desmarcado**.
+2. El juego usa por defecto el servidor de pruebas, `https://fishy-test.up.railway.app/api` (valor de `baseUrl` en `ApiManager.cs`). Para trabajar contra el backend local de arriba, cambiar ese valor a `http://127.0.0.1:8000/api`: el `ApiManager` lo crea el código y no está en ninguna escena, así que no se puede fijar desde el Inspector.
 3. Abrir la escena `Boot` (o la escena de arranque configurada).
 4. Pulsar **Play** — `AuthScreen` hace el health-check automáticamente.
 

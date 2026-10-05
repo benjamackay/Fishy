@@ -50,8 +50,11 @@ Boot. En una build, arranca sola desde el índice 0.)
    - `LoadSceneAsync` sólo puede cargar escenas que estén en esta lista.
 
 3. **Backend** (opcional)
-   - En el `ApiManager` (se crea solo si no existe) ajusta `baseUrl` a tu servidor
-     Django, ej. `http://127.0.0.1:8000/api`.
+   - El juego apunta por defecto al servidor de pruebas,
+     `https://fishy-test.up.railway.app/api`. Para usar un Django local, cambia el
+     valor por defecto de `baseUrl` en `ApiManager.cs` a `http://127.0.0.1:8000/api`:
+     el `ApiManager` lo crea el código, no está en ninguna escena, así que el
+     Inspector no sirve para fijarlo.
    - Si el backend no está corriendo, `CheckHealth` activa solo el **modo local**
      (PlayerPrefs) y el badge de la esquina lo indica. Cuentas, perfiles de menor y
      partidas se simulan en disco, así que el flujo de dos pasos —incluido retomar
