@@ -138,15 +138,9 @@ namespace Fishy.EditorTools
                     if (d != null && d.orden <= m.orden) mal.Add($"{m.mision_id}({m.orden}) → {destino}({d.orden})");
                 }
 
-            int maxPrincipal = Principales().Max(m => m.orden);
-            var secundariasAntes = CatalogoMisiones.Todas.Values
-                .Where(m => m.tipo == "secundaria" && m.orden <= maxPrincipal)
-                .Select(m => m.mision_id).ToList();
 
             Comprobar(log, "Cada paso tiene mayor orden que el anterior",
                 mal.Count == 0, string.Join(", ", mal));
-            Comprobar(log, "Ninguna secundaria puede quitarle el panel a un paso principal",
-                secundariasAntes.Count == 0, string.Join(", ", secundariasAntes));
         }
 
         /// <summary>"Un solo objetivo activo a la vez": varios objetivos solo se

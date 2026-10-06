@@ -203,15 +203,15 @@ arrancar y revisa el catálogo cada vez que el panel se actualiza:
 
 ```json
 {
-  "mision_id": "Z1_03_CHAT_PUMA",
+  "mision_id": "MISION_EXPLORACION_02",
   "...": "...",
-  "desbloquea_mision": "Z1_04_CHAT_PUMY",
+  "desbloquea_mision": "MISION_M3_TESTIMONIOS",
   "recompensa_item_id": "ITEM_BRUJULA",
   "recompensa_cantidad": 1
 }
 ```
 
-Al completarse `Z1_03_CHAT_PUMA`, sola: se entrega `Z1_04_CHAT_PUMY` (por
+Al completarse `MISION_EXPLORACION_02`, sola: se entrega `MISION_M3_TESTIMONIOS` (por
 `EntregarMisionDelCatalogo.EntregarPorId`, la misma lógica que ya usaban los
 disparadores de escena) y se agrega `ITEM_BRUJULA` al inventario (con el
 mismo guard de `CatalogoRecompensasDetective` — `GetQuantity` antes de
@@ -222,9 +222,10 @@ duplica al repetir").
 `EntregarMisionAlEntrarZona`.** Esos siguen siendo el camino para lo que
 necesita algo más que "dar esta misión" o "dar este ítem" —cinemática,
 desbloqueo de zona, mensaje propio—. Dejar los dos campos vacíos es la forma
-de decir "esta misión se conecta a mano, en la escena". La cadena principal
-de `misiones.json` usa `desbloquea_mision` en todos sus pasos (ver la sección
-siguiente); `recompensa_item_id` no lo usa ninguna misión todavía.
+de decir "esta misión se conecta a mano, en la escena". En `misiones.json` hoy
+solo lo usa `MISION_EXPLORACION_02`, que abre los testimonios al terminar la
+presentación de Coipo; el resto se entrega desde la escena. `recompensa_item_id`
+no lo usa ninguna misión todavía.
 
 ### Bifurcación: `desbloquea_si_acepta`
 
@@ -241,7 +242,8 @@ chat fue segura) sigue `desbloquea_mision`; si acabó aceptando o dudando, sigue
 }
 ```
 
-Es el "paso 4 solo si Otto rechazó el paso 3" del orden de narración. "Rechazar"
+Es el "paso 4 solo si Otto rechazó el paso 3" de la cadena del orden de narración
+(archivada, ver la sección siguiente); el catálogo actual no lo usa. "Rechazar"
 es la misma regla del contador de presión social del backend (última decisión del
 reto: segura = rechazo, insegura = aceptó, dudosa = corta la racha), pero **se
 calcula en Unity, en el momento**: las decisiones del chat no llegan al servidor
@@ -265,9 +267,18 @@ La tabla `Mision` no tiene este campo. Si algún día `cargar_banco` sube estas
 misiones a la base, `CatalogoMisiones` lo sigue tomando del archivo cuando la base
 lo trae vacío, para que la bifurcación no desaparezca en silencio.
 
-## La cadena del orden de narración
+## La cadena del orden de narración (archivada)
 
-`misiones.json` sigue el documento *Fishy! – Orden de Narración en Unity*: **una
+> **No está en uso.** El juego trabaja con el conjunto de 13 misiones de antes
+> (`MISION_EXPLORACION_*`, `MISION_NPC_03/04`, `MISION_PANTANO_CRIATURAS`,
+> `MISION_M3_TESTIMONIOS` y las seis secundarias), que es el mismo que tiene el
+> servidor. La cadena quedó en git: su última versión, con los testimonios v2.6, es
+> la de `c4ba9b0`. Para volver a ella:
+> `git show c4ba9b0:'Fishy!/Assets/Resources/misiones.json' > 'Fishy!/Assets/Resources/misiones.json'`,
+> y ajustar `CatalogoMisionesTests` y la misión inicial de la escena. Lo que sigue
+> describe cómo estaba armada.
+
+Esa versión de `misiones.json` seguía el documento *Fishy! – Orden de Narración en Unity*: **una
 misión por paso, con un solo objetivo**, encadenadas con `desbloquea_mision`. Como
 el panel muestra solo la misión disponible de menor `orden`, eso da "un objetivo
 activo a la vez, que se reemplaza al completar" sin tocar la UI.
@@ -309,7 +320,7 @@ ese componente, y ya.
 
 ```
 Mision:       (vacío)
-Mision Id:    Z1_02_HABLA_HUEMUL        ← o vacío, y toma la primera del catálogo
+Mision Id:    (vacío)                   ← toma la primera del catálogo: MISION_EXPLORACION_01
 Objetivos:    1 entrada
   └ Tipo:     Hablar Con Npc
     Npc:      (arrastrar el NPC)   ← o dejarlo vacío y poner Dialogo Npc Id
@@ -360,11 +371,10 @@ está en memoria (`Ninguno` · `Archivo` · `Base`).
 
 - **Los objetivos de las seis secundarias están vacíos.** Se completan a mano o
   quedan informativas hasta que se escriban como contenido.
-- **El Diccionario de cada zona y el Sistema de Finales** no existen todavía. La
-  cadena termina en `Z3_06_CASO_3`, que es donde habría que engancharlos.
-- **Partidas viejas:** las que se jugaron con el catálogo anterior
-  (`MISION_EXPLORACION_*`, `MISION_NPC_03`, `MISION_PANTANO_CRIATURAS`) conservan
-  esas misiones en su progreso. Para probar la cadena, partida nueva.
+- **El Diccionario de cada zona** no existe todavía.
+- **Partidas jugadas con la cadena archivada** (ids `Z1_…`, `Z2_…`, `Z3_…`) conservan
+  esas misiones en su progreso, y ya no están en el catálogo. Para probar, partida
+  nueva.
 - **`GET /misiones/` ya existe** en `dev` (migración 0016, ver `REQUISITOS_BD.md`).
   Si la base compartida todavía no la tiene aplicada, o no hay sesión, el juego corre
   con este archivo de respaldo y lo dice en consola.

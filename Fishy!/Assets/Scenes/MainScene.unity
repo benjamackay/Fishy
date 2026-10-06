@@ -4162,7 +4162,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MisionInicial
   mision: {fileID: 0}
-  misionId: Z1_02_HABLA_HUEMUL
+  misionId: 
   objetivos: []
   esperaMaxima: 15
   verboseLogs: 1
@@ -4804,6 +4804,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1855939100}
+    - targetCorrespondingSourceObject: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1855939101}
   m_SourcePrefab: {fileID: 100100000, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
 --- !u!1001 &1108575987
 PrefabInstance:
@@ -10939,6 +10942,27 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &1855939101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1855939093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32bb3f6f303f4654f90a2398c59fe8ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MissionGiver
+  desafio: {fileID: 0}
+  misionId: MISION_NPC_03
+  objetivos: []
+  soloUnaVez: 1
+  requiereVolverParaEntregar: 0
+  zonaADesbloquear: {fileID: 0}
+  usarCinematicaDesbloqueo: 1
+  mensajeDesbloqueo: "\u2728 \xA1Nueva zona desbloqueada!"
+  mensajeMisionPendiente: "A\xFAn no has completado la misi\xF3n."
 --- !u!1001 &1887548408
 PrefabInstance:
   m_ObjectHideFlags: 0
