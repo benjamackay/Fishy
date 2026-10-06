@@ -1,0 +1,34 @@
+{
+  "zonas": [
+    {
+      "id": "zona_1",
+      "titulo": "Zona 1: Bosque de los Desconocidos",
+      "color": "#728A3E",
+      "colorTexto": "",
+      "terminos": [
+        { "termino": "Desconocido", "definicion": "Alguien que solo conoces por internet." },
+        { "termino": "Privacidad", "definicion": "Lo tuyo... tu casa, tu colegio, tus fotos." }
+      ]
+    },
+    {
+      "id": "zona_2",
+      "titulo": "Zona 2: Pantano de los Susurros",
+      "color": "#3D6E42",
+      "colorTexto": "",
+      "terminos": [
+        { "termino": "Rumor", "definicion": "Algo que se repite sin saber si es verdad." },
+        { "termino": "Ciberacoso", "definicion": "Molestar o dejar fuera a alguien por internet." }
+      ]
+    },
+    {
+      "id": "zona_3",
+      "titulo": "Zona 3: Arrecife de los Desafíos",
+      "color": "#69C4D4",
+      "colorTexto": "#000000",
+      "terminos": [
+        { "termino": "Presión social", "definicion": "Cuando el grupo te empuja a hacer algo." },
+        { "termino": "Reto viral", "definicion": "Un desafío que se graba y se sube." }
+      ]
+    }
+  ]
+}
