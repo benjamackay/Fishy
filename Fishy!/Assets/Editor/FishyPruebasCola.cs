@@ -83,6 +83,7 @@ namespace Fishy.EditorTools
 
             // ── Los interruptores de SaveManager ──
             ProbarInterruptorDeMomentos(log, cola);
+            ProbarGuardarActualizaLaFechaDeLaPartida(log, api);
 
             Limpiar(cola, api);
 
@@ -587,6 +588,47 @@ namespace Fishy.EditorTools
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(go);
+                SoltarInstancia(typeof(SaveManager));
+            }
+        }
+
+        private static void ProbarGuardarActualizaLaFechaDeLaPartida(StringBuilder log, ApiManager api)
+        {
+            // La lista de sesiones muestra fecha_update. Ningún guardado tocaba la fila de
+            // la partida —todo va a personaje, misiones, mochila…—, así que la fecha que
+            // se veía era la de creación. Cada guardado encola ahora un PATCH de la partida.
+            const int Jugador = 987654;
+            var go = new GameObject("SaveManagerDePrueba") { hideFlags = HideFlags.HideAndDontSave };
+            var save = go.AddComponent<SaveManager>();
+            save.verboseLogs = false;
+            save.esperaMinima = 0f;
+            save.momentosActivos = SaveManager.Momentos.CambioDeZona;
+            FijarInstancia(save);
+
+            try
+            {
+                Vaciar();
+                PartidaDto creada = null;
+                api.CrearPartida(Jugador, onSuccess: p => creada = p);
+                string antes = creada?.fecha_update;
+
+                // La fecha local lleva décimas de microsegundo, pero mejor no depender
+                // de que el reloj avance entre dos líneas.
+                System.Threading.Thread.Sleep(20);
+                Correr(save.GuardarYEsperar(SaveManager.Motivo.CambioDeZona, 5f));
+
+                List<PartidaDto> lista = null;
+                api.ObtenerPartidasJugador(Jugador, onSuccess: l => lista = l);
+                string despues = lista?.Find(p => creada != null && p.id == creada.id)?.fecha_update;
+
+                Comprobar(log, "Guardar actualiza la fecha de la partida que muestra la lista",
+                    antes != null && despues != null && string.CompareOrdinal(despues, antes) > 0,
+                    $"{antes ?? "null"} → {despues ?? "null"}");
+            }
+            finally
+            {
+                PlayerPrefs.DeleteKey($"fishy.partidas.{Jugador}");
                 UnityEngine.Object.DestroyImmediate(go);
                 SoltarInstancia(typeof(SaveManager));
             }

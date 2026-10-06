@@ -189,7 +189,14 @@ contra la base local. Cada uno trae la evidencia que lo motiva.
 
 ### D.1 — `fecha_update` no dice cuándo se guardó por última vez
 
-**Es el único CA que falla hoy.** El CA pide que la lista de sesiones muestre *"la fecha
+> **Resuelto desde Unity (2026-10-05), sin tocar el servidor.** Cada guardado encola un
+> `PATCH /partidas/{id}/` sin campos (`SaveManager`, clave `partida.ultimo_guardado`):
+> la vista guarda la fila y `auto_now` pone `fecha_update` al día, así que la lista
+> muestra el último guardado y se ordena por él. Lo de abajo queda como contexto; el
+> pedido al backend ya no hace falta, aunque seguiría siendo más exacto para escrituras
+> que no pasen por un guardado (ninguna, hoy).
+
+**Era el único CA que fallaba.** El CA pide que la lista de sesiones muestre *"la fecha
 y hora asociadas al último guardado de cada una"*, y muestra la de creación.
 
 `Partida.fecha_update` es `auto_now=True`, así que solo se actualiza **cuando se guarda la

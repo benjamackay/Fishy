@@ -160,6 +160,7 @@ del niño/a retrocedería.
 | `personaje` | Snapshot | `PersonajeBackendSync.MarcarSucio()` | `PATCH /partidas/{id}/personaje/` |
 | `inventario` | Snapshot | `InventarioBackendSync.MarcarSucio()` | `PUT /partidas/{id}/inventario/` |
 | `partida.progreso` | Snapshot | `ColaDeCambios.EncolarProgreso()` | `PATCH /partidas/{id}/` |
+| `partida.ultimo_guardado` | Snapshot | `SaveManager.Preparar()`, en cada guardado | `PATCH /partidas/{id}/` sin campos: pone al día `fecha_update`, que es la fecha y el orden de la lista de sesiones |
 | `objeto:{id}` | Append | `ObjetosRecogidosSync.Marcar()` | `POST /partidas/{id}/objetos-recogidos/` |
 | `npc:{id}` | Append | `NpcTematicaSync.Marcar()` | `POST /partidas/{id}/progreso-npcs/` |
 | `mision:{id}` | Append | `MisionBackendSync` | `POST /partidas/{id}/misiones/` |
