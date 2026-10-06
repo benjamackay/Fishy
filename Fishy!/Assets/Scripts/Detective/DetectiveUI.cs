@@ -401,7 +401,7 @@ namespace Fishy.Detective
                 : Txt.ResultadoSinSenales;
             _txtResultado.font = FuentePara(_txtResultado.text);
 
-            // Repetir solo se ofrece si le fue mal (< 50%); la explicación, siempre.
+            // Repetir solo se ofrece si le fue mal (50% o menos); la explicación, siempre.
             _btnRepetir.gameObject.SetActive(r.DebeOfrecerRepetir);
             _btnVerExplicacion.gameObject.SetActive(true);
             _noIdentificados = r.noIdentificados;

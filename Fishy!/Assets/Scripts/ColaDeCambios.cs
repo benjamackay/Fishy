@@ -219,8 +219,11 @@ namespace Fishy.Net
 
         [Header("Configuración")]
         [Tooltip("Cuántas peticiones se mandan a la vez al vaciar. Las cadenas (el chat) " +
-                 "siempre van de una en una, sin importar este valor.")]
-        [Min(1)] public int paralelismo = 4;
+                 "siempre van de una en una, sin importar este valor.\n\n" +
+                 "En 1 porque el servidor de pruebas atiende una petición a la vez: con " +
+                 "más, las que mandamos juntas esperan en su fila y vencen en grupo. Subirlo " +
+                 "solo sirve con un servidor que atienda varias a la vez.")]
+        [Min(1)] public int paralelismo = 1;
 
         [Tooltip("Avisar por consola si la cola crece por encima de esto sin vaciarse. " +
                  "Señal de que algún vaciado dejó de ocurrir.")]
@@ -249,6 +252,12 @@ namespace Fishy.Net
         private static readonly Almacen _almacen = new Almacen();
 
         private bool _vaciando;
+
+        /// <summary>
+        /// Hasta cuándo puede seguir el vaciado en curso. Es un campo y no una variable
+        /// local porque el último que pide guardar lo fija (ver <see cref="Vaciar"/>).
+        /// </summary>
+        private float _limite;
         private int _enVueloCola;
         private int _subidos;
         private int _fallidos;
@@ -449,10 +458,16 @@ namespace Fishy.Net
         public IEnumerator Vaciar(string motivo, float topeSegundos, bool reintentarSiFalla)
         {
             // Reentrante: un segundo llamador espera al que ya corre en vez de arrancar
-            // otro. Dos vaciados a la vez se pisarian el tope de tiempo y podrian mandar
-            // la misma entrada dos veces.
+            // otro. Dos vaciados a la vez podrian mandar la misma entrada dos veces.
+            //
+            // Pero el plazo pasa a ser el suyo, contado desde ahora: manda el ultimo que
+            // pidio guardar. El cambio de zona insiste mucho rato de fondo; sin esto,
+            // cerrar el juego en medio se quedaba esperando ese rato entero, callado, en
+            // vez de los segundos del cierre y luego preguntar. Y al reves, otro cambio de
+            // zona a mitad de un vaciado le da su plazo completo en vez de las sobras.
             if (_vaciando)
             {
+                _limite = Time.realtimeSinceStartup + Mathf.Max(0f, topeSegundos);
                 while (_vaciando) yield return null;
                 yield break;
             }
@@ -482,7 +497,7 @@ namespace Fishy.Net
             // Todo el tiempo va en realtime: MenuPausa pone Time.timeScale = 0 al
             // abrirse, y un WaitForSeconds aqui dejaria el juego colgado para siempre.
             float arranque = Time.realtimeSinceStartup;
-            float limite = arranque + Mathf.Max(0f, topeSegundos);
+            _limite = arranque + Mathf.Max(0f, topeSegundos);
 
             int alEmpezar = _almacen.Cuenta;
             if (verboseLogs)
@@ -496,22 +511,22 @@ namespace Fishy.Net
               // siguiente momento de guardado. Como los momentos son solo dos, ese
               // siguiente podia estar a media partida de distancia: un fallo de red de un
               // segundo dejaba el cambio sin subir durante media hora.
-              while (_almacen.Cuenta > 0 && Time.realtimeSinceStartup < limite)
+              while (_almacen.Cuenta > 0 && Time.realtimeSinceStartup < _limite)
               {
                 int subidosAlEmpezarLaRonda = _subidos;
 
                 foreach (var previsto in _almacen.Instantanea())
                 {
-                    if (Time.realtimeSinceStartup >= limite) break;
+                    if (Time.realtimeSinceStartup >= _limite) break;
 
                     // Una cadena no puede solaparse con nada: el chat usa NpcId y ChatId
                     // de ApiManager, que son estado global y se pisarian.
                     bool esCadena = previsto.Familia == Familia.Cadena;
                     int hueco = esCadena ? 1 : Mathf.Max(1, paralelismo);
 
-                    while (_enVueloCola >= hueco && Time.realtimeSinceStartup < limite)
+                    while (_enVueloCola >= hueco && Time.realtimeSinceStartup < _limite)
                         yield return null;
-                    if (Time.realtimeSinceStartup >= limite) break;
+                    if (Time.realtimeSinceStartup >= _limite) break;
 
                     // Se toma lo que hay AHORA bajo esta clave, no la copia de arriba: si
                     // mientras se esperaba un hueco entró un dato más nuevo, es ese el
@@ -532,14 +547,22 @@ namespace Fishy.Net
                         continue;
                     }
 
-                    api.TopeDeTiempoParaPeticiones = SegundosHasta(limite);
-
                     _enVueloCola++;
                     _enVueloClaves.Add(cambio.Clave);
                     _intentados++;
 
                     var c = cambio;
                     bool reintentar = reintentarSiFalla;
+
+                    // El plazo recorta solo ESTA peticion: se pone justo antes de mandarla
+                    // y se quita en cuanto sale. ApiManager lee el timeout al crear la
+                    // peticion, dentro de esta misma llamada, asi que lo que se pida en
+                    // cualquier otro momento —las lecturas de los sincronizadores, un
+                    // dialogo— conserva su timeout normal. Antes el recorte duraba todo el
+                    // vaciado y les cortaba las lecturas a los demas.
+                    api.TopeDeTiempoParaPeticiones = SegundosHasta(_limite);
+                    try
+                    {
                     c.Resolver()(
                         () =>
                         {
@@ -563,10 +586,15 @@ namespace Fishy.Net
                             _almacen.Reencolar(c);
                             _ultimoError = error;
                         });
+                    }
+                    finally
+                    {
+                        api.TopeDeTiempoParaPeticiones = null;
+                    }
 
                     // La cadena se espera entera antes de seguir.
                     if (esCadena)
-                        while (_enVueloCola > 0 && Time.realtimeSinceStartup < limite)
+                        while (_enVueloCola > 0 && Time.realtimeSinceStartup < _limite)
                             yield return null;
                 }
 
@@ -575,7 +603,7 @@ namespace Fishy.Net
                 // aire. Se mira tambien el contador de ApiManager porque una operacion
                 // puede haber llamado a su callback con otra peticion encadenada viva.
                 while ((_enVueloCola > 0 || api.PeticionesEnVuelo > 0) &&
-                       Time.realtimeSinceStartup < limite + Gracia)
+                       Time.realtimeSinceStartup < _limite + Gracia)
                     yield return null;
 
                 if (_almacen.Cuenta == 0 || !reintentarSiFalla) break;
@@ -586,7 +614,7 @@ namespace Fishy.Net
                 // timeScale en cero- y se vuelve a probar.
                 if (_subidos == subidosAlEmpezarLaRonda)
                 {
-                    float queda = limite - Time.realtimeSinceStartup;
+                    float queda = _limite - Time.realtimeSinceStartup;
                     if (queda <= 0f) break;
                     yield return new WaitForSecondsRealtime(Mathf.Min(EsperaEntreRondas, queda));
                 }

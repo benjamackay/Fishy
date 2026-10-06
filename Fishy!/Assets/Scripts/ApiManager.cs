@@ -82,13 +82,14 @@ namespace Fishy.Net
         public int PeticionesEnVuelo => _enVuelo;
 
         /// <summary>
-        /// Recorta el timeout de las peticiones mientras dure un vaciado con plazo.
-        /// Null = usar <c>timeoutSeconds</c>.
+        /// Recorta el timeout de la peticion que se cree mientras este puesto. Solo
+        /// recorta: nunca pasa de <c>timeoutSeconds</c>. Null = usar <c>timeoutSeconds</c>.
         ///
-        /// Sin esto, al cerrar el juego una peticion podria seguir viva despues de que
-        /// el vaciado se haya rendido: se le diria al nino/a que su avance se perdio
-        /// cuando todavia podia llegar. Acotando cada peticion a lo que le queda al
-        /// plazo, al vencer este ya todas reportaron su resultado de verdad.
+        /// Lo pone la cola de guardado alrededor del envio de cada cambio, y solo ahi:
+        /// el timeout se lee al crear la peticion, en la misma llamada que la manda. Sin
+        /// esto, al cerrar el juego una peticion podria seguir viva despues de que el
+        /// vaciado se haya rendido: se le diria al nino/a que su avance se perdio cuando
+        /// todavia podia llegar.
         ///
         /// Quien lo pone es responsable de devolverlo a null en un <c>finally</c>, o el
         /// juego se queda con timeouts cortos para el resto de la sesion.
@@ -1410,7 +1411,9 @@ namespace Fishy.Net
                 string url = baseUrl + path;
 
                 using var req = new UnityWebRequest(url, method);
-                req.timeout = TopeDeTiempoParaPeticiones ?? timeoutSeconds;
+                req.timeout = TopeDeTiempoParaPeticiones.HasValue
+                    ? Mathf.Min(TopeDeTiempoParaPeticiones.Value, timeoutSeconds)
+                    : timeoutSeconds;
                 req.downloadHandler = new DownloadHandlerBuffer();
 
                 if (body != null)
