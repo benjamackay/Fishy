@@ -80,6 +80,8 @@ namespace Fishy.EditorTools
             ProbarVolverAlMenuNoPisaLaPosicion(log, cola, api);
             ProbarSelloDePartida(log, cola, api);
             ProbarTopeDeTiempoSeRestaura(log, cola, api);
+            ProbarElPlazoSoloRecortaLosEnviosDeLaCola(log, cola, api);
+            ProbarElUltimoGuardadoFijaElPlazo(log, cola, api);
 
             // ── Los interruptores de SaveManager ──
             ProbarInterruptorDeMomentos(log, cola);
@@ -540,6 +542,98 @@ namespace Fishy.EditorTools
             Comprobar(log, "El tope de tiempo vuelve a null aunque el vaciado falle",
                 api.TopeDeTiempoParaPeticiones == null,
                 $"quedó en {(api.TopeDeTiempoParaPeticiones?.ToString() ?? "null")}");
+        }
+
+        private static void ProbarElPlazoSoloRecortaLosEnviosDeLaCola(
+            StringBuilder log, ColaDeCambios cola, ApiManager api)
+        {
+            // El recorte duraba todo el vaciado, así que cualquier lectura que otro sistema
+            // lanzara mientras tanto —un diálogo, la mochila— heredaba el plazo y se cortaba.
+            Vaciar();
+            UsarPartida(api, PartidaA);
+
+            int? duranteElEnvio = null;
+            Action terminar = null;
+            ColaDeCambios.EncolarAppend("objeto:LENTO", (ok, error) =>
+            {
+                duranteElEnvio = api.TopeDeTiempoParaPeticiones;
+                terminar = ok;
+            });
+
+            var vaciado = new Rutina(cola.Vaciar("prueba", 30f, reintentarSiFalla: true));
+            for (int i = 0; i < 10 && terminar == null; i++) vaciado.Paso();
+
+            // Con el envío en el aire: aquí es donde otro sistema lanzaría su lectura.
+            int? entreEnvios = api.TopeDeTiempoParaPeticiones;
+
+            terminar?.Invoke();
+            vaciado.HastaElFinal();
+
+            Comprobar(log, "El plazo del guardado recorta su envío y no las demás peticiones",
+                duranteElEnvio != null && entreEnvios == null,
+                $"durante el envío={duranteElEnvio?.ToString() ?? "null"}, " +
+                $"entre envíos={entreEnvios?.ToString() ?? "null"}");
+        }
+
+        private static void ProbarElUltimoGuardadoFijaElPlazo(
+            StringBuilder log, ColaDeCambios cola, ApiManager api)
+        {
+            // El cambio de zona insiste mucho rato de fondo. Si el cierre llega en medio,
+            // tiene que mandar su plazo corto: si no, el juego se quedaba esperando el
+            // rato entero, callado, antes de preguntar.
+            Vaciar();
+            UsarPartida(api, PartidaA);
+            ColaDeCambios.EncolarAppend("objeto:COLGADO", (ok, error) => { /* nunca contesta */ });
+
+            var largo = new Rutina(cola.Vaciar("zona", 45f, reintentarSiFalla: true));
+            largo.Paso();
+
+            float desde = Time.realtimeSinceStartup;
+            var corto = new Rutina(cola.Vaciar("cierre", 1f, reintentarSiFalla: true));
+
+            // Los dos avanzan a la vez, como los movería Unity.
+            while ((largo.Vivo || corto.Vivo) && Time.realtimeSinceStartup - desde < 10f)
+            {
+                largo.Paso();
+                corto.Paso();
+            }
+            float duro = Time.realtimeSinceStartup - desde;
+
+            Comprobar(log, "Un guardado corto que llega en medio acorta el largo que corre",
+                !largo.Vivo && !corto.Vivo && duro < 5f, $"terminaron en {duro:F1} s");
+
+            Vaciar();
+        }
+
+        /// <summary>
+        /// Una corrutina que se avanza a mano, de a un "frame". <see cref="Correr"/> la
+        /// lleva hasta el final de una vez; esto hace falta para mirar el estado en medio
+        /// o para mover dos a la vez.
+        /// </summary>
+        private sealed class Rutina
+        {
+            private readonly Stack<IEnumerator> _pila = new Stack<IEnumerator>();
+
+            public Rutina(IEnumerator rutina) => _pila.Push(rutina);
+
+            public bool Vivo => _pila.Count > 0;
+
+            public void Paso()
+            {
+                while (_pila.Count > 0)
+                {
+                    var actual = _pila.Peek();
+                    if (!actual.MoveNext()) { _pila.Pop(); continue; }
+                    if (actual.Current is IEnumerator hijo) { _pila.Push(hijo); continue; }
+                    return;
+                }
+            }
+
+            public void HastaElFinal(float tope = 30f)
+            {
+                float limite = Time.realtimeSinceStartup + tope;
+                while (Vivo && Time.realtimeSinceStartup < limite) Paso();
+            }
         }
 
         // ── Los interruptores ─────────────────────────────────────────────────

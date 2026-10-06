@@ -81,9 +81,13 @@ namespace Fishy.World
         public Momentos momentosActivos =
             Momentos.CambioDeZona | Momentos.CierreDeAplicacion | Momentos.Disparador;
 
-        [Tooltip("Segundos máximos que puede tardar un vaciado normal (cambio de zona).")]
+        [Tooltip("Segundos que se sigue insistiendo en subir la cola tras un cambio de " +
+                 "zona. Corre de fondo y no frena el juego, así que puede ser largo: con un " +
+                 "servidor que tarda ~2 s por petición, 8 s solo alcanzaban para 4 cambios " +
+                 "y la cola crecía más rápido de lo que se vaciaba. Si mientras tanto llega " +
+                 "otro guardado —el cierre, otro cambio de zona—, manda el plazo de ese.")]
         [Min(0f)]
-        public float topeNormal = 8f;
+        public float topeNormal = 45f;
 
         [Tooltip("Segundos máximos que se retiene el cierre del juego esperando a que " +
                  "suba todo. Pasados, se le pregunta al jugador si espera más o cierra.")]

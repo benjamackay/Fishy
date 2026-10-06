@@ -18,7 +18,7 @@ cerrar el juego.
 
 | Momento | Quién lo dispara | Tope | Reintenta |
 |---|---|---|---|
-| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | **Insiste hasta vaciar la cola** |
+| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 45 s, de fondo | **Insiste hasta vaciar la cola** |
 | **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s, y después **pregunta** | Sí, y el juego no cierra hasta vaciar |
 | **Manual** | Una prueba (el menú de pausa usa el del cierre, ver §5) | `topeNormal` | Sí |
 | **Disparador** | Un `GuardarPartida` en la escena, enganchado a un evento | el `tope` del componente (10 s) | Sí |
@@ -268,14 +268,26 @@ El juego afirmaba que falló algo que a los 12 s todavía podía tener éxito. S
 **acotando cada petición a lo que le quede al vaciado**, no con un aviso mejor:
 
 ```csharp
-// ApiManager
+// ApiManager: el tope solo recorta, nunca alarga
 public int? TopeDeTiempoParaPeticiones { get; set; }   // null = usar timeoutSeconds
-req.timeout = TopeDeTiempoParaPeticiones ?? timeoutSeconds;
+req.timeout = tope.HasValue ? Mathf.Min(tope.Value, timeoutSeconds) : timeoutSeconds;
 ```
 
-La cola lo fija antes de cada envío y lo devuelve a `null` en un `finally`: es estado
-global, y si un fallo lo dejara puesto, **todas** las peticiones del resto de la sesión
-heredarían un timeout de segundos y empezarían a fallar sin motivo aparente.
+La cola lo fija **justo antes de mandar cada cambio** y lo devuelve a `null` en un
+`finally` en cuanto la petición sale: `ApiManager` lee el timeout al crearla, en esa
+misma llamada. Antes duraba todo el vaciado, y cualquier lectura que otro sistema lanzara
+mientras tanto —un diálogo, la mochila— heredaba el recorte y se cortaba. Es estado
+global: si un fallo lo dejara puesto, todas las peticiones del resto de la sesión
+heredarían un timeout de segundos.
+
+### Un vaciado a la vez, con el plazo del último que pidió
+
+`Vaciar` es reentrante: si ya hay uno corriendo, el segundo llamador no arranca otro
+(mandarían la misma entrada dos veces), espera a que termine el que corre. Pero **el
+plazo pasa a ser el suyo, contado desde ese momento**. Importa por el plazo largo del
+cambio de zona: si el jugador cierra a mitad de esos 45 s, el cierre impone sus 10 s y
+pregunta, en vez de quedarse esperando el rato entero sin decir nada. Y otro cambio de
+zona a mitad del vaciado le da su plazo completo, no las sobras.
 
 ### Los cuatro finales de un vaciado
 
@@ -345,7 +357,7 @@ perfil, el riesgo vuelve. Descartar **no** cuenta como cambio perdido.
 |---|---|---|
 | `momentosActivos` | `CambioDeZona \| CierreDeAplicacion` | En qué momentos se vacía |
 | `esperaMinima` | 1 s | Mínimo entre dos guardados. Caminar sobre el borde de dos zonas dispara cambios en cadena; esto los agrupa. **El cierre se la salta** |
-| `topeNormal` | 8 s | Plazo de un vaciado por cambio de zona |
+| `topeNormal` | 45 s | Plazo de un vaciado por cambio de zona. Corre de fondo: con un servidor de ~2 s por petición, 8 s alcanzaban para 4 cambios y la cola crecía |
 | `topeDeCierre` | 10 s | Cuánto se retiene el cierre antes de preguntar |
 | `verboseLogs` | true | Escribe cada guardado y su motivo |
 
@@ -353,7 +365,7 @@ perfil, el riesgo vuelve. Descartar **no** cuenta como cambio perdido.
 
 | Campo | Por defecto | Qué hace |
 |---|---|---|
-| `paralelismo` | 4 | Peticiones a la vez. Las cadenas van de una en una pase lo que pase |
+| `paralelismo` | 1 | Peticiones a la vez. En 1 porque el servidor de pruebas atiende de a una: con más, esperan juntas en su fila y vencen en grupo. Las cadenas van de una en una pase lo que pase |
 | `avisarPorEncimaDe` | 200 | Avisa si la cola crece tanto sin vaciarse: señal de que algún vaciado dejó de ocurrir |
 | `verboseLogs` | true | Escribe cada cambio que entra y cada vaciado |
 
