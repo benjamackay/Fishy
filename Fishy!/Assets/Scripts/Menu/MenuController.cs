@@ -43,12 +43,18 @@ public class MenuController : MonoBehaviour
 
     RawImage backdrop;
     GameObject canvasPropio;
+    GameObject botonCerrar;
     OttoController otto;
     bool bloqueamosAOtto;
     Texture2D snapshot;
     Coroutine opening;      // preparando la apertura: esperando al final del frame para la captura
     Coroutine animacion;    // subiendo o bajando
     bool cerrando;
+
+    // El panel está abierto a la fuerza y no se puede cerrar por los medios de
+    // siempre: lo usa el diccionario de zona, que tiene que leerse entero antes de
+    // volver al juego. Mientras dura, el botón rojo se esconde y Tab no responde.
+    bool modal;
 
     // Dónde está el panel cuando está abierto. Se lee del propio objeto en Start, así que
     // si se mueve o se reescala en la escena, la animación termina donde lo dejaste.
@@ -76,7 +82,7 @@ public class MenuController : MonoBehaviour
 
     void Update()
     {
-        if (menuCanvas != null && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+        if (menuCanvas != null && !modal && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
             Alternar();
     }
 
@@ -171,6 +177,7 @@ public class MenuController : MonoBehaviour
         boton.onClick.AddListener(Close);
 
         raiz.transform.SetAsLastSibling();
+        botonCerrar = raiz;
     }
 
     static Image Circulo(string nombre, Transform padre, Color color, float diametro)
@@ -227,10 +234,43 @@ public class MenuController : MonoBehaviour
         }
     }
 
+    /// <summary>El panel está abierto a la fuerza: no se cierra con la X ni con Tab.</summary>
+    public bool EsModal => modal;
+
+    /// <summary>
+    /// Abre el panel y lo deja bloqueado: sin botón de cerrar y sordo a Tab. Es para
+    /// pantallas que el niño/a tiene que atender antes de seguir, como el diccionario
+    /// al entrar a una zona nueva. Quien lo abre es también quien lo suelta, con
+    /// <see cref="SoltarModal"/>.
+    ///
+    /// Devuelve false si no se pudo: con el panel ya abierto, o cuando hay un
+    /// diálogo, un chat o una cinemática en medio (<see cref="PuedeAbrir"/>). En ese
+    /// caso quien llama decide si reintenta más tarde o se olvida.
+    /// </summary>
+    public bool AbrirModal()
+    {
+        if (menuCanvas == null || menuCanvas.activeSelf || opening != null) return false;
+        if (!PuedeAbrir) return false;
+
+        modal = true;
+        if (botonCerrar != null) botonCerrar.SetActive(false);
+        opening = StartCoroutine(Open());
+        return true;
+    }
+
+    /// <summary>Levanta el bloqueo. Con <paramref name="cerrar"/> el panel además baja,
+    /// que es lo que se quiere al pulsar "Entendido".</summary>
+    public void SoltarModal(bool cerrar = true)
+    {
+        modal = false;
+        if (botonCerrar != null) botonCerrar.SetActive(true);
+        if (cerrar) Close();
+    }
+
     /// <summary>Abre o cierra el menú. Lo llaman la tecla Tab y el botón del celular.</summary>
     public void Alternar()
     {
-        if (menuCanvas == null) return;
+        if (menuCanvas == null || modal) return;
 
         if (opening != null) { StopCoroutine(opening); opening = null; return; }
         if (!menuCanvas.activeSelf)
@@ -317,6 +357,11 @@ public class MenuController : MonoBehaviour
 
     public void Close()
     {
+        // Mientras está bloqueado sólo lo suelta quien lo abrió. El botón rojo ya
+        // está escondido y Tab no llega hasta aquí, pero Close() es público y lo
+        // llama más gente (el botón del celular, otras pantallas).
+        if (modal) return;
+
         // Sin panel abierto, o con este componente apagado (no puede correr una animación),
         // se cierra en seco.
         if (menuCanvas == null || !menuCanvas.activeSelf || !isActiveAndEnabled)
@@ -400,6 +445,12 @@ public class MenuController : MonoBehaviour
         if (animacion != null) { StopCoroutine(animacion); animacion = null; }
         cerrando = false;
         progreso = 0f;
+
+        // El bloqueo no sobrevive al cierre: si el panel se fue abajo por OnDisable
+        // o por un cambio de escena, dejarlo puesto condenaría al siguiente Tab a no
+        // hacer nada y no habría forma de recuperarlo.
+        modal = false;
+        if (botonCerrar != null) botonCerrar.SetActive(true);
 
         if (menuCanvas != null) menuCanvas.SetActive(false);
         if (backdrop != null) backdrop.gameObject.SetActive(false);
