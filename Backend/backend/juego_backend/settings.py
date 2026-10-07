@@ -45,6 +45,21 @@ DEFAULT_EXCEPTION_REPORTER_FILTER = "juego_backend.filtros_error.FiltroCredencia
 
 ALLOWED_HOSTS = ["*"]  # Restringir en producción
 
+# El portal en cPanel usa tokens en Authorization, sin cookies entre dominios.
+# Los dominios oficiales siempre están habilitados, incluso si Railway guarda
+# CORS_ALLOWED_ORIGINS vacío. La variable permite agregar otros orígenes exactos.
+CORS_ALLOWED_ORIGINS = [
+    "https://fishygame.cl",
+    "https://www.fishygame.cl",
+] + [
+    origen.strip()
+    for origen in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origen.strip()
+]
+CORS_URLS_REGEX = r"^/api/.*$"
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = False
+
 # ─── Aplicaciones ─────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -54,6 +69,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Terceros
+    "corsheaders",
     "rest_framework",
     "rest_framework.authtoken",
     # Propias
@@ -62,6 +78,7 @@ INSTALLED_APPS = [
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
