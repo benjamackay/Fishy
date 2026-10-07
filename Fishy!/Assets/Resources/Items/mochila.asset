@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_MOCHILA
   itemName: Mochila
-  itemIcon: {fileID: 0}
+  itemIcon: {fileID: 8388893963358455590, guid: 46f6bee341a8c9e43911d18a5f28958f, type: 3}
   itemDescription: 
   itemType: 0

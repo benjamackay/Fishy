@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: ITEM_ROCA
   itemName: Piedra mascota
-  itemIcon: {fileID: 0}
-  itemDescription: 
+  itemIcon: {fileID: 2168131663611713334, guid: ec7b77f01c25ef44b901ae8178cdeabc, type: 3}
+  itemDescription: Una adorable piedra.
   itemType: 0
