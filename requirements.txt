@@ -7,3 +7,4 @@ python-decouple
 argon2-cffi
 gunicorn
 django-cors-headers>=4.3
+django-anymail[brevo]>=13.0
