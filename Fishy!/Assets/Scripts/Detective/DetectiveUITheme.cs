@@ -250,6 +250,20 @@ namespace Fishy.Detective
             public static float EspaciadoExplicaciones = 15f;
             public static RectOffset PaddingExplicacion => new RectOffset(21, 21, 15, 15);
 
+            /// <summary>Lo que la tarjeta de resultado deja libre arriba y abajo de la
+            /// pantalla. Las explicaciones se desplazan dentro de la tarjeta para que
+            /// esta nunca pase de ahí.</summary>
+            public static float MargenPantallaResultado = 40f;
+
+            /// <summary>Alto mínimo de la zona de explicaciones, aunque la pantalla sea
+            /// tan baja que no quede sitio: mejor desplazar que no ver nada.</summary>
+            public static float AltoMinimoExplicaciones = 180f;
+
+            /// <summary>Barra de desplazamiento de las explicaciones. Solo aparece cuando
+            /// no caben; el hueco a su izquierda evita que tape las tarjetas.</summary>
+            public static float AnchoBarraExplicaciones = 10f;
+            public static float HuecoBarraExplicaciones = 16f;
+
             // Header
             public static Vector2 TamanoAvatar = new Vector2(60f, 60f);
             public static float MargenAvatar = 21f;
