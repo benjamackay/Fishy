@@ -2567,6 +2567,10 @@ PrefabInstance:
       value: HDU3_M3_TESTIMONIO_PATO
       objectReference: {fileID: 0}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: dialogueData
+      value: 
+      objectReference: {fileID: 11400000, guid: d8d678b1def1ff4468d9499dce738caf, type: 2}
+    - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueText
       value: 
       objectReference: {fileID: 1810352996}
@@ -3817,7 +3821,7 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 2.47, y: 1.49}
+    oldSize: {x: 2.01, y: 2.28}
     newSize: {x: 1, y: 1}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -3913,7 +3917,7 @@ Transform:
   m_GameObject: {fileID: 672780584}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -32.440002, y: 33.14, z: 0}
+  m_LocalPosition: {x: -33.14, y: 32.52, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5617,6 +5621,10 @@ PrefabInstance:
       propertyPath: dialogoId
       value: HDU3_M3_TESTIMONIO_FLAMENCO
       objectReference: {fileID: 0}
+    - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: dialogueData
+      value: 
+      objectReference: {fileID: 11400000, guid: b580dbb5d8fd68b45af4356a30e32f57, type: 2}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueText
       value: 
@@ -7991,7 +7999,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1451793347
 SpriteRenderer:
   serializedVersion: 2
@@ -10867,11 +10875,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -27.44
+      value: 25.78
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 36.14
+      value: 41.58
       objectReference: {fileID: 0}
     - target: {fileID: 993024584131401086, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_LocalPosition.z
@@ -10973,6 +10981,10 @@ PrefabInstance:
       propertyPath: dialogoId
       value: HDU1_SEC_FLAMENCO_MEGAFONO
       objectReference: {fileID: 0}
+    - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: dialogueData
+      value: 
+      objectReference: {fileID: 11400000, guid: b580dbb5d8fd68b45af4356a30e32f57, type: 2}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: dialogueText
       value: 
