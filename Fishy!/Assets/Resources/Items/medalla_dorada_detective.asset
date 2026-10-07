@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: medalla_dorada_detective
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: MEDALLA_DORADA_DETECTIVE
-  itemName: "Medalla Dorada de Gran Detective Digital"
-  itemIcon: {fileID: -5502465461007319794, guid: 9b8132a2f0f189b4d8f29d442f127e98, type: 3}
-  itemDescription: "Final A: la br\xFAjula brilla. Pensaste antes de actuar en toda la aventura."
+  itemName: Medalla Dorada de Gran Detective Digital
+  itemIcon: {fileID: 21300000, guid: f9462dcacf975784985a17e4979502e3, type: 3}
+  itemDescription: "Final A: la br\xFAjula brilla. Pensaste antes de actuar en toda
+    la aventura."
   itemType: 1
