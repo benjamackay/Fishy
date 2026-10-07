@@ -77,7 +77,13 @@ public class ZoneMarker : MonoBehaviour
         Instance = this;
 
         ConstruirUI();
-        Ocultar();
+
+        // A mano y no con Ocultar(): Apuntar(null) no hace nada si la zona ya era null,
+        // que es justo como nace el marcador. La flecha se construye visible, así que se
+        // quedaba en el centro de la pantalla —encima de Otto, apuntando a la derecha—
+        // hasta que alguien pidiera una zona de verdad. Al volver a entrar a una partida
+        // cuya misión activa no señala ninguna zona, eso no pasaba nunca.
+        if (_raiz != null) _raiz.SetActive(false);
     }
 
     private void OnDestroy()

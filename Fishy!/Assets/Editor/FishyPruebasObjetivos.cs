@@ -82,6 +82,7 @@ namespace Fishy.EditorTools
                 ProbarHistorialCumpleObjetivosDeAntes(log);
                 ProbarHistorialYElCambioDePartida(log);
                 ProbarObjetivosDelInspectorSeNumeran(log, tracker);
+                ProbarLaFlechaDeZonaNaceEscondida(log);
             }
             finally
             {
@@ -400,6 +401,43 @@ namespace Fishy.EditorTools
             => typeof(MissionTracker)
                 .GetProperty("Instance", BindingFlags.Static | BindingFlags.Public)
                 ?.GetSetMethod(nonPublic: true)?.Invoke(null, new object[] { null });
+
+        /// <summary>
+        /// La flecha de zona se construía visible y su "esconder" inicial no hacía nada
+        /// (la zona ya era null). Al volver a entrar a una partida cuya misión activa no
+        /// señala ninguna zona, se quedaba clavada encima de Otto apuntando a la derecha.
+        /// </summary>
+        private static void ProbarLaFlechaDeZonaNaceEscondida(StringBuilder log)
+        {
+            var go = new GameObject("ZoneMarkerDePrueba") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var marcador = go.AddComponent<ZoneMarker>();
+                marcador.verboseLogs = false;
+                // En modo edición Unity no llama a Awake.
+                typeof(ZoneMarker).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.Invoke(marcador, null);
+
+                bool alNacer = marcador.Visible;
+                marcador.Apuntar(null);
+                bool sinZona = marcador.Visible;
+                marcador.Apuntar("zona_1");
+                bool conZona = marcador.Visible;
+                marcador.Apuntar(null);
+                bool otraVezSinZona = marcador.Visible;
+
+                Comprobar(log, "La flecha de zona nace escondida y solo sale con una zona",
+                    !alNacer && !sinZona && conZona && !otraVezSinZona,
+                    $"al nacer={alNacer}, sin zona={sinZona}, con zona={conZona}, " +
+                    $"otra vez sin zona={otraVezSinZona}");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                typeof(ZoneMarker).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public)
+                    ?.GetSetMethod(nonPublic: true)?.Invoke(null, new object[] { null });
+            }
+        }
 
         private static void Comprobar(StringBuilder log, string que, bool paso, string detalle)
         {
