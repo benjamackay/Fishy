@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Fishy.Net;
 using UnityEngine;
 
@@ -382,7 +383,7 @@ namespace Fishy.Chat
                         var consecNode = new ChatNode
                         {
                             id         = consecNodeId,
-                            text       = op.consecuencia_narrativa ?? "",
+                            text       = QuitarNotasDelContador(op.consecuencia_narrativa),
                             kind       = ChatMessageKind.Neutral,
                             isSystem   = true,
                             closesChat = consecFin,
@@ -486,7 +487,7 @@ namespace Fishy.Chat
                         allNodes.Add(new ChatNode
                         {
                             id         = consecNodeId,
-                            text       = op.consecuencia_narrativa ?? "",
+                            text       = QuitarNotasDelContador(op.consecuencia_narrativa),
                             kind       = ChatMessageKind.Neutral,
                             isSystem   = true,
                             closesChat = termina,
@@ -594,7 +595,7 @@ namespace Fishy.Chat
                         allNodes.Add(new ChatNode
                         {
                             id = consecNodeId,
-                            text = op.consecuencia_narrativa ?? "",
+                            text = QuitarNotasDelContador(op.consecuencia_narrativa),
                             kind = ChatMessageKind.Neutral,
                             isSystem = true,
                             closesChat = termina,
@@ -812,6 +813,32 @@ namespace Fishy.Chat
                     if (!string.IsNullOrEmpty(h.npc_nombre)) return h.npc_nombre;
             }
             return "Desconocido";
+        }
+
+        /// <summary>
+        /// Las notas del contador de rechazos que trae el banco al final de algunas
+        /// consecuencias. Son para el equipo, no para el jugador: «Cuenta como rechazo
+        /// consecutivo», «El conteo de rechazos vuelve a 0», «Segundo rechazo
+        /// consecutivo: se activa la presión intensificada en la Misión 6». El contador lo
+        /// lleva el código (la presión social del backend, RechazosEnChats), no el texto.
+        /// </summary>
+        private static readonly Regex NotaDelContador = new Regex(
+            @"\s*(?:(?:Primer|Segundo|Tercer)\s+rechazo\s+consecutivo" +
+            @"|Cuenta(?:\s+igual)?\s+como\s+rechazo\s+consecutivo" +
+            @"|El\s+conteo\s+de\s+rechazos)\b.*$",
+            RegexOptions.Singleline);
+
+        /// <summary>
+        /// El texto de una consecuencia sin la nota final del contador de rechazos.
+        ///
+        /// Se limpia aquí, al cargar, y no en el banco: el juego toma el banco del
+        /// servidor cuando hay conexión, así que corregir solo el archivo no llegaría a
+        /// la pantalla. Siempre van al final, así que se corta desde donde empieza la nota.
+        /// </summary>
+        public static string QuitarNotasDelContador(string consecuencia)
+        {
+            if (string.IsNullOrEmpty(consecuencia)) return consecuencia ?? "";
+            return NotaDelContador.Replace(consecuencia, "").TrimEnd();
         }
 
         /// <summary>
