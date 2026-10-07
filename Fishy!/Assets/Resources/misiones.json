@@ -135,7 +135,15 @@
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
       "orden": 60,
-      "objetivos": []
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_MEGAFONO",
+          "cantidad": 1,
+          "descripcion": "Busca el megáfono entre los juncos"
+        }
+      ]
     },
     {
       "mision_id": "MISION_PANTANO_CRIATURAS",

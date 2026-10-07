@@ -58,6 +58,8 @@ namespace Fishy.EditorTools
             ProbarQueNoSeDibujanLasEtiquetas(log);
             ProbarQueUnCorcheteNormalSeRespeta(log);
             ProbarElPensamientoDeOttoLlegaAlNodo(log);
+            ProbarLasNotasDelContadorNoSeDibujan(log);
+            ProbarNingunaConsecuenciaDelBancoMuestraElContador(log);
 
             // Devolver el banco de verdad: las pruebas metieron uno de cuatro preguntas
             // en la caché estática, y si se corren desde el menú el siguiente Play se lo
@@ -308,6 +310,81 @@ namespace Fishy.EditorTools
 
             Comprobar(log, "Un corchete en minúsculas se respeta como contenido",
                 salida == "[mira esto] dijo el pato.", $"quedó '{salida}'");
+        }
+
+        // ── Notas del contador de rechazos ────────────────────────────────────
+
+        /// <summary>
+        /// Las consecuencias del banco traen al final notas para el equipo sobre el
+        /// contador de rechazos, y el chat las dibujaba: «Segundo rechazo consecutivo: se
+        /// activa la presión intensificada en la Misión 6» le salía al jugador.
+        /// </summary>
+        private static void ProbarLasNotasDelContadorNoSeDibujan(StringBuilder log)
+        {
+            var casos = new (string entrada, string esperado)[]
+            {
+                ("Lobo Marino 2 queda pensativo: 'Ni yo me metería ahí...' Segundo rechazo " +
+                 "consecutivo: se activa la presión intensificada en la Misión 6.",
+                 "Lobo Marino 2 queda pensativo: 'Ni yo me metería ahí...'"),
+                ("Otto asiente: 'Está bien no seguirle el juego a la presión.' Cuenta como " +
+                 "rechazo consecutivo.",
+                 "Otto asiente: 'Está bien no seguirle el juego a la presión.'"),
+                ("Otto entra a la cueva y la corriente lo arrastra un tramo. El conteo de " +
+                 "rechazos vuelve a 0.",
+                 "Otto entra a la cueva y la corriente lo arrastra un tramo."),
+                ("Otto asiente: 'Mirar desde la orilla también es una forma de cuidarse.' " +
+                 "Cuenta igual como rechazo consecutivo.",
+                 "Otto asiente: 'Mirar desde la orilla también es una forma de cuidarse.'"),
+                // Sin nota: queda igual, aunque hable de presión.
+                ("Foca de Weddell lo ayuda a subir: la presión de un grupo entero tampoco es " +
+                 "motivo para arriesgarse.",
+                 "Foca de Weddell lo ayuda a subir: la presión de un grupo entero tampoco es " +
+                 "motivo para arriesgarse."),
+            };
+
+            var mal = new List<string>();
+            foreach (var (entrada, esperado) in casos)
+            {
+                string salida = BancoPreguntasLoader.QuitarNotasDelContador(entrada);
+                if (salida != esperado) mal.Add($"'{salida}'");
+            }
+
+            Comprobar(log, "Las notas del contador de rechazos no llegan al chat",
+                mal.Count == 0, mal.Count == 0 ? $"{casos.Length} casos" : string.Join(" | ", mal));
+        }
+
+        /// <summary>Lo mismo contra el banco de verdad: ninguna consecuencia, ya limpia,
+        /// habla del contador ni se queda vacía.</summary>
+        private static void ProbarNingunaConsecuenciaDelBancoMuestraElContador(StringBuilder log)
+        {
+            var asset = Resources.Load<TextAsset>("banco_preguntas");
+            var banco = asset != null ? JsonUtility.FromJson<BancoRaiz>(asset.text) : null;
+            if (banco?.preguntas == null)
+            {
+                Comprobar(log, "Ninguna consecuencia del banco muestra el contador", false,
+                          "no se pudo leer Resources/banco_preguntas.json");
+                return;
+            }
+
+            int revisadas = 0;
+            var mal = new List<string>();
+            foreach (var p in banco.preguntas)
+            {
+                if (p.opciones_respuesta == null) continue;
+                foreach (var o in p.opciones_respuesta)
+                {
+                    if (string.IsNullOrEmpty(o.consecuencia_narrativa)) continue;
+                    revisadas++;
+                    string limpia = BancoPreguntasLoader.QuitarNotasDelContador(o.consecuencia_narrativa);
+                    if (limpia.Length == 0 || limpia.Contains("rechazo consecutivo") ||
+                        limpia.Contains("conteo de rechazos") || limpia.Contains("Misión 6"))
+                        mal.Add($"{o.id}: '{limpia}'");
+                }
+            }
+
+            Comprobar(log, "Ninguna consecuencia del banco muestra el contador",
+                revisadas > 0 && mal.Count == 0,
+                mal.Count == 0 ? $"{revisadas} consecuencias" : string.Join(" | ", mal));
         }
 
         // ── Pensamiento de Otto ───────────────────────────────────────────────
