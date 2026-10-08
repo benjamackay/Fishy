@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Fishy.Mision;
 using Fishy.World;
 
@@ -79,6 +80,21 @@ namespace Fishy.Net
         /// de que este objeto ya exista.</summary>
         public static event Action OnProgresoDeMisionesAplicado;
 
+        /// <summary>
+        /// Ya se sabe qué zonas están abiertas: la respuesta llegó, bien o mal.
+        ///
+        /// La mira <c>PantallaDeCarga</c> desde el menú para no entrar al juego antes
+        /// de tiempo. Si Otto aparece dentro de una zona cuyo estado todavía no se
+        /// conoce, la barrera sigue cerrada con su collider puesto: lo empuja fuera
+        /// y le saca el cartel de zona cerrada, y un instante después se abre. Es
+        /// feo y no se entiende.
+        ///
+        /// Se pone en true también cuando falla, igual que <c>PosicionEnMano</c>: la
+        /// bajada se reintenta sola más tarde, y dejar a alguien esperando una
+        /// respuesta que ya se sabe que no viene sólo alarga la pantalla de carga.
+        /// </summary>
+        public static bool ZonasEnMano { get; private set; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
         {
@@ -106,8 +122,29 @@ namespace Fishy.Net
             BlockedZone.OnZonaDesbloqueada += AlDesbloquearZona;
             CatalogoMisiones.OnCatalogoCambiado += SeguirObjetivosDeLoGuardado;
             ApiManager.OnPartidaCerrada += AlCerrarPartida;
+            SceneManager.sceneLoaded += AlCargarEscena;
 
             StartCoroutine(EsperarPartidaYBajarProgreso());
+        }
+
+        /// <summary>
+        /// Una escena nueva trae barreras recién creadas y cerradas por defecto, que
+        /// no se enteraron de lo que el servidor contestó antes de que existieran.
+        /// Se les vuelve a contar.
+        ///
+        /// Sin esto, <see cref="AplicarZonas"/> era un aviso que se gritaba una vez:
+        /// si la respuesta llegaba estando en el menú no había ningún BlockedZone a
+        /// quien aplicársela y la zona se quedaba cerrada toda la sesión, sin dejar
+        /// rastro en consola. Retener la entrada al juego mientras se espera la
+        /// posición de Otto hizo eso mucho más probable.
+        ///
+        /// No pide nada al servidor: reusa lo ya apuntado en <see cref="zonasEnServidor"/>.
+        /// </summary>
+        private void AlCargarEscena(Scene escena, LoadSceneMode modo)
+        {
+            if (modo != LoadSceneMode.Single) return;
+
+            foreach (string zona in zonasEnServidor) AbrirZonaEnEscena(zona);
         }
 
         /// <summary>
@@ -120,6 +157,7 @@ namespace Fishy.Net
             partidaAtada = null;
             partidaDescargada = null;
             ProgresoDeMisionesAplicado = false;
+            ZonasEnMano = false;
         }
 
         private void OnDisable()
@@ -132,6 +170,7 @@ namespace Fishy.Net
             BlockedZone.OnZonaDesbloqueada -= AlDesbloquearZona;
             CatalogoMisiones.OnCatalogoCambiado -= SeguirObjetivosDeLoGuardado;
             ApiManager.OnPartidaCerrada -= AlCerrarPartida;
+            SceneManager.sceneLoaded -= AlCargarEscena;
         }
 
         // ── 1. Bajar lo que ya estaba hecho ──────────────────────────────────
@@ -196,6 +235,7 @@ namespace Fishy.Net
                         // Otra partida, otro progreso: la senal vuelve a cero o quien
                         // espere por ella creeria que ya llego el de esta.
                         ProgresoDeMisionesAplicado = false;
+                        ZonasEnMano = false;
                         misionesEnServidor.Clear();
                         zonasEnServidor.Clear();
                         BajarProgreso();
@@ -243,10 +283,15 @@ namespace Fishy.Net
                 });
 
             api.ObtenerProgresoZonas(
-                onSuccess: AplicarZonas,
+                onSuccess: progreso =>
+                {
+                    AplicarZonas(progreso);
+                    ZonasEnMano = true;   // después de aplicar, no antes
+                },
                 onError: e =>
                 {
                     Debug.LogWarning($"[MisionBackendSync] No se pudo bajar el progreso de zonas: {e}");
+                    ZonasEnMano = true;
                     ReintentarBajada();
                 });
         }
