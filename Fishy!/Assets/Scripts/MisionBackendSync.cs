@@ -148,9 +148,26 @@ namespace Fishy.Net
         }
 
         /// <summary>
-        /// Volver a entrar en la misma partida tiene que bajar el progreso otra vez: las
-        /// zonas abiertas se abren sobre los BlockedZone de la escena, y la escena es
-        /// nueva.
+        /// Se volvió al menú: se suelta el contexto y se deja todo listo para bajar
+        /// el progreso de nuevo al entrar.
+        ///
+        /// <b>El motivo original de esto ya no aplica.</b> Antes era obligatorio
+        /// rebajar porque las zonas abiertas se aplicaban sobre los BlockedZone de
+        /// la escena y la escena siguiente era nueva, así que sin rebajar se
+        /// quedaban cerradas. Hoy <see cref="AlCargarEscena"/> reaplica
+        /// <see cref="zonasEnServidor"/> a cada escena que carga, y
+        /// <c>MissionTracker</c> conserva sus seguimientos entre escenas y los
+        /// vuelve a resolver contra los NPCs nuevos.
+        ///
+        /// Se mantiene igualmente, y a propósito: rebajar al reentrar cuesta dos
+        /// peticiones y a cambio refresca el progreso contra el servidor. Quitarlo
+        /// las ahorraría, pero tocaría la ruta de restaurar —la más delicada del
+        /// proyecto— por una ganancia pequeña, y un fallo ahí no se vería en
+        /// consola sino como misiones que no se restauraron.
+        ///
+        /// Las dos señales se bajan porque el progreso se va a volver a pedir:
+        /// quien las espera —la pantalla de carga, <c>MisionInicial</c>— tiene que
+        /// aguardar a la respuesta nueva y no creerse la anterior.
         /// </summary>
         private void AlCerrarPartida()
         {
