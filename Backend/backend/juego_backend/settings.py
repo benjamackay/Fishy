@@ -75,7 +75,13 @@ if DOMINIO_PUBLICO:
 # navegador. En desarrollo no hace falta (Vite reenvia /api al Django local).
 # El portal manda el token en el header Authorization, sin cookies, asi que no
 # se habilita CORS_ALLOW_CREDENTIALS. Solo se abren las rutas de la API.
-CORS_ALLOWED_ORIGINS = lista_entorno("CORS_ALLOWED_ORIGINS")
+# El portal oficial siempre esta permitido, incluso con la variable vacia.
+# La variable permite agregar otros origenes explicitos para pruebas.
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys([
+    "https://fishygame.cl",
+    "https://www.fishygame.cl",
+    *lista_entorno("CORS_ALLOWED_ORIGINS"),
+]))
 CORS_URLS_REGEX = r"^/api/.*$"
 
 # ─── Aplicaciones ─────────────────────────────────────────────────────────────

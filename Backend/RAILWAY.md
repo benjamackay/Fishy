@@ -30,9 +30,10 @@ Configurar en Railway, sin subir el archivo `.env`:
 - `DB_SSLMODE=require`
 - `DB_CONN_MAX_AGE=0` inicialmente; no dejar este valor vacío.
 - `FISHY_WEB_URL`: URL pública HTTPS del frontend.
-- `CORS_ALLOWED_ORIGINS`: dominio(s) del portal web que pueden llamar a la API,
+- `CORS_ALLOWED_ORIGINS` (opcional): origenes adicionales que pueden llamar a la API,
   con esquema y sin `/` final, separados por coma. Ej: `https://portal.fishy.cl`.
-  Sin esto el navegador bloquea las llamadas del portal desplegado.
+  `https://fishygame.cl` y `https://www.fishygame.cl` ya estan autorizados en el codigo,
+  incluso si esta variable esta vacia. El permiso se limita a `/api/`.
 - `DJANGO_ALLOWED_HOSTS` (opcional): dominios extra, separados por coma. El dominio
   de Railway (`fishy-test.up.railway.app`) no hace falta ponerlo: se toma solo de
   `RAILWAY_PUBLIC_DOMAIN`, que Railway define en cada servicio con dominio público.
