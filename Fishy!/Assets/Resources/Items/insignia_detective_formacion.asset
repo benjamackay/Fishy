@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: INSIGNIA_DETECTIVE_FORMACION
   itemName: "Insignia de Detective en Formaci\xF3n"
-  itemIcon: {fileID: -5502465461007319794, guid: 9b8132a2f0f189b4d8f29d442f127e98, type: 3}
-  itemDescription: "Final C: la br\xFAjula est\xE1 opaca. Puedes volver a cualquier zona y elegir distinto."
+  itemIcon: {fileID: 21300000, guid: 7985117d6e256c3418692a3ca7c2dce3, type: 3}
+  itemDescription: "Final C: la br\xFAjula est\xE1 opaca. Puedes volver a cualquier
+    zona y elegir distinto."
   itemType: 1

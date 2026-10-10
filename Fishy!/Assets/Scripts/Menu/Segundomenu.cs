@@ -47,6 +47,11 @@ public class Segundomenu : MonoBehaviour
     [Tooltip("Escena a la que se entra con la partida elegida. Debe estar en Build Settings.")]
     public string escenaJuego = "MainScene";
 
+    [Tooltip("Pantalla de carga de esta escena. Si se asigna, retiene la entrada al juego " +
+             "hasta que se sabe donde quedo Otto, y asi no se le ve aparecer en el punto de " +
+             "inicio. Si se deja vacia se entra de golpe, como antes.")]
+    [SerializeField] private Fishy.UI.PantallaDeCarga pantallaDeCarga;
+
     private Estado estado = Estado.Consultando;
     private List<PartidaDto> partidas;
     private UsuarioJugadorDto perfil;
@@ -284,7 +289,15 @@ public class Segundomenu : MonoBehaviour
 
     private void CargarJuego()
     {
-        if (Application.CanStreamedLevelBeLoaded(escenaJuego))
+        // Con pantalla de carga la escena se prepara pero NO se activa hasta que la
+        // posicion de Otto esta en mano: asi aparece ya colocado. Sin ella se entra
+        // de golpe, que es lo que hacia esto antes y sigue sirviendo si alguien abre
+        // MenuDos suelto en el editor sin cablear la pantalla.
+        if (pantallaDeCarga != null)
+        {
+            if (pantallaDeCarga.Cargar(escenaJuego)) return;
+        }
+        else if (Application.CanStreamedLevelBeLoaded(escenaJuego))
         {
             SceneManager.LoadScene(escenaJuego);
             return;

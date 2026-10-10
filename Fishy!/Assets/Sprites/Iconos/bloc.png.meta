@@ -1,10 +1,16 @@
 fileFormatVersion: 2
-guid: d4f53a5e5300a0ef5a09c1403fb933f7
+guid: 22051c79bb97d374892e799062cae45f
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 2108141002104382719
-    second: pin_testigo_solidario_0
+      213: 7809655912564622689
+    second: bloc_0
+  - first:
+      213: 3073225791957016628
+    second: bloc_1
+  - first:
+      213: -3567770902278475443
+    second: bloc_2
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +43,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -46,7 +52,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -75,7 +81,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -100,13 +106,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: pin_testigo_solidario_0
+      name: bloc_0
       rect:
         serializedVersion: 2
-        x: 7
-        y: 6
-        width: 243
-        height: 243
+        x: 41
+        y: 47
+        width: 156
+        height: 166
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +121,52 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ff42ede621f914d10800000000000000
-      internalID: 2108141002104382719
+      spriteID: 1658176dca8716c60800000000000000
+      internalID: 7809655912564622689
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: bloc_1
+      rect:
+        serializedVersion: 2
+        x: 136
+        y: 97
+        width: 84
+        height: 94
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 430aa2c339a46aa20800000000000000
+      internalID: 3073225791957016628
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: bloc_2
+      rect:
+        serializedVersion: 2
+        x: 202
+        y: 174
+        width: 29
+        height: 29
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d4177b9644bbc7ec0800000000000000
+      internalID: -3567770902278475443
       vertices: []
       indices: 
       edges: []
@@ -125,7 +175,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -135,7 +185,9 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      pin_testigo_solidario_0: 2108141002104382719
+      bloc_0: 7809655912564622689
+      bloc_1: 3073225791957016628
+      bloc_2: -3567770902278475443
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

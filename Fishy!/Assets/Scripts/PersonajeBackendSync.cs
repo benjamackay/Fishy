@@ -82,6 +82,22 @@ namespace Fishy.Net
 
         private bool avisoDeSinPartidaDado;
 
+        /// <summary>
+        /// La respuesta del servidor ya está aquí: se sabe dónde quedó Otto, o se
+        /// sabe que no hay nada guardado.
+        ///
+        /// La mira <c>PantallaDeCarga</c> desde el menú, antes de activar la escena
+        /// de juego: entrando sólo cuando esto es true, Otto se coloca en su primer
+        /// frame y no hay salto que esconder. Es la condición que el comentario de
+        /// <see cref="enCache"/> describe como "tenerla ANTES de que cargue la
+        /// escena".
+        ///
+        /// Vale también cuando la petición falla: <see cref="Precargar"/> deja ahí
+        /// un DTO vacío a propósito, así que esto se pone en true igual y nadie se
+        /// queda esperando algo que no va a llegar.
+        /// </summary>
+        public bool PosicionEnMano => enCache != null;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoCrear()
         {

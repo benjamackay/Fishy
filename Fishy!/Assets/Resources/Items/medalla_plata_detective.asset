@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: medalla_plata_detective
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
   itemId: MEDALLA_PLATA_DETECTIVE
-  itemName: "Medalla de Plata del Detective Precavido"
-  itemIcon: {fileID: -5502465461007319794, guid: 9b8132a2f0f189b4d8f29d442f127e98, type: 3}
-  itemDescription: "Final B: la br\xFAjula tiene manchas, pero casi siempre terminaste eligiendo bien."
+  itemName: Medalla de Plata del Detective Precavido
+  itemIcon: {fileID: 21300000, guid: bbcb1f196b266a844bcf5cf451e5b8ff, type: 3}
+  itemDescription: "Final B: la br\xFAjula tiene manchas, pero casi siempre terminaste
+    eligiendo bien."
   itemType: 1
