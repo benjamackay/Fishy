@@ -10,7 +10,7 @@ from .models import (
     Mision, DialogoNPC, RecompensaAlbum, RecompensaObtenida,
     MisionProgreso, ZonaProgreso, ItemInventario, ObjetoRecogido, NpcProgreso,
     ObjetivoMision, ObjetivoProgreso,
-    GrupoTutor, MiembroGrupo, InvitacionGrupo,
+    GrupoTutor, MiembroGrupo, InvitacionGrupo, CodigoRecuperacion,
 )
 
 
@@ -57,6 +57,17 @@ class InvitacionGrupoAdmin(GrupoSoloLecturaAdmin):
     fields = ("id", "grupo", "nombre_nino", "email", "estado", "estado_envio", "vence_en", "enviada_en", "aceptada_en")
     readonly_fields = fields
     list_select_related = ("grupo",)
+
+
+@admin.register(CodigoRecuperacion)
+class CodigoRecuperacionAdmin(GrupoSoloLecturaAdmin):
+    """Para ver si a una cuenta le llegó a pedir código y cuántos errores lleva.
+    Ni el código ni el permiso se muestran, tampoco sus huellas."""
+    list_display = ("adulto", "intentos", "vence_en", "fecha_creacion")
+    search_fields = ("adulto__nombre",)
+    fields = ("adulto", "intentos", "vence_en", "permiso_vence_en", "fecha_creacion")
+    readonly_fields = fields
+    list_select_related = ("adulto",)
 
 
 class UsuarioJugadorInline(admin.TabularInline):

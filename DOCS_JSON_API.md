@@ -133,6 +133,42 @@ El token recibido se almacena en `ApiManager.Token` y se adjunta a todos los req
 
 **El token vence** a los `FISHY_TOKEN_DIAS` días de creado (30 por defecto); con uno vencido, cualquier endpoint responde `401` con `{"detail": "La sesión venció. Vuelve a iniciar sesión."}` y el cliente debe volver al login. Es un solo token por cuenta, compartido por el juego y el portal: el login devuelve el mismo mientras no haya pasado la mitad de su vida y uno nuevo después (el anterior deja de servir), así que un login siempre entrega al menos 15 días por delante.
 
+### Recuperar la contraseña (portal web)
+
+Tres pasos sin sesión (no mandar `Authorization`): pedir un código de 6 dígitos al
+correo de la cuenta, canjearlo por un permiso y fijar la contraseña nueva con ese
+permiso. Código en `Backend/backend/api/recuperacion.py`.
+
+**1. POST `/auth/recuperar/solicitar/`** `{"email": "adulto@ejemplo.cl"}` → `202`
+```json
+{ "detalle": "Si el correo está registrado en Fishy, te enviamos un código. Revisa también la carpeta de spam." }
+```
+Responde lo mismo exista o no la cuenta: el portal no debe decir "ese correo no existe".
+Pedir otro código anula el anterior; dentro del mismo minuto no manda otro (responde
+igual `202`). `503` si el correo no está configurado o el proveedor falló.
+
+**2. POST `/auth/recuperar/verificar/`** `{"email": "adulto@ejemplo.cl", "codigo": "042517"}` → `200`
+```json
+{ "permiso": "43 caracteres", "vence_en": "2026-10-19T21:40:00Z" }
+```
+`400` con `["El código no es correcto o ya venció. Revisa el correo o pide uno nuevo."]`
+si no coincide. El código vence a los 15 minutos, sirve una vez y se anula al quinto
+error: después hay que volver al paso 1. El `codigo` va como **string** (puede empezar con 0).
+
+**3. POST `/auth/recuperar/cambiar/`** `{"permiso": "...", "password": "nueva"}` → `200`
+```json
+{ "detalle": "Listo. Ya puedes iniciar sesión con tu contraseña nueva." }
+```
+El permiso dura 10 minutos y sirve una vez. Contraseña débil → `400`
+`{"password": ["Esta contraseña es demasiado corta..."]}` y el permiso sigue sirviendo
+para reintentar. Permiso vencido o usado → `400` `["El plazo para cambiar la
+contraseña terminó. Pide un código nuevo."]`. Al cambiarla se cierran **todas** las
+sesiones de la cuenta (juego y portal): el usuario vuelve al login.
+
+Topes: 5 solicitudes de código por hora por correo y 20 llamadas por hora por IP
+sumando los tres pasos; pasado el
+tope, `429` con `{"detail": "..."}`.
+
 ---
 
 ## Perfiles de menores

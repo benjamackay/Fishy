@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, invitaciones, panel_admin, reportes_web, seguimiento
+from . import views, invitaciones, panel_admin, recuperacion, reportes_web, seguimiento
 
 urlpatterns = [
     # Portal web: grupos, invitaciones y reportes
@@ -27,6 +27,9 @@ urlpatterns = [
     path("auth/registro/", views.registro, name="registro"),
     path("auth/login/", views.auth_login, name="auth_login"),
     path("auth/perfil/", views.perfil_adulto, name="perfil_adulto"),
+    path("auth/recuperar/solicitar/", recuperacion.solicitar),
+    path("auth/recuperar/verificar/", recuperacion.verificar),
+    path("auth/recuperar/cambiar/", recuperacion.cambiar),
 
     # Perfiles de menores (control parental)
     path("jugadores/", views.jugadores, name="jugadores"),

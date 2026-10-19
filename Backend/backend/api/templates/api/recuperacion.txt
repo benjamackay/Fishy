@@ -1,0 +1,9 @@
+Recuperar tu contraseña de Fishy
+
+Hola, {{ nombre }}. Tu código para recuperar la contraseña es:
+
+{{ codigo }}
+
+Escríbelo en la página de recuperación. Vence en {{ minutos }} minutos y sirve una sola vez.
+
+Si no pediste cambiar tu contraseña, ignora este correo: tu contraseña no cambia. Nunca compartas este código; el equipo de Fishy no te lo va a pedir.
