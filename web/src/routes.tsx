@@ -7,6 +7,7 @@ import NotFoundPage from '@/pages/NotFoundPage'
 import GrupoPage from '@/pages/admin/GrupoPage'
 import GruposPage from '@/pages/admin/GruposPage'
 import ReporteGrupoPage from '@/pages/admin/ReporteGrupoPage'
+import CompararPeriodosPage from '@/pages/admin/CompararPeriodosPage'
 import PartidaPage from '@/pages/panel/PartidaPage'
 import SesionesPage from '@/pages/panel/SesionesPage'
 import ReporteNinoPage from '@/pages/panel/ReporteNinoPage'
@@ -30,6 +31,7 @@ export const rutas = [{
         { path: 'grupos', element: <GruposPage /> },
         { path: 'grupos/:id', element: <GrupoPage /> },
         { path: 'grupos/:id/reporte', element: <ReporteGrupoPage /> },
+        { path: 'grupos/:id/comparar', element: <CompararPeriodosPage /> },
       ] },
     ] },
     { path: '*', element: <NotFoundPage /> },

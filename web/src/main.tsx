@@ -4,11 +4,10 @@ import { RouterProvider } from 'react-router-dom'
 import { ProveedorSesion } from '@/auth/ProveedorSesion'
 import { router } from '@/routes'
 import './index.css'
+import { demoPeriodo } from '@/lib/periodo'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ProveedorSesion>
-      <RouterProvider router={router} />
-    </ProveedorSesion>
-  </StrictMode>,
-)
+async function iniciar() {
+  const Proveedor = import.meta.env.DEV && demoPeriodo ? (await import('@/demo/ProveedorPeriodoDemo')).ProveedorPeriodoDemo : ProveedorSesion
+  createRoot(document.getElementById('root')!).render(<StrictMode><Proveedor><RouterProvider router={router} /></Proveedor></StrictMode>)
+}
+void iniciar()
