@@ -1,0 +1,257 @@
+using System.Linq;
+using UnityEngine;
+using Fishy.World;
+using Fishy.Mision;
+using Fishy.Net;
+using UnityEngine.Events;
+
+namespace Fishy.Detective
+{
+    /// <summary>
+    /// Coloca este componente en el GameObject de la zona del modo detective.
+    /// Requiere un Collider2D con isTrigger = true.
+    ///
+    /// Se abre con la tecla de interacción (E): implementa <see cref="IInteractable"/>, así
+    /// que el <c>InteractionDetector</c> de Otto lo encuentra al entrar en el trigger. Si se
+    /// prefiere abrirlo solo al acercarse, está <see cref="abrirAlAcercarse"/>.
+    /// </summary>
+    public class DetectiveLauncher : MonoBehaviour, IInteractable
+    {
+        [Header("Caso")]
+        [Tooltip("caso_id en el backend (ej: DC_CASO_01). Se intenta cargar de ahí primero. " +
+                 "Tiene que existir en la base: si no, el caso se juega desde el respaldo local " +
+                 "y el resultado NO se guarda.")]
+        [SerializeField] private string casoId = "DC_CASO_01";
+
+        /// <summary>El caso_id, para que ObjetivoMision pueda encontrar este launcher
+        /// por dato en vez de necesitar la referencia arrastrada a mano.</summary>
+        public string CasoId => casoId;
+        [Tooltip("Respaldo local si no hay sesión/backend: Resources/<esto>.json.")]
+        [SerializeField] private string resourcePath = "detective_caso_01";
+
+        [Header("Misión")]
+        [Tooltip("Desafío del panel de misión activa que este caso desbloquea/completa. Opcional.")]
+        [SerializeField] private DesafioData desafioAsociado;
+
+        [Header("Repetición")]
+        [Tooltip("Permite volver a jugar el caso tantas veces como se quiera, aunque " +
+                 "ya esté completado. El avance se sigue registrando igual: lo único " +
+                 "que cambia es que el NPC no deja de activarse. Hay que alejarse y " +
+                 "volver a acercarse.")]
+        [SerializeField] private bool repetible = false;
+
+        [Tooltip("Abrir el caso apenas Otto entra al trigger, sin pulsar nada. Por defecto " +
+                 "está apagado: se abre con la tecla de interacción (E) estando cerca.")]
+        [SerializeField] private bool abrirAlAcercarse = false;
+
+        [Header("Referencias (se crean solas si están vacías)")]
+        [SerializeField] private DetectiveCaseManager caseManager;
+        [SerializeField] private DetectiveUI          detectiveUI;
+
+        [Header("Eventos")]
+        [Tooltip("Se dispara al cerrar el caso, con cualquier resultado — no hace " +
+                 "falta superar el umbral. Es el enganche para un objetivo de misión " +
+                 "de tipo 'Completar Caso Detective' (ver ObjetivoMision): a " +
+                 "diferencia de 'Desafío Asociado' de arriba, que completa TODA una " +
+                 "misión, esto solo avisa de que el caso terminó, para que cuente " +
+                 "como un objetivo más entre varios.")]
+        public UnityEvent onCasoResuelto = new UnityEvent();
+
+        private bool _enCurso   = false;
+        private bool _completado = false;
+
+        /// <summary>A que partida corresponde <see cref="_completado"/>. Sin esto, el
+        /// estado en memoria de una cuenta se seguiria aplicando tras cambiar a otra.</summary>
+        private int? _partidaDelEstado;
+
+        /// <summary>Respaldo local del "ya completado", SIEMPRE bajo la partida que lo
+        /// completo. Sin partida identificada no se guarda nada: una clave compartida
+        /// le apagaria el NPC a la cuenta siguiente en el mismo PC.</summary>
+        private const string PrefsKeyPrefix = "Fishy.Detective.Completado.";
+
+        private int? PartidaActual => ApiManager.Instance?.PartidaId;
+
+        private string PrefsKey(int partidaId) => $"{PrefsKeyPrefix}{partidaId}.{casoId}";
+
+        // ── Estado inicial ─────────────────────────────────────────────
+
+        private void Start()
+        {
+            // Resto de la version que guardaba bajo la clave compartida "local":
+            // esa apagaba el NPC para cualquier cuenta posterior en el mismo equipo.
+            PlayerPrefs.DeleteKey($"{PrefsKeyPrefix}local.{casoId}");
+
+            // La verdad la tiene la base: si esta partida ya tiene progreso de este
+            // caso, el NPC no se activa aunque los PlayerPrefs digan otra cosa (por
+            // ejemplo, si el niño jugó antes en otro equipo).
+            var api = ApiManager.Instance;
+            if (api == null || api.IsLocalMode || !api.IsLoggedIn || api.PartidaId == null) return;
+
+            api.ObtenerProgresoDetective(
+                onSuccess: progresos =>
+                {
+                    if (progresos != null && progresos.Any(pr => pr.caso_id == casoId))
+                        MarcarCompletado();
+                },
+                onError: e => Debug.LogWarning(
+                    $"[Detective] No se pudo consultar el progreso del caso {casoId}: {e}"));
+        }
+
+        // ── Trigger ──────────────────────────────────────────────────────────
+
+        // ── IInteractable (tecla E) ────────────────────────────────────────────
+
+        /// <summary>Frame en que se cerró el último caso.</summary>
+        private int _cerradoEnFrame = -10;
+
+        public bool CanInteract() => !_enCurso && (repetible || !YaCompletado());
+
+        public void Interact()
+        {
+            // El detector llama a Interact() sin mirar CanInteract(); y el margen evita que
+            // la misma pulsación que cierra el caso lo reabra en ese frame.
+            if (!CanInteract()) return;
+            if (Time.frameCount - _cerradoEnFrame <= 1) return;
+            Iniciar();
+        }
+
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            if (!abrirAlAcercarse) return;
+            if (_enCurso) return;
+            if (!other.CompareTag("Player")) return;
+
+            if (!repetible && YaCompletado())
+            {
+                Debug.Log($"[Detective] El caso {casoId} ya fue completado; el NPC no se activa.");
+                return;
+            }
+
+            Iniciar();
+        }
+
+        private void Iniciar()
+        {
+            _enCurso = true;
+            DetectiveCaseLoader.LoadAsync(casoId, resourcePath, OnCasoCargado);
+        }
+
+        // ── Flujo principal ──────────────────────────────────────────────────
+
+        private void OnCasoCargado(DetectiveCase caso)
+        {
+            if (caso == null)
+            {
+                Debug.LogError("[Detective] No se pudo cargar el caso (ni backend ni local). Abortando.");
+                _enCurso = false;
+                return;
+            }
+
+            // 1. Obtener o crear el manager
+            if (caseManager == null)
+                caseManager = gameObject.AddComponent<DetectiveCaseManager>();
+
+            caseManager.CargarCaso(caso);
+
+            if (desafioAsociado != null)
+                MissionManager.GetOrCreate().RegistrarDesafioDisponible(desafioAsociado);
+
+            // 2. Bloquear movimiento de Otto (mismo patrón que PhoneChatLauncher)
+            var otto = GameObject.FindWithTag("Player");
+            var controller = otto?.GetComponent<OttoController>();
+            controller?.DisableMovement();
+
+            // 3. Iniciar la UI: primero el ritual de permiso (Otto pide, el NPC
+            //    autoriza explícitamente), y solo al continuar se abre la
+            //    conversación observada.
+            if (detectiveUI == null)
+                detectiveUI = DetectiveUI.GetOrCreate();
+
+            detectiveUI.Inicializar(
+                manager:   caseManager,
+                onCerrar:  () => TerminarModoDetective(controller),
+                onRepetir: () => ReiniciarCaso()
+            );
+
+            detectiveUI.MostrarPermiso(caso, onContinuar: () => detectiveUI.MostrarConversacion());
+        }
+
+        /// <summary>Vuelve a jugar el mismo caso sin repetir el ritual de permiso:
+        /// el NPC ya autorizó, y el caso no se da por cerrado hasta que el jugador
+        /// pulse "Continuar".</summary>
+        private void ReiniciarCaso()
+        {
+            DetectiveCaseLoader.LoadAsync(casoId, resourcePath, caso =>
+            {
+                if (caso == null) return;
+                caseManager.CargarCaso(caso);
+                detectiveUI.MostrarConversacion();
+            });
+        }
+
+        private void TerminarModoDetective(OttoController controller)
+        {
+            controller?.EnableMovement();
+            _enCurso = false;
+            _cerradoEnFrame = Time.frameCount;
+
+            // Sólo se bloquea el reintento si aprobó. Si cerró habiendo reprobado —sin
+            // pulsar "Repetir"— el caso queda SIN marcar completado, así que la próxima
+            // vez que se acerque el NPC se activa de nuevo, sin necesidad de marcar
+            // 'repetible' (que además dejaría reabrir un caso YA aprobado, que es
+            // justo lo que no se quiere).
+            if (caseManager != null && caseManager.UltimoAprobado)
+                MarcarCompletado();
+
+            // Cuenta como intento aunque no haya aprobado: el objetivo de misión
+            // 'completar_caso_detective' no exige superar el umbral (ver
+            // documentacion/README_CATALOGO_MISIONES.md), sólo haber jugado el caso.
+            HistorialDeObjetivos.AnotarCasoDetective(CasoId);
+
+            if (desafioAsociado != null)
+                MissionManager.Instance?.CompletarDesafio(desafioAsociado,
+                    $"el Modo Detective: se cerró el caso '{CasoId}' (aprobado: {caseManager?.UltimoAprobado})");
+
+            onCasoResuelto?.Invoke();
+
+            Debug.Log("[Detective] Modo detective terminado" +
+                      (caseManager != null && !caseManager.UltimoAprobado ? " (reprobado, se puede reintentar)." : "."));
+        }
+
+        /// <summary>Se relee PlayerPrefs en vez de confiar solo en lo que se leyó en
+        /// Start: si el login terminó después de cargar la escena, la clave de Start
+        /// era la genérica ("local") y no la de esta partida.</summary>
+        private bool YaCompletado()
+        {
+            int? partida = PartidaActual;
+            if (partida == null) return false;
+
+            if (_partidaDelEstado != partida)
+            {
+                _partidaDelEstado = partida;
+                _completado = PlayerPrefs.GetInt(PrefsKey(partida.Value), 0) == 1;
+            }
+            return _completado;
+        }
+
+        /// <summary>Deja el caso cerrado para este NPC. Idempotente: repetir el caso
+        /// y volver a terminarlo no cambia nada.</summary>
+        private void MarcarCompletado()
+        {
+            int? partida = PartidaActual;
+            if (partida == null)
+            {
+                Debug.Log($"[Detective] Caso {casoId} terminado sin partida activa: no se " +
+                           "registra el avance y el NPC seguira disponible.");
+                return;
+            }
+
+            _partidaDelEstado = partida;
+            if (_completado) return;
+
+            _completado = true;
+            PlayerPrefs.SetInt(PrefsKey(partida.Value), 1);
+            PlayerPrefs.Save();
+        }
+    }
+}

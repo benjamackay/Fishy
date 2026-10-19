@@ -1,58 +1,119 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Fishy.Mision;
 
 namespace Fishy.Chat
 {
     /// <summary>
     /// HDU-8 — Abre el módulo de chat de una zona.
     ///
-    /// Úsalo de dos formas:
+    /// Úsalo de tres formas:
+    ///  • Con la tecla de interacción (E por defecto): pon un <c>Collider2D</c> en
+    ///    este mismo GameObject (no hace falta que sea trigger; el que dispara la
+    ///    detección es el de <c>InteractionDetector</c>, en un hijo de Otto). Es el
+    ///    mismo mecanismo que usa <see cref="DialogoNeutroNPC"/> para los NPCs neutros, así que un
+    ///    NPC sospechoso se interactúa igual: acercarse y pulsar E.
     ///  • Desde un Button de UI: enlaza <see cref="OpenChat"/> en su OnClick.
-    ///  • Al acercarse: marca <see cref="openOnTriggerEnter"/> y pon un Collider2D
-    ///    (Is Trigger); cuando Otto (tag Player) entra, se abre el chat.
+    ///  • Al acercarse sin pulsar nada: marca <see cref="openOnTriggerEnter"/> y pon
+    ///    un Collider2D (Is Trigger); cuando Otto (tag Player) entra, se abre solo.
     /// </summary>
-    public class ChatModuleLauncher : MonoBehaviour
+    public class ChatModuleLauncher : MonoBehaviour, IInteractable
     {
-        public enum Source { ZonaDesconocidosPorDefecto, ConversacionesAsignadas }
+        public enum Source { ZonaDesconocidosPorDefecto, ConversacionesAsignadas, BancoPorNpcId }
 
-        [Header("Contenido")]
+        [Header("Contenido del chat")]
         public Source source = Source.ZonaDesconocidosPorDefecto;
         [Tooltip("Conversaciones a usar si source = ConversacionesAsignadas.")]
         public List<ChatConversation> conversaciones = new List<ChatConversation>();
+        [Tooltip("npc_id del banco (banco_preguntas.json, HDU-2) a usar si source = BancoPorNpcId. Ej: \"NPC_01\".")]
+        public string npcId = "";
 
-        [Header("Otto")]
+        [Header("Referencias (se buscan si quedan vacías)")]
         [Tooltip("Controlador de estado emocional de Otto. Si está vacío se busca en la escena.")]
         public OttoMoodController ottoMood;
 
-        [Header("Backend")]
+        [Header("Comportamiento")]
         [Tooltip("Registrar la sesión en el backend (requiere login + partida).")]
         public bool reportToBackend = false;
 
-        [Header("Apertura por cercanía (opcional)")]
+        [Header("Misión")]
+        [Tooltip("Desafío del panel de misión activa que esta conversación desbloquea/completa. Opcional.")]
+        public DesafioData desafioAsociado;
+
+        [Tooltip("Abrir el chat cuando Otto entra al trigger, sin pulsar nada.")]
         public bool openOnTriggerEnter = false;
         public string ottoTag = "Player";
-        [Tooltip("Abrir una sola vez al acercarse.")]
-        public bool openOnce = true;
+        [Tooltip("Permite volver a hablar con este NPC tantas veces como se quiera. " +
+                 "Hay que alejarse y volver a acercarse: la conversación no se " +
+                 "reabre sola al cerrarla, o el niño/a quedaría atrapado en ella.")]
+        public bool repetible = false;
 
         private bool alreadyOpened;
+
+        /// <summary>
+        /// Se dispara cuando ESTA sesión (la que abrió este launcher) se cierra,
+        /// con el % de respuestas seguras acumulado. A diferencia de
+        /// <see cref="ChatModuleController.OnSesionCerrada"/> (global, cualquier
+        /// launcher), este evento sólo corresponde a la sesión que abrió este
+        /// GameObject en particular.
+        /// </summary>
+        public event Action<float> OnSesionFinalizada;
+
+        // ── IInteractable (tecla E) ──────────────────────────────────────────
+        // Mismo criterio que OnTriggerEnter2D: si ya se habló y no es repetible, no
+        // hay nada que abrir. InteractionDetector usa esto también para decidir si
+        // enciende el cartelito de "E" sobre el NPC.
+        public bool CanInteract() => repetible || !alreadyOpened;
+
+        /// <summary>Frame en que se cerró la última sesión de este launcher.</summary>
+        private int _cerradaEnFrame = -10;
+
+        public void Interact()
+        {
+            // InteractionDetector llama a Interact() sin mirar CanInteract() (el NPC
+            // neutro se protege solo), así que hay que guardarse aquí: sin esto, un NPC no
+            // repetible volvía a abrirse con cada E.
+            if (!CanInteract()) return;
+
+            // La E que pasa el último "Continuar" del chat también la lee el detector en
+            // ese mismo frame; sin este margen reabriría la conversación al cerrarla.
+            if (Time.frameCount - _cerradaEnFrame <= 1) return;
+
+            OpenChat();
+        }
 
         /// <summary>Abre el módulo de chat (enlazable a un Button.OnClick).</summary>
         public void OpenChat()
         {
             if (ChatModuleController.Instance != null && ChatModuleController.Instance.IsActive) return;
 
-            var convos = source == Source.ConversacionesAsignadas && conversaciones.Count > 0
-                ? conversaciones
-                : ChatDefaultConversations.CreateZonaDesconocidos();
+            List<ChatConversation> convos;
+            if (source == Source.ConversacionesAsignadas && conversaciones.Count > 0)
+                convos = conversaciones;
+            else if (source == Source.BancoPorNpcId && !string.IsNullOrEmpty(npcId))
+                convos = BancoPreguntasLoader.CreateHDU2ConversationForNpc(npcId);
+            else
+                convos = ChatDefaultConversations.CreateZonaDesconocidos();
 
-            ChatModuleController.GetOrCreate().OpenSession(convos, ottoMood, reportToBackend);
+            var controller = ChatModuleController.GetOrCreate();
+            controller.OnSesionCerrada += HandleSesionCerrada;
+            controller.OpenSession(convos, ottoMood, reportToBackend, desafioAsociado);
             alreadyOpened = true;
+        }
+
+        private void HandleSesionCerrada(float safePercent)
+        {
+            if (ChatModuleController.Instance != null)
+                ChatModuleController.Instance.OnSesionCerrada -= HandleSesionCerrada;
+            _cerradaEnFrame = Time.frameCount;
+            OnSesionFinalizada?.Invoke(safePercent);
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
             if (!openOnTriggerEnter) return;
-            if (openOnce && alreadyOpened) return;
+            if (!repetible && alreadyOpened) return;
             if (!other.CompareTag(ottoTag)) return;
             OpenChat();
         }

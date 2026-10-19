@@ -25,6 +25,7 @@ namespace Fishy.World
     [RequireComponent(typeof(Rigidbody2D))]
     public class OttoController : MonoBehaviour
     {
+        
         [Header("Velocidades")]
         [Tooltip("Velocidad al caminar (unidades/segundo).")]
         public float walkSpeed = 3.5f;
@@ -168,12 +169,28 @@ namespace Fishy.World
 
         /// <summary>
         /// Reubica a Otto en una posición de inicio y lo deja detenido.
+        ///
+        /// Lleva la cámara con él. Un teletransporte que deje la cámara atrás no
+        /// es un teletransporte: se la ve recorrer el mapa hasta el destino, que
+        /// es justo lo que no había que enseñar. Al restaurar una partida eso se
+        /// notaba aunque Otto ya apareciera colocado.
         /// </summary>
         public void TeleportTo(Vector3 position)
         {
+            // El Transform además del Rigidbody. 'Physics2D.autoSyncTransforms'
+            // viene en false, así que tocar sólo rb.position deja el Transform con
+            // el valor viejo hasta el siguiente paso de física — y el Transform es
+            // lo que lee la cámara.
+            transform.position = position;
             rb.position = position;
             rb.linearVelocity = Vector2.zero;
             currentMove = Vector2.zero;
+
+            // Se busca en vez de guardarse: los teletransportes son contados, y así
+            // esto no obliga a cablear una referencia en la escena ni se queda en
+            // null si la cámara se crea después.
+            CameraFollow2D camara = FindAnyObjectByType<CameraFollow2D>();
+            if (camara != null) camara.SnapToTarget();
         }
 
         // ──────────────────────────────────────────────────────────────────────
@@ -338,6 +355,11 @@ namespace Fishy.World
             if (HasParam("MoveY", AnimatorControllerParameterType.Float)) animator.SetFloat("MoveY", lastFacing.y);
             if (HasParam("Speed", AnimatorControllerParameterType.Float)) animator.SetFloat("Speed", currentMove.magnitude);
             if (HasParam("IsRunning", AnimatorControllerParameterType.Bool)) animator.SetBool("IsRunning", (vRun || RunPressed()) && currentMove != Vector2.zero);
+            // Girar el sprite horizontalmente
+            SpriteRenderer sprite = animator.GetComponent<SpriteRenderer>();
+
+            if (sprite != null && currentMove.x != 0)
+                sprite.flipX = currentMove.x > 0;
         }
 
         private bool HasParam(string name, AnimatorControllerParameterType type)

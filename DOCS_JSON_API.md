@@ -1,5 +1,11 @@
 # Documentación JSON — Comunicación con la Base de Datos
 
+El contrato nuevo del portal de grupos, invitaciones por niño y reportes se
+documenta en [Backend/INVITACIONES.md](Backend/INVITACIONES.md). El perfil
+autenticado incluye ahora `rol` (`padre` o `profesor`, solo lectura) para
+distinguir los recorridos del portal. `is_admin` ya no se expone: solo da acceso
+al admin de Django. Los profesores reciben 403 en `jugadores/` y sus subrutas.
+
 > ⚠️ **Actualizado a la Fase 2 (control parental, 2026-08-12).** El contrato de
 > la API **cambió**: quien inicia sesión es un **adulto responsable**, que
 > gestiona uno o más **perfiles de menores**, y la partida cuelga del perfil, no
@@ -16,7 +22,8 @@
 4. [Modelos de datos (DTOs)](#modelos-de-datos-dtos)
 5. [Endpoints y payloads](#endpoints-y-payloads)
 6. [Banco de preguntas](#banco-de-preguntas)
-7. [Modo local (fallback)](#modo-local-fallback)
+7. [Modo Detective (HDU-10)](#modo-detective-hdu-10)
+8. [Modo local (fallback)](#modo-local-fallback)
 
 ---
 
@@ -124,6 +131,8 @@ menores no tienen credenciales propias.
 
 El token recibido se almacena en `ApiManager.Token` y se adjunta a todos los requests posteriores.
 
+**El token vence** a los `FISHY_TOKEN_DIAS` días de creado (30 por defecto); con uno vencido, cualquier endpoint responde `401` con `{"detail": "La sesión venció. Vuelve a iniciar sesión."}` y el cliente debe volver al login. Es un solo token por cuenta, compartido por el juego y el portal: el login devuelve el mismo mientras no haya pasado la mitad de su vida y uno nuevo después (el anterior deja de servir), así que un login siempre entrega al menos 15 días por delante.
+
 ---
 
 ## Perfiles de menores
@@ -155,6 +164,10 @@ el nombre no se puede repetir dentro de la misma cuenta.
 
 Es lo que permite **retomar el avance**: cada menor conserva su propia partida
 entre sesiones, independiente de la de sus hermanos.
+
+Cada partida trae su `zona_actual`, así que la pantalla de "Ingresar" se pinta con
+**una sola petición**: no hace falta pedir `GET /partidas/{id}/personaje/` una vez
+por partida solo para saber dónde quedó cada una.
 
 ```
 elegir perfil ──▶ GET /jugadores/{id}/partidas/
@@ -221,6 +234,7 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
   "usuario_jugador": 1,
   "progreso": 45.5,
   "nivel_riesgo": 2,
+  "zona_actual": "zona_2",
   "fecha_inicio": "2025-01-01T12:00:00Z",
   "fecha_update": "2025-01-01T12:30:00Z"
 }
@@ -230,6 +244,11 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
 | `usuario_jugador` | int | id del perfil de menor dueño de la partida (antes era `usuario`) |
 | `progreso` | float | Porcentaje de avance (0–100) |
 | `nivel_riesgo` | int? | ID de nivel de riesgo (opcional) |
+| `zona_actual` | string | Región del mapa donde quedó Otto (`zona_2`), **solo lectura**. Viene `""` si la partida todavía no tiene posición guardada. Para escribirla se usa `PATCH /partidas/{id}/personaje/` |
+
+> `zona_actual` es la **región del mapa** (el `zoneId` de la `BlockedZone` de Unity),
+> y no la temática del banco que usa `ZonaProgreso.zona` (`desconocidos`,
+> `ciberacoso`). Se llaman igual y no son lo mismo.
 
 ### NpcDto — Personaje no jugador
 ```json
@@ -320,6 +339,70 @@ Definidos al final de `Fishy!/Assets/Scripts/ApiManager.cs`.
 }
 ```
 
+### CasoDetectiveDto — Caso del modo Detective
+```json
+{
+  "id": 1,
+  "caso_id": "caso_01",
+  "titulo": "Caso de Alex y Sam",
+  "zona": "playa",
+  "etiquetas_ml": ["grooming"],
+  "permiso_player_text": "Oye, ¿me puedes ayudar? Recibí mensajes raros...",
+  "permiso_npc_nombre": "Otto",
+  "permiso_npc_response": "Claro, muéstramelos.",
+  "recompensa_item_id": "PIN_VIGIA_SILENCIOSO",
+  "recompensa_nombre": "Pin del Vigía Silencioso",
+  "recompensa_accesorio_hdu06": "Gorro de detective con visera",
+  "recompensa_umbral_aciertos": 0.5,
+  "recompensa_no_duplica_al_repetir": true,
+  "mensajes": [
+    {
+      "id": 1,
+      "mensaje_id": "m04",
+      "npc_sender": "Alex",
+      "texto": "No le cuentes esto a tus papás, es un secreto entre nosotros.",
+      "es_senal_riesgo": true,
+      "es_ambiguo": false,
+      "explicacion": "Pedir guardar secretos a los papás es una señal de alerta clásica.",
+      "nota_ambiguo": null,
+      "orden": 3
+    }
+  ]
+}
+```
+
+Los cinco campos `recompensa_*` son el pin que entrega el caso al superar el umbral
+(HDU-11). Vienen del bloque `recompensa` de `detective_cases.json`. Si llegan vacíos,
+el caso no entrega nada y Unity cae a su catálogo local
+(`CatalogoRecompensasDetective`); si traen contenido, mandan ellos. `umbral_aciertos`
+es una fracción de 0 a 1, no un porcentaje.
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `mensajes` | lista de `MensajeDetectiveDto` | Ya vienen ordenados por `orden` |
+| `es_ambiguo` | bool | No cuenta ni como acierto ni como error al calificar (CA5 de HDU-10) |
+| `explicacion` | string? | Solo tiene valor en los mensajes de riesgo; se usa para el resumen al final |
+
+### ProgresoDetectiveDto — Resultado de un intento
+```json
+{
+  "id": 1,
+  "partida": 1,
+  "caso": 1,
+  "mensajes_marcados": ["m04", "m06"],
+  "aciertos": 2,
+  "total_riesgo": 3,
+  "porcentaje": 0.67,
+  "intentos": 1,
+  "fecha_inicio": "2026-09-01T12:00:00Z",
+  "fecha_termino": "2026-09-01T12:03:00Z"
+}
+```
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `partida` / `caso` | int | **solo lectura**, los asigna el backend (mismo patrón que `UsuarioJugador.adulto`) |
+| `mensajes_marcados` | lista de string | `mensaje_id` que el jugador marcó como riesgo |
+| `intentos` | int | Se incrementa solo — reintentar el mismo caso no crea una fila nueva |
+
 ---
 
 ## Endpoints y payloads
@@ -393,6 +476,491 @@ Solo cuentan los mensajes que traen `opcion_banco_id`. Los flujos que no reporta
 la opción elegida —como el módulo de diálogo antiguo de Desconocidos, con nodos
 escritos a mano (`a0`, `a1`, …) que no existen en el banco— quedan fuera del
 cálculo a propósito, en vez de contribuir con datos inventados.
+
+**GET `/partidas/{partida_id}/puntaje-final/`** — Puntaje que elige el final (HDU-09)
+
+Lo pide `SistemaDeFinales` al terminar la Misión 6. Son los mismos puntos del chat que
+mueven el estado de Otto: cada opción elegida suma su `impacto_puntuacion` (+2, +1, 0,
+-1), las respuestas de seguimiento incluidas, en las tres zonas del recorrido. Un total
+negativo cuenta como 0.
+
+`puntos_maximos` es lo que sumaría quien elige la mejor ruta en cada chat, calculado
+desde el banco (hoy 18). Las variantes `_BASE` de un escenario (`M6_DECISION01_BASE`)
+cuentan una sola vez, porque se juega una u otra.
+
+`porcentaje = puntos / puntos_maximos × 100`, con tope en 100.
+
+```json
+{
+  "partida_id": 1,
+  "puntos": 16,
+  "puntos_brutos": 16,
+  "puntos_maximos": 18,
+  "porcentaje": 88.9,
+  "decisiones": 9,
+  "por_zona": {"desconocidos": 5, "ciberacoso": 6, "reto_viral": 5}
+}
+```
+
+Qué final corresponde a cada porcentaje no lo decide el backend: los umbrales son
+contenido y viven en `finales_narrativos` del banco (A desde 70, B desde 40, C debajo).
+
+**GET `/partidas/{partida_id}/oportunidades-mejora/`** — Decisiones inseguras
+
+Filtro opcional: `?zona=ciberacoso`
+
+```json
+// Response
+{
+  "partida_id": 42,
+  "jugador": "Perfil 2",
+  "oportunidades": [
+    {
+      "fecha": "2026-09-03T16:31:19.462636Z",
+      "zona": "ciberacoso",
+      "categoria": "ciberacoso",
+      "npc": "Flamenco",
+      "chat_id": 84,
+      "pregunta_banco_id": "HDU3_NPC03_Q01",
+      "mensaje_npc": "oye Otto, te sacamos del grupo del chat del pantano…",
+      "eligio": {
+        "opcion_banco_id": "HDU3_NPC03_Q01_R3",
+        "texto": "ja igual el grupo de ustedes era una porquería, quédense solos",
+        "impacto_puntuacion": -1,
+        "consecuencia": "Respondes con enojo. Flamenco aprovecha tu molestia…"
+      },
+      "mejor_opcion": {
+        "opcion_banco_id": "HDU3_NPC03_Q01_R1",
+        "texto": "Reportar y bloquear este mensaje",
+        "impacto_puntuacion": 2,
+        "consecuencia": "Lo reportaste de inmediato. Flamenco se desconecta…"
+      },
+      "puntos_perdidos": 3
+    }
+  ],
+  "total": 1,
+  "por_zona": [{ "zona": "ciberacoso", "oportunidades": 1 }]
+}
+```
+
+Es el *"registro como oportunidad de mejora"* que piden los criterios de
+aceptación de las zonas de riesgo (p. ej. HDU-3 CA3: el menor responde a un
+mensaje de ciberacoso con otra burla).
+
+**No existe un campo que las marque.** Una oportunidad de mejora **es** un
+`Mensaje` cuyo `opcion_banco_id` resuelve a una `OpcionBanco` de tipo `insegura`.
+Se deriva en vez de guardarse aparte para que no pueda quedar desincronizada del
+banco: si mañana una opción deja de ser insegura, la lista lo refleja sola.
+
+| Campo | Significado |
+|---|---|
+| `eligio` | La opción insegura que marcó, con su consecuencia narrativa |
+| `mejor_opcion` | La de mayor `impacto_puntuacion` de esa misma pregunta |
+| `puntos_perdidos` | `mejor_opcion` − `eligio`. Sirve para ordenar por gravedad |
+
+Solo cuenta `insegura`. Una `segura_basica` no es un error —es correcta pero
+mejorable—, y mezclarlas le quitaría sentido a la lista.
+
+> ⚠️ **Es para el reporte del adulto responsable, no para mostrárselo al menor.**
+> Etiquetarle la pantalla con sus errores lo señala y rompe el tono del juego,
+> que corrige por consecuencia narrativa (el NPC reacciona, Otto cambia de ánimo).
+
+**GET `/misiones/`** — Catálogo de misiones (B.1/B.2 de REQUISITOS_BD)
+
+**No pide sesión ni partida**: es contenido, igual para todos, y Unity lo pide al
+arrancar (`MisionCatalogoSync`) antes de que nadie haya entrado. Filtro opcional
+`?zona=desconocidos`.
+
+La raíz es un **arreglo**, no `{version, misiones}` como el archivo:
+`ApiManager.ObtenerCatalogoMisiones` espera `Send<List<MisionRegistro>>`.
+
+```json
+[
+  {
+    "mision_id": "MISION_NPC_03",
+    "titulo": "Habla con dos NPCs de chat y resuelve un caso de detective",
+    "nombre": "Habla con dos NPCs de chat y resuelve un caso de detective",
+    "tipo": "secundaria",
+    "zona": "desconocidos",
+    "zona_objetivo": "zona_1",
+    "orden": 15,
+    "descripcion": "",
+    "desbloquea_mision": "",
+    "recompensa_item_id": "",
+    "recompensa_cantidad": 0,
+    "objetivos": [
+      { "orden": 1, "tipo": "chatear_telefono", "descripcion": "",
+        "item_id": "", "cantidad": 1, "dialogo_id": "",
+        "escenario_ids": "M1_CHAT01", "zona_id": "", "caso_id": "" },
+      { "orden": 3, "tipo": "completar_caso_detective", "descripcion": "",
+        "item_id": "", "cantidad": 1, "dialogo_id": "",
+        "escenario_ids": "", "zona_id": "", "caso_id": "DC_CASO_01" }
+    ]
+  }
+]
+```
+
+| Campo | Significado |
+|---|---|
+| `titulo` / `nombre` | El mismo valor con los dos nombres. La tabla lo llama `nombre` y el archivo de Unity `titulo`; `MisionRegistro` acepta cualquiera |
+| `zona` | Zona **temática** del banco (`desconocidos`…): de qué trata |
+| `zona_objetivo` | Zona **espacial** de destino (`zona_1`…): hacia dónde apunta el indicador |
+| `orden` | Lugar en la historia, menor primero. Es una suposición del archivo, **no** el orden narrativo confirmado |
+| `descripcion` | Si no está vacía, **reemplaza** a la lista de objetivos en el panel |
+| `desbloquea_mision` | Id de la que se entrega sola al completar ésta. Vacío = no encadena |
+| `objetivos` | Siempre presente; `[]` explícito si no tiene |
+
+Los cinco tipos de objetivo: `recoger_objeto` · `hablar_npc` · `chatear_telefono` ·
+`llegar_zona` · `completar_caso_detective`. **Los campos que no aplican a un tipo
+van vacíos (`""` / `0`), nunca ausentes**: `JsonUtility` no distingue un campo que
+falta de uno vacío. En `recoger_objeto` la `cantidad` es la meta, no el avance —
+eso se recalcula del inventario, que ya persiste aparte.
+
+**GET `/misiones/{mision_id}/`** — Una sola misión
+
+Mismo objeto, sin el arreglo. 404 si el id no existe. Existe junto al listado
+porque el listado es la única forma de saber **qué** misiones hay: esa lista de
+ids no está en ninguna otra parte fuera del archivo local.
+
+**GET / POST `/partidas/{partida_id}/objetivos/`** — Avance por objetivo (B.3)
+
+```json
+// POST Request
+{ "mision_id": "MISION_NPC_03", "orden": 1, "cumplido": true }
+
+// Response
+{
+  "mision_id": "MISION_NPC_03",
+  "orden": 1,
+  "cumplido": true,
+  "fecha": "2026-09-17T18:40:02.114Z"
+}
+```
+
+Antes de esto, el avance **dentro** de una misión no se guardaba: una misión de 4
+objetivos con 3 hechos volvía a 0 al cerrar el juego.
+
+La clave es `(mision_id, orden)`, en texto y número, **sin FK al catálogo**:
+recargar el banco borra y recrea los objetivos, y una FK real se llevaría en
+cascada lo que el niño llevaba hecho. Si el catálogo nuevo ya no trae ese
+objetivo, la fila queda huérfana a propósito.
+
+Mismo contrato que las misiones y las zonas: **camino de ida** (un `cumplido:
+false` sobre uno ya cumplido se ignora) e **idempotente** (repetir el mismo aviso
+no duplica ni falla). Un objetivo que no está en el catálogo se guarda igual y
+queda el aviso en el log.
+
+**GET / POST `/partidas/{partida_id}/misiones/`** — Progreso de misiones (HDU-1 CA4 y CA5)
+
+```json
+// POST Request
+{ "mision_id": "MISION_NPC_01", "estado": "completada" }   // estado: "disponible" | "completada"
+
+// Response
+{
+  "id": 7,
+  "mision_id": "MISION_NPC_01",
+  "estado": "completada",
+  "nombre": "",
+  "zona": "",
+  "en_catalogo": false,
+  "fecha_desbloqueo": "2026-09-04T14:02:11.031Z",
+  "fecha_completada": "2026-09-04T14:09:47.882Z"
+}
+```
+
+El `GET` devuelve la lista de las misiones que esa partida tiene desbloqueadas.
+Es lo que `MissionManager` necesita al cargar la partida y hoy solo tiene en
+PlayerPrefs.
+
+| Campo | Significado |
+|---|---|
+| `mision_id` | El `desafioId` del `DesafioData` de Unity, o el `mision_id` del banco |
+| `estado` | `disponible` o `completada`. **No es una columna**: se deriva de `fecha_completada` |
+| `nombre` / `zona` | Vienen del catálogo `Mision`. Vacíos si el id no está ahí |
+| `en_catalogo` | `false` avisa que el id no existe en el banco. El progreso se guarda igual |
+
+**Es idempotente**, igual que `MissionManager.CompletarDesafio`: repetir el POST no
+duplica la fila ni mueve `fecha_completada`. **Completar es un camino de ida:** un
+POST con `disponible` sobre una misión ya completada se ignora, porque el orden en
+que llegan los mensajes desde el juego no está garantizado y el registro para el
+adulto no puede retroceder.
+
+> ⚠️ Hoy `en_catalogo` llega en `false` para `MISION_NPC_01` y `MISION_NPC_02`: los
+> `DesafioData` de Unity usan esos ids y el banco define otros
+> (`MISION_EXPLORACION_01`, `MISION_SEC_*`). Se guarda igual y queda el aviso en el
+> log del servidor y la columna del admin, en vez de responder 404 y perder el dato.
+
+**POST `/partidas/{partida_id}/chats/completo/`** — Una conversación entera de una vez (A.3)
+
+```json
+// Request
+{
+  "npc":  { "nombre": "Alex", "area": "zona_2", "tipo": "enemigo", "confianza": 0 },
+  "chat": { "categoria_riesgo": "desconocidos" },
+  "mensajes": [
+    { "tipo": "start",   "respuesta": "Hola!" },
+    { "tipo": "request", "respuesta": "¿Me pasas tu dirección?",
+      "pregunta_banco_id": "HDU2_NPC01_F2_Q01",
+      "posibles_respuestas": [
+        { "texto": "Claro", "orden": 0, "calidad_respuesta": "mala" },
+        { "texto": "No",    "orden": 1, "calidad_respuesta": "buena" }
+      ] },
+    { "tipo": "chain", "respuesta": "No te la voy a dar",
+      "calidad_respuesta": "buena", "opcion_banco_id": "HDU2_NPC01_F2_Q01_R2" }
+  ],
+  "finalizar": true
+}
+
+// Response 201
+{ "npc": { ... }, "chat": { ... }, "mensajes": [ ... ] }
+```
+
+Reemplaza a la cadena `RegistrarNPC` → `IniciarChat` → N × `RegistrarMensaje` →
+`FinalizarChat`, que es obligatoriamente en serie: ~9 peticiones de ~700 ms son
+unos **6 s por conversación**, y hay 6 lanzadores de chat en `MainScene`. Con una
+sola son **~0,7 s**.
+
+Tan importante como la velocidad es que sea **atómico**. Con la cadena larga, si
+el juego se cierra a medio camino queda una conversación partida en la base —un
+chat sin sus mensajes, o con la mitad— y el reporte del adulto la cuenta igual.
+Acá entra entera o no entra nada.
+
+| Campo | Notas |
+|---|---|
+| `npc` | Acepta `npc_id` en vez de los datos, para reusar un NPC que ya está en la partida |
+| `mensajes` | Lista, puede ir vacía. Cada elemento es el mismo cuerpo de `registrar_mensaje` |
+| `finalizar` | Por omisión `true`: agrega el mensaje `end` que cierra el chat |
+| `respuesta_final` | Texto del mensaje `end`, opcional |
+
+Si un mensaje viene mal, responde 400 diciendo **cuál** (`{"mensajes": {"1": {...}}}`)
+y no escribe nada. Las filas que crea son exactamente las mismas que crea la
+cadena larga —hay una prueba que las compara campo por campo—, así que el riesgo
+por zona y el resto de los reportes no cambian en nada.
+
+Del lado de Unity el cambio es un método, `ChatBackendLogger.Subir()`: lo que se
+graba y cuándo se encola no se toca.
+
+**GET / POST `/partidas/{partida_id}/zonas/`** — Progreso de zonas (HDU-3 CA5, HDU-4 CA5)
+
+```json
+// POST Request
+{ "zona": "ciberacoso", "completada": true }
+
+// Response
+{
+  "id": 3,
+  "zona": "ciberacoso",
+  "desbloqueada": true,
+  "completada": true,
+  "fecha_desbloqueo": "2026-09-04T14:02:11.031Z",
+  "fecha_completada": "2026-09-04T14:31:02.774Z"
+}
+```
+
+Es el *"marca la temática como completada y habilita el acceso a la siguiente"* de
+los CA de las zonas de riesgo.
+
+**La zona inicial (`desconocidos`) ya viene en la lista**: `POST /partidas/` la deja
+escrita al crear la partida, porque Otto empieza ahí y esa zona nunca está
+oscurecida. Sin eso, una partida recién creada devolvía una lista vacía, que se lee
+como "el mapa está todo cerrado".
+
+**Que la fila exista significa que la zona está desbloqueada**, así que el POST con
+`completada: false` es lo que se manda al abrir una zona nueva. El `GET` devuelve
+solo las zonas abiertas de esa partida: lo que no está en la lista sigue oscurecido
+en el mapa. Completar también es un camino de ida.
+
+`zona` es el slug del banco (`desconocidos`, `ciberacoso`, `reto_viral`) y **no se
+valida contra una lista fija a propósito**: agregar una temática es contenido, no
+una migración.
+
+> El progreso cuelga de la **partida**, no del perfil del menor. Un mismo perfil
+> puede tener varias partidas (HDU-15, "continuar mi última partida"): si viviera en
+> `UsuarioJugador`, la segunda partida empezaría con todo completado y resetearla
+> borraría el registro de la primera.
+
+---
+
+### Inventario
+
+**GET / PUT `/partidas/{partida_id}/inventario/`** — La mochila de Otto (HDU-15)
+
+```json
+// PUT Request — la mochila COMPLETA, no un objeto suelto
+{
+  "items": [
+    { "item_id": "ITEM_BRUJULA", "cantidad": 1 },
+    { "item_id": "ITEM_FLOR_01", "cantidad": 3 }
+  ]
+}
+
+// Response (igual en GET y en PUT): el inventario tal como quedó
+[
+  {
+    "id": 12,
+    "item_id": "ITEM_BRUJULA",
+    "cantidad": 1,
+    "fecha_agregado": "2026-09-06T16:52:03.114Z",
+    "fecha_actualizacion": "2026-09-06T16:52:03.114Z"
+  }
+]
+```
+
+**El PUT reemplaza la mochila entera: lo que no viene, no está.** Es la diferencia
+con misiones y zonas, y es deliberada. Una misión solo crece —se desbloquea y se
+completa, nunca se "descompleta"—, así que ahí el POST por fila es natural. El
+inventario encoge: `ItemType.Consumable` significa que un objeto usado sale de la
+mochila, y con POST por fila no hay forma de decir *"ya no tengo esto"* sin inventar
+un DELETE por objeto. Bastaría con que una de esas llamadas se perdiera para que el
+niño/a viera un objeto fantasma al retomar.
+
+Mandar la lista completa hace el endpoint **idempotente por construcción** y corre
+dentro de una transacción, así que no existe un instante con la mochila a medias.
+Una lista vacía vacía el inventario. Una `cantidad` de 0 o menos se trata como "no
+lo tengo" y no se guarda.
+
+Un PUT con cualquier elemento inválido se rechaza **entero** con `400` y no escribe
+nada: una mochila a medio escribir sería un estado que el niño/a nunca tuvo.
+
+`item_id` es el `itemId` del `ItemData` de Unity (`Assets/Items/*.asset`), en
+MAYÚSCULAS: `ITEM_BRUJULA`, `ITEM_FLOR_01`. **No se valida contra ningún catálogo
+porque no hay catálogo de items en el backend, y no debería haberlo**: los objetos
+se crean en Unity como ScriptableObjects y no vienen del banco de preguntas, así que
+una tabla `Item` en Postgres sería una segunda copia mantenida a mano y lista para
+desalinearse. El nombre visible, el ícono y la descripción se quedan en Unity, que
+es donde se dibujan.
+
+> Igual que misiones y zonas, cuelga de la **partida**. Y por la misma tercera razón
+> de `MisionProgreso`: el progreso es del niño/a y el catálogo es contenido. Si
+> mañana borran `flor2.asset`, la fila que dice que la recogió no tiene por qué
+> desaparecer.
+
+---
+
+### Personaje
+
+**GET / PATCH `/partidas/{partida_id}/personaje/`** — Dónde quedó Otto (HDU-15)
+
+```json
+// PATCH Request — todos los campos son opcionales
+{ "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25, "zona_actual": "zona_2" }
+
+// Response (igual en GET y en PATCH)
+{
+  "escena": "SampleScene",
+  "pos_x": 12.5,
+  "pos_y": -3.25,
+  "zona_actual": "zona_2",
+  "tiene_posicion": true,
+  "fecha_actualizacion": "2026-09-06T18:04:11.220Z"
+}
+```
+
+Es **PATCH y no PUT**, al revés que el inventario, y por una razón concreta: aquí no
+hay nada que borrar. Son cuatro columnas de una fila que siempre existe, así que mandar
+la posición sin la zona es una actualización legítima y no una orden de dejar el
+resto en blanco.
+
+**La fila se crea sola.** `PersonajeJugador` es uno a uno con la partida, pero ninguna
+vista lo creaba: las partidas que ya existen no tienen fila. El `GET` la crea en vez
+de responder 404 — sale más barato que una migración de datos que recorra todas las
+partidas para dejarles una fila vacía.
+
+**`tiene_posicion` no es una columna**, la deriva el modelo. Va explícito para que el
+cliente no tenga que decidir qué significa un `null`: **el `(0,0)` es un lugar del
+mapa**, no la ausencia de posición. Si se confundieran, a un niño/a que guardó ahí lo
+mandaría de vuelta al `spawnPoint`.
+
+`escena` se guarda para no restaurar coordenadas de otra escena el día que haya más de
+una — dejarían a Otto dentro de un cerro. Unity compara contra la escena activa y, si
+no calzan, ignora la posición y avisa por consola.
+
+**`zona_actual` es la región del mapa, no la temática del banco.** Son dos vocabularios
+distintos que se llaman igual y no hay tabla que los relacione: aquí los valores son
+los `zoneId` de las `BlockedZone` de Unity (`zona_1`, `zona_2`, `zona_3`), mientras que
+`ZonaProgreso.zona` guarda slugs del banco de preguntas (`desconocidos`, `ciberacoso`).
+No los cruces.
+
+Es texto libre: **nadie lo valida**, no es FK y no tiene `choices`, igual que
+`mision_id` e `item_id`. El catálogo de zonas vive en la escena de Unity, y un
+`choices` obligaría a una migración cada vez que diseño agregue una. Tampoco cuelga de
+`ZonaProgreso`, que solo tiene fila para zonas ya desbloqueadas: Otto está en `zona_1`
+desde el primer minuto y esa zona no tiene fila nunca.
+
+La **cadena vacía** significa "nunca se guardó" — no se usa `null`, al revés que
+`pos_x`/`pos_y`. Lo escribe Unity en cada guardado (que desde hace poco ocurre en dos
+momentos: al cambiar de zona y al cerrar el juego) y lo lee el reporte al tutor.
+
+---
+
+### Objetos del mapa ya recogidos
+
+**GET / POST `/partidas/{partida_id}/objetos-recogidos/`** — HDU-1 CA2
+
+```json
+// POST Request
+{ "objeto_id": "SAMPLESCENE_CONCHA_01" }
+
+// Response — 201 la primera vez, 200 al repetir
+{ "id": 7, "objeto_id": "SAMPLESCENE_CONCHA_01", "fecha": "2026-09-06T18:41:02.118Z" }
+```
+
+Es el *"el objeto ya no se muestra disponible para interactuar nuevamente"* del CA.
+`WorldItem.recogido` lo cumplía **dentro** de una sesión, pero es un bool privado del
+GameObject: al recargar la escena los objetos volvían al suelo.
+
+**Es POST por objeto y no PUT de reemplazo como el inventario**, y la diferencia no
+es un descuido: el inventario **encoge** —un objeto consumido sale de la mochila—
+pero esto **solo crece**. Recoger es un camino de ida. Con solo-crece, el POST por
+fila es más robusto: si una llamada se pierde se recupera la próxima vez, en vez de
+arrastrar un estado completo que puede llegar viejo. No hay DELETE a propósito.
+
+**`objeto_id` es el id del objeto de la escena, NO el `itemId` del ítem.** Son cosas
+distintas y confundirlas rompe el CA de dos maneras: dos objetos del mapa pueden
+entregar el mismo ítem, y un ítem consumible sale de la mochila sin que el del suelo
+deba reaparecer. Por eso no se puede derivar del inventario.
+
+Los ids se asignan con **Fishy → Asignar ids a los objetos del mapa**, que solo
+rellena los vacíos: un id ya puesto no se toca nunca, porque está escrito en la base
+de cada niño/a y cambiarlo haría reaparecer objetos que ya habían recogido.
+
+> La unicidad es `(partida, objeto_id)`, no `objeto_id` solo: que un niño/a haya
+> recogido la concha no puede quitársela a otro.
+
+---
+
+### Progreso por NPC de una temática
+
+**GET / POST `/partidas/{partida_id}/progreso-npcs/`** — HDU-3 CA5 / HDU-4 CA5
+
+```json
+// POST Request
+{ "npc_id": "SAMPLESCENE_NPC_DESCONOCIDO_01", "exito": true }
+
+// Response — 201 la primera vez, 200 al repetir
+{ "id": 4, "npc_id": "SAMPLESCENE_NPC_DESCONOCIDO_01", "exito": true,
+  "fecha": "2026-09-06T19:02:44.301Z" }
+```
+
+Es lo que permite que **una temática se complete en varias sesiones**.
+`BosqueDesconocidosManager` decide si está lista preguntándole a cada NPC si
+`Finished`, y eso vivía solo en memoria del objeto de la escena: con 2 de 3 NPCs
+hechos, cerrar el juego los devolvía a los tres a cero. Había que hacer la temática
+entera de una sentada o la zona siguiente no se abría nunca — para un niño/a que
+juega en ratos cortos, eso podía **bloquear el avance**, no solo molestar.
+
+**`exito` importa tanto como haber terminado**: decide si el NPC se retira del mapa
+y si cuenta como "a salvo" o "captura" en el resumen. Por eso no basta con deducir
+de los chats que la conversación ocurrió — el chat no guarda el `safePercent`.
+
+**Repetir el POST sí actualiza `exito`**, a diferencia de los objetos recogidos: un
+NPC con `allowReplay` puede rehacerse y vale el último resultado. La fila no se
+duplica.
+
+> `npc_id` es el id del NPC **en la escena**, no la PK del modelo `NPC`. Son cosas
+> distintas: aquel es una fila por partida con la confianza; este nombra al
+> personaje del mapa. Se asigna con **Fishy → Asignar ids de escena**.
 
 ---
 
@@ -508,6 +1076,78 @@ Query params:
 **GET `/banco/preguntas/{pregunta_id}/`** — Obtener pregunta específica
 **Response:** `PreguntaBancoSerializer`
 
+**GET `/banco/zonas/`** — Catálogo de zonas del banco
+
+Se arma consultando la BD, no desde una lista fija: al cargar un banco con una
+zona nueva, aparece aquí sola y sin tocar código.
+
+**Response:**
+```json
+[
+  { "zona": "chat_simulado", "preguntas": 6,  "hdu": "HDU-8" },
+  { "zona": "ciberacoso",    "preguntas": 4,  "hdu": "HDU-3" },
+  { "zona": "desconocidos",  "preguntas": 18, "hdu": "HDU-2" }
+]
+```
+
+**GET `/banco/zonas/{zona}/preguntas/`** — Preguntas de una zona
+
+Acepta los mismos query params que `/banco/preguntas/`, salvo `?zona=`, que lo
+manda la ruta.
+
+**Response:** lista de `PreguntaBancoSerializer`
+
+Responde **404** si la zona no existe en el banco. Eso permite distinguirla de
+una zona real que todavía no tiene preguntas cargadas, cosa que
+`/banco/preguntas/?zona=` no puede hacer porque devuelve `[]` en ambos casos.
+```json
+{ "detail": "La zona 'inventada' no existe." }
+```
+
+---
+
+### Modo Detective
+
+**GET `/casos-detective/`** — Listar casos
+```
+Query params:
+  ?zona=playa
+```
+**Response:** lista de `CasoDetectiveDto` (con sus `mensajes` anidados)
+
+**GET `/casos-detective/{caso_id}/`** — Obtener caso específico
+**Response:** `CasoDetectiveDto`
+
+Responde **404** si `caso_id` no existe (mismo criterio que
+`/banco/preguntas/{pregunta_id}/`).
+
+**POST `/casos-detective/{caso_id}/progreso/`** — Registrar resultado de un intento
+```json
+// Request
+{
+  "partida_id": 1,
+  "mensajes_marcados": ["m04", "m06"],
+  "aciertos": 2,
+  "total_riesgo": 3,
+  "porcentaje": 0.67
+}
+
+// Response: ProgresoDetectiveDto
+```
+`partida_id` debe pertenecer a una partida del adulto autenticado (mismo
+aislamiento que el resto de los endpoints de partida). Reintentar el mismo caso
+**no** crea una fila nueva: actualiza el resultado y suma 1 a `intentos`. La
+primera vez responde `201`, las siguientes `200`.
+
+**GET `/partidas/{partida_id}/casos-detective/`** — Progreso de una partida
+```json
+// Response: lista de ProgresoDetectiveDto
+[{ ... }, { ... }]
+```
+Sirve para que el cliente sepa qué casos ya están completados sin tener que
+llevar la cuenta localmente (mismo rol que cumple `PlayerPrefs` en
+`MissionManager` cuando no hay backend).
+
 ---
 
 ## Banco de preguntas
@@ -519,7 +1159,7 @@ Modelos en: `BancoPreguntasData.cs`
 ### Estructura raíz
 ```json
 {
-  "version": "1.3",
+  "version": "1.7",
   "preguntas": [ ... ]
 }
 ```
@@ -594,6 +1234,83 @@ Ejemplo: `HDU2_NPC01_F2_Q03` = HDU-2, NPC 01, Fase 2, Pregunta 3
 
 ---
 
+## Modo Detective (HDU-10)
+
+Archivo local (contenido fuente, cargado a la BD con `cargar_detective`):
+`banco_preguntas/detective_cases.json`  
+Modelos: `CasoDetective`, `MensajeDetective`, `CasoDetectiveProgreso` (`api/models.py`)
+
+El jugador observa una conversación pregrabada entre dos NPCs (sin participar) y
+marca los mensajes que considera señal de riesgo. A diferencia del banco de
+preguntas, **este contenido no viaja empaquetado con el build de Unity** — se
+consulta en vivo vía `/casos-detective/`, para poder agregar casos nuevos sin
+tener que republicar la app.
+
+### Estructura raíz (`detective_cases.json`, lo que carga `cargar_detective`)
+```json
+{
+  "version": "1.8",
+  "casos": [ ... ]
+}
+```
+
+### Caso — Campos comunes
+```json
+{
+  "id": "caso_01",
+  "titulo": "Caso de Alex y Sam",
+  "zona": "playa",
+  "etiquetas_ml": ["grooming"],
+  "permiso": {
+    "player_text": "Oye, ¿me puedes ayudar? Recibí mensajes raros...",
+    "npc_nombre": "Otto",
+    "npc_response": "Claro, muéstramelos."
+  },
+  "conversacion": [ ... ]
+}
+```
+El "permiso" es el intercambio previo: el jugador le pide a un NPC observar sus
+mensajes con otro, antes de mostrar la conversación grabada.
+
+### Mensaje de la conversación
+```json
+{
+  "id": "m04",
+  "npc_sender": "Alex",
+  "texto": "No le cuentes esto a tus papás, es un secreto entre nosotros.",
+  "es_senal_riesgo": true,
+  "es_ambiguo": false,
+  "explicacion": "Pedir guardar secretos a los papás es una señal de alerta clásica.",
+  "nota_ambiguo": null
+}
+```
+| Campo | Descripción |
+|---|---|
+| `es_senal_riesgo` | Si es `true`, marcarlo cuenta como acierto |
+| `es_ambiguo` | No cuenta ni como acierto ni como error (CA5 de HDU-10) — se excluye del cálculo de `porcentaje` |
+| `explicacion` | Solo en mensajes de riesgo; se muestra en el resumen si el jugador no lo marcó |
+| `nota_ambiguo` | Solo en mensajes ambiguos; aclara por qué no cuenta |
+
+### Cálculo de `porcentaje` (lo hace el backend; el cliente aplica la misma fórmula para mostrarla)
+```
+riesgo_real   = mensajes con es_senal_riesgo=true y es_ambiguo=false
+aciertos      = de esos, cuántos marcó el jugador
+porcentaje    = aciertos / total_riesgo   (1.0 si total_riesgo = 0)
+```
+
+`POST /casos-detective/{caso_id}/progreso/` **solo necesita `mensajes_marcados`**:
+`aciertos`, `total_riesgo` y `porcentaje` los recalcula el servidor con esa misma
+fórmula y son los que quedan guardados. Si el cuerpo los trae, se usan únicamente
+para comparar y avisar por log cuando no coinciden — señal de que el cliente y el
+banco no están viendo la misma versión del caso.
+
+Es a propósito: el resultado alimenta el reporte del adulto responsable (HDU-13),
+y un cliente con un bug o una petición hecha a mano dejarían números que después
+nadie puede auditar. Las marcas sí vienen del cliente: son lo que el niño/a hizo,
+no algo que el servidor pueda deducir.
+
+---
+
 ## Modo local (fallback)
 
 Si el backend no responde en 4 segundos, `ApiManager.cs` activa automáticamente el modo local:
@@ -616,7 +1333,7 @@ Los archivos relevantes para este modo están en `ApiManager.cs` en las funcione
 |---|---|---|
 | `400` | registro | falta el `email`, o el nombre/email ya existen |
 | `400` | crear perfil | ya tienes otro perfil con ese nombre |
-| `401` | cualquier endpoint | falta el header `Authorization: Token ...`, o el token no vale |
+| `401` | cualquier endpoint | falta el header `Authorization: Token ...`, el token no vale o ya venció |
 | `404` | crear partida | falta `usuario_jugador_id`, o el perfil es de otro adulto |
 | `404` | partida / npc / chat | el recurso es de otro adulto |
 

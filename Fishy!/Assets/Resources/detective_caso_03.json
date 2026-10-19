@@ -1,0 +1,73 @@
+{
+  "caseId": "DC_CASO_03",
+  "npcObservado1": "Lobo Marino",
+  "npcObservado2": "Pingüino de Humboldt",
+  "permisoPlayerText": "¿Puedo revisar los mensajes del reto de la cueva?",
+  "permisoNpcNombre": "Pingüino de Humboldt",
+  "permisoNpcResponse": "Sí. No sé si hice bien en grabarme. ¿Revisas el chat?",
+  "mensajes": [
+    {
+      "id": "DC03_MSG01",
+      "autor": "Lobo Marino",
+      "texto": "hoy grabamos el reto de la cueva, va a quedar buenísimo",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC03_MSG02",
+      "autor": "Pingüino de Humboldt",
+      "texto": "no sé, la corriente se ve fuerte hoy",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC03_MSG03",
+      "autor": "Lobo Marino 2",
+      "texto": "ya todos lo hicieron menos tú, no seas el único cobarde",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC03_MSG04",
+      "autor": "Lobo Marino",
+      "texto": "si no te grabas saltando, subo un video diciendo que te dio miedo",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC03_MSG05",
+      "autor": "Pingüino de Humboldt",
+      "texto": "no quiero que se rían de mí",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC03_MSG06",
+      "autor": "Lobo Marino 2",
+      "texto": "tranquilo, si te da miedo puedes verlo nomás desde la orilla",
+      "esRiesgo": false,
+      "esAmbiguo": true
+    },
+    {
+      "id": "DC03_MSG07",
+      "autor": "Lobo Marino",
+      "texto": "mejor no le cuentes a la Foca que estamos grabando esto",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC03_MSG08",
+      "autor": "Pingüino de Humboldt",
+      "texto": "ya poh, creo que lo voy a hacer para que no digan nada",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC03_MSG09",
+      "autor": "Lobo Marino",
+      "texto": "sube el video altiro antes de que te arrepientas",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    }
+  ]
+}

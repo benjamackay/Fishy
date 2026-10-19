@@ -1,0 +1,524 @@
+#if UNITY_EDITOR
+using System.Collections.Generic;
+using System.Text;
+using Fishy.Chat;
+using Fishy.Net;
+using UnityEditor;
+using UnityEngine;
+
+namespace Fishy.EditorTools
+{
+    /// <summary>
+    /// Pruebas headless del armado de conversaciones a partir del banco de preguntas.
+    ///
+    /// Existen por un bug que costó una tarde y que ninguna prueba habría pillado: las
+    /// conversaciones con los personajes sospechosos <b>empezaban por su propio final</b>
+    /// cuando el banco venía de la BD local. El nodo inicial se tomaba del primer
+    /// elemento de la lista, y el orden lo decide el backend
+    /// (<c>ordering = ["zona", "npc_id", "fase", …]</c>) con <c>fase</c> nullable: en
+    /// SQLite los NULL ordenan primero y los nodos FIN no tienen fase. Contra PostgreSQL
+    /// ordenan últimos, así que el bug era invisible en Supabase.
+    ///
+    /// Lo que se prueba aquí es justamente eso: que el armado <b>no dependa del orden en
+    /// que lleguen las preguntas</b>. Se le pasa el banco en el orden malo a propósito.
+    ///
+    /// Se corren desde  Fishy ▸ Probar armado de chats,  o sin abrir el editor:
+    ///
+    ///   Unity.exe -batchmode -nographics -quit -projectPath "&lt;ruta&gt;" `
+    ///             -executeMethod Fishy.EditorTools.FishyPruebasChat.Ejecutar `
+    ///             -logFile -
+    /// </summary>
+    public static class FishyPruebasChat
+    {
+        private static int _ok;
+        private static readonly List<string> _fallas = new List<string>();
+
+        [MenuItem("Fishy/Probar armado de chats")]
+        public static void Ejecutar()
+        {
+            _ok = 0;
+            _fallas.Clear();
+
+            var log = new StringBuilder();
+            log.AppendLine();
+            log.AppendLine(new string('=', 70));
+            log.AppendLine("PRUEBAS DE ARMADO DE CHATS (headless)");
+            log.AppendLine(new string('=', 70));
+
+            ProbarArranqueConLosFinPrimero(log);
+            ProbarArranqueConLosFinAlFinal(log);
+            ProbarDosNpcsEnUnEscenario(log);
+            ProbarLaConversacionNoSeCierraDeInmediato(log);
+            ProbarCategoriaDeRiesgo(log);
+            ProbarCategoriaDeUnaConversacionNeutra(log);
+            ProbarBarajarEsUnaPermutacion(log);
+            ProbarSinBarajarRespetaElOrdenEscrito(log);
+            ProbarBarajarCambiaDeVerdadElOrden(log);
+            ProbarElRegistroSigueAlOrdenMostrado(log);
+            ProbarQueNoSeDibujanLasEtiquetas(log);
+            ProbarQueUnCorcheteNormalSeRespeta(log);
+            ProbarElPensamientoDeOttoLlegaAlNodo(log);
+            ProbarLasNotasDelContadorNoSeDibujan(log);
+            ProbarNingunaConsecuenciaDelBancoMuestraElContador(log);
+
+            // Devolver el banco de verdad: las pruebas metieron uno de cuatro preguntas
+            // en la caché estática, y si se corren desde el menú el siguiente Play se lo
+            // encontraría puesto.
+            BancoPreguntasLoader.Recargar();
+
+            log.AppendLine();
+            log.AppendLine(new string('=', 70));
+            log.AppendLine($"RESULTADO: {_ok} OK, {_fallas.Count} fallas");
+            log.AppendLine(new string('=', 70));
+
+            if (_fallas.Count > 0) Debug.LogError(log.ToString());
+            else                   Debug.Log(log.ToString());
+
+            if (Application.isBatchMode)
+                EditorApplication.Exit(_fallas.Count > 0 ? 1 : 0);
+        }
+
+        // ── Las pruebas ───────────────────────────────────────────────────────
+
+        /// <summary>El orden que sirve SQLite: los FIN (fase NULL) delante.</summary>
+        private static void ProbarArranqueConLosFinPrimero(StringBuilder log)
+        {
+            var conv = Armar(FinSeguro(), FinInseguro(), Q01(), Q02());
+
+            Comprobar(log, "Con los nodos FIN primero (como los sirve SQLite) arranca en Q01",
+                conv != null && conv.startNodeId == "Q01",
+                $"arrancó en '{conv?.startNodeId}'");
+        }
+
+        /// <summary>El orden que sirve PostgreSQL. Tiene que dar lo mismo.</summary>
+        private static void ProbarArranqueConLosFinAlFinal(StringBuilder log)
+        {
+            var conv = Armar(Q01(), Q02(), FinSeguro(), FinInseguro());
+
+            Comprobar(log, "Con los FIN al final (como los sirve PostgreSQL) arranca igual en Q01",
+                conv != null && conv.startNodeId == "Q01",
+                $"arrancó en '{conv?.startNodeId}'");
+        }
+
+        /// <summary>
+        /// El otro caso, que fallaba también contra Supabase: `npc_id` pesa más que
+        /// `fase` en el ordering, así que un escenario de dos NPCs llega encabezado por
+        /// el del nombre alfabéticamente menor, que no es por donde empieza la historia.
+        /// </summary>
+        private static void ProbarDosNpcsEnUnEscenario(StringBuilder log)
+        {
+            var segunda = Q02();
+            segunda.npc_id = "NPC_01";          // alfabéticamente antes que el del arranque
+            var primera = Q01();
+            primera.npc_id = "NPC_TESTIMONIOS";
+
+            var conv = Armar(segunda, primera, FinSeguro());
+
+            Comprobar(log, "Un escenario con dos NPCs arranca por la fase 1, no por el npc_id menor",
+                conv != null && conv.startNodeId == "Q01",
+                $"arrancó en '{conv?.startNodeId}'");
+        }
+
+        /// <summary>
+        /// La consecuencia visible del bug: el chat se abría y se cerraba de una, porque
+        /// el nodo FIN tiene closesChat. Si el arranque es correcto, el primer nodo NO
+        /// cierra y además ofrece opciones que el niño/a pueda responder.
+        /// </summary>
+        private static void ProbarLaConversacionNoSeCierraDeInmediato(StringBuilder log)
+        {
+            var conv = Armar(FinSeguro(), FinInseguro(), Q01(), Q02());
+            var nodo = conv?.GetNode(conv.startNodeId);
+
+            Comprobar(log, "El primer nodo no cierra el chat y trae opciones",
+                nodo != null && !nodo.closesChat && nodo.HasOptions,
+                nodo == null ? "no se encontró el nodo inicial"
+                             : $"closesChat={nodo.closesChat}, opciones={nodo.options.Count}");
+        }
+
+        /// <summary>
+        /// La categoría tiene que ser la del riesgo, no la del nodo de cierre.
+        ///
+        /// Los FIN son `neutral` por definición, así que tomarla del primer elemento de
+        /// la lista etiquetaba como neutra una conversación de acoso entera. Se vio en la
+        /// partida 2: dos chats de grooming con sus cuatro respuestas bien guardadas y
+        /// `categoria_riesgo = 'neutral'`, que es por donde filtra el reporte del adulto.
+        /// </summary>
+        private static void ProbarCategoriaDeRiesgo(StringBuilder log)
+        {
+            var conv = Armar(FinSeguro(), FinInseguro(), Q01(), Q02());
+
+            Comprobar(log, "La categoría sale del mensaje de riesgo, no del nodo FIN",
+                conv != null && conv.categoriaRiesgo == "ciberacoso_exclusion",
+                $"quedó en '{conv?.categoriaRiesgo}'");
+        }
+
+        /// <summary>
+        /// Y una conversación que de verdad no tiene riesgo —el cierre de zona, por
+        /// ejemplo— tiene que seguir siendo neutra. Si no, el arreglo de arriba se
+        /// llevaría por delante la distinción que el reporte necesita.
+        /// </summary>
+        private static void ProbarCategoriaDeUnaConversacionNeutra(StringBuilder log)
+        {
+            var conv = Armar(FinSeguro());
+
+            Comprobar(log, "Una conversación sin mensajes de riesgo sigue siendo neutra",
+                conv != null && conv.categoriaRiesgo == "neutral",
+                $"quedó en '{conv?.categoriaRiesgo}'");
+        }
+
+        // ── Orden de las respuestas ───────────────────────────────────────────
+
+        /// <summary>
+        /// Barajar no puede perder, repetir ni inventar opciones: lo que sale tiene que
+        /// ser una permutación de 0..n-1. Si esto falla, en pantalla aparecería una
+        /// respuesta dos veces, o faltaría una — y la que falta puede ser la segura.
+        ///
+        /// Se prueban propiedades y no un resultado fijo porque el orden es aleatorio a
+        /// propósito; afirmar una secuencia concreta sería afirmar la semilla.
+        /// </summary>
+        private static void ProbarBarajarEsUnaPermutacion(StringBuilder log)
+        {
+            bool todasBien = true;
+            string detalle = "";
+
+            for (int cantidad = 0; cantidad <= 5 && todasBien; cantidad++)
+            {
+                for (int intento = 0; intento < 200 && todasBien; intento++)
+                {
+                    int[] orden = ChatModuleController.OrdenDeOpciones(cantidad, aleatorizar: true);
+                    var vistos = new HashSet<int>();
+
+                    if (orden.Length != cantidad)
+                    {
+                        todasBien = false;
+                        detalle = $"con {cantidad} opciones devolvió {orden.Length}";
+                        break;
+                    }
+
+                    foreach (int i in orden)
+                    {
+                        if (i < 0 || i >= cantidad || !vistos.Add(i))
+                        {
+                            todasBien = false;
+                            detalle = $"con {cantidad} opciones salió [{string.Join(",", orden)}]";
+                            break;
+                        }
+                    }
+                }
+            }
+
+            Comprobar(log, "Barajar devuelve siempre una permutación (sin perder ni repetir)",
+                todasBien, detalle);
+        }
+
+        /// <summary>Apagada la casilla, el orden es el que escribió el equipo.</summary>
+        private static void ProbarSinBarajarRespetaElOrdenEscrito(StringBuilder log)
+        {
+            int[] orden = ChatModuleController.OrdenDeOpciones(4, aleatorizar: false);
+
+            Comprobar(log, "Con 'aleatorizarOpciones' apagado salen en el orden del banco",
+                orden.Length == 4 && orden[0] == 0 && orden[1] == 1 && orden[2] == 2 && orden[3] == 3,
+                $"salió [{string.Join(",", orden)}]");
+        }
+
+        /// <summary>
+        /// Con 3 opciones hay 6 órdenes posibles; en 300 intentos tienen que salir más
+        /// de uno. Pilla el caso de que barajar no baraje nada —un bucle que no entra,
+        /// un Range con el máximo mal puesto— que la prueba de permutación daría por
+        /// bueno, porque la identidad también es una permutación válida.
+        /// </summary>
+        private static void ProbarBarajarCambiaDeVerdadElOrden(StringBuilder log)
+        {
+            var distintos = new HashSet<string>();
+            for (int i = 0; i < 300; i++)
+                distintos.Add(string.Join(",", ChatModuleController.OrdenDeOpciones(3, aleatorizar: true)));
+
+            Comprobar(log, "Barajar produce más de un orden con 3 opciones",
+                distintos.Count > 1, $"{distintos.Count} órdenes distintos en 300 intentos");
+        }
+
+        /// <summary>
+        /// Lo que se le manda al backend tiene que ser lo que se vio: el `orden` de cada
+        /// opción es su puesto en pantalla (0,1,2…) y el texto, el de esa posición. Si
+        /// esto se desalinea, el reporte del adulto describe una pantalla que no existió.
+        /// </summary>
+        private static void ProbarElRegistroSigueAlOrdenMostrado(StringBuilder log)
+        {
+            var node = new ChatNode { id = "Q01", text = "¿?" };
+            node.options.Add(new ChatOption("A", OptionSafety.Unsafe, "fin_a", "OP_A"));
+            node.options.Add(new ChatOption("B", OptionSafety.Safe,   "fin_b", "OP_B"));
+            node.options.Add(new ChatOption("C", OptionSafety.Neutral, "fin_c", "OP_C"));
+
+            // Un orden dado a mano, para poder afirmar el resultado exacto.
+            int[] orden = { 2, 0, 1 };
+            var opciones = node.ToOpciones(orden);
+
+            bool bien = opciones.Count == 3
+                && opciones[0].texto == "C" && opciones[0].orden == 0
+                && opciones[1].texto == "A" && opciones[1].orden == 1
+                && opciones[2].texto == "B" && opciones[2].orden == 2
+                && opciones[2].calidad_respuesta == "buena";
+
+            Comprobar(log, "El registro al backend sale en el orden en que se mostró",
+                bien,
+                bien ? "" : string.Join(" | ", opciones.ConvertAll(o => $"{o.orden}:{o.texto}")));
+        }
+
+        // ── Etiquetas de autoría ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Las etiquetas del banco —"[SISTEMA] ", "[ZONA] "— marcan quién habla para
+        /// quien escribe el contenido; al jugador no se le enseñan. Salía "[ZONA] Coipo:"
+        /// dibujado en la pantalla del teléfono porque la limpieza quitaba
+        /// "[ZONA COMPLETADA] ", que no existe en el banco, y dejaba pasar "[ZONA] ".
+        ///
+        /// Se prueban las dos reales y una inventada, porque lo que se arregló es
+        /// justamente que no dependa de una lista de etiquetas conocidas.
+        /// </summary>
+        private static void ProbarQueNoSeDibujanLasEtiquetas(StringBuilder log)
+        {
+            var casos = new[]
+            {
+                ("[SISTEMA] Puma se desconecta.",            "Puma se desconecta."),
+                ("[ZONA] Antes de seguir, mira tu libreta.", "Antes de seguir, mira tu libreta."),
+                ("[ETIQUETA_NUEVA] Texto cualquiera.",       "Texto cualquiera."),
+            };
+
+            bool todas = true;
+            string detalle = "";
+
+            foreach (var (crudo, esperado) in casos)
+            {
+                var conv = Armar(Base("SOLO", 1, 1, crudo));
+                string salida = conv?.GetNode("SOLO")?.text;
+                if (salida != esperado)
+                {
+                    todas = false;
+                    detalle = $"'{crudo}' quedó como '{salida}'";
+                    break;
+                }
+            }
+
+            Comprobar(log, "Las etiquetas [SISTEMA]/[ZONA] no llegan a la pantalla", todas, detalle);
+        }
+
+        /// <summary>Un corchete que no es etiqueta es contenido y no se toca.</summary>
+        private static void ProbarQueUnCorcheteNormalSeRespeta(StringBuilder log)
+        {
+            var conv = Armar(Base("SOLO", 1, 1, "[mira esto] dijo el pato."));
+            string salida = conv?.GetNode("SOLO")?.text;
+
+            Comprobar(log, "Un corchete en minúsculas se respeta como contenido",
+                salida == "[mira esto] dijo el pato.", $"quedó '{salida}'");
+        }
+
+        // ── Notas del contador de rechazos ────────────────────────────────────
+
+        /// <summary>
+        /// Las consecuencias del banco traen al final notas para el equipo sobre el
+        /// contador de rechazos, y el chat las dibujaba: «Segundo rechazo consecutivo: se
+        /// activa la presión intensificada en la Misión 6» le salía al jugador.
+        /// </summary>
+        private static void ProbarLasNotasDelContadorNoSeDibujan(StringBuilder log)
+        {
+            var casos = new (string entrada, string esperado)[]
+            {
+                ("Lobo Marino 2 queda pensativo: 'Ni yo me metería ahí...' Segundo rechazo " +
+                 "consecutivo: se activa la presión intensificada en la Misión 6.",
+                 "Lobo Marino 2 queda pensativo: 'Ni yo me metería ahí...'"),
+                ("Otto asiente: 'Está bien no seguirle el juego a la presión.' Cuenta como " +
+                 "rechazo consecutivo.",
+                 "Otto asiente: 'Está bien no seguirle el juego a la presión.'"),
+                ("Otto entra a la cueva y la corriente lo arrastra un tramo. El conteo de " +
+                 "rechazos vuelve a 0.",
+                 "Otto entra a la cueva y la corriente lo arrastra un tramo."),
+                ("Otto asiente: 'Mirar desde la orilla también es una forma de cuidarse.' " +
+                 "Cuenta igual como rechazo consecutivo.",
+                 "Otto asiente: 'Mirar desde la orilla también es una forma de cuidarse.'"),
+                // Sin nota: queda igual, aunque hable de presión.
+                ("Foca de Weddell lo ayuda a subir: la presión de un grupo entero tampoco es " +
+                 "motivo para arriesgarse.",
+                 "Foca de Weddell lo ayuda a subir: la presión de un grupo entero tampoco es " +
+                 "motivo para arriesgarse."),
+            };
+
+            var mal = new List<string>();
+            foreach (var (entrada, esperado) in casos)
+            {
+                string salida = BancoPreguntasLoader.QuitarNotasDelContador(entrada);
+                if (salida != esperado) mal.Add($"'{salida}'");
+            }
+
+            Comprobar(log, "Las notas del contador de rechazos no llegan al chat",
+                mal.Count == 0, mal.Count == 0 ? $"{casos.Length} casos" : string.Join(" | ", mal));
+        }
+
+        /// <summary>Lo mismo contra el banco de verdad: ninguna consecuencia, ya limpia,
+        /// habla del contador ni se queda vacía.</summary>
+        private static void ProbarNingunaConsecuenciaDelBancoMuestraElContador(StringBuilder log)
+        {
+            var asset = Resources.Load<TextAsset>("banco_preguntas");
+            var banco = asset != null ? JsonUtility.FromJson<BancoRaiz>(asset.text) : null;
+            if (banco?.preguntas == null)
+            {
+                Comprobar(log, "Ninguna consecuencia del banco muestra el contador", false,
+                          "no se pudo leer Resources/banco_preguntas.json");
+                return;
+            }
+
+            int revisadas = 0;
+            var mal = new List<string>();
+            foreach (var p in banco.preguntas)
+            {
+                if (p.opciones_respuesta == null) continue;
+                foreach (var o in p.opciones_respuesta)
+                {
+                    if (string.IsNullOrEmpty(o.consecuencia_narrativa)) continue;
+                    revisadas++;
+                    string limpia = BancoPreguntasLoader.QuitarNotasDelContador(o.consecuencia_narrativa);
+                    if (limpia.Length == 0 || limpia.Contains("rechazo consecutivo") ||
+                        limpia.Contains("conteo de rechazos") || limpia.Contains("Misión 6"))
+                        mal.Add($"{o.id}: '{limpia}'");
+                }
+            }
+
+            Comprobar(log, "Ninguna consecuencia del banco muestra el contador",
+                revisadas > 0 && mal.Count == 0,
+                mal.Count == 0 ? $"{revisadas} consecuencias" : string.Join(" | ", mal));
+        }
+
+        // ── Pensamiento de Otto ───────────────────────────────────────────────
+
+        /// <summary>
+        /// "Otto (para sí): Esto está medio Fishy..." va en su propio campo y tiene que
+        /// llegar al nodo sin mezclarse con el mensaje del NPC, que es lo que se
+        /// registra en el backend. Pasa por AplicarDesdeBackend, el mismo camino que
+        /// usa el juego al bajar el banco de la base: si el DTO no trajera el campo, el
+        /// pensamiento desaparecería en cuanto hay sesión.
+        /// </summary>
+        private static void ProbarElPensamientoDeOttoLlegaAlNodo(StringBuilder log)
+        {
+            var p = Q01();
+            p.pensamiento_otto = "Esto está medio Fishy...";
+            var conv = Armar(p, FinSeguro(), FinInseguro());
+            var nodo = conv?.GetNode("Q01");
+
+            bool bien = nodo != null
+                && nodo.pensamientoOtto == "Esto está medio Fishy..."
+                && nodo.text == "Te sacamos del grupo, jaja."
+                && nodo.HasOptions;
+
+            Comprobar(log, "El pensamiento de Otto llega a su nodo, aparte del mensaje del NPC",
+                bien, nodo == null ? "no se armó el nodo" :
+                      $"pensamiento='{nodo.pensamientoOtto}', texto='{nodo.text}'");
+        }
+
+        // ── Andamiaje ─────────────────────────────────────────────────────────
+
+        private const string Escenario = "PRUEBA_CHAT01";
+
+        /// <summary>
+        /// Mete estas preguntas en el banco —en el orden dado— y arma la conversación.
+        ///
+        /// Se inyectan por <see cref="BancoPreguntasLoader.AplicarDesdeBackend"/>, que es
+        /// el mismo camino que usa el juego cuando baja el banco de la base, así que la
+        /// prueba ejercita también la traducción de DTOs.
+        /// </summary>
+        private static ChatConversation Armar(params PreguntaBancoDto[] preguntas)
+        {
+            BancoPreguntasLoader.AplicarDesdeBackend(new List<PreguntaBancoDto>(preguntas));
+            var convs = BancoPreguntasLoader.CreateConversationForEscenarioId(Escenario);
+            return convs != null && convs.Count > 0 ? convs[0] : null;
+        }
+
+        private static PreguntaBancoDto Base(string id, int? fase, int? orden, string mensaje)
+            => new PreguntaBancoDto
+            {
+                pregunta_id = id,
+                hdu = "HDU-3",
+                zona = "ciberacoso",
+                npc_id = "NPC_03",
+                npc_nombre = "Flamenco",
+                fase = fase,
+                orden_en_fase = orden,
+                escenario_id = Escenario,
+                escenario_nombre = "Escenario de prueba",
+                categoria = "ciberacoso_exclusion",
+                nivel_riesgo = 3,
+                mensaje_npc = mensaje,
+                opciones = new List<OpcionBancoDto>(),
+            };
+
+        private static PreguntaBancoDto Q01()
+        {
+            var p = Base("Q01", 1, 1, "Te sacamos del grupo, jaja.");
+            p.es_mensaje_riesgo = true;
+            p.opciones.Add(new OpcionBancoDto
+            {
+                opcion_id = "Q01_R1", texto = "Eso no se hace. Reporto.",
+                tipo = "segura_optima", impacto_puntuacion = 2,
+                siguiente_pregunta = "FIN_SEGURO", orden = 0,
+            });
+            p.opciones.Add(new OpcionBancoDto
+            {
+                opcion_id = "Q01_R2", texto = "Da igual, no digo nada.",
+                tipo = "insegura", impacto_puntuacion = -1,
+                siguiente_pregunta = "Q02", orden = 1,
+            });
+            return p;
+        }
+
+        private static PreguntaBancoDto Q02()
+        {
+            var p = Base("Q02", 1, 2, "Mira cómo se pica.");
+            p.es_mensaje_riesgo = true;
+            p.opciones.Add(new OpcionBancoDto
+            {
+                opcion_id = "Q02_R1", texto = "Aviso a un adulto.",
+                tipo = "segura_optima", impacto_puntuacion = 2,
+                siguiente_pregunta = "FIN_SEGURO", orden = 0,
+            });
+            p.opciones.Add(new OpcionBancoDto
+            {
+                opcion_id = "Q02_R2", texto = "Lo dejo pasar.",
+                tipo = "insegura", impacto_puntuacion = -1,
+                siguiente_pregunta = "FIN_INSEGURO", orden = 1,
+            });
+            return p;
+        }
+
+        /// <summary>Nodo de cierre: sin fase, que es la clave del bug.</summary>
+        private static PreguntaBancoDto FinSeguro()
+        {
+            var p = Base("FIN_SEGURO", null, null, "[SISTEMA] Flamenco se desconecta.");
+            p.categoria = "neutral";
+            p.nivel_riesgo = 0;
+            p.es_fin_de_npc = true;
+            return p;
+        }
+
+        private static PreguntaBancoDto FinInseguro()
+        {
+            var p = Base("FIN_INSEGURO", null, null, "[SISTEMA] La exclusión siguió.");
+            p.categoria = "neutral";
+            p.nivel_riesgo = 0;
+            p.es_fin_de_npc = true;
+            return p;
+        }
+
+        private static void Comprobar(StringBuilder log, string que, bool paso, string detalle)
+        {
+            if (paso)
+            {
+                _ok++;
+                log.AppendLine($"  OK    {que}" + (string.IsNullOrEmpty(detalle) ? "" : $"  [{detalle}]"));
+            }
+            else
+            {
+                _fallas.Add(que);
+                log.AppendLine($"  FALLA {que}" + (string.IsNullOrEmpty(detalle) ? "" : $"  [{detalle}]"));
+            }
+        }
+    }
+}
+#endif

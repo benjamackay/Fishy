@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
+using Fishy.Net;
 using UnityEngine;
 
 namespace Fishy.Chat
@@ -43,6 +45,110 @@ namespace Fishy.Chat
             }
 
             return _cache;
+        }
+
+        /// <summary>
+        /// Reemplaza las preguntas del banco por las que vienen de la base de datos.
+        ///
+        /// El JSON de Resources y la tabla del backend tienen el mismo contenido —el
+        /// comando `cargar_banco` llena la tabla desde ese mismo archivo—, pero la base
+        /// es la que el equipo puede corregir sin recompilar y sin publicar una versión
+        /// nueva. Por eso, cuando hay sesión, manda la base.
+        ///
+        /// Solo se tocan las preguntas: los diálogos de NPC neutro que ya se leyeron de
+        /// Resources se conservan, porque esos tienen su propio camino al backend en
+        /// <c>DialogoNpcLoader</c> y se piden de uno en uno.
+        ///
+        /// Los nombres de los campos NO coinciden entre las dos fuentes, y por eso esta
+        /// traducción existe: el backend dice <c>pregunta_id</c> y <c>opciones</c>
+        /// donde el JSON dice <c>id</c> y <c>opciones_respuesta</c>. Sin esto, las
+        /// preguntas llegarían con el id vacío y ningún nodo enlazaría con el siguiente.
+        /// </summary>
+        /// <summary>
+        /// Suelta el banco cargado para que la próxima consulta lo vuelva a leer de
+        /// Resources. Para el editor y las pruebas: <see cref="AplicarDesdeBackend"/>
+        /// reemplaza el contenido de la caché, así que un arnés que inyecte un banco de
+        /// prueba se lo dejaría puesto al siguiente Play.
+        /// </summary>
+        public static void Recargar() => _cache = null;
+
+        public static void AplicarDesdeBackend(List<PreguntaBancoDto> dtos)
+        {
+            if (dtos == null || dtos.Count == 0)
+            {
+                Debug.LogWarning("[BancoPreguntasLoader] El backend no devolvió preguntas; " +
+                                 "se mantiene la copia de Resources.");
+                return;
+            }
+
+            BancoRaiz banco = Load();
+            var convertidas = new List<PreguntaBanco>(dtos.Count);
+
+            foreach (PreguntaBancoDto d in dtos)
+            {
+                if (d == null || string.IsNullOrEmpty(d.pregunta_id)) continue;
+
+                var p = new PreguntaBanco
+                {
+                    id                     = d.pregunta_id,
+                    hdu                    = d.hdu,
+                    zona                   = d.zona,
+                    npc_id                 = d.npc_id,
+                    npc_nombre             = d.npc_nombre,
+                    // En la base son nullable —hay preguntas sueltas sin fase—; el
+                    // JSON las trae como 0 por JsonUtility, así que se iguala a 0.
+                    fase                   = d.fase ?? 0,
+                    orden_en_fase          = d.orden_en_fase ?? 0,
+                    escenario_id           = d.escenario_id,
+                    escenario_nombre       = d.escenario_nombre,
+                    categoria              = d.categoria,
+                    nivel_riesgo           = d.nivel_riesgo,
+                    es_mensaje_riesgo      = d.es_mensaje_riesgo,
+                    es_fin_de_npc          = d.es_fin_de_npc,
+                    es_fin_de_zona         = d.es_fin_de_zona,
+                    mensaje_npc            = d.mensaje_npc,
+                    pensamiento_otto       = d.pensamiento_otto,
+                    narrativa_continuacion = d.narrativa_continuacion,
+                };
+
+                if (d.historial_previo != null)
+                    foreach (var h in d.historial_previo)
+                        if (h != null)
+                            p.historial_previo.Add(new HistorialPrevio
+                            {
+                                remitente  = h.remitente,
+                                npc_nombre = h.npc_nombre,
+                                mensaje    = h.mensaje,
+                                categoria  = h.categoria,
+                            });
+
+                if (d.opciones != null)
+                {
+                    // El backend guarda el orden en un campo aparte; el JSON se apoya en
+                    // el orden del array. Se ordena aquí para que las respuestas salgan
+                    // en pantalla como las escribió el equipo.
+                    var ops = new List<OpcionBancoDto>(d.opciones);
+                    ops.Sort((a, b) => a.orden.CompareTo(b.orden));
+
+                    foreach (var o in ops)
+                        if (o != null)
+                            p.opciones_respuesta.Add(new OpcionBanco
+                            {
+                                id                     = o.opcion_id,
+                                texto                  = o.texto,
+                                tipo                   = o.tipo,
+                                consecuencia_narrativa = o.consecuencia_narrativa,
+                                impacto_puntuacion     = o.impacto_puntuacion,
+                                siguiente_pregunta     = o.siguiente_pregunta,
+                            });
+                }
+
+                convertidas.Add(p);
+            }
+
+            banco.preguntas = convertidas;
+            Debug.Log($"[BancoPreguntasLoader] Banco actualizado desde la base: " +
+                      $"{convertidas.Count} pregunta(s).");
         }
 
         // ── HDU-2: Zona Desconocidos ───────────────────────────────────────────
@@ -102,6 +208,69 @@ namespace Fishy.Chat
             return result;
         }
 
+        /// <summary>
+        /// Retorna la <see cref="ChatConversation"/> de un único NPC buscando en
+        /// TODO el banco (cualquier HDU/zona), a diferencia de
+        /// <see cref="CreateHDU2ConversationForNpc"/> que sólo mira HDU-2.
+        /// zoneId/categoriaRiesgo se toman de los datos del NPC en el banco
+        /// (campos "zona"/"categoria"), no quedan fijos en "desconocidos"/"grooming".
+        /// </summary>
+        public static List<ChatConversation> CreateConversationForNpcId(string npcId, bool introComoTelefono = true)
+        {
+            var banco = Load();
+            var preguntas = new List<PreguntaBanco>();
+            foreach (var p in banco.preguntas)
+                if (p.npc_id == npcId) preguntas.Add(p);
+
+            var result = new List<ChatConversation>();
+            if (preguntas.Count == 0)
+            {
+                Debug.LogWarning($"[BancoPreguntasLoader] No se encontró el NPC '{npcId}' en el banco.");
+                return result;
+            }
+
+            string zoneId = !string.IsNullOrEmpty(preguntas[0].zona) ? preguntas[0].zona : "desconocidos";
+            var conv = BuildConversationFromPreguntas(npcId, preguntas, zoneId, introComoTelefono);
+            if (!string.IsNullOrEmpty(preguntas[0].categoria))
+                conv.categoriaRiesgo = preguntas[0].categoria;
+
+            result.Add(conv);
+            return result;
+        }
+
+        /// <summary>
+        /// Retorna la <see cref="ChatConversation"/> de un único escenario_id,
+        /// buscando en TODO el banco (cualquier HDU). A diferencia de npc_id,
+        /// escenario_id identifica la conversación en sí — evita ambigüedad si
+        /// un mismo NPC (mismo npc_id) reaparece en más de una conversación.
+        /// </summary>
+        public static List<ChatConversation> CreateConversationForEscenarioId(string escenarioId)
+            => CreateConversationsForEscenarioIds(new[] { escenarioId });
+
+        /// <summary>
+        /// Igual que <see cref="CreateConversationForEscenarioId"/> pero para varias
+        /// escenario_id en orden — útil para encadenar fases de una misma historia
+        /// (ej. "M4_FASE01,M4_FASE02") como una sola sesión de chat.
+        /// </summary>
+        public static List<ChatConversation> CreateConversationsForEscenarioIds(IList<string> escenarioIds)
+        {
+            var banco = Load();
+            var byEscena = GroupByEscenarioGlobal(banco.preguntas);
+            var result = new List<ChatConversation>();
+
+            foreach (var escenarioId in escenarioIds)
+            {
+                if (!byEscena.TryGetValue(escenarioId, out var preguntas))
+                {
+                    Debug.LogWarning($"[BancoPreguntasLoader] No se encontró el escenario '{escenarioId}' en el banco.");
+                    continue;
+                }
+                result.Add(BuildEscenarioConversation(escenarioId, preguntas));
+            }
+
+            return result;
+        }
+
         // ── Agrupación ─────────────────────────────────────────────────────────
         private static Dictionary<string, List<PreguntaBanco>> GroupByNpc(List<PreguntaBanco> all)
         {
@@ -129,9 +298,21 @@ namespace Fishy.Chat
             return dict;
         }
 
+        private static Dictionary<string, List<PreguntaBanco>> GroupByEscenarioGlobal(List<PreguntaBanco> all)
+        {
+            var dict = new Dictionary<string, List<PreguntaBanco>>();
+            foreach (var p in all)
+            {
+                if (string.IsNullOrEmpty(p.escenario_id)) continue;
+                if (!dict.ContainsKey(p.escenario_id)) dict[p.escenario_id] = new List<PreguntaBanco>();
+                dict[p.escenario_id].Add(p);
+            }
+            return dict;
+        }
+
         // ── Construcción de ChatConversation para HDU-2 ───────────────────────
         private static ChatConversation BuildConversationFromPreguntas(
-            string npcId, List<PreguntaBanco> preguntas, string zoneId)
+            string npcId, List<PreguntaBanco> preguntas, string zoneId, bool introComoTelefono = true)
         {
             var conv = ScriptableObject.CreateInstance<ChatConversation>();
             conv.zoneId         = zoneId;
@@ -147,17 +328,29 @@ namespace Fishy.Chat
             var allNodes = new List<ChatNode>();
 
             // Nodo de apertura del celular (mensaje introductorio del sistema).
-            var intro = new ChatNode
+            // Sólo tiene sentido con la secuencia de celular; en chat cara a cara
+            // se arranca directo en la primera pregunta del banco.
+            // Por estructura y no por orden de llegada: ver ElegirArranque.
+            string primera = ElegirArranque(preguntas) ?? "";
+
+            if (introComoTelefono)
             {
-                id         = $"{npcId}_INTRO",
-                text       = $"📱 {npcNombre} te está escribiendo…",
-                kind       = ChatMessageKind.Neutral,
-                isSystem   = true,
-                closesChat = false,
-                nextNodeId = preguntas.Count > 0 ? preguntas[0].id : ""
-            };
-            allNodes.Add(intro);
-            conv.startNodeId = intro.id;
+                var intro = new ChatNode
+                {
+                    id         = $"{npcId}_INTRO",
+                    text       = $"📱 {npcNombre} te está escribiendo…",
+                    kind       = ChatMessageKind.Neutral,
+                    isSystem   = true,
+                    closesChat = false,
+                    nextNodeId = primera
+                };
+                allNodes.Add(intro);
+                conv.startNodeId = intro.id;
+            }
+            else
+            {
+                conv.startNodeId = primera;
+            }
 
             // Construir un nodo por pregunta.
             foreach (var p in preguntas)
@@ -169,6 +362,7 @@ namespace Fishy.Chat
                 {
                     id         = p.id,
                     text       = LimpiarTextoSistema(p.mensaje_npc),
+                    pensamientoOtto = p.pensamiento_otto,
                     kind       = p.es_mensaje_riesgo ? ChatMessageKind.Risk : ChatMessageKind.Neutral,
                     isSystem   = isSystem,
                     closesChat = isFin,
@@ -189,7 +383,7 @@ namespace Fishy.Chat
                         var consecNode = new ChatNode
                         {
                             id         = consecNodeId,
-                            text       = op.consecuencia_narrativa ?? "",
+                            text       = QuitarNotasDelContador(op.consecuencia_narrativa),
                             kind       = ChatMessageKind.Neutral,
                             isSystem   = true,
                             closesChat = consecFin,
@@ -198,7 +392,10 @@ namespace Fishy.Chat
                         allNodes.Add(consecNode);
 
                         // La opción apunta al nodo de consecuencia.
-                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id));
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id)
+                        {
+                            impacto = op.impacto_puntuacion
+                        });
                     }
                 }
                 // Sin opciones y sin nextNodeId definido: fin automático.
@@ -211,6 +408,7 @@ namespace Fishy.Chat
             }
 
             conv.nodes = allNodes;
+            AvisarReferenciasColgando(conv);
             return conv;
         }
 
@@ -269,6 +467,7 @@ namespace Fishy.Chat
                 {
                     id         = p.id,
                     text       = p.mensaje_npc,
+                    pensamientoOtto = p.pensamiento_otto,
                     kind       = p.es_mensaje_riesgo ? ChatMessageKind.Risk : ChatMessageKind.Neutral,
                     isSystem   = false,
                     closesChat = isFin && (p.opciones_respuesta == null || p.opciones_respuesta.Count == 0),
@@ -288,14 +487,17 @@ namespace Fishy.Chat
                         allNodes.Add(new ChatNode
                         {
                             id         = consecNodeId,
-                            text       = op.consecuencia_narrativa ?? "",
+                            text       = QuitarNotasDelContador(op.consecuencia_narrativa),
                             kind       = ChatMessageKind.Neutral,
                             isSystem   = true,
                             closesChat = termina,
                             nextNodeId = termina ? "" : op.siguiente_pregunta
                         });
 
-                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id));
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id)
+                        {
+                            impacto = op.impacto_puntuacion
+                        });
                     }
                 }
 
@@ -304,10 +506,285 @@ namespace Fishy.Chat
 
             conv.startNodeId = startNodeId ?? (allNodes.Count > 0 ? allNodes[0].id : "");
             conv.nodes = allNodes;
+            AvisarReferenciasColgando(conv);
+            return conv;
+        }
+
+        // ── Construcción de ChatConversation por escenario_id (cualquier HDU) ──
+        private static ChatConversation BuildEscenarioConversation(
+            string escenarioId, List<PreguntaBanco> preguntas)
+        {
+            var conv = ScriptableObject.CreateInstance<ChatConversation>();
+
+            // Por dónde empieza la conversación. Se calcula ya aquí porque de ella salen
+            // también la zona y el nombre del contacto: NINGUNA de las tres puede venir
+            // de `preguntas[0]`, que es quien llegó primero y no quien manda. Ver
+            // ElegirArranque.
+            string arranque = ElegirArranque(preguntas);
+            PreguntaBanco pArranque = Buscar(preguntas, arranque);
+
+            conv.zoneId = !string.IsNullOrEmpty(pArranque?.zona) ? pArranque.zona : "chat_simulado";
+            conv.categoriaRiesgo = ElegirCategoria(preguntas, pArranque, escenarioId);
+
+            // Nombre del contacto: primero se busca en el historial (estilo HDU-8),
+            // si no hay se usa el npc_nombre de quien abre la conversación (estilo
+            // HDU-2/3), y como último recurso cualquiera que lo traiga.
+            string contactName = DeducirContactName(preguntas);
+            if (contactName == "Desconocido" && !string.IsNullOrEmpty(pArranque?.npc_nombre))
+                contactName = pArranque.npc_nombre;
+            if (contactName == "Desconocido")
+            {
+                foreach (var p in preguntas)
+                    if (!string.IsNullOrEmpty(p.npc_nombre)) { contactName = p.npc_nombre; break; }
+            }
+            conv.contactName = contactName;
+
+            var allNodes = new List<ChatNode>();
+
+            // Por dónde se entra a cada pregunta: ella misma, o la cabeza de su cadena
+            // de historial si lo trae.
+            var entradaDe = new Dictionary<string, string>();
+
+            foreach (var p in preguntas)
+            {
+                string entrada = p.id;
+
+                if (p.historial_previo != null && p.historial_previo.Count > 0)
+                {
+                    string prevNext = p.id;
+                    for (int h = p.historial_previo.Count - 1; h >= 0; h--)
+                    {
+                        var hist = p.historial_previo[h];
+                        string histId = $"HIST_{escenarioId}_{h}";
+                        allNodes.Add(new ChatNode
+                        {
+                            id = histId,
+                            text = hist.mensaje,
+                            kind = ChatMessageKind.Neutral,
+                            isSystem = false,
+                            closesChat = false,
+                            nextNodeId = prevNext
+                        });
+                        prevNext = histId;
+                    }
+                    entrada = prevNext;
+                }
+
+                entradaDe[p.id] = entrada;
+
+                bool isFin = p.es_fin_de_npc || p.es_fin_de_zona;
+                var node = new ChatNode
+                {
+                    id = p.id,
+                    text = LimpiarTextoSistema(p.mensaje_npc),
+                    pensamientoOtto = p.pensamiento_otto,
+                    kind = p.es_mensaje_riesgo ? ChatMessageKind.Risk : ChatMessageKind.Neutral,
+                    isSystem = false,
+                    closesChat = isFin && (p.opciones_respuesta == null || p.opciones_respuesta.Count == 0),
+                    nextNodeId = p.narrativa_continuacion ?? ""
+                };
+
+                if (p.opciones_respuesta != null && p.opciones_respuesta.Count > 0)
+                {
+                    foreach (var op in p.opciones_respuesta)
+                    {
+                        OptionSafety safety = TipoToSafety(op.tipo);
+                        string consecNodeId = $"CONS_{op.id}";
+                        bool termina = string.IsNullOrEmpty(op.siguiente_pregunta) || isFin;
+
+                        allNodes.Add(new ChatNode
+                        {
+                            id = consecNodeId,
+                            text = QuitarNotasDelContador(op.consecuencia_narrativa),
+                            kind = ChatMessageKind.Neutral,
+                            isSystem = true,
+                            closesChat = termina,
+                            nextNodeId = termina ? "" : op.siguiente_pregunta
+                        });
+
+                        node.options.Add(new ChatOption(op.texto, safety, consecNodeId, op.id)
+                        {
+                            impacto = op.impacto_puntuacion
+                        });
+                    }
+                }
+
+                allNodes.Add(node);
+            }
+
+            conv.startNodeId = arranque != null && entradaDe.TryGetValue(arranque, out string entrada0)
+                ? entrada0
+                : (allNodes.Count > 0 ? allNodes[0].id : "");
+            conv.nodes = allNodes;
+            AvisarReferenciasColgando(conv);
             return conv;
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Por qué pregunta empieza la conversación.
+        ///
+        /// <b>No por el orden en que llegaron</b>, que es lo que estaba roto. Ese orden lo
+        /// decide el backend con <c>PreguntaBanco.Meta.ordering = ["zona", "npc_id",
+        /// "fase", "orden_en_fase", …]</c>, y trae dos sorpresas:
+        ///
+        ///  1. <c>fase</c> es nullable y los nodos FIN no tienen fase. <b>En SQLite los
+        ///     NULL ordenan PRIMERO</b>, así que el endpoint devolvía <c>…_FIN_SEGURO</c>
+        ///     antes que <c>…_Q01</c> y cada conversación de riesgo empezaba por su propio
+        ///     final: mostraba la narración de cierre y se cerraba. En PostgreSQL los NULL
+        ///     ordenan últimos, así que contra Supabase no se veía. Mismo juego, dos bases,
+        ///     dos comportamientos — y el equipo probando contra la BD local no veía ni una
+        ///     conversación con los personajes sospechosos.
+        ///  2. <c>npc_id</c> pesa MÁS que <c>fase</c>, así que un escenario repartido entre
+        ///     dos NPCs arranca por el del npc_id alfabéticamente menor. Eso pasaba también
+        ///     contra Supabase.
+        ///
+        /// Así que el arranque se deduce de la estructura, que es lo único que no depende de
+        /// quién sirvió los datos: <b>el principio es aquello que nadie apunta.</b> Entre
+        /// varios candidatos gana el de menor <c>fase</c>/<c>orden_en_fase</c>, y un nodo de
+        /// cierre se elige solo si no queda nada mejor.
+        ///
+        /// Devuelve null si no hay ninguna pregunta utilizable.
+        /// </summary>
+        private static string ElegirArranque(List<PreguntaBanco> preguntas)
+        {
+            if (preguntas == null || preguntas.Count == 0) return null;
+
+            // Lo que algo apunta no puede ser el principio.
+            var apuntados = new HashSet<string>();
+            foreach (var p in preguntas)
+            {
+                if (p == null) continue;
+                if (!string.IsNullOrEmpty(p.narrativa_continuacion))
+                    apuntados.Add(p.narrativa_continuacion);
+                if (p.opciones_respuesta == null) continue;
+                foreach (var op in p.opciones_respuesta)
+                    if (op != null && !string.IsNullOrEmpty(op.siguiente_pregunta))
+                        apuntados.Add(op.siguiente_pregunta);
+            }
+
+            string mejor = null;
+            Candidato mejorC = default;
+
+            foreach (var p in preguntas)
+            {
+                if (p == null || string.IsNullOrEmpty(p.id)) continue;
+
+                var c = new Candidato
+                {
+                    Huerfano = !apuntados.Contains(p.id),
+                    NoEsFin  = !(p.es_fin_de_npc || p.es_fin_de_zona),
+                    // fase 0 es "sin fase": tanto JsonUtility como la conversión del
+                    // backend dejan 0 donde la base tiene NULL. Va al FINAL de la cola de
+                    // candidatos, no al principio: una pregunta sin fase no es la primera
+                    // de la historia. Esto es exactamente lo que SQLite hacía al revés.
+                    Fase  = p.fase > 0 ? p.fase : int.MaxValue,
+                    Orden = p.orden_en_fase > 0 ? p.orden_en_fase : int.MaxValue,
+                };
+
+                if (mejor == null || c.MejorQue(mejorC))
+                {
+                    mejor = p.id;
+                    mejorC = c;
+                }
+            }
+
+            return mejor;
+        }
+
+        private static PreguntaBanco Buscar(List<PreguntaBanco> preguntas, string id)
+        {
+            if (preguntas == null || string.IsNullOrEmpty(id)) return null;
+            foreach (var p in preguntas)
+                if (p != null && p.id == id) return p;
+            return null;
+        }
+
+        /// <summary>
+        /// La categoría de riesgo de la conversación.
+        ///
+        /// <b>Es la de sus mensajes de riesgo, no la del primero de la lista.</b> Los
+        /// nodos de cierre son <c>neutral</c> por definición —narran el desenlace, no
+        /// ponen a prueba a nadie—, así que tomarla del primer elemento etiquetaba como
+        /// "neutral" conversaciones enteras de grooming en cuanto el backend devolvía un
+        /// FIN primero. Pasó: en la partida 2 quedaron dos chats con Puma, con sus cuatro
+        /// respuestas y sus opcion_banco_id bien guardados, pero con
+        /// <c>categoria_riesgo = 'neutral'</c>. El reporte del adulto filtra por ahí.
+        ///
+        /// Se elige la del primer mensaje de riesgo en orden de fase; si la conversación
+        /// no tiene ninguno es que de verdad es neutra, y entonces vale la del arranque.
+        /// </summary>
+        private static string ElegirCategoria(
+            List<PreguntaBanco> preguntas, PreguntaBanco arranque, string escenarioId)
+        {
+            PreguntaBanco mejor = null;
+            foreach (var p in preguntas)
+            {
+                if (p == null || !p.es_mensaje_riesgo) continue;
+                if (string.IsNullOrEmpty(p.categoria) || p.categoria == "neutral") continue;
+
+                if (mejor == null || AntesQue(p, mejor)) mejor = p;
+            }
+
+            if (mejor != null) return mejor.categoria;
+            if (!string.IsNullOrEmpty(arranque?.categoria)) return arranque.categoria;
+            return EscenarioToCategoria(escenarioId);
+        }
+
+        /// <summary>True si <paramref name="a"/> va antes que <paramref name="b"/> en la
+        /// historia. Sin fase (0) va al final, igual que en ElegirArranque.</summary>
+        private static bool AntesQue(PreguntaBanco a, PreguntaBanco b)
+        {
+            int fa = a.fase > 0 ? a.fase : int.MaxValue;
+            int fb = b.fase > 0 ? b.fase : int.MaxValue;
+            if (fa != fb) return fa < fb;
+
+            int oa = a.orden_en_fase > 0 ? a.orden_en_fase : int.MaxValue;
+            int ob = b.orden_en_fase > 0 ? b.orden_en_fase : int.MaxValue;
+            return oa < ob;
+        }
+
+        /// <summary>Un aspirante a nodo inicial, con sus criterios en orden de peso.</summary>
+        private struct Candidato
+        {
+            public bool Huerfano;   // nadie lo apunta
+            public bool NoEsFin;    // no es un nodo de cierre
+            public int  Fase;
+            public int  Orden;
+
+            public bool MejorQue(Candidato otro)
+            {
+                if (Huerfano != otro.Huerfano) return Huerfano;
+                if (NoEsFin  != otro.NoEsFin)  return NoEsFin;
+                if (Fase     != otro.Fase)     return Fase < otro.Fase;
+                return Orden < otro.Orden;
+            }
+        }
+
+        /// <summary>
+        /// Avisa por consola si la conversación recién armada apunta a nodos que no
+        /// contiene.
+        ///
+        /// Pasa cuando una opción tiene `siguiente_pregunta` hacia una pregunta de
+        /// otro `escenario_id` (o sin escenario, como los nodos FIN_*) que este
+        /// cargador no incluyó: la rama queda muerta y el chat se corta como si
+        /// hubiera terminado. Se avisa acá, al construir, porque es el único punto
+        /// donde se sabe qué preguntas se pidieron y cuáles no.
+        /// </summary>
+        private static void AvisarReferenciasColgando(ChatConversation conv)
+        {
+            if (conv == null) return;
+            var colgando = conv.ReferenciasColgando();
+            if (colgando.Count == 0) return;
+
+            Debug.LogWarning(
+                $"[BancoPreguntas] La conversación '{conv.contactName}' (zona {conv.zoneId}) " +
+                $"apunta a {colgando.Count} pregunta(s) que no se cargaron: " +
+                $"{string.Join(", ", colgando)}. Esas ramas terminan el chat antes de tiempo. " +
+                "Asigna el escenario_id que las contiene a algún launcher de la escena.");
+        }
+
         private static OptionSafety TipoToSafety(string tipo)
         {
             switch (tipo)
@@ -338,12 +815,63 @@ namespace Fishy.Chat
             return "Desconocido";
         }
 
-        /// <summary>Quita prefijos "[SISTEMA]" y "[ZONA COMPLETADA]" del texto.</summary>
+        /// <summary>
+        /// Las notas del contador de rechazos que trae el banco al final de algunas
+        /// consecuencias. Son para el equipo, no para el jugador: «Cuenta como rechazo
+        /// consecutivo», «El conteo de rechazos vuelve a 0», «Segundo rechazo
+        /// consecutivo: se activa la presión intensificada en la Misión 6». El contador lo
+        /// lleva el código (la presión social del backend, RechazosEnChats), no el texto.
+        /// </summary>
+        private static readonly Regex NotaDelContador = new Regex(
+            @"\s*(?:(?:Primer|Segundo|Tercer)\s+rechazo\s+consecutivo" +
+            @"|Cuenta(?:\s+igual)?\s+como\s+rechazo\s+consecutivo" +
+            @"|El\s+conteo\s+de\s+rechazos)\b.*$",
+            RegexOptions.Singleline);
+
+        /// <summary>
+        /// El texto de una consecuencia sin la nota final del contador de rechazos.
+        ///
+        /// Se limpia aquí, al cargar, y no en el banco: el juego toma el banco del
+        /// servidor cuando hay conexión, así que corregir solo el archivo no llegaría a
+        /// la pantalla. Siempre van al final, así que se corta desde donde empieza la nota.
+        /// </summary>
+        public static string QuitarNotasDelContador(string consecuencia)
+        {
+            if (string.IsNullOrEmpty(consecuencia)) return consecuencia ?? "";
+            return NotaDelContador.Replace(consecuencia, "").TrimEnd();
+        }
+
+        /// <summary>
+        /// Quita la etiqueta de autoría del principio del texto: "[SISTEMA] ",
+        /// "[ZONA] " y cualquier otra que siga la convención del banco.
+        ///
+        /// <b>Va por convención y no por una lista de etiquetas concretas</b> porque la
+        /// lista ya se desfasó una vez: quitaba "[ZONA COMPLETADA] ", que no existe en
+        /// el banco, y dejaba pasar "[ZONA] ", que sí — y esa salía dibujada en pantalla
+        /// delante del mensaje. La convención es corchetes con el nombre en MAYÚSCULAS,
+        /// así que se reconoce eso y no hay nada que mantener al día cuando el contenido
+        /// estrene una etiqueta nueva.
+        ///
+        /// Un texto que empiece por corchete sin ser etiqueta (minúsculas, números) se
+        /// deja intacto: es contenido, no marca.
+        /// </summary>
         private static string LimpiarTextoSistema(string raw)
         {
             if (string.IsNullOrEmpty(raw)) return raw;
-            raw = raw.Replace("[SISTEMA] ", "").Replace("[ZONA COMPLETADA] ", "");
-            return raw;
+
+            string texto = raw.TrimStart();
+            if (!texto.StartsWith("[")) return raw;
+
+            int cierre = texto.IndexOf(']');
+            if (cierre < 0) return raw;
+
+            for (int i = 1; i < cierre; i++)
+            {
+                char c = texto[i];
+                if (!char.IsUpper(c) && c != ' ' && c != '_') return raw;
+            }
+
+            return texto.Substring(cierre + 1).TrimStart();
         }
     }
 }

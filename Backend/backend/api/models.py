@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+import uuid
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -32,13 +33,29 @@ class AdultoResponsableManager(BaseUserManager):
 
 class AdultoResponsable(AbstractBaseUser):
     """Tutor/adulto responsable que gestiona uno o más perfiles de menores."""
+    ROL_PADRE    = "padre"
+    ROL_PROFESOR = "profesor"
+    # Admin del PORTAL: el equipo de Fishy! mirando profesores y grupos desde la
+    # web. No confundir con `is_admin`, que abre /admin/ de Django.
+    ROL_ADMIN    = "admin"
+    ROLES = [(ROL_PADRE, "Padre o madre"), (ROL_PROFESOR, "Profesor"),
+             (ROL_ADMIN, "Admin del portal (equipo)")]
+
     nombre           = models.CharField(max_length=150, unique=True)
     apellido         = models.CharField(max_length=150, blank=True)
     email            = models.EmailField(unique=True)
     edad             = models.PositiveSmallIntegerField(null=True, blank=True)
     fecha_nacimiento = models.DateField(null=True, blank=True)
     fecha_creacion   = models.DateTimeField(auto_now_add=True)
+    # Solo privilegio técnico: entrar a /admin/ de Django. NO significa profesor.
     is_admin         = models.BooleanField(default=False)
+    # Recorrido en el portal web. Lo asigna el equipo desde /admin/; el registro
+    # no lo acepta. `db_default` deja el valor en la propia base: Supabase es
+    # compartida con dev, cuyo backend no conoce esta columna y la omite al
+    # insertar (el mismo problema que tuvo `zona_actual`).
+    rol              = models.CharField(
+        max_length=10, choices=ROLES, default=ROL_PADRE, db_default=ROL_PADRE,
+    )
 
     objects = AdultoResponsableManager()
 
@@ -54,6 +71,19 @@ class AdultoResponsable(AbstractBaseUser):
 
     @property
     def is_staff(self): return self.is_admin
+
+    @property
+    def es_profesor(self): return self.rol == self.ROL_PROFESOR
+
+    @property
+    def es_admin_portal(self): return self.rol == self.ROL_ADMIN
+
+    @property
+    def gestiona_menores(self):
+        # Solo el padre tiene perfiles de niños. Se pregunta por el padre y no
+        # por "no es profesor" para que un rol nuevo o mal escrito en la base
+        # quede afuera en vez de colarse como familia.
+        return self.rol == self.ROL_PADRE
 
     class Meta:
         verbose_name = "Adulto Responsable"
@@ -138,15 +168,52 @@ class Partida(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class PersonajeJugador(models.Model):
+    """Donde quedo Otto. Uno a uno con la partida.
+
+    El modelo existia vacio desde el principio con un comentario que decia "agrega
+    aqui los atributos": esto es eso. Guarda lo minimo para volver a dejar a Otto
+    donde estaba, que sin esto reaparecia en el `spawnPoint` de la escena.
+
+    `zona_actual` es la region del mapa donde quedo Otto, y **no tiene nada que ver
+    con `ZonaProgreso.zona`**: alla "zona" es la tematica del banco (`desconocidos`,
+    `ciberacoso`), aca es geografia (`zona_1`, `zona_2`). De ahi que sea texto libre
+    sin FK ni `choices` -el catalogo de zonas vive en la escena de Unity, mismo
+    criterio que `mision_id` o `item_id`-, y de ahi tambien que no sirva colgarla de
+    `ZonaProgreso`, que solo tiene fila para zonas ya desbloqueadas: Otto esta en
+    `zona_1` desde el primer minuto y esa zona no tiene fila nunca.
+
+    Las columnas de posicion admiten null: una partida recien creada no tiene
+    posicion guardada, y eso es distinto de tenerla en (0,0), que es un lugar del
+    mapa. `zona_actual` no las sigue y va con la cadena vacia, igual que `escena`,
+    porque ahi el vacio ya significa "no se guardo" sin ambiguedad.
+    """
     partida = models.OneToOneField(
         Partida,
         on_delete=models.CASCADE,
         related_name="personaje"
     )
-    # Agrega aquí los atributos del personaje (nombre, stats, apariencia, etc.)
+    escena = models.CharField(
+        max_length=80, blank=True,
+        help_text="Escena de Unity donde estaba, ej. `SampleScene`. Se guarda para no "
+                  "restaurar una posicion de otra escena si algun dia hay mas de una."
+    )
+    pos_x  = models.FloatField(null=True, blank=True)
+    pos_y  = models.FloatField(null=True, blank=True)
+    zona_actual = models.CharField(
+        max_length=50, blank=True,
+        help_text="Zona del mapa donde quedo Otto, ej. `zona_2`. Es el `zoneId` de la "
+                  "BlockedZone de Unity, NO el slug del banco que usa ZonaProgreso.zona."
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    @property
+    def tiene_posicion(self):
+        return self.pos_x is not None and self.pos_y is not None
 
     def __str__(self):
-        return f"Personaje de {self.partida}"
+        if not self.tiene_posicion:
+            return f"Personaje de {self.partida} (sin posicion)"
+        return f"Personaje de {self.partida} en ({self.pos_x:.1f}, {self.pos_y:.1f})"
 
     class Meta:
         verbose_name = "Personaje Jugador"
@@ -335,6 +402,9 @@ class PreguntaBanco(models.Model):
     nivel_riesgo         = models.PositiveSmallIntegerField(default=0)
     es_mensaje_riesgo    = models.BooleanField(default=False)
     mensaje_npc          = models.TextField()
+    # Lo que Otto piensa "para sí" después del mensaje del NPC y antes de las
+    # opciones. Va aparte de mensaje_npc porque lo dice Otto, no el NPC.
+    pensamiento_otto     = models.TextField(blank=True, default="")
     etiquetas_ml         = models.JSONField(default=list)
     es_fin_de_npc        = models.BooleanField(default=False, help_text="True en estados FIN_SEGURO / FIN_INSEGURO")
     es_fin_de_zona       = models.BooleanField(default=False, help_text="True en la pregunta ZONA_FIN")
@@ -385,3 +455,705 @@ class Zona(models.Model):
     class Meta:
         verbose_name = "Zona"
         verbose_name_plural = "Zonas"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODO DETECTIVE  (HDU-10, contenido estático cargado desde detective_cases.json)
+#
+# El jugador observa una conversación pregrabada entre dos NPCs (sin participar)
+# y marca los mensajes que considera señales de riesgo. `es_ambiguo` no cuenta
+# ni como acierto ni como error (CA5 de HDU-10).
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CasoDetective(models.Model):
+    caso_id              = models.CharField(max_length=60, unique=True)
+    titulo               = models.CharField(max_length=150)
+    zona                 = models.CharField(max_length=50)
+    etiquetas_ml         = models.JSONField(default=list)
+
+    # Permiso: el jugador le pide a un NPC observar sus mensajes con otro.
+    permiso_player_text  = models.TextField()
+    permiso_npc_nombre   = models.CharField(max_length=60)
+    permiso_npc_response = models.TextField()
+
+    # Recompensa del caso (HDU-11). Cinco campos planos, mismo criterio que el
+    # bloque de permiso de arriba: es un solo grupo de datos por caso, no una
+    # tabla aparte. Es independiente de RecompensaAlbum, que es el catalogo del
+    # album (HDU-12): este pin va directo al inventario del jugador, que ya es
+    # generico por `item_id` de texto. Vacio = el caso no entrega nada, y Unity
+    # cae solo a su catalogo local (CatalogoRecompensasDetective).
+    # Van con `db_default` ademas del `default`: Supabase es compartida con las
+    # ramas que todavia no conocen estas columnas, y sin un DEFAULT en la propia
+    # base su `cargar_detective` fallaria por NOT NULL. Mismo criterio que `rol`
+    # en la 0013 y que `zona_actual`.
+    recompensa_item_id               = models.CharField(max_length=60, blank=True, default="", db_default="")
+    recompensa_nombre                = models.CharField(max_length=150, blank=True, default="", db_default="")
+    recompensa_accesorio_hdu06       = models.CharField(max_length=150, blank=True, default="", db_default="")
+    recompensa_umbral_aciertos       = models.FloatField(default=0.5, db_default=0.5)
+    recompensa_no_duplica_al_repetir = models.BooleanField(default=True, db_default=True)
+
+    def __str__(self):
+        return self.caso_id
+
+    class Meta:
+        verbose_name = "Caso Detective"
+        verbose_name_plural = "Casos Detective"
+        ordering = ["zona", "caso_id"]
+
+
+class MensajeDetective(models.Model):
+    caso            = models.ForeignKey(
+        CasoDetective, on_delete=models.CASCADE, related_name="mensajes"
+    )
+    mensaje_id      = models.CharField(max_length=70, unique=True)
+    npc_sender      = models.CharField(max_length=60)
+    texto           = models.TextField()
+    es_senal_riesgo = models.BooleanField(default=False)
+    es_ambiguo      = models.BooleanField(default=False)
+    explicacion     = models.TextField(blank=True, null=True)
+    nota_ambiguo    = models.TextField(blank=True, null=True)
+    orden           = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.mensaje_id
+
+    class Meta:
+        verbose_name = "Mensaje Detective"
+        verbose_name_plural = "Mensajes Detective"
+        ordering = ["caso", "orden"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO DETECTIVE  (resultado del jugador por partida+caso)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CasoDetectiveProgreso(models.Model):
+    partida           = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="casos_detective"
+    )
+    caso              = models.ForeignKey(
+        CasoDetective, on_delete=models.CASCADE, related_name="progresos"
+    )
+    mensajes_marcados = models.JSONField(
+        default=list,
+        help_text="mensaje_id de los MensajeDetective que el jugador marcó como riesgo"
+    )
+    aciertos          = models.PositiveSmallIntegerField(default=0)
+    total_riesgo      = models.PositiveSmallIntegerField(default=0)
+    porcentaje        = models.FloatField(default=0.0)
+    intentos          = models.PositiveSmallIntegerField(default=1)
+    fecha_inicio      = models.DateTimeField(auto_now_add=True)
+    fecha_termino     = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.caso.caso_id} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso Caso Detective"
+        verbose_name_plural = "Progresos Casos Detective"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "caso"], name="progreso_unico_por_partida_caso"
+            )
+        ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MISION  (catalogo — HDU-1 / HDU-11 / HDU-12)
+#
+# Contenido de catalogo: igual para todos los ninos, sin FK a partida. Ojo con
+# no confundirlo con NPC, que si cuelga de una partida y es de runtime.
+#
+# El id lo manda el banco (`mision_desbloquea`), no Unity. Es a proposito: el
+# MissionManager de Unity guarda el estado por `desafioId` en PlayerPrefs, y si
+# cada lado inventa el suyo terminamos como el Modo Detective (caso_01 vs
+# DC_CASO_01). Los DesafioData del editor deben usar este mismo mision_id.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Mision(models.Model):
+    class Tipo(models.TextChoices):
+        PRINCIPAL   = "principal",   "Principal"
+        SECUNDARIA  = "secundaria",  "Secundaria"
+        EXPLORACION = "exploracion", "Exploracion"
+
+    mision_id = models.CharField(max_length=60, unique=True)
+    nombre    = models.CharField(
+        max_length=120, blank=True,
+        help_text="`nombre_mision` del banco. La de exploracion no trae nombre."
+    )
+    tipo      = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.SECUNDARIA)
+    zona      = models.CharField(max_length=50, blank=True)
+
+    # ── Lo que solo existe en misiones.json ──────────────────────────────────
+    # El banco de preguntas solo sabe el id y el nombre de 9 misiones. El orden,
+    # la zona de destino, los objetivos y 3 misiones mas viven unicamente en
+    # `Fishy!/Assets/Resources/misiones.json`, que es de donde los trae
+    # `cargar_banco`. Todos opcionales: una mision que no los use queda igual que
+    # antes, y un build viejo del juego no se rompe.
+    #
+    # Van con `db_default` ademas del `default` por la base compartida: sin un
+    # DEFAULT en la propia base, el `cargar_banco` de una rama que todavia no
+    # conoce estas columnas fallaria por NOT NULL al insertar una mision.
+    zona_objetivo = models.CharField(
+        max_length=50, blank=True, default="", db_default="",
+        help_text="Zona ESPACIAL de destino (`zona_1`...), no la tematica del banco. Ver ZonaProgreso.",
+    )
+    orden         = models.IntegerField(
+        default=100, db_default=100,
+        help_text="Lugar en la historia; menor va antes. Es una suposicion del archivo, NO el orden narrativo confirmado.",
+    )
+    descripcion   = models.TextField(
+        blank=True, default="", db_default="",
+        help_text="Texto fijo que REEMPLAZA a la lista de objetivos en el panel. Vacio = se listan los objetivos.",
+    )
+    desbloquea_mision = models.CharField(
+        max_length=60, blank=True, default="", db_default="",
+        help_text=(
+            "`mision_id` de la mision que se entrega sola al completar esta. Es texto y no FK "
+            "a proposito: los ids del catalogo no son estables y hay que poder reemplazar una "
+            "mision sin que una FK se lleve nada por delante. Vacio = no encadena."
+        ),
+    )
+    recompensa_item_id = models.CharField(
+        max_length=60, blank=True, default="", db_default="",
+        help_text="ItemData que se entrega al completar. Vacio = sin recompensa automatica.",
+    )
+    recompensa_cantidad = models.IntegerField(
+        default=0, db_default=0,
+        help_text="Unidades de `recompensa_item_id`. 0 o negativo lo trata Unity como 1.",
+    )
+
+    def __str__(self):
+        return self.mision_id
+
+    class Meta:
+        verbose_name = "Mision"
+        verbose_name_plural = "Misiones"
+        ordering = ["zona", "mision_id"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OBJETIVO DE MISION  (catalogo — lo que hay que hacer DENTRO de una mision)
+#
+# Cada tipo usa unos campos y deja el resto vacios; se mandan igual y no se
+# omiten, porque `JsonUtility` de Unity no distingue "campo ausente" de "campo
+# vacio" y un contrato con campos que aparecen y desaparecen es peor de depurar.
+#
+# Esto es CONTENIDO, no progreso: cuelga de la mision con CASCADE porque si la
+# mision se reemplaza sus objetivos ya no significan nada. Lo que el nino llevaba
+# hecho vive aparte, en ObjetivoProgreso, que a proposito NO tiene FK.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ObjetivoMision(models.Model):
+    class Tipo(models.TextChoices):
+        RECOGER_OBJETO    = "recoger_objeto",           "Recoger objeto"
+        HABLAR_NPC        = "hablar_npc",               "Hablar con un NPC"
+        CHATEAR_TELEFONO  = "chatear_telefono",         "Chatear por telefono"
+        LLEGAR_ZONA       = "llegar_zona",              "Llegar a una zona"
+        CASO_DETECTIVE    = "completar_caso_detective", "Completar un caso Detective"
+
+    mision = models.ForeignKey(Mision, on_delete=models.CASCADE, related_name="objetivos")
+    orden  = models.IntegerField(help_text="Estable una vez publicado: es la mitad de la clave con la que se guarda el avance.")
+    tipo   = models.CharField(
+        max_length=30, choices=Tipo.choices,
+        help_text="Va en texto y no como indice: el enum de Unity se puede reordenar.",
+    )
+
+    # Segun el tipo. El que no aplica va vacio, nunca ausente.
+    item_id       = models.CharField(max_length=60, blank=True, default="", help_text="recoger_objeto")
+    cantidad      = models.IntegerField(default=1, help_text="recoger_objeto. El avance NO se guarda: se recalcula del inventario.")
+    dialogo_id    = models.CharField(max_length=60, blank=True, default="", help_text="hablar_npc")
+    escenario_ids = models.CharField(max_length=200, blank=True, default="", help_text="chatear_telefono; varios separados por coma")
+    zona_id       = models.CharField(max_length=50, blank=True, default="", help_text="llegar_zona; id ESPACIAL")
+    caso_id       = models.CharField(max_length=60, blank=True, default="", help_text="completar_caso_detective")
+    descripcion   = models.CharField(max_length=200, blank=True, default="", help_text="Texto fijo para el panel; vacio = lo arma Unity")
+
+    def __str__(self):
+        return f"{self.mision.mision_id} #{self.orden} ({self.tipo})"
+
+    class Meta:
+        verbose_name = "Objetivo de Mision"
+        verbose_name_plural = "Objetivos de Mision"
+        ordering = ["mision", "orden"]
+        constraints = [
+            models.UniqueConstraint(fields=["mision", "orden"], name="objetivo_unico_por_mision"),
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DIALOGO NPC  (catalogo — los `dialogos_npc_neutros` del banco)
+#
+# NPCs neutros que hablan sin arbol de decisiones: no tienen opciones ni riesgo,
+# solo lineas y (a veces) una mision. npc_id/npc_nombre van planos, igual que en
+# PreguntaBanco: los dos bloques del banco usan namespaces distintos para el
+# mismo animal (Flamenco es NPC_03 en preguntas y NPC_FLAMENCO_SEC aca), asi que
+# una tabla de NPCs de catalogo lo duplicaria en vez de unificarlo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DialogoNPC(models.Model):
+    dialogo_id   = models.CharField(max_length=60, unique=True)
+    hdu          = models.CharField(max_length=10)
+    zona         = models.CharField(max_length=50)
+    npc_id       = models.CharField(max_length=30, blank=True)
+    npc_nombre   = models.CharField(max_length=60, blank=True)
+    npc_avatar   = models.CharField(max_length=60, blank=True)
+    tipo         = models.CharField(max_length=20, blank=True, help_text="`neutro` en todos los del banco actual")
+    trigger      = models.CharField(max_length=30, blank=True, help_text="Como se dispara en el juego, ej. `boton_E`")
+    lineas       = models.JSONField(default=list, help_text="Lista de strings, en orden de aparicion")
+    pista_mision = models.TextField(blank=True, null=True)
+    mision       = models.ForeignKey(
+        Mision, on_delete=models.SET_NULL, null=True, blank=True, related_name="dialogos",
+        help_text="Mision que este dialogo desbloquea (`mision_desbloquea`)"
+    )
+
+    def __str__(self):
+        return self.dialogo_id
+
+    class Meta:
+        verbose_name = "Dialogo NPC"
+        verbose_name_plural = "Dialogos NPC"
+        ordering = ["zona", "dialogo_id"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECOMPENSA DE ALBUM  (catalogo — HDU-11 / HDU-12)
+#
+# Las recompensas vienen de tres origenes distintos y excluyentes:
+#   - las de misiones secundarias, desde `pista_mision` del dialogo   -> mision
+#   - las de misiones principales, desde `consecuencia_narrativa`     -> opcion
+#   - las de los finales A/B/C, desde `finales_narrativos`            -> final
+# Por eso los tres origenes son opcionales, con un check que obliga a tener
+# exactamente uno. El `recompensa_id` se deriva del origen y no del nombre: el
+# nombre es texto que Luis puede reescribir, el id del origen es estable.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RecompensaAlbum(models.Model):
+    recompensa_id   = models.CharField(max_length=90, unique=True)
+    nombre          = models.CharField(max_length=150)
+    tip_educativo   = models.TextField(blank=True, help_text="El tip entre parentesis, cuando el banco lo trae")
+    mision          = models.ForeignKey(
+        Mision, on_delete=models.CASCADE, null=True, blank=True, related_name="recompensas"
+    )
+    opcion_banco_id = models.CharField(
+        max_length=70, blank=True, default="", db_index=True,
+        help_text=(
+            "`opcion_id` de la OpcionBanco que la entrega. Es texto y no FK a proposito: "
+            "cargar_banco borra y recrea las opciones en cada corrida, asi que una FK real "
+            "se llevaria en cascada el album ya obtenido por los ninos. Mismo criterio que "
+            "Mensaje.opcion_banco_id."
+        ),
+    )
+    final_id        = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text=(
+            "`id` del final (FINAL_A/B/C) que la entrega. La medalla depende del "
+            "puntaje de toda la aventura, no de la opcion que se elija en la Mision 6."
+        ),
+    )
+
+    def __str__(self):
+        return f"{self.recompensa_id} — {self.nombre}"
+
+    class Meta:
+        verbose_name = "Recompensa de Album"
+        verbose_name_plural = "Recompensas de Album"
+        ordering = ["recompensa_id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(mision__isnull=False, opcion_banco_id="", final_id="")
+                    | (models.Q(mision__isnull=True, final_id="") & ~models.Q(opcion_banco_id=""))
+                    | (models.Q(mision__isnull=True, opcion_banco_id="") & ~models.Q(final_id=""))
+                ),
+                name="recompensa_con_un_solo_origen",
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECOMPENSA OBTENIDA  (progreso — por partida)
+#
+# Es la tabla que responde "que desbloqueo este nino", que hoy no se puede
+# contestar sin parsear texto libre. No reemplaza a `MisionProgreso` ni al
+# reves: aca esta lo que el nino se llevo al album, alla si la mision quedo
+# disponible o completada. Las 6 recompensas principales ni siquiera cuelgan
+# de una mision, y una mision disponible todavia no entrego nada.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RecompensaObtenida(models.Model):
+    partida    = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="recompensas_album"
+    )
+    recompensa = models.ForeignKey(
+        RecompensaAlbum, on_delete=models.CASCADE, related_name="obtenciones"
+    )
+    fecha      = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.recompensa.recompensa_id} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Recompensa Obtenida"
+        verbose_name_plural = "Recompensas Obtenidas"
+        ordering = ["-fecha"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "recompensa"], name="recompensa_unica_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO DE MISIONES  (HDU-1 CA4 y CA5 — por partida)
+#
+# Espeja el `MissionManager` de Unity, que hoy solo guarda en PlayerPrefs: una
+# fila por (partida, mision) con los dos estados que maneja `EstadoDesafio`.
+#
+# `mision_id` es texto y no FK a `Mision` por las mismas dos razones que
+# `Mensaje.opcion_banco_id`, y una tercera propia:
+#   1. `cargar_banco` hace `Mision.objects.all().delete()` en cada corrida, asi
+#      que una FK real se llevaria en cascada las misiones ya completadas por
+#      los ninos cada vez que se recarga el banco.
+#   2. Los ids todavia no calzan: los `DesafioData` de Unity usan MISION_NPC_01
+#      y MISION_NPC_02, que no existen en el banco (ahi son MISION_EXPLORACION_01
+#      y los MISION_SEC_*). Con FK estricta esto responderia 404 al primer POST.
+#   3. El progreso es del nino; el catalogo es contenido. Que el segundo cambie
+#      no puede borrar al primero.
+# `en_catalogo` (en la vista) avisa cuando un id no esta en `Mision`, para que
+# el desajuste se vea en vez de pasar callado.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class MisionProgreso(models.Model):
+    partida          = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="misiones"
+    )
+    mision_id        = models.CharField(
+        max_length=60, db_index=True,
+        help_text="`desafioId` del DesafioData de Unity / `mision_id` del banco, ej. MISION_NPC_01"
+    )
+    fecha_desbloqueo = models.DateTimeField(auto_now_add=True)
+    fecha_completada = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def estado(self):
+        """`disponible` | `completada`, los mismos dos valores de `EstadoDesafio`.
+
+        Se deriva de `fecha_completada` en vez de guardarse aparte para que no
+        puedan contradecirse: una fila completada sin fecha, o con fecha y
+        marcada disponible, no es representable."""
+        return "completada" if self.fecha_completada else "disponible"
+
+    def __str__(self):
+        return f"{self.mision_id} ({self.estado}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de Mision"
+        verbose_name_plural = "Progreso de Misiones"
+        ordering = ["partida", "fecha_desbloqueo"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "mision_id"], name="mision_unica_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO POR OBJETIVO  (B.3 de REQUISITOS_BD — por partida)
+#
+# Hasta ahora el avance DENTRO de una mision no se guardaba en ningun lado: al
+# cerrar el juego, una mision de 4 objetivos con 3 hechos volvia a 0.
+#
+# La clave es `(mision_id, orden)` en TEXTO y numero, sin FK a ObjetivoMision, y
+# es la decision importante de esta tabla: recargar el catalogo borra y recrea
+# los objetivos, y una FK real se llevaria en cascada lo que el nino llevaba
+# hecho. Mismo criterio que `MisionProgreso.mision_id` y que
+# `RecompensaAlbum.opcion_banco_id`. Si el catalogo nuevo ya no trae ese
+# objetivo, la fila queda huerfana a proposito: se conserva, no se borra.
+#
+# `cumplido` es camino de ida (A.1) y volver a marcarlo es un no-op (A.2): los
+# avisos del juego salen de una cola con reintentos y pueden llegar desordenados
+# o repetidos, asi que un objetivo que retrocede seria un dato falso.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ObjetivoProgreso(models.Model):
+    partida   = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="objetivos"
+    )
+    mision_id = models.CharField(max_length=60, db_index=True)
+    orden     = models.IntegerField()
+    cumplido  = models.BooleanField(default=False)
+    fecha     = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        estado = "cumplido" if self.cumplido else "pendiente"
+        return f"{self.mision_id} #{self.orden} ({estado}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de Objetivo"
+        verbose_name_plural = "Progreso de Objetivos"
+        ordering = ["partida", "mision_id", "orden"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "mision_id", "orden"],
+                name="objetivo_unico_por_partida",
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO DE ZONAS  (HDU-3 CA5 y HDU-4 CA5 — por partida)
+#
+# Cuelga de `Partida` y no de `UsuarioJugador` porque un mismo menor puede tener
+# varias partidas (HDU-15, "continuar mi ultima partida"): en el perfil, la
+# segunda partida empezaria con todo completado y resetearla borraria el
+# registro de la primera.
+#
+# Una fila por zona en vez de una columna por zona: agregar una tematica pasa a
+# ser contenido y no una migracion, y se puede preguntar "que zonas completo"
+# sin nombrar las tres a mano. `zona` es el slug del banco (`desconocidos`,
+# `ciberacoso`, `reto_viral`), igual que en `PreguntaBanco.zona`.
+#
+# Que exista la fila significa que la zona esta desbloqueada. El desbloqueo
+# tiene mas de un origen — hoy la zona 2 se abre porque el Huemul entrega una
+# mision, mientras que "completada" viene del `es_fin_de_zona` del banco — asi
+# que no se puede derivar de una sola fuente y por eso se escribe explicito.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ZonaProgreso(models.Model):
+    partida          = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="zonas"
+    )
+    zona             = models.CharField(
+        max_length=50, db_index=True,
+        help_text="Slug de la zona del banco, ej. `ciberacoso`"
+    )
+    fecha_desbloqueo = models.DateTimeField(auto_now_add=True)
+    fecha_completada = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def completada(self):
+        """Derivado de `fecha_completada`, mismo criterio que MisionProgreso.estado."""
+        return self.fecha_completada is not None
+
+    def __str__(self):
+        estado = "completada" if self.completada else "en curso"
+        return f"{self.zona} ({estado}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de Zona"
+        verbose_name_plural = "Progreso de Zonas"
+        ordering = ["partida", "zona"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "zona"], name="zona_unica_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INVENTARIO  (la mochila de Otto — por partida)
+#
+# Espeja el `InventoryManager` de Unity, que hasta ahora vivia solo en memoria:
+# ni siquiera PlayerPrefs. Una fila por (partida, objeto) con cuanto lleva.
+#
+# `item_id` es texto y no FK, y aqui la razon es todavia mas fuerte que en
+# `MisionProgreso`: **no existe un catalogo de items en el backend, ni deberia**.
+# Los objetos se crean en Unity como ScriptableObjects (`Assets/Items/*.asset`) y
+# no vienen del banco de preguntas, asi que no hay nada que sincronizar. Una tabla
+# `Item` en Postgres seria una segunda copia del catalogo, mantenida a mano y
+# lista para desalinearse — exactamente el problema que ya costo caro con
+# `caso_01` contra `DC_CASO_01`. El nombre visible, el icono y la descripcion se
+# quedan en Unity, que es donde se dibujan.
+#
+# Vale igual la tercera razon de `MisionProgreso`: el progreso es del nino y el
+# catalogo es contenido. Si manana borran `flor2.asset` porque esa flor no va, la
+# fila que dice que un nino la recogio no tiene por que desaparecer.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ItemInventario(models.Model):
+    partida  = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="inventario"
+    )
+    item_id  = models.CharField(
+        max_length=60, db_index=True,
+        help_text="`itemId` del ItemData de Unity, ej. ITEM_BRUJULA"
+    )
+    cantidad = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Unidades que lleva encima. Una fila en 0 no se guarda: se borra."
+    )
+    # No es "la primera vez que lo recogio": si el objeto se consume, la fila
+    # se borra, y volver a recogerlo crea una nueva con fecha de hoy. Es cuando
+    # entro a la mochila en el tramo actual.
+    fecha_agregado      = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Cuando entro a la mochila. Se reinicia si el objeto se consume "
+                  "y se vuelve a recoger."
+    )
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.item_id} x{self.cantidad} — {self.partida}"
+
+    class Meta:
+        verbose_name = "Item del inventario"
+        verbose_name_plural = "Inventario"
+        ordering = ["partida", "item_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "item_id"], name="item_unico_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OBJETOS DEL MAPA YA RECOGIDOS  (por partida)
+#
+# HDU-1 CA2: "el objeto ya no se muestra disponible para interactuar nuevamente".
+# `WorldItem.recogido` lo cumplia DENTRO de una sesion, pero es un bool privado del
+# GameObject: al recargar la escena los objetos volvian al suelo.
+#
+# **Por que no se puede derivar del inventario** (que es lo primero que uno
+# piensa): `ItemData.ItemType.Consumable` significa que un objeto usado sale de la
+# mochila. Si "lo recogi" se dedujera de "lo tengo", el ítem consumido reapareceria
+# en el mapa. Ademas dos WorldItem distintos pueden entregar el mismo ItemData, asi
+# que hay que identificar el OBJETO DE LA ESCENA, no el item.
+#
+# Por eso `objeto_id` no es el `itemId` sino el id que lleva cada WorldItem del
+# mapa (ver `Fishy -> Asignar ids a los objetos del mapa`). Es texto y sin FK por
+# la razon de siempre: el catalogo de objetos de la escena vive en Unity y no
+# existe -ni deberia existir- en el backend.
+#
+# A diferencia del inventario, esto SOLO CRECE: recoger es un camino de ida. Por
+# eso el endpoint es POST por objeto (como misiones) y no PUT de reemplazo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ObjetoRecogido(models.Model):
+    partida   = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="objetos_recogidos"
+    )
+    objeto_id = models.CharField(
+        max_length=80, db_index=True,
+        help_text="`objetoId` del WorldItem de la escena, ej. SAMPLESCENE_CONCHA_01"
+    )
+    fecha     = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.objeto_id} recogido — {self.partida}"
+
+    class Meta:
+        verbose_name = "Objeto recogido"
+        verbose_name_plural = "Objetos recogidos"
+        ordering = ["partida", "objeto_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "objeto_id"], name="objeto_unico_por_partida"
+            )
+        ]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GRUPOS E INVITACIONES DEL PORTAL WEB
+#
+# Un profesor (`rol=profesor`) crea cursos e invita a una familia por un niño
+# concreto. La unidad del curso es un `UsuarioJugador`, nunca todos los hijos del
+# adulto. Se crean sobre `0013_adulto_rol` (migración `0014`); son tablas nuevas,
+# así que el backend de dev, que no las conoce, no se ve afectado.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class GrupoTutor(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tutor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="grupos")
+    nombre = models.CharField(max_length=80)
+    descripcion = models.CharField(max_length=280, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nombre
+
+
+class MiembroGrupo(models.Model):
+    """La unidad del curso es un perfil infantil concreto, nunca todos los hijos del adulto."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="miembros")
+    jugador = models.ForeignKey(UsuarioJugador, on_delete=models.CASCADE, related_name="grupos")
+    nombre_invitado = models.CharField(max_length=150)
+    fecha_ingreso = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Un niño está en un solo curso a la vez (decisión del equipo, HDU17). La
+        # base lo garantiza aunque dos profesores lo agreguen al mismo tiempo.
+        constraints = [models.UniqueConstraint(fields=["jugador"], name="miembro_un_curso_por_jugador")]
+
+
+class InvitacionGrupo(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    grupo = models.ForeignKey(GrupoTutor, on_delete=models.CASCADE, related_name="invitaciones")
+    email = models.EmailField()
+    nombre_nino = models.CharField(max_length=150)
+    nombre_clave = models.CharField(max_length=450)
+    # Solo se persiste el hash. El secreto viaja únicamente en el correo.
+    token_hash = models.CharField(max_length=64, unique=True)
+    estado = models.CharField(max_length=12, default="pendiente", choices=[("pendiente", "Pendiente"), ("aceptada", "Aceptada"), ("cancelada", "Cancelada")])
+    estado_envio = models.CharField(max_length=12, default="enviando", choices=[("enviando", "Enviando"), ("enviado", "Enviado"), ("fallido", "Fallido")])
+    miembro = models.ForeignKey(MiembroGrupo, on_delete=models.SET_NULL, null=True, blank=True, related_name="invitaciones")
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    ultimo_intento = models.DateTimeField()
+    enviada_en = models.DateTimeField(null=True, blank=True)
+    vence_en = models.DateTimeField()
+    aceptada_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["grupo", "email", "nombre_clave"], condition=models.Q(estado="pendiente"), name="invitacion_pendiente_unica_por_nino")]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESO POR NPC DE UNA TEMATICA  (por partida)
+#
+# HDU-3 CA5 / HDU-4 CA5: "cuando cierra la ultima interaccion, el sistema marca la
+# tematica como completada y habilita el acceso a la siguiente".
+#
+# `BosqueDesconocidosManager` decide eso preguntandole a cada NPC si `Finished`, y
+# ese Finished es una propiedad EN MEMORIA del objeto de la escena. Con 2 de 3 NPCs
+# hechos, cerrar el juego los devolvia a los tres a cero: habia que hacer la
+# tematica entera de una sentada o la zona siguiente no se abria nunca. Para un
+# nino que juega en ratos cortos, eso podia bloquear el avance.
+#
+# **Por que no se deriva de los chats**, que es la alternativa que se evaluo: la
+# conversacion con cada NPC YA se guarda (`Chat` + `Mensaje`), asi que "hablo con
+# este NPC" es deducible. Pero el enganche seria por NOMBRE del NPC —el mismo
+# acoplamiento por id implicito que ya costo caro con caso_01 vs DC_CASO_01— y
+# sobre todo el chat no guarda el `safePercent`, asi que `exito` se perderia. Y sin
+# `exito` no se puede reconstruir el mapa: el NPC exitoso se retira y el otro no.
+#
+# `npc_id` es el id del NPC EN LA ESCENA, no la PK del modelo `NPC` de mas arriba.
+# Son cosas distintas: aquel es una fila por partida con la confianza, este nombra
+# al personaje del mapa. Texto y sin FK, por lo de siempre.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class NpcProgreso(models.Model):
+    partida = models.ForeignKey(
+        Partida, on_delete=models.CASCADE, related_name="progreso_npcs"
+    )
+    npc_id  = models.CharField(
+        max_length=80, db_index=True,
+        help_text="`npcId` del NPC en la escena, ej. BOSQUE_DESCONOCIDO_01"
+    )
+    exito   = models.BooleanField(
+        default=False,
+        help_text="El nino/a supero el umbral de respuestas seguras de ese NPC. "
+                  "Decide si el NPC se retira del mapa y si cuenta como 'a salvo'."
+    )
+    fecha   = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.npc_id} ({'a salvo' if self.exito else 'captura'}) — {self.partida}"
+
+    class Meta:
+        verbose_name = "Progreso de NPC"
+        verbose_name_plural = "Progreso de NPCs"
+        ordering = ["partida", "npc_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["partida", "npc_id"], name="npc_unico_por_partida"
+            )
+        ]

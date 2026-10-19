@@ -110,10 +110,14 @@ public class ApiSmokeTest : MonoBehaviour
             onError: err => Debug.LogError($"[FALLO] 4. IniciarChat: {err}"));
     }
 
-    // Pregunta y opción reales del banco (zona "desconocidos"). La opción R3 es
-    // segura_optima, así que el riesgo de esa zona debe quedar en +2.
-    private const string PreguntaBanco = "HDU2_NPC01_F2_Q01";
-    private const string OpcionElegida = "HDU2_NPC01_F2_Q01_R3";
+    // Pregunta y opción reales del banco v1.8 (zona "desconocidos"), verificadas
+    // contra la base: R1 es segura_optima, así que el riesgo de esa zona debe
+    // quedar en +2. Si cambian estos ids, el paso 8 falla avisando que la opción
+    // no existe en el banco — que es justo lo que pasaba con los ids viejos
+    // "HDU2_NPC01_F2_Q01_R3": ese formato con fase (_F2_) ya no existe, la
+    // respuesta se guardaba igual pero caía en sin_clasificar y no sumaba riesgo.
+    private const string PreguntaBanco = "HDU2_NPC01_Q01";
+    private const string OpcionElegida = "HDU2_NPC01_Q01_R1";
     private const int    ImpactoEsperado = 2;
 
     private void PasoMensajes()

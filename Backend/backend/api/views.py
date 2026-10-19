@@ -1,21 +1,37 @@
+import logging
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
+from django.db import transaction
+from django.db.models import Count
+from django.utils import timezone
 
+from .autenticacion import token_para
 from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
+    CasoDetective, CasoDetectiveProgreso,
+    DialogoNPC, Mision, MisionProgreso, ZonaProgreso, ItemInventario,
+    PersonajeJugador, ObjetoRecogido, NpcProgreso,
+    ObjetivoMision, ObjetivoProgreso,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
     NivelRiesgoSerializer, PartidaSerializer,
     NPCSerializer, ChatSerializer, MensajeSerializer,
     PreguntaBancoSerializer,
+    CasoDetectiveSerializer, CasoDetectiveProgresoSerializer,
+    DialogoNPCSerializer, MisionProgresoSerializer, ZonaProgresoSerializer,
+    ItemInventarioSerializer, PersonajeJugadorSerializer,
+    ObjetoRecogidoSerializer, NpcProgresoSerializer,
+    MisionCatalogoSerializer, ObjetivoProgresoSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -28,6 +44,10 @@ def health_check(request):
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
+# La contrasena de estas dos vistas se tapa en las trazas con el filtro global
+# DEFAULT_EXCEPTION_REPORTER_FILTER, no con @sensitive_variables: ese decorador
+# se probo en las dos posiciones posibles y NO funciona a traves de @api_view.
+# Ver juego_backend/filtros_error.py. No lo reintentes aqui.
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def registro(request):
@@ -37,7 +57,7 @@ def registro(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     adulto = serializer.save()
-    token, _ = Token.objects.get_or_create(user=adulto)
+    token = token_para(adulto)
     return Response({"token": token.key, "adulto_id": adulto.pk}, status=status.HTTP_201_CREATED)
 
 
@@ -49,7 +69,7 @@ def auth_login(request):
     adulto = authenticate(request, username=nombre, password=password)
     if adulto is None:
         return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
-    token, _ = Token.objects.get_or_create(user=adulto)
+    token = token_para(adulto)
     return Response({"token": token.key, "adulto_id": adulto.pk})
 
 
@@ -61,9 +81,23 @@ def perfil_adulto(request):
 
 # ── Perfiles de menores (control parental) ────────────────────────────────────
 
+def _rechazar_sin_menores(request):
+    """Solo el padre tiene perfiles de menores; profesor y admin del portal, no.
+    Se valida aquí y no solo en el portal: ocultar el botón no impide llamar a la API."""
+    if not request.user.gestiona_menores:
+        return Response(
+            {"error": "Esta cuenta no gestiona perfiles de menores."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return None
+
+
 @api_view(["GET", "POST"])
 def jugadores(request):
     """GET: perfiles del adulto autenticado. POST: crea uno. Body: nombre (+ edad)."""
+    rechazo = _rechazar_sin_menores(request)
+    if rechazo is not None:
+        return rechazo
     if request.method == "GET":
         qs = request.user.jugadores.all()
         return Response(UsuarioJugadorSerializer(qs, many=True).data)
@@ -90,13 +124,22 @@ def partidas_jugador(request, jugador_id):
     viene algo continúa con la primera; si viene vacía, crea una con
     `POST /partidas/`.
     """
+    rechazo = _rechazar_sin_menores(request)
+    if rechazo is not None:
+        return rechazo
     jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
-    partidas = jugador.partidas.order_by("-fecha_update")
+    # select_related trae el personaje en el mismo JOIN: sin esto, el `zona_actual`
+    # del serializer dispara una consulta por partida.
+    partidas = jugador.partidas.select_related("personaje").order_by("-fecha_update")
     return Response(PartidaSerializer(partidas, many=True).data)
 
 
 @api_view(["GET", "PATCH", "DELETE"])
 def jugador_detalle(request, jugador_id):
+    # Antes del 404: así un profesor o admin tampoco puede sondear qué ids existen.
+    rechazo = _rechazar_sin_menores(request)
+    if rechazo is not None:
+        return rechazo
     jugador = get_object_or_404(UsuarioJugador, pk=jugador_id, adulto=request.user)
     if request.method == "GET":
         return Response(UsuarioJugadorSerializer(jugador).data)
@@ -125,10 +168,21 @@ def niveles_riesgo(request):
 
 # ── Partida (HDU-2) ───────────────────────────────────────────────────────────
 
+# La zona donde empieza el juego. No es contenido del banco sino una regla de la
+# partida: Otto parte en el Bosque de los Desconocidos y esa zona nunca está
+# oscurecida, así que tiene que existir en la BD desde el minuto cero. Sin esto,
+# una partida recién creada aparecía con cero zonas desbloqueadas — que es lo que
+# se lee como "el mapa está todo cerrado" — hasta que el niño abría la zona 2.
+ZONA_INICIAL = "desconocidos"
+
+
 @api_view(["POST"])
 def crear_partida(request):
     """Body: { "usuario_jugador_id": int, "nivel_riesgo": int (opcional) }.
-    El perfil debe pertenecer al adulto autenticado."""
+    El perfil debe pertenecer al adulto autenticado.
+
+    La partida nace con `ZONA_INICIAL` ya desbloqueada (HDU-3 CA5 / HDU-4 CA5: el
+    mapa se abre por zonas, y la primera viene abierta de fábrica)."""
     jugador = get_object_or_404(
         UsuarioJugador,
         pk=request.data.get("usuario_jugador_id"),
@@ -138,6 +192,7 @@ def crear_partida(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     partida = serializer.save(usuario_jugador=jugador)
+    ZonaProgreso.objects.get_or_create(partida=partida, zona=ZONA_INICIAL)
     return Response(PartidaSerializer(partida).data, status=status.HTTP_201_CREATED)
 
 
@@ -247,7 +302,143 @@ def registrar_mensaje(request, chat_id):
     return Response(MensajeSerializer(mensaje).data, status=status.HTTP_201_CREATED)
 
 
+@api_view(["POST"])
+def chat_completo(request, partida_id):
+    """
+    POST /api/partidas/{partida_id}/chats/completo/ — una conversación entera de
+    una sola vez (A.3 de REQUISITOS_BD).
+
+    Body: {
+      "npc":  { "nombre": "Alex", "area": "zona_2", "tipo": "enemigo", "confianza": 0 },
+      "chat": { "categoria_riesgo": "desconocidos" },
+      "mensajes": [ { ...igual que registrar_mensaje... } ],
+      "finalizar": true
+    }
+
+    Reemplaza a la cadena `RegistrarNPC` -> `IniciarChat` -> N x `RegistrarMensaje`
+    -> `FinalizarChat`, que es obligatoriamente en serie: ~9 peticiones de ~700 ms
+    son unos 6 s por conversación, y hay 6 lanzadores de chat en MainScene. Con
+    una sola son ~0,7 s.
+
+    Lo que importa tanto como la velocidad es que sea **atómico**: hoy, si el
+    juego se cierra a media cadena, queda una conversación partida en la base —un
+    chat sin sus mensajes, o con la mitad— y eso es peor que no tenerla, porque
+    el reporte del adulto la cuenta igual. Acá, o entra entera o no entra nada.
+
+    `npc` acepta también `npc_id` para reusar un NPC que ya existe en la partida,
+    que es el caso de volver a hablar con el mismo personaje.
+
+    Las filas que se crean son exactamente las mismas que crea la cadena larga,
+    así que el riesgo por zona y el resto de los reportes no cambian en nada.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    datos_npc = request.data.get("npc") or {}
+    mensajes_entrada = request.data.get("mensajes")
+    if not isinstance(mensajes_entrada, list):
+        return Response(
+            {"mensajes": "Tiene que ser una lista, aunque venga vacía."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Se valida TODO antes de escribir nada: con la transacción de por medio, un
+    # error a mitad de camino deja la base intacta, pero el mensaje de error es
+    # mucho más útil si dice qué mensaje de la lista viene mal.
+    serializers_mensajes = []
+    for i, m in enumerate(mensajes_entrada):
+        s = MensajeSerializer(data=m)
+        if not s.is_valid():
+            return Response(
+                {"mensajes": {str(i): s.errors}}, status=status.HTTP_400_BAD_REQUEST
+            )
+        serializers_mensajes.append(s)
+
+    with transaction.atomic():
+        npc_id = datos_npc.get("npc_id")
+        if npc_id:
+            npc = get_object_or_404(NPC, pk=npc_id, partida=partida)
+        else:
+            s_npc = NPCSerializer(data=datos_npc)
+            if not s_npc.is_valid():
+                return Response(
+                    {"npc": s_npc.errors}, status=status.HTTP_400_BAD_REQUEST
+                )
+            npc = s_npc.save(partida=partida)
+
+        chat = Chat.objects.create(
+            partida=partida,
+            npc=npc,
+            categoria_riesgo=(request.data.get("chat") or {}).get("categoria_riesgo", ""),
+        )
+
+        creados = []
+        for s, m in zip(serializers_mensajes, mensajes_entrada):
+            mensaje = s.save(
+                chat=chat,
+                pregunta_banco_id=m.get("pregunta_banco_id") or None,
+                opcion_banco_id=m.get("opcion_banco_id") or None,
+            )
+            for j, opcion in enumerate(m.get("posibles_respuestas") or []):
+                PosibleRespuesta.objects.create(
+                    mensaje=mensaje,
+                    texto=opcion.get("texto", ""),
+                    orden=opcion.get("orden", j),
+                    calidad_respuesta=opcion.get("calidad_respuesta", ""),
+                )
+            creados.append(mensaje)
+
+        # `finalizar` por omisión es True: el juego manda la conversación cuando ya
+        # terminó. Un END de más dejaría el chat cerrado dos veces; uno de menos,
+        # abierto para siempre.
+        if request.data.get("finalizar", True) and chat.fecha_termino is None:
+            creados.append(Mensaje.objects.create(
+                chat=chat,
+                tipo=Mensaje.Tipo.END,
+                respuesta=request.data.get("respuesta_final", ""),
+                calidad_respuesta="",
+            ))
+
+    chat.refresh_from_db()
+    return Response(
+        {
+            "npc": NPCSerializer(npc).data,
+            "chat": ChatSerializer(chat).data,
+            "mensajes": MensajeSerializer(creados, many=True).data,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
 # ── Banco de Preguntas (HDU-2 / HDU-8) ───────────────────────────────────────
+
+def _filtros_banco(qs, params):
+    """Aplica los filtros opcionales comunes a un queryset de PreguntaBanco.
+
+    Compartido por /banco/preguntas/ y /banco/zonas/<zona>/preguntas/ para que
+    ambos acepten exactamente los mismos filtros.
+    """
+    for param, campo in [
+        ("zona", "zona"),
+        ("npc_id", "npc_id"),
+        ("escenario_id", "escenario_id"),
+        ("hdu", "hdu"),
+    ]:
+        val = params.get(param)
+        if val:
+            qs = qs.filter(**{campo: val})
+    fase = params.get("fase")
+    if fase is not None:
+        qs = qs.filter(fase=int(fase))
+    if params.get("solo_riesgo", "").lower() == "true":
+        qs = qs.filter(es_mensaje_riesgo=True)
+    if params.get("fin_de_zona", "").lower() == "true":
+        qs = qs.filter(es_fin_de_zona=True)
+    if params.get("fin_de_npc", "").lower() == "true":
+        qs = qs.filter(es_fin_de_npc=True)
+    return qs
+
 
 @api_view(["GET"])
 def preguntas_banco(request):
@@ -260,25 +451,56 @@ def preguntas_banco(request):
       ?hdu=HDU-2
       ?solo_riesgo=true   (solo mensajes que requieren respuesta del jugador)
     """
-    qs = PreguntaBanco.objects.prefetch_related("opciones").all()
-    for param, campo in [
-        ("zona", "zona"),
-        ("npc_id", "npc_id"),
-        ("escenario_id", "escenario_id"),
-        ("hdu", "hdu"),
-    ]:
-        val = request.query_params.get(param)
-        if val:
-            qs = qs.filter(**{campo: val})
-    fase = request.query_params.get("fase")
-    if fase is not None:
-        qs = qs.filter(fase=int(fase))
-    if request.query_params.get("solo_riesgo", "").lower() == "true":
-        qs = qs.filter(es_mensaje_riesgo=True)
-    if request.query_params.get("fin_de_zona", "").lower() == "true":
-        qs = qs.filter(es_fin_de_zona=True)
-    if request.query_params.get("fin_de_npc", "").lower() == "true":
-        qs = qs.filter(es_fin_de_npc=True)
+    qs = _filtros_banco(PreguntaBanco.objects.prefetch_related("opciones").all(),
+                        request.query_params)
+    return Response(PreguntaBancoSerializer(qs, many=True).data)
+
+
+@api_view(["GET"])
+def zonas_banco(request):
+    """
+    Catalogo de zonas que existen en el banco, con cuantas preguntas tiene cada
+    una. Se arma desde la BD y no desde una lista fija: al cargar un banco con
+    una zona nueva, aparece aqui sola, sin tocar codigo.
+    """
+    filas = (PreguntaBanco.objects
+             .values("zona", "hdu")
+             .annotate(n=Count("id"))
+             .order_by("zona", "hdu"))
+    zonas = {}
+    for f in filas:
+        z = zonas.setdefault(f["zona"], {"zona": f["zona"], "preguntas": 0, "hdus": []})
+        z["preguntas"] += f["n"]
+        if f["hdu"] and f["hdu"] not in z["hdus"]:
+            z["hdus"].append(f["hdu"])
+    salida = []
+    for z in zonas.values():
+        # Hoy cada zona corresponde a una sola HDU; si alguna llegara a cubrir
+        # varias, se listan todas separadas por coma en vez de perder el dato.
+        salida.append({"zona": z["zona"],
+                       "preguntas": z["preguntas"],
+                       "hdu": ", ".join(z["hdus"])})
+    return Response(sorted(salida, key=lambda z: z["zona"]))
+
+
+@api_view(["GET"])
+def preguntas_zona(request, zona):
+    """
+    Preguntas de una zona concreta. Acepta los mismos filtros que
+    /banco/preguntas/, salvo ?zona=, que lo manda la ruta.
+
+    Devuelve 404 si la zona no existe en el banco, para poder distinguirla de
+    una zona real que todavia no tiene preguntas cargadas.
+    """
+    if not PreguntaBanco.objects.filter(zona=zona).exists():
+        return Response({"detail": f"La zona '{zona}' no existe."},
+                        status=status.HTTP_404_NOT_FOUND)
+    params = request.query_params.copy()
+    params.pop("zona", None)
+    qs = _filtros_banco(
+        PreguntaBanco.objects.prefetch_related("opciones").filter(zona=zona),
+        params,
+    )
     return Response(PreguntaBancoSerializer(qs, many=True).data)
 
 
@@ -389,4 +611,1005 @@ def riesgo_por_zona(request, partida_id):
         "total": sum(z["riesgo_acumulado"] for z in zonas.values()),
         "respuestas": contadas,
         "sin_clasificar": len(elegidos) - contadas,
+    })
+
+
+@api_view(["GET"])
+def oportunidades_mejora(request, partida_id):
+    """
+    Decisiones inseguras del menor, con la alternativa que se le escapó.
+
+    Es el "registro como oportunidad de mejora" que piden los criterios de
+    aceptación de las zonas de riesgo (p. ej. HDU-3 CA3: el menor responde a un
+    mensaje de ciberacoso con otra burla). No hay un campo que las marque: una
+    oportunidad de mejora **es** un `Mensaje` cuyo `opcion_banco_id` resuelve a
+    una `OpcionBanco` de tipo `insegura`. Se deriva en vez de guardarse aparte
+    para que no pueda quedar desincronizada del banco: si mañana una opción deja
+    de ser insegura, esta lista lo refleja sola.
+
+    Solo cuenta `insegura`. Una `segura_basica` no es un error: es una respuesta
+    correcta pero mejorable, y mezclarlas le quitaría sentido a la lista.
+
+    Está pensado para el reporte del adulto responsable, no para mostrárselo al
+    menor: etiquetarle la pantalla con sus errores lo señala y rompe el tono del
+    juego, que corrige por consecuencia narrativa.
+
+    Filtro opcional:  ?zona=ciberacoso
+
+    Respuesta:
+    {
+      "partida_id": 42,
+      "jugador": "Perfil 2",
+      "oportunidades": [
+        {"fecha": "...", "zona": "ciberacoso", "npc": "Flamenco",
+         "pregunta_banco_id": "HDU3_NPC03_Q01", "mensaje_npc": "...",
+         "eligio":       {"opcion_banco_id": "...", "texto": "...",
+                          "impacto_puntuacion": -1, "consecuencia": "..."},
+         "mejor_opcion": {"opcion_banco_id": "...", "texto": "...",
+                          "impacto_puntuacion": 2,  "consecuencia": "..."},
+         "puntos_perdidos": 3}
+      ],
+      "total": 1,
+      "por_zona": [{"zona": "ciberacoso", "oportunidades": 1}]
+    }
+
+    `puntos_perdidos` es la distancia contra la mejor opción de esa misma
+    pregunta. Sirve para ordenar por gravedad: no es lo mismo fallar donde la
+    alternativa era reportar (+2) que donde era apartarse (+1).
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    mensajes = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .select_related("chat__npc")
+        .order_by("timestamp")
+    )
+
+    # Una sola consulta al banco para resolver todas las opciones elegidas.
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in={m.opcion_banco_id for m in mensajes})
+        .select_related("pregunta")
+        .prefetch_related("pregunta__opciones")
+    }
+
+    zona_filtro = request.query_params.get("zona")
+    oportunidades = []
+    por_zona = {}
+
+    for mensaje in mensajes:
+        elegida = opciones.get(mensaje.opcion_banco_id)
+        if elegida is None or elegida.tipo != "insegura":
+            continue
+        pregunta = elegida.pregunta
+        if zona_filtro and pregunta.zona != zona_filtro:
+            continue
+
+        # La mejor alternativa que tenía disponible en esa misma pregunta.
+        mejor = max(
+            pregunta.opciones.all(),
+            key=lambda o: o.impacto_puntuacion,
+            default=None,
+        )
+
+        oportunidades.append({
+            "fecha": mensaje.timestamp,
+            "zona": pregunta.zona,
+            "categoria": pregunta.categoria,
+            "npc": mensaje.chat.npc.nombre,
+            "chat_id": mensaje.chat_id,
+            "pregunta_banco_id": pregunta.pregunta_id,
+            "mensaje_npc": pregunta.mensaje_npc,
+            "eligio": {
+                "opcion_banco_id": elegida.opcion_id,
+                "texto": elegida.texto,
+                "impacto_puntuacion": elegida.impacto_puntuacion,
+                "consecuencia": elegida.consecuencia_narrativa,
+            },
+            "mejor_opcion": None if mejor is None else {
+                "opcion_banco_id": mejor.opcion_id,
+                "texto": mejor.texto,
+                "impacto_puntuacion": mejor.impacto_puntuacion,
+                "consecuencia": mejor.consecuencia_narrativa,
+            },
+            "puntos_perdidos": (
+                0 if mejor is None
+                else mejor.impacto_puntuacion - elegida.impacto_puntuacion
+            ),
+        })
+        por_zona[pregunta.zona] = por_zona.get(pregunta.zona, 0) + 1
+
+    return Response({
+        "partida_id": partida.id,
+        "jugador": partida.usuario_jugador.nombre,
+        "oportunidades": oportunidades,
+        "total": len(oportunidades),
+        "por_zona": [
+            {"zona": z, "oportunidades": n} for z, n in sorted(por_zona.items())
+        ],
+    })
+
+
+# ── Catalogo de misiones (B.1/B.2 de REQUISITOS_BD) ───────────────────────────
+#
+# Sin sesion ni partida a proposito: es contenido, igual para todos, y Unity lo
+# pide al arrancar (`MisionCatalogoSync`) antes de que nadie haya entrado. Mismo
+# criterio que el banco de preguntas.
+#
+# Van los dos endpoints: el listado es el unico modo de saber QUE misiones
+# existen —la lista de ids no esta en ninguna otra parte fuera del archivo
+# local—, y el detalle sirve para pedir una sola cuando ya se sabe cual.
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def misiones_catalogo(request):
+    """
+    GET /api/misiones/ — el catalogo completo, como ARREGLO en la raiz.
+
+    Es un arreglo y no `{version, misiones}` porque `ApiManager.ObtenerCatalogoMisiones`
+    espera `Send<List<MisionRegistro>>`. Filtro opcional: ?zona=desconocidos
+    """
+    qs = Mision.objects.prefetch_related("objetivos").all()
+    zona = request.query_params.get("zona")
+    if zona:
+        qs = qs.filter(zona=zona)
+    return Response(MisionCatalogoSerializer(qs.order_by("orden", "mision_id"), many=True).data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def mision_detalle(request, mision_id):
+    """GET /api/misiones/{mision_id}/ — una sola mision, con sus objetivos."""
+    mision = get_object_or_404(
+        Mision.objects.prefetch_related("objetivos"), mision_id=mision_id
+    )
+    return Response(MisionCatalogoSerializer(mision).data)
+
+
+# ── Avance por objetivo (B.3 de REQUISITOS_BD) ────────────────────────────────
+
+@api_view(["GET", "POST"])
+def objetivos_partida(request, partida_id):
+    """
+    GET  — los objetivos con avance guardado de esta partida.
+    POST — marca uno. Body: { "mision_id": "...", "orden": 1, "cumplido": true }
+
+    Camino de ida e idempotente, igual que las misiones y las zonas: repetir el
+    mismo `cumplido: true` no duplica la fila ni falla, y un `cumplido: false`
+    sobre uno ya cumplido se ignora. La cola de cambios de Unity reintenta y no
+    garantiza el orden de llegada, asi que un objetivo que retrocede seria un
+    dato falso en el reporte del adulto.
+
+    Un objetivo que no esta en el catalogo se guarda igual y se avisa por log:
+    el avance del nino no depende de que el catalogo este al dia.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        mision_id = (request.data.get("mision_id") or "").strip()
+        if not mision_id:
+            return Response(
+                {"mision_id": "Este campo es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        orden = request.data.get("orden")
+        try:
+            orden = int(orden)
+        except (TypeError, ValueError):
+            return Response(
+                {"orden": "Este campo es obligatorio y tiene que ser un numero."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cumplido = bool(request.data.get("cumplido", True))
+
+        if not ObjetivoMision.objects.filter(
+            mision__mision_id=mision_id, orden=orden
+        ).exists():
+            logger.warning(
+                "ObjetivoProgreso: (%s, %s) no existe en el catalogo. Se guarda igual, "
+                "pero el catalogo de Unity y el de la base no estan alineados.",
+                mision_id, orden,
+            )
+
+        progreso, _ = ObjetivoProgreso.objects.get_or_create(
+            partida=partida, mision_id=mision_id, orden=orden,
+        )
+        # Camino de ida: solo se avanza a cumplido, nunca se vuelve atras.
+        if cumplido and not progreso.cumplido:
+            progreso.cumplido = True
+            progreso.save(update_fields=["cumplido"])
+
+        return Response(ObjetivoProgresoSerializer(progreso).data)
+
+    qs = ObjetivoProgreso.objects.filter(partida=partida)
+    return Response(ObjetivoProgresoSerializer(qs, many=True).data)
+
+# ── Modo Detective (HDU-10) ───────────────────────────────────────────────────
+
+@api_view(["GET"])
+def casos_detective(request):
+    """
+    Lista los casos del modo Detective, con sus mensajes anidados (mismo patrón
+    que /banco/preguntas/ con sus opciones). Filtro opcional:
+      ?zona=playa
+    """
+    qs = CasoDetective.objects.prefetch_related("mensajes").all()
+    zona = request.query_params.get("zona")
+    if zona:
+        qs = qs.filter(zona=zona)
+    return Response(CasoDetectiveSerializer(qs, many=True).data)
+
+
+@api_view(["GET"])
+def caso_detective_detalle(request, caso_id):
+    """Un caso concreto por su caso_id (ej: caso_01)."""
+    caso = get_object_or_404(
+        CasoDetective.objects.prefetch_related("mensajes"), caso_id=caso_id
+    )
+    return Response(CasoDetectiveSerializer(caso).data)
+
+
+# ── Diálogos de NPCs neutros (HDU-1) ───────────────────────────────────────────
+
+@api_view(["GET"])
+def dialogos_npc(request):
+    """
+    Lista los diálogos de NPCs neutros (sin árbol de decisiones). Filtro opcional:
+      ?zona=playa
+    """
+    qs = DialogoNPC.objects.select_related("mision").all()
+    zona = request.query_params.get("zona")
+    if zona:
+        qs = qs.filter(zona=zona)
+    return Response(DialogoNPCSerializer(qs, many=True).data)
+
+
+@api_view(["GET"])
+def dialogo_npc_detalle(request, dialogo_id):
+    """Un diálogo concreto por su dialogo_id (ej: NPC_FLAMENCO_SEC)."""
+    dialogo = get_object_or_404(
+        DialogoNPC.objects.select_related("mision"), dialogo_id=dialogo_id
+    )
+    return Response(DialogoNPCSerializer(dialogo).data)
+
+
+def _corregir_caso(caso, mensajes_marcados):
+    """Corrige un intento del Modo Detective contra las señales del propio caso.
+
+    Es la misma fórmula que `DetectiveCaseManager` aplica en Unity (HDU-10 CA4 y
+    CA5): solo cuentan los mensajes de riesgo **no ambiguos**, y un ambiguo que el
+    jugador marcó no suma ni resta. Se calcula acá y no se copia lo que mandó el
+    cliente porque este resultado alimenta el reporte del adulto (HDU-13): un
+    cliente con un bug, una versión vieja del juego o una petición a mano dejarían
+    números que después nadie puede auditar. Las marcas sí vienen del cliente —
+    son lo que el niño/a hizo, no algo que el servidor pueda deducir.
+
+    Devuelve (aciertos, total_riesgo, porcentaje).
+    """
+    marcados = set(mensajes_marcados or [])
+    riesgo_real = [
+        m.mensaje_id for m in caso.mensajes.all()
+        if m.es_senal_riesgo and not m.es_ambiguo
+    ]
+    total = len(riesgo_real)
+    aciertos = sum(1 for mid in riesgo_real if mid in marcados)
+    # Sin señales de riesgo el caso está 100% resuelto por definición: dividir
+    # daría ZeroDivision y un 0% castigaría al jugador por un caso sin trampa.
+    porcentaje = (aciertos / total) if total else 1.0
+    return aciertos, total, porcentaje
+
+
+@api_view(["POST"])
+def registrar_progreso_detective(request, caso_id):
+    """
+    Registra el resultado de un intento del jugador sobre un caso.
+
+    Body: {
+        "partida_id": int,
+        "mensajes_marcados": [str],   # mensaje_id que el jugador marcó como riesgo
+    }
+
+    `aciertos`, `total_riesgo` y `porcentaje` **los calcula el servidor** a partir
+    de las marcas y de las señales del caso (ver `_corregir_caso`). Si el cuerpo
+    los trae igual, se usan solo para comparar: una diferencia se avisa por log,
+    porque significa que el cliente y el banco no están viendo el mismo caso.
+
+    Se guardan en vez de derivarse en cada lectura porque un intento es un hecho
+    con fecha: si mañana se corrige el contenido del caso, el resultado de esa
+    tarde no debería cambiar solo.
+
+    Un mismo (partida, caso) tiene una sola fila (constraint del modelo):
+    reintentar no crea una fila nueva, suma 1 a `intentos` y sobrescribe el
+    resultado con el del último intento — mismo patrón idempotente que
+    MissionManager.CompletarDesafio en Unity.
+    """
+    caso = get_object_or_404(
+        CasoDetective.objects.prefetch_related("mensajes"), caso_id=caso_id
+    )
+    partida = get_object_or_404(
+        Partida, pk=request.data.get("partida_id"), usuario_jugador__adulto=request.user
+    )
+
+    marcados = request.data.get("mensajes_marcados", [])
+    aciertos, total, porcentaje = _corregir_caso(caso, marcados)
+
+    enviados = request.data.get("aciertos")
+    if enviados is not None and enviados != aciertos:
+        logger.warning(
+            "Detective %s: el cliente reportó %s aciertos y el caso da %s. Se guarda "
+            "el del servidor. Revisa si Unity y el banco tienen la misma versión del caso.",
+            caso.caso_id, enviados, aciertos,
+        )
+
+    progreso, created = CasoDetectiveProgreso.objects.get_or_create(
+        partida=partida, caso=caso,
+        defaults={
+            "mensajes_marcados": marcados,
+            "aciertos": aciertos,
+            "total_riesgo": total,
+            "porcentaje": porcentaje,
+        },
+    )
+    if not created:
+        progreso.mensajes_marcados = marcados
+        progreso.aciertos = aciertos
+        progreso.total_riesgo = total
+        progreso.porcentaje = porcentaje
+        progreso.intentos += 1
+    progreso.fecha_termino = timezone.now()
+    progreso.save()
+
+    return Response(
+        CasoDetectiveProgresoSerializer(progreso).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
+@api_view(["GET"])
+def progreso_detective_partida(request, partida_id):
+    """Progreso de todos los casos Detective jugados en una partida (para que
+    Unity sepa cuáles ya están completados, igual que hace localmente
+    MissionManager con PlayerPrefs)."""
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+    progresos = partida.casos_detective.select_related("caso").all()
+    return Response(CasoDetectiveProgresoSerializer(progresos, many=True).data)
+
+
+# ── Progreso de misiones (HDU-1 CA4 y CA5) ────────────────────────────────────
+
+@api_view(["GET", "POST"])
+def misiones_partida(request, partida_id):
+    """
+    GET  — misiones que esta partida tiene desbloqueadas, con su estado.
+    POST — registra o actualiza una. Body:
+           { "mision_id": "MISION_NPC_01", "estado": "disponible" | "completada" }
+
+    Es idempotente, igual que `MissionManager.CompletarDesafio` en Unity: repetir
+    el POST no duplica la fila ni mueve `fecha_completada`. **Una mision
+    completada no vuelve a disponible**: un POST con `disponible` sobre una ya
+    completada se ignora, porque el orden en que llegan los mensajes desde el
+    juego no esta garantizado y el registro para el adulto no puede retroceder.
+
+    Un `mision_id` que no esta en el catalogo se guarda igual (el progreso del
+    nino no depende de que el banco este al dia) pero se avisa por log y la
+    respuesta lo marca con `en_catalogo: false`.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        mision_id = (request.data.get("mision_id") or "").strip()
+        if not mision_id:
+            return Response(
+                {"mision_id": "Este campo es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        estado = (request.data.get("estado") or "disponible").strip()
+        if estado not in ("disponible", "completada"):
+            return Response(
+                {"estado": "Debe ser 'disponible' o 'completada'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not Mision.objects.filter(mision_id=mision_id).exists():
+            logger.warning(
+                "MisionProgreso: '%s' no existe en el catalogo de misiones. Se guarda "
+                "igual, pero el id de Unity y el del banco no estan alineados.",
+                mision_id,
+            )
+
+        progreso, created = MisionProgreso.objects.get_or_create(
+            partida=partida, mision_id=mision_id
+        )
+        if estado == "completada" and progreso.fecha_completada is None:
+            progreso.fecha_completada = timezone.now()
+            progreso.save(update_fields=["fecha_completada"])
+
+        progresos = [progreso]
+        codigo = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    else:
+        progresos = list(partida.misiones.all())
+        codigo = status.HTTP_200_OK
+
+    catalogo = {
+        m.mision_id: m
+        for m in Mision.objects.filter(
+            mision_id__in={p.mision_id for p in progresos}
+        )
+    }
+    datos = MisionProgresoSerializer(
+        progresos, many=True, context={"catalogo": catalogo}
+    ).data
+    return Response(datos[0] if request.method == "POST" else datos, status=codigo)
+
+
+# ── Progreso de zonas (HDU-3 CA5 y HDU-4 CA5) ─────────────────────────────────
+
+@api_view(["GET", "POST"])
+def zonas_partida(request, partida_id):
+    """
+    GET  — zonas desbloqueadas en esta partida, y cuales estan completadas.
+    POST — desbloquea o completa una. Body:
+           { "zona": "ciberacoso", "completada": true | false }
+
+    Que exista la fila significa que la zona esta desbloqueada, asi que un POST
+    con `completada: false` es lo que se manda al abrir una zona nueva. Igual que
+    las misiones, completar es un camino de ida: `completada: false` sobre una
+    zona ya completada no la reabre.
+
+    La `zona` es el slug del banco (`desconocidos`, `ciberacoso`, `reto_viral`).
+    No se valida contra una lista fija a proposito: agregar una tematica es
+    contenido, no una migracion ni un cambio de codigo.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "GET":
+        return Response(ZonaProgresoSerializer(partida.zonas.all(), many=True).data)
+
+    zona = (request.data.get("zona") or "").strip()
+    if not zona:
+        return Response(
+            {"zona": "Este campo es obligatorio."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    progreso, created = ZonaProgreso.objects.get_or_create(partida=partida, zona=zona)
+    if request.data.get("completada") and progreso.fecha_completada is None:
+        progreso.fecha_completada = timezone.now()
+        progreso.save(update_fields=["fecha_completada"])
+
+    return Response(
+        ZonaProgresoSerializer(progreso).data,
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
+
+
+# ── Inventario (la mochila de Otto — por partida) ─────────────────────────────
+
+# Los limites de las columnas, para poder responder 400 en vez de dejar que
+# reviente Postgres con un 500. Hace falta decirlo aca porque `save()` NO llama a
+# `full_clean()`: Django manda el valor tal cual y el error aparece recien en la
+# base. Y no se nota en los tests, porque la suite corre sobre SQLite y SQLite no
+# valida ni el largo de un varchar ni el rango de un smallint — ambos casos
+# devolvian 200 ahi y 500 contra Supabase.
+LARGO_MAX_ITEM_ID = ItemInventario._meta.get_field("item_id").max_length
+CANTIDAD_MAX = 32767   # tope de PositiveSmallIntegerField (smallint de Postgres)
+
+
+@api_view(["GET", "PUT"])
+def inventario_partida(request, partida_id):
+    """
+    GET — lo que Otto lleva encima en esta partida.
+    PUT — **reemplaza** la mochila completa. Body:
+          { "items": [ {"item_id": "ITEM_BRUJULA", "cantidad": 2}, ... ] }
+
+    **Por que PUT de reemplazo y no POST incremental como en misiones:** una
+    mision solo crece —se desbloquea y se completa, nunca se "descompleta"—, asi
+    que ahi el POST por fila es natural y ademas protege el registro del adulto.
+    El inventario encoge: `ItemType.Consumable` significa que un objeto usado sale
+    de la mochila. Con POST por fila no hay forma de decir "ya no tengo esto" sin
+    inventar un DELETE por objeto, y bastaria con que una de esas llamadas se
+    perdiera para que el nino viera un objeto fantasma al retomar. Mandando la
+    lista completa, el estado del servidor no puede quedar a medio camino: lo que
+    no viene, no esta.
+
+    Idempotente por construccion: mandar dos veces la misma lista deja lo mismo.
+    Va en una transaccion para que no exista un instante con la mochila a medias.
+
+    Una `cantidad` de 0 o menos se trata como "no lo tengo": no se guarda la fila.
+    Es lo mismo que omitir el objeto, pero se acepta para que Unity pueda mandar su
+    lista tal cual sin filtrarla antes.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "PUT":
+        items = request.data.get("items")
+        if items is None or not isinstance(items, list):
+            return Response(
+                {"items": "Se espera una lista, aunque sea vacia."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Se normaliza antes de tocar la base: si un item viene mal, no se escribe
+        # nada. Un PUT a medias dejaria la mochila en un estado que el nino nunca
+        # tuvo, que es peor que rechazar la llamada entera.
+        limpios = {}
+        for i, crudo in enumerate(items):
+            if not isinstance(crudo, dict):
+                return Response(
+                    {"items": f"El elemento {i} no es un objeto."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            item_id = (crudo.get("item_id") or "").strip()
+            if not item_id:
+                return Response(
+                    {"items": f"El elemento {i} no trae `item_id`."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if len(item_id) > LARGO_MAX_ITEM_ID:
+                return Response(
+                    {"items": f"El `item_id` del elemento {i} pasa los "
+                              f"{LARGO_MAX_ITEM_ID} caracteres."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                cantidad = int(crudo.get("cantidad", 1))
+            except (TypeError, ValueError):
+                return Response(
+                    {"items": f"La cantidad de '{item_id}' no es un numero."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if cantidad <= 0:
+                continue
+
+            if cantidad > CANTIDAD_MAX:
+                return Response(
+                    {"items": f"La cantidad de '{item_id}' pasa el maximo "
+                              f"de {CANTIDAD_MAX}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Repetido en el mismo PUT: se suman en vez de que gane el ultimo. Que
+            # Unity mande dos filas del mismo objeto seria un bug suyo, pero
+            # perder unidades en silencio es peor que quedarse con las dos.
+            limpios[item_id] = limpios.get(item_id, 0) + cantidad
+
+        # Cada sumando cabia, pero la suma puede no caber.
+        for item_id, cantidad in limpios.items():
+            if cantidad > CANTIDAD_MAX:
+                return Response(
+                    {"items": f"La cantidad total de '{item_id}' pasa el maximo "
+                              f"de {CANTIDAD_MAX}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        with transaction.atomic():
+            partida.inventario.exclude(item_id__in=limpios.keys()).delete()
+
+            for item_id, cantidad in limpios.items():
+                ItemInventario.objects.update_or_create(
+                    partida=partida, item_id=item_id,
+                    defaults={"cantidad": cantidad},
+                )
+
+    inventario = partida.inventario.all()
+    return Response(ItemInventarioSerializer(inventario, many=True).data)
+
+
+# ── Personaje (donde quedo Otto — por partida) ────────────────────────────────
+
+@api_view(["GET", "PATCH"])
+def personaje_partida(request, partida_id):
+    """
+    GET   — donde quedo Otto en esta partida.
+    PATCH — lo actualiza. Body (todos opcionales):
+            { "escena": "SampleScene", "pos_x": 12.5, "pos_y": -3.25,
+              "zona_actual": "zona_2" }
+
+    Es PATCH y no PUT porque aqui, a diferencia del inventario, **no hay nada que
+    borrar**: son cuatro columnas de una fila que siempre existe. Mandar la posicion
+    sin la zona, o al reves, es una actualizacion legitima y no una orden de
+    dejar el resto en blanco.
+
+    La fila se crea si no existia: `PersonajeJugador` es uno-a-uno con la partida
+    pero ninguna vista lo creaba, asi que las partidas de hoy no tienen. Un
+    get_or_create sale mas barato que una migracion de datos que recorra todas las
+    partidas para dejarles una fila vacia.
+
+    Sin posicion guardada, `tiene_posicion` viene en false y Unity deja a Otto en
+    el spawnPoint de la escena. Es distinto de (0,0), que es un lugar del mapa.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+    personaje, _ = PersonajeJugador.objects.get_or_create(partida=partida)
+
+    if request.method == "PATCH":
+        serializer = PersonajeJugadorSerializer(personaje, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response(serializer.data)
+
+    return Response(PersonajeJugadorSerializer(personaje).data)
+
+
+# ── Objetos del mapa ya recogidos (HDU-1 CA2, por partida) ────────────────────
+
+@api_view(["GET", "POST"])
+def objetos_recogidos_partida(request, partida_id):
+    """
+    GET  — objetos del mapa que esta partida ya recogio.
+    POST — marca uno. Body: { "objeto_id": "SAMPLESCENE_CONCHA_01" }
+
+    **Es POST por objeto y no PUT de reemplazo como el inventario**, y la diferencia
+    no es un descuido: el inventario encoge -un objeto consumido sale de la mochila-
+    pero esto solo crece. Recoger es un camino de ida. Con solo-crece, el POST por
+    fila es mas robusto: si una llamada se pierde, se recupera la proxima vez que el
+    nino recoja algo, en vez de arrastrar un estado completo que puede llegar viejo.
+
+    Idempotente: repetir el POST del mismo objeto no duplica la fila ni mueve la
+    fecha. Devuelve 201 la primera vez y 200 despues, igual que misiones.
+
+    `objeto_id` es el id del WorldItem de la escena, NO el `itemId` del ItemData.
+    Son cosas distintas a proposito: dos objetos del mapa pueden entregar el mismo
+    item, y un item consumible sale de la mochila sin que el objeto deba reaparecer.
+    No se valida contra ningun catalogo porque el catalogo de objetos de la escena
+    vive en Unity.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        objeto_id = (request.data.get("objeto_id") or "").strip()
+        if not objeto_id:
+            return Response(
+                {"objeto_id": "Este campo es obligatorio."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        largo_max = ObjetoRecogido._meta.get_field("objeto_id").max_length
+        if len(objeto_id) > largo_max:
+            return Response(
+                {"objeto_id": f"Pasa los {largo_max} caracteres."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        objeto, creado = ObjetoRecogido.objects.get_or_create(
+            partida=partida, objeto_id=objeto_id
+        )
+        return Response(
+            ObjetoRecogidoSerializer(objeto).data,
+            status=status.HTTP_201_CREATED if creado else status.HTTP_200_OK,
+        )
+
+    objetos = partida.objetos_recogidos.all()
+    return Response(ObjetoRecogidoSerializer(objetos, many=True).data)
+
+
+# ── Progreso por NPC de una tematica (HDU-3 CA5 / HDU-4 CA5) ──────────────────
+
+@api_view(["GET", "POST"])
+def progreso_npcs_partida(request, partida_id):
+    """
+    GET  — NPCs de tematica cuya interaccion esta partida ya termino.
+    POST — marca uno. Body: { "npc_id": "BOSQUE_DESCONOCIDO_01", "exito": true }
+
+    Es lo que permite que una tematica se complete en varias sesiones. Antes el
+    "ya termine con este NPC" vivia solo en memoria del objeto de la escena, asi
+    que el nino tenia que hacer los tres NPCs de una sentada o la zona siguiente
+    no se abria.
+
+    `exito` importa tanto como el hecho de haber terminado: decide si el NPC se
+    retira del mapa y si cuenta como "a salvo" o como "captura" en el resumen. Por
+    eso no basta con deducir de los chats que la conversacion ocurrio.
+
+    Idempotente en la identidad (no duplica la fila), pero **`exito` si se
+    actualiza**: un NPC con `allowReplay` puede repetirse, y el resultado que vale
+    es el ultimo. Se diferencia de los objetos recogidos, donde no hay nada que
+    actualizar.
+
+    `npc_id` es el id del NPC en la escena, NO la PK del modelo NPC: aquel es una
+    fila por partida con la confianza, este nombra al personaje del mapa.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    if request.method == "POST":
+        npc_id = (request.data.get("npc_id") or "").strip()
+        if not npc_id:
+            return Response({"npc_id": "Este campo es obligatorio."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        largo_max = NpcProgreso._meta.get_field("npc_id").max_length
+        if len(npc_id) > largo_max:
+            return Response({"npc_id": f"Pasa los {largo_max} caracteres."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        exito = request.data.get("exito", False)
+        if not isinstance(exito, bool):
+            return Response({"exito": "Debe ser true o false."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        progreso, creado = NpcProgreso.objects.update_or_create(
+            partida=partida, npc_id=npc_id, defaults={"exito": exito}
+        )
+        return Response(
+            NpcProgresoSerializer(progreso).data,
+            status=status.HTTP_201_CREATED if creado else status.HTTP_200_OK,
+        )
+
+    return Response(NpcProgresoSerializer(partida.progreso_npcs.all(), many=True).data)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Presión social en Retos Virales (HDU-04 CA4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Cuántos rechazos seguidos hacen falta para que la presión suba un nivel. El
+# criterio de aceptación dice "al menos dos retos virales negativos consecutivos".
+UMBRAL_RECHAZOS = 2
+
+# Tope del nivel. Hoy la zona tiene tres NPCs, así que la racha máxima es 3 y el
+# nivel máximo alcanzable es 2. Si se agregan NPCs, subir esto además del banco.
+NIVEL_PRESION_MAXIMO = 2
+
+ZONAS_DEL_RECORRIDO = ("desconocidos", "ciberacoso", "reto_viral")
+SUFIJO_VARIANTE = "_BASE"
+
+
+def puntos_maximos_del_recorrido():
+    """
+    Lo que sumaría quien elige la mejor ruta en cada chat de las tres zonas.
+
+    Se calcula desde el banco y no se escribe fijo, porque algunas misiones suman
+    más con las respuestas de seguimiento (M1: +2 y después +1). Para cada
+    escenario se recorre el árbol desde su primer nodo —el que ninguna opción
+    apunta— y en cada pregunta se toma la opción que más suma contando lo que
+    viene después.
+
+    Las variantes de un mismo escenario (`M6_DECISION01` y `M6_DECISION01_BASE`)
+    son alternativas: se juega una u otra según la presión acumulada. Cuentan una
+    sola vez, con la que más da.
+
+    Devuelve (total, {escenario: máximo}).
+    """
+    preguntas = {
+        p.pregunta_id: p
+        for p in PreguntaBanco.objects
+        .filter(zona__in=ZONAS_DEL_RECORRIDO)
+        .prefetch_related("opciones")
+    }
+
+    def mejor_desde(pid, vistos):
+        p = preguntas.get(pid)
+        if p is None or pid in vistos:
+            return 0
+        vistos = vistos | {pid}
+        opciones = list(p.opciones.all())
+        if opciones:
+            return max(o.impacto_puntuacion + mejor_desde(o.siguiente_pregunta, vistos)
+                       for o in opciones)
+        return mejor_desde(p.narrativa_continuacion, vistos) if p.narrativa_continuacion else 0
+
+    por_escenario = {}
+    escenarios = {p.escenario_id for p in preguntas.values() if p.escenario_id}
+    for escenario in escenarios:
+        del_escenario = [p for p in preguntas.values() if p.escenario_id == escenario]
+        apuntados = {o.siguiente_pregunta for p in del_escenario for o in p.opciones.all()}
+        apuntados |= {p.narrativa_continuacion for p in del_escenario}
+        raices = [p.pregunta_id for p in del_escenario if p.pregunta_id not in apuntados]
+        por_escenario[escenario] = max((mejor_desde(r, frozenset()) for r in raices), default=0)
+
+    por_grupo = {}
+    for escenario, maximo in por_escenario.items():
+        grupo = escenario[:-len(SUFIJO_VARIANTE)] if escenario.endswith(SUFIJO_VARIANTE) else escenario
+        por_grupo[grupo] = max(por_grupo.get(grupo, 0), maximo)
+
+    return sum(por_grupo.values()), por_escenario
+
+
+@api_view(["GET"])
+def puntaje_final(request, partida_id):
+    """
+    Puntaje de la aventura completa, para elegir el final (HDU-09) al terminar la
+    Misión 6.
+
+    Son los mismos puntos del chat que ya mueven el estado de Otto: cada opción
+    elegida suma su `impacto_puntuacion` (+2, +1, 0 o -1), las respuestas de
+    seguimiento incluidas. Se suman las tres zonas; si el total da negativo, cuenta
+    como 0. El porcentaje es ese total sobre `puntos_maximos_del_recorrido()`, con
+    tope en 100 por si se repitió algún chat.
+
+    Se deriva de los `Mensaje` con `opcion_banco_id`, igual que `presion_social`:
+    la aventura se juega en varias sesiones, así que un contador de Unity
+    arrancaría en cero cada vez que se retoma la partida.
+
+    Qué final corresponde a cada porcentaje NO se decide aquí: los umbrales son
+    contenido y viven en `finales_narrativos` del banco, junto a los textos.
+
+    Respuesta:
+    {"partida_id": 1, "puntos": 16, "puntos_brutos": 16, "puntos_maximos": 18,
+     "porcentaje": 88.9, "decisiones": 9, "por_zona": {"desconocidos": 5, ...}}
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    elegidos = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .values_list("opcion_banco_id", flat=True)
+    )
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in=set(elegidos))
+        .select_related("pregunta")
+    }
+
+    por_zona = {z: 0 for z in ZONAS_DEL_RECORRIDO}
+    decisiones = 0
+    for opcion_id in elegidos:
+        opcion = opciones.get(opcion_id)
+        if opcion is None or opcion.pregunta.zona not in por_zona:
+            continue  # contenido retirado del banco, o una zona fuera del recorrido
+        por_zona[opcion.pregunta.zona] += opcion.impacto_puntuacion
+        decisiones += 1
+
+    brutos = sum(por_zona.values())
+    puntos = max(0, brutos)
+    maximos, _ = puntos_maximos_del_recorrido()
+
+    return Response({
+        "partida_id": partida.pk,
+        "puntos": puntos,
+        "puntos_brutos": brutos,
+        "puntos_maximos": maximos,
+        "porcentaje": round(min(100.0, 100.0 * puntos / maximos), 1) if maximos else None,
+        "decisiones": decisiones,
+        "por_zona": por_zona,
+    })
+
+
+ZONA_RETOS = "reto_viral"
+
+
+@api_view(["GET"])
+def presion_social(request, partida_id):
+    """
+    Nivel de presión social que le corresponde al próximo NPC de Retos Virales.
+
+    Implementa HDU-04 CA4: "Dado que el niño/a ha rechazado al menos dos retos
+    virales negativos consecutivos, cuando interactúa con un nuevo NPC de la zona,
+    entonces el sistema aumenta gradualmente la intensidad de la presión social".
+
+    **No hay campo nuevo ni migración: el nivel se DERIVA del historial que ya se
+    guarda.** Cada decisión es un `Mensaje` con `opcion_banco_id`, y de ahí salen
+    el `tipo` de la opción y el `npc_id` de su pregunta. Es el mismo patrón de
+    `riesgo_por_zona`. Un contador guardado en Unity no serviría: una temática se
+    puede completar en varias sesiones, así que al volver estaría siempre en cero.
+
+    **Se cuenta por NPC, no por mensaje, y esa es la decisión importante.** Un reto
+    es un NPC, no una respuesta: si el niño contesta una `dudosa` y después una
+    segura al mismo NPC, eso es UN reto rechazado, no dos. Por eso las decisiones
+    se agrupan por `npc_id` y de cada NPC manda su ÚLTIMA decisión:
+
+      - terminó en `segura_basica` / `segura_optima`  -> rechazado
+      - terminó en `insegura`                          -> aceptado
+      - terminó en `dudosa`                            -> indeciso
+
+    La racha son los rechazos seguidos **al final** de la secuencia: un reto
+    aceptado o dejado en duda la corta. "Consecutivos" es literal.
+
+    El nivel crece de a uno y arranca en el umbral, para que la escalada sea
+    gradual y no un salto: 0-1 rechazos -> 0, 2 -> 1, 3 -> 2.
+
+    Respuesta:
+    {
+      "partida_id": 1,
+      "zona": "reto_viral",
+      "SocialPressureLevel": 1,
+      "rechazos_consecutivos": 2,
+      "umbral": 2,
+      "nivel_maximo": 2,
+      "retos": [{"npc_id": "NPC_05", "resultado": "rechazado"}, ...]
+    }
+
+    `SocialPressureLevel` va en inglés y en CamelCase a propósito, rompiendo la
+    convención del resto del backend: es el nombre EXACTO que la ficha de HDU-04
+    del plan de proyecto le pone al campo en su criterio de prueba. Se dejó así
+    para que la prueba del plan encuentre lo que busca. El resto de la respuesta
+    sigue la convención en español.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    elegidos = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .order_by("timestamp", "id")
+        .values_list("opcion_banco_id", flat=True)
+    )
+
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in=set(elegidos))
+        .select_related("pregunta")
+    }
+
+    # Última decisión de cada NPC, conservando el orden en que aparecieron.
+    ultima_por_npc = {}
+    for opcion_id in elegidos:
+        opcion = opciones.get(opcion_id)
+        if opcion is None:
+            continue  # id que no existe en el banco (contenido viejo o typo)
+        pregunta = opcion.pregunta
+        if pregunta.zona != ZONA_RETOS or not pregunta.npc_id:
+            continue
+        # Reasignar mueve el NPC al final: lo que importa es cuándo se CERRÓ el
+        # reto, no cuándo empezó.
+        ultima_por_npc.pop(pregunta.npc_id, None)
+        ultima_por_npc[pregunta.npc_id] = opcion.tipo
+
+    def resultado(tipo):
+        if tipo in ("segura_basica", "segura_optima"):
+            return "rechazado"
+        if tipo == "insegura":
+            return "aceptado"
+        return "indeciso"
+
+    retos = [
+        {"npc_id": npc_id, "resultado": resultado(tipo)}
+        for npc_id, tipo in ultima_por_npc.items()
+    ]
+
+    racha = 0
+    for reto in reversed(retos):
+        if reto["resultado"] != "rechazado":
+            break
+        racha += 1
+
+    if racha < UMBRAL_RECHAZOS:
+        nivel = 0
+    else:
+        nivel = min(racha - UMBRAL_RECHAZOS + 1, NIVEL_PRESION_MAXIMO)
+
+    return Response({
+        "partida_id": partida.id,
+        "zona": ZONA_RETOS,
+        "SocialPressureLevel": nivel,
+        "rechazos_consecutivos": racha,
+        "umbral": UMBRAL_RECHAZOS,
+        "nivel_maximo": NIVEL_PRESION_MAXIMO,
+        "retos": retos,
     })

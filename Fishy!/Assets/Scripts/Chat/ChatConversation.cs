@@ -34,6 +34,10 @@ namespace Fishy.Chat
                  "real del banco. Vacío en conversaciones escritas a mano.")]
         public string bancoOptionId;
 
+        [Tooltip("Puntos de esta opción en el banco (+2, +1, 0, -1). Los suma el " +
+                 "sistema de finales cuando no hay servidor.")]
+        public int impacto;
+
         public ChatOption() { }
         public ChatOption(string text, OptionSafety safety, string nextNodeId,
             string bancoOptionId = null)
@@ -59,6 +63,12 @@ namespace Fishy.Chat
     {
         public string id;
         [TextArea] public string text;
+
+        [Tooltip("Lo que Otto piensa \"para sí\" justo después del mensaje del NPC y " +
+                 "antes de las opciones. Se dibuja como burbuja de Otto con la etiqueta " +
+                 "\"(para sí)\". Vacío = no hay.")]
+        [TextArea] public string pensamientoOtto;
+
         public ChatMessageKind kind = ChatMessageKind.Neutral;
 
         [Tooltip("Mensaje del sistema (cierre/seguridad), se muestra con otro estilo.")]
@@ -73,13 +83,34 @@ namespace Fishy.Chat
 
         public bool HasOptions => options != null && options.Count > 0;
 
-        /// <summary>Convierte las opciones a la estructura que espera el backend.</summary>
-        public List<OpcionRespuesta> ToOpciones()
+        /// <summary>
+        /// Convierte las opciones a la estructura que espera el backend.
+        ///
+        /// <paramref name="orden"/> es la permutación con la que se dibujaron en
+        /// pantalla (ver <c>ChatModuleController.OrdenDeOpciones</c>); vacío =
+        /// salieron en el orden de la lista. Importa porque el campo del backend se
+        /// llama <c>orden</c> y significa "orden de presentación al jugador": si las
+        /// opciones se barajan y aquí se mandara siempre 0,1,2, ese campo estaría
+        /// describiendo una pantalla que el niño/a nunca vio. El puntaje no depende de
+        /// esto —va por <c>opcion_banco_id</c>—, pero el reporte del adulto sí.
+        /// </summary>
+        public List<OpcionRespuesta> ToOpciones(IReadOnlyList<int> orden = null)
         {
             var list = new List<OpcionRespuesta>();
             if (options == null) return list;
-            for (int i = 0; i < options.Count; i++)
-                list.Add(new OpcionRespuesta(options[i].text, i, options[i].QualityKey));
+
+            if (orden == null)
+            {
+                for (int i = 0; i < options.Count; i++)
+                    list.Add(new OpcionRespuesta(options[i].text, i, options[i].QualityKey));
+                return list;
+            }
+
+            for (int puesto = 0; puesto < orden.Count; puesto++)
+            {
+                ChatOption opcion = options[orden[puesto]];
+                list.Add(new OpcionRespuesta(opcion.text, puesto, opcion.QualityKey));
+            }
             return list;
         }
     }
@@ -120,5 +151,39 @@ namespace Fishy.Chat
         }
 
         public ChatNode StartNode => GetNode(startNodeId);
+
+        /// <summary>True si el grafo contiene un nodo con ese id.</summary>
+        public bool HasNode(string id) => GetNode(id) != null;
+
+        /// <summary>
+        /// Ids a los que apunta el grafo pero que no existen en él.
+        ///
+        /// No es lo mismo que una conversación que termina: un `nextNodeId` vacío
+        /// es un final legítimo, mientras que uno que apunta a un nodo ausente
+        /// significa que falta contenido por cargar — típicamente una pregunta que
+        /// vive en otro `escenario_id` que ningún launcher pidió. Sin esta
+        /// distinción el chat se corta en seco y parece un final normal.
+        /// </summary>
+        public List<string> ReferenciasColgando()
+        {
+            var colgando = new List<string>();
+            if (nodes == null) return colgando;
+
+            void Revisar(string id)
+            {
+                if (string.IsNullOrEmpty(id) || HasNode(id)) return;
+                if (!colgando.Contains(id)) colgando.Add(id);
+            }
+
+            foreach (var n in nodes)
+            {
+                if (n == null) continue;
+                Revisar(n.nextNodeId);
+                if (n.options == null) continue;
+                foreach (var o in n.options)
+                    if (o != null) Revisar(o.nextNodeId);
+            }
+            return colgando;
+        }
     }
 }

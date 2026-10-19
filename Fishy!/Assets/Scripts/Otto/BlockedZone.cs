@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Fishy.World
@@ -21,6 +22,57 @@ namespace Fishy.World
         [Tooltip("Nombre/clave de la zona (para desbloquearla desde el gestor de misiones).")]
         public string zoneId = "zona_bloqueada";
 
+        [Tooltip("Slug de la zona en el banco de preguntas (desconocidos, ciberacoso, " +
+                 "reto_viral). Es lo que se guarda en la BD. Si se deja vacío se manda " +
+                 "el zoneId, que no siempre coincide.")]
+        public string zonaBanco = "";
+
+        /// <summary>Los únicos slugs que el banco reconoce como temática.</summary>
+        private static readonly string[] SlugsDelBanco = { "desconocidos", "ciberacoso", "reto_viral" };
+
+        /// <summary>
+        /// Id con el que esta zona viaja al backend. El <see cref="zoneId"/> nombra el
+        /// collider de la escena y el slug del banco nombra la temática: no tienen por
+        /// qué coincidir, así que se pueden separar sin renombrar nada en la escena.
+        ///
+        /// <b>El respaldo al <c>zoneId</c> avisa.</b> Dejar <see cref="zonaBanco"/> vacío
+        /// hace que se guarde el id de la escena en la columna de la temática, y eso ya
+        /// pasó: en `api_zonaprogreso` quedaron filas `zona_2` y `zona_3` conviviendo con
+        /// `desconocidos` y `ciberacoso`. Dos vocabularios en la misma columna, y el
+        /// reporte del adulto agrupa por temática, así que esas filas no las puede leer
+        /// nadie y la misma zona aparece dos veces. El respaldo se conserva —quitarlo
+        /// rompería las filas que ya están guardadas así—, pero deja de ser silencioso.
+        /// </summary>
+        public string ZonaBackend
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(zonaBanco)) return zonaBanco.Trim();
+
+                if (!_avisoDeSlugDado && Array.IndexOf(SlugsDelBanco, zoneId) < 0)
+                {
+                    _avisoDeSlugDado = true;
+                    Debug.LogWarning(
+                        $"[BlockedZone] '{name}' no tiene 'Zona Banco', así que va a guardar " +
+                        $"'{zoneId}' en la columna de la temática, donde el backend espera " +
+                        $"una de: {string.Join(", ", SlugsDelBanco)}. El reporte del adulto no " +
+                        "va a poder leer esa fila. Ponle el slug en el Inspector.", this);
+                }
+
+                return zoneId;
+            }
+        }
+
+        private bool _avisoDeSlugDado;
+
+        /// <summary>
+        /// Se dispara cuando cualquier zona se desbloquea, venga de WorldZoneManager,
+        /// de un MissionGiver o de la cinemática. Es estático a propósito: el desbloqueo
+        /// se dispara desde varios lados y suscribirse a cada zona de la escena dejaría
+        /// fuera las que se instancian después.
+        /// </summary>
+        public static event Action<BlockedZone> OnZonaDesbloqueada;
+
         [Header("Estado")]
         [Tooltip("Si está bloqueada, Otto no puede entrar y se muestra el mensaje.")]
         public bool isLocked = true;
@@ -30,6 +82,10 @@ namespace Fishy.World
         public string mensajeBloqueo = "Esta zona aún está cerrada. Completa más misiones para abrirla.";
         [Tooltip("Segundos mínimos entre dos apariciones del mensaje (evita spam al empujar).")]
         public float mensajeCooldown = 2.5f;
+
+        [Tooltip("Cartel de la cinemática al desbloquear con Unlock(). No se usa en " +
+                 "UnlockInmediato(), que no muestra nada.")]
+        public string mensajeDesbloqueo = "✨ ¡Nueva zona desbloqueada!";
 
         [Header("Aspecto (oscurecido)")]
         [Tooltip("SpriteRenderer que oscurece la zona. Opcional.")]
@@ -43,19 +99,23 @@ namespace Fishy.World
         public string ottoTag = "Player";
 
         private Collider2D[] colliders;
+        private PolygonColliderVisual[] meshOverlays;
         private float lastShown = -999f;
 
         private void Awake()
         {
             colliders = GetComponentsInChildren<Collider2D>();
+            meshOverlays = GetComponentsInChildren<PolygonColliderVisual>(true);
             ApplyState();
         }
 
         private void OnValidate()
         {
             // Refleja el estado en el editor para previsualizar el oscurecido.
+            // Sólo el sprite: la malla se construye en runtime y crear su
+            // material en modo edición dejaría instancias colgando.
             if (overlay != null)
-                SetOverlayVisible(isLocked);
+                SetSpriteOverlayVisible(isLocked);
         }
 
         /// <summary>Aplica el estado actual (bloqueo + oscurecido) a colliders y overlay.</summary>
@@ -74,6 +134,11 @@ namespace Fishy.World
         }
 
         private void SetOverlayVisible(bool visible)
+        {
+            SetOverlayAlpha(visible ? darkenAlpha : 0f);
+        }
+
+        private void SetSpriteOverlayVisible(bool visible)
         {
             if (overlay == null) return;
             var c = overlay.color;
@@ -115,14 +180,30 @@ namespace Fishy.World
             }
         }
 
+        /// <summary>
+        /// Opacidad actual del oscurecido, venga del sprite o de la malla.
+        /// La cinemática la usa como punto de partida del fundido.
+        /// </summary>
+        public float CurrentDarkenAlpha =>
+            overlay != null ? overlay.color.a : (isLocked ? darkenAlpha : 0f);
+
         /// <summary>Ajusta la opacidad del oscurecido (para animar el desbloqueo).</summary>
         public void SetOverlayAlpha(float a)
         {
-            if (overlay == null) return;
-            var c = overlay.color;
-            c.a = a;
-            overlay.color = c;
-            overlay.enabled = a > 0.001f;
+            if (overlay != null)
+            {
+                var c = overlay.color;
+                c.a = a;
+                overlay.color = c;
+                overlay.enabled = a > 0.001f;
+            }
+
+            if (meshOverlays == null) return;
+            foreach (var m in meshOverlays)
+            {
+                if (m == null) continue;
+                m.SetAlpha(a);
+            }
         }
 
         /// <summary>
@@ -161,12 +242,38 @@ namespace Fishy.World
                 target.x / spriteSize.x, target.y / spriteSize.y, 1f);
         }
 
-        /// <summary>Desbloquea la zona: Otto ya puede entrar y desaparece el oscurecido.</summary>
+        /// <summary>
+        /// Desbloquea la zona CON la cinemática de apertura (paneo de cámara, oscurecido
+        /// que se desvanece, cartel): Otto ya puede entrar y el niño/a lo ve pasar.
+        ///
+        /// El cambio de estado en sí no ocurre aquí, sino a mitad de la cinemática —ver
+        /// <see cref="UnlockInmediato"/>, que es lo que <see cref="ZoneUnlockCinematic"/>
+        /// llama en el momento justo de su propia secuencia. Sin esa separación, Unlock()
+        /// llamando a la cinemática y la cinemática llamando de vuelta a Unlock() se
+        /// llamarían en círculo.
+        ///
+        /// Para un desbloqueo SIN cinemática —restaurar una partida donde la zona ya
+        /// estaba abierta, por ejemplo, donde celebrar de nuevo confundiría en vez de
+        /// alegrar— usa <see cref="UnlockInmediato"/> directamente.
+        /// </summary>
         public void Unlock()
+        {
+            if (!isLocked) return;
+            ZoneUnlockCinematic.GetOrCreate().Play(this, mensajeDesbloqueo);
+        }
+
+        /// <summary>
+        /// El cambio de estado en sí, sin cámara ni cartel: apaga los colliders y el
+        /// oscurecido al instante. Es lo que hay que llamar para un desbloqueo
+        /// silencioso, y lo que usa <see cref="ZoneUnlockCinematic"/> por
+        /// dentro cuando el oscurecido de su propia animación ya llegó a cero.
+        /// </summary>
+        public void UnlockInmediato()
         {
             if (!isLocked) return;
             isLocked = false;
             ApplyState();
+            OnZonaDesbloqueada?.Invoke(this);
         }
 
         /// <summary>Vuelve a bloquear la zona (caso poco común, p.ej. reinicio).</summary>

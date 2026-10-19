@@ -1,7 +1,25 @@
 from django.urls import path
-from . import views
+from . import views, invitaciones, panel_admin, reportes_web, seguimiento
 
 urlpatterns = [
+    # Portal web: grupos, invitaciones y reportes
+    path("grupos/", invitaciones.grupos),
+    path("grupos/<uuid:grupo_id>/", invitaciones.grupo_detalle),
+    path("grupos/<uuid:grupo_id>/reporte/", reportes_web.reporte_grupo),
+    path("grupos/<uuid:grupo_id>/seguimiento/", seguimiento.seguimiento_grupo),
+    path("jugadores/<int:jugador_id>/reporte/", reportes_web.reporte_nino),
+    path("grupos/<uuid:grupo_id>/buscar-familia/", invitaciones.buscar_familia),
+    path("grupos/<uuid:grupo_id>/miembros/", invitaciones.agregar_miembros),
+    path("grupos/<uuid:grupo_id>/miembros/<uuid:miembro_id>/", invitaciones.quitar_miembro),
+    path("grupos/<uuid:grupo_id>/invitaciones/", invitaciones.invitar),
+    path("grupos/<uuid:grupo_id>/invitaciones/<uuid:invitacion_id>/", invitaciones.gestionar_invitacion),
+    path("invitaciones/consultar/", invitaciones.consultar_invitacion),
+    path("invitaciones/aceptar/", invitaciones.aceptar_invitacion),
+    # Portal web: panel del admin (equipo de Fishy!). Ver panel_admin.py.
+    path("admin/profesores/", panel_admin.profesores),
+    path("admin/grupos/", panel_admin.grupos),
+    path("admin/cuentas/", panel_admin.cuentas),
+    path("admin/cuentas/<int:cuenta_id>/rol/", panel_admin.cambiar_rol),
     # Health
     path("health/", views.health_check, name="health_check"),
 
@@ -23,17 +41,48 @@ urlpatterns = [
     path("partidas/<int:partida_id>/", views.partida_detalle, name="partida_detalle"),
     path("partidas/<int:partida_id>/npcs/", views.npcs_partida, name="npcs_partida"),
     path("partidas/<int:partida_id>/riesgo-por-zona/", views.riesgo_por_zona, name="riesgo_por_zona"),
+    path("partidas/<int:partida_id>/presion-social/", views.presion_social, name="presion_social"),
+    path("partidas/<int:partida_id>/puntaje-final/", views.puntaje_final, name="puntaje_final"),
+    path("partidas/<int:partida_id>/oportunidades-mejora/", views.oportunidades_mejora, name="oportunidades_mejora"),
+
+    # Progreso por partida (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)
+    path("partidas/<int:partida_id>/misiones/", views.misiones_partida, name="misiones_partida"),
+    path("partidas/<int:partida_id>/objetivos/", views.objetivos_partida, name="objetivos_partida"),
+    path("partidas/<int:partida_id>/zonas/", views.zonas_partida, name="zonas_partida"),
+
+    # Inventario por partida (HDU-15)
+    path("partidas/<int:partida_id>/inventario/", views.inventario_partida, name="inventario_partida"),
+    path("partidas/<int:partida_id>/personaje/", views.personaje_partida, name="personaje_partida"),
+    path("partidas/<int:partida_id>/objetos-recogidos/", views.objetos_recogidos_partida, name="objetos_recogidos_partida"),
+    path("partidas/<int:partida_id>/progreso-npcs/", views.progreso_npcs_partida, name="progreso_npcs_partida"),
 
     # NPC (HDU-2)
     path("npcs/<int:npc_id>/", views.npc_actualizar, name="npc_actualizar"),
 
     # Chat (HDU-8)
+    path("partidas/<int:partida_id>/chats/completo/", views.chat_completo, name="chat_completo"),
     path("chats/", views.iniciar_chat, name="iniciar_chat"),
     path("chats/<int:chat_id>/mensajes/", views.mensajes_chat, name="mensajes_chat"),
     path("chats/<int:chat_id>/mensajes/registrar/", views.registrar_mensaje, name="registrar_mensaje"),
     path("chats/<int:chat_id>/finalizar/", views.finalizar_chat, name="finalizar_chat"),
 
     # Banco de Preguntas (HDU-2 y HDU-8)
+    # Catalogo de misiones: contenido, sin sesion (B.2).
+    path("misiones/", views.misiones_catalogo, name="misiones_catalogo"),
+    path("misiones/<str:mision_id>/", views.mision_detalle, name="mision_detalle"),
+
+    path("banco/zonas/", views.zonas_banco, name="zonas_banco"),
+    path("banco/zonas/<str:zona>/preguntas/", views.preguntas_zona, name="preguntas_zona"),
     path("banco/preguntas/", views.preguntas_banco, name="preguntas_banco"),
     path("banco/preguntas/<str:pregunta_id>/", views.pregunta_detalle, name="pregunta_detalle"),
+
+    # Modo Detective (HDU-10)
+    path("casos-detective/", views.casos_detective, name="casos_detective"),
+    path("casos-detective/<str:caso_id>/", views.caso_detective_detalle, name="caso_detective_detalle"),
+    path("casos-detective/<str:caso_id>/progreso/", views.registrar_progreso_detective, name="registrar_progreso_detective"),
+    path("partidas/<int:partida_id>/casos-detective/", views.progreso_detective_partida, name="progreso_detective_partida"),
+
+    # Diálogos de NPCs neutros (HDU-1)
+    path("dialogos-npc/", views.dialogos_npc, name="dialogos_npc"),
+    path("dialogos-npc/<str:dialogo_id>/", views.dialogo_npc_detalle, name="dialogo_npc_detalle"),
 ]

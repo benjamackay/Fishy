@@ -85,7 +85,7 @@ namespace Fishy.World
 
         private void TryFindOtto()
         {
-            otto = FindFirstObjectByType<OttoController>();
+            otto = FindAnyObjectByType<OttoController>();
             if (otto != null) target = otto.transform;
         }
 

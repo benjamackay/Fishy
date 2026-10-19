@@ -1,0 +1,537 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using Fishy.Mision;
+using Fishy.World;
+
+namespace Fishy.Net
+{
+    /// <summary>
+    /// HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5 — puente entre el progreso en memoria
+    /// (<see cref="MissionManager"/>, <see cref="BlockedZone"/>) y el backend.
+    ///
+    /// Hace dos cosas, en este orden:
+    ///
+    ///   1. <b>Al empezar la partida, baja lo que ya estaba hecho</b> y lo aplica:
+    ///      las misiones completadas vuelven completadas y las zonas desbloqueadas
+    ///      se abren solas. Es lo que PlayerPrefs no puede dar, porque vive en el
+    ///      dispositivo: si el niño/a empezó en el PC de la feria y sigue en otro,
+    ///      PlayerPrefs viene vacío y sin esto el mapa aparecería cerrado de nuevo.
+    ///
+    ///   2. <b>Después, sube cada cambio</b> — un desafío que queda disponible, uno
+    ///      que se completa, una zona que se abre.
+    ///
+    /// <b>Por qué es un componente aparte y no código dentro de MissionManager:</b>
+    /// <c>MissionManager</c> vive en el assembly <c>Fishy.Mision</c> (tiene su propio
+    /// .asmdef) y <c>ApiManager</c> vive en Assembly-CSharp. Unity <b>no permite</b>
+    /// que un assembly con .asmdef referencie a Assembly-CSharp, sólo al revés, así
+    /// que la misión no puede llamar a la API directamente. Este puente vive del lado
+    /// que sí ve a los dos y se engancha por eventos. De paso deja el panel de misión
+    /// funcionando igual sin backend, que es el modo en que corren sus tests.
+    ///
+    /// Se crea solo al cargar la escena; no hay que arrastrar nada al inspector.
+    /// </summary>
+    public class MisionBackendSync : MonoBehaviour
+    {
+        public static MisionBackendSync Instance { get; private set; }
+
+        /// <summary>Segundos entre reintentos mientras se espera a que haya partida.</summary>
+        private const float EsperaEntreIntentos = 0.5f;
+
+        /// <summary>Último estado conocido en el servidor, para no repetir POSTs iguales.</summary>
+        private readonly Dictionary<string, bool> misionesEnServidor = new Dictionary<string, bool>();
+        private readonly HashSet<string> zonasEnServidor = new HashSet<string>();
+
+        /// <summary>Partida cuyo contexto ya se ató a los sistemas de progreso.</summary>
+        private int? partidaAtada;
+
+        /// <summary>
+        /// Partida cuyo progreso ya se bajó del servidor. Va aparte de
+        /// <see cref="partidaAtada"/> porque atar se hace siempre y bajar sólo cuando hay
+        /// servidor: con un único campo, atar el contexto en modo local marcaba la partida
+        /// como lista y el progreso real no se bajaba nunca, ni aunque el servidor volviera.
+        /// </summary>
+        private int? partidaDescargada;
+
+        private bool avisoDeSinPartidaDado;
+
+        /// <summary>Tras fallar la bajada se espera esto antes de reintentar.</summary>
+        private const float EsperaTrasFallo = 5f;
+        private float _noAntesDe;
+
+        /// <summary>
+        /// El progreso de misiones que venía del servidor ya está aplicado al juego.
+        ///
+        /// Hace falta para saber cuándo una misión es <b>nueva de verdad</b>. Quien
+        /// entregue una misión antes de que esto sea true la anunciaría como novedad
+        /// aunque el niño/a ya la hubiera terminado la semana pasada: el estado real
+        /// llega unas décimas después y la corrige, pero para entonces la fanfarria ya
+        /// sonó. Lo usa <c>MisionInicial</c>.
+        ///
+        /// Se queda en false cuando no hay servidor —modo local, sin sesión—, así que
+        /// quien espere por esto tiene que tener también su propio plazo máximo.
+        /// </summary>
+        public static bool ProgresoDeMisionesAplicado { get; private set; }
+
+        /// <summary>Se dispara cuando <see cref="ProgresoDeMisionesAplicado"/> pasa a
+        /// true. Estático por lo mismo que el resto: quien escucha no puede depender
+        /// de que este objeto ya exista.</summary>
+        public static event Action OnProgresoDeMisionesAplicado;
+
+        /// <summary>
+        /// Ya se sabe qué zonas están abiertas: la respuesta llegó, bien o mal.
+        ///
+        /// La mira <c>PantallaDeCarga</c> desde el menú para no entrar al juego antes
+        /// de tiempo. Si Otto aparece dentro de una zona cuyo estado todavía no se
+        /// conoce, la barrera sigue cerrada con su collider puesto: lo empuja fuera
+        /// y le saca el cartel de zona cerrada, y un instante después se abre. Es
+        /// feo y no se entiende.
+        ///
+        /// Se pone en true también cuando falla, igual que <c>PosicionEnMano</c>: la
+        /// bajada se reintenta sola más tarde, y dejar a alguien esperando una
+        /// respuesta que ya se sabe que no viene sólo alarga la pantalla de carga.
+        /// </summary>
+        public static bool ZonasEnMano { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void AutoCrear()
+        {
+            if (Instance != null) return;
+            var go = new GameObject("MisionBackendSync");
+            go.AddComponent<MisionBackendSync>();
+        }
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+
+        private void OnEnable()
+        {
+            var misiones = MissionManager.GetOrCreate();
+            misiones.onDesafioRegistrado.AddListener(AlRegistrarDesafio);
+            misiones.onDesafioCompletado.AddListener(AlCompletarDesafio);
+            BlockedZone.OnZonaDesbloqueada += AlDesbloquearZona;
+            CatalogoMisiones.OnCatalogoCambiado += SeguirObjetivosDeLoGuardado;
+            ApiManager.OnPartidaCerrada += AlCerrarPartida;
+            SceneManager.sceneLoaded += AlCargarEscena;
+
+            StartCoroutine(EsperarPartidaYBajarProgreso());
+        }
+
+        /// <summary>
+        /// Una escena nueva trae barreras recién creadas y cerradas por defecto, que
+        /// no se enteraron de lo que el servidor contestó antes de que existieran.
+        /// Se les vuelve a contar.
+        ///
+        /// Sin esto, <see cref="AplicarZonas"/> era un aviso que se gritaba una vez:
+        /// si la respuesta llegaba estando en el menú no había ningún BlockedZone a
+        /// quien aplicársela y la zona se quedaba cerrada toda la sesión, sin dejar
+        /// rastro en consola. Retener la entrada al juego mientras se espera la
+        /// posición de Otto hizo eso mucho más probable.
+        ///
+        /// No pide nada al servidor: reusa lo ya apuntado en <see cref="zonasEnServidor"/>.
+        /// </summary>
+        private void AlCargarEscena(Scene escena, LoadSceneMode modo)
+        {
+            if (modo != LoadSceneMode.Single) return;
+
+            foreach (string zona in zonasEnServidor) AbrirZonaEnEscena(zona);
+        }
+
+        /// <summary>
+        /// Se volvió al menú: se suelta el contexto y se deja todo listo para bajar
+        /// el progreso de nuevo al entrar.
+        ///
+        /// <b>El motivo original de esto ya no aplica.</b> Antes era obligatorio
+        /// rebajar porque las zonas abiertas se aplicaban sobre los BlockedZone de
+        /// la escena y la escena siguiente era nueva, así que sin rebajar se
+        /// quedaban cerradas. Hoy <see cref="AlCargarEscena"/> reaplica
+        /// <see cref="zonasEnServidor"/> a cada escena que carga, y
+        /// <c>MissionTracker</c> conserva sus seguimientos entre escenas y los
+        /// vuelve a resolver contra los NPCs nuevos.
+        ///
+        /// Se mantiene igualmente, y a propósito: rebajar al reentrar cuesta dos
+        /// peticiones y a cambio refresca el progreso contra el servidor. Quitarlo
+        /// las ahorraría, pero tocaría la ruta de restaurar —la más delicada del
+        /// proyecto— por una ganancia pequeña, y un fallo ahí no se vería en
+        /// consola sino como misiones que no se restauraron.
+        ///
+        /// Las dos señales se bajan porque el progreso se va a volver a pedir:
+        /// quien las espera —la pantalla de carga, <c>MisionInicial</c>— tiene que
+        /// aguardar a la respuesta nueva y no creerse la anterior.
+        /// </summary>
+        private void AlCerrarPartida()
+        {
+            partidaAtada = null;
+            partidaDescargada = null;
+            ProgresoDeMisionesAplicado = false;
+            ZonasEnMano = false;
+        }
+
+        private void OnDisable()
+        {
+            if (MissionManager.Instance != null)
+            {
+                MissionManager.Instance.onDesafioRegistrado.RemoveListener(AlRegistrarDesafio);
+                MissionManager.Instance.onDesafioCompletado.RemoveListener(AlCompletarDesafio);
+            }
+            BlockedZone.OnZonaDesbloqueada -= AlDesbloquearZona;
+            CatalogoMisiones.OnCatalogoCambiado -= SeguirObjetivosDeLoGuardado;
+            ApiManager.OnPartidaCerrada -= AlCerrarPartida;
+            SceneManager.sceneLoaded -= AlCargarEscena;
+        }
+
+        // ── 1. Bajar lo que ya estaba hecho ──────────────────────────────────
+
+        /// <summary>
+        /// Espera a que haya partida (el login y la elección de perfil ocurren en otra
+        /// escena) y entonces ata el progreso a ella. Si se cambia de partida dentro de
+        /// la misma ejecución, vuelve a hacerlo con la nueva.
+        ///
+        /// <b>Son dos pasos con condiciones distintas, y confundirlos era un bug:</b>
+        /// atar el progreso a la partida hay que hacerlo siempre, haya servidor o no
+        /// —es lo que separa lo de un niño/a de lo de otro—, mientras que bajar el
+        /// progreso obviamente necesita servidor. Antes ambos colgaban de la misma
+        /// condición y de un único llamador (AuthScreen), así que entrar por
+        /// <c>iniciar.cs</c> —la pantalla que usa la feria— dejaba el guardado local
+        /// apagado y la mochila del perfil anterior puesta.
+        /// </summary>
+        private IEnumerator EsperarPartidaYBajarProgreso()
+        {
+            var espera = new WaitForSeconds(EsperaEntreIntentos);
+            float sinPartidaDesde = Time.realtimeSinceStartup;
+
+            while (true)
+            {
+                var api = ApiManager.Instance;
+
+                if (api == null || api.PartidaId == null)
+                {
+                    // Sin partida, el progreso no se ata a nadie y no se guarda. Antes
+                    // este bucle esperaba callado para siempre.
+                    if (!avisoDeSinPartidaDado && AvisoSinPartida.HayQueAvisar(sinPartidaDesde))
+                    {
+                        avisoDeSinPartidaDado = true;
+                        Debug.LogWarning(
+                            "[MisionBackendSync] Llevo varios segundos sin PartidaId: el progreso de " +
+                            "misiones y zonas NO se va a guardar. Si estas probando, entra por MenuUno " +
+                            "para pasar por el login; darle Play directo a la escena no crea partida.");
+                    }
+                }
+                else
+                {
+                    sinPartidaDesde = Time.realtimeSinceStartup;
+                    avisoDeSinPartidaDado = false;
+
+                    int partidaId = api.PartidaId.Value;
+
+                    // Paso 1: atar el contexto. Siempre, con o sin servidor.
+                    if (partidaAtada != partidaId)
+                    {
+                        partidaAtada = partidaId;
+                        AtarProgresoALaPartida(partidaId);
+                    }
+
+                    // Paso 2: bajar lo ya hecho. Sólo con servidor, y se reintenta en
+                    // cada tic hasta lograrlo: si el juego arrancó en modo local y la
+                    // conexión vuelve (ReintentarConexion), aquí es donde se recupera.
+                    bool hayServidor = !api.IsLocalMode && api.IsLoggedIn;
+                    if (hayServidor && partidaDescargada != partidaId &&
+                        Time.realtimeSinceStartup >= _noAntesDe)
+                    {
+                        partidaDescargada = partidaId;
+                        // Otra partida, otro progreso: la senal vuelve a cero o quien
+                        // espere por ella creeria que ya llego el de esta.
+                        ProgresoDeMisionesAplicado = false;
+                        ZonasEnMano = false;
+                        misionesEnServidor.Clear();
+                        zonasEnServidor.Clear();
+                        BajarProgreso();
+                    }
+                }
+
+                yield return espera;
+            }
+        }
+
+        /// <summary>
+        /// Deja los sistemas que guardan progreso apuntando a esta partida. Cada uno se
+        /// encarga de descartar lo que traía de la anterior: si no lo hicieran, el avance
+        /// y la mochila del perfil anterior se le aparecerían al siguiente.
+        ///
+        /// Es pública para que las pantallas que eligen perfil la llamen apenas saben cuál
+        /// es la partida, sin esperar al siguiente tic del bucle: entre elegir el perfil y
+        /// que arranque la escena hay menos de medio segundo, y en esa ventana la escena
+        /// ya puede estar registrando desafíos. El bucle queda como red: si mañana aparece
+        /// otra pantalla que abra partida y se olvida de llamar, el contexto igual se ata
+        /// —tarde, pero se ata—, que es exactamente lo que aquí faltaba.
+        ///
+        /// Llamarla dos veces con la misma partida no hace nada: ambos sistemas cortan si
+        /// el contexto no cambió.
+        /// </summary>
+        public static void AtarProgresoALaPartida(int partidaId)
+        {
+            MissionManager.GetOrCreate().ConfigurarPersistenciaParaPartida(partidaId);
+            InventoryManager.ConfigurarParaPartida(partidaId);
+            HistorialDeObjetivos.ConfigurarParaPartida(partidaId);
+        }
+
+        /// <summary>Pide misiones y zonas de la partida activa y las aplica al juego.</summary>
+        public void BajarProgreso()
+        {
+            var api = ApiManager.Instance;
+            if (api == null) return;
+
+            api.ObtenerProgresoMisiones(
+                onSuccess: AplicarMisiones,
+                onError: e =>
+                {
+                    Debug.LogWarning($"[MisionBackendSync] No se pudo bajar el progreso de misiones: {e}");
+                    ReintentarBajada();
+                });
+
+            api.ObtenerProgresoZonas(
+                onSuccess: progreso =>
+                {
+                    AplicarZonas(progreso);
+                    ZonasEnMano = true;   // después de aplicar, no antes
+                },
+                onError: e =>
+                {
+                    Debug.LogWarning($"[MisionBackendSync] No se pudo bajar el progreso de zonas: {e}");
+                    ZonasEnMano = true;
+                    ReintentarBajada();
+                });
+        }
+
+        /// <summary>
+        /// Deja la partida como "sin bajar" para que el bucle lo intente de nuevo. Su
+        /// comentario prometía reintentar, pero la partida se marcaba como bajada antes de
+        /// saber si funcionó: un fallo de red al entrar dejaba misiones y zonas sin
+        /// restaurar toda la sesión.
+        /// </summary>
+        private void ReintentarBajada()
+        {
+            partidaDescargada = null;
+            _noAntesDe = Time.realtimeSinceStartup + EsperaTrasFallo;
+        }
+
+        private void AplicarMisiones(List<MisionProgresoDto> progreso)
+        {
+            if (progreso == null) return;
+
+            var completadas = new List<string>();
+            var conocidas = new List<string>();
+            foreach (var m in progreso)
+            {
+                if (m == null || string.IsNullOrEmpty(m.mision_id)) continue;
+                misionesEnServidor[m.mision_id] = m.Completada;
+                conocidas.Add(m.mision_id);
+                if (m.Completada) completadas.Add(m.mision_id);
+
+                if (!m.en_catalogo)
+                    Debug.LogWarning($"[MisionBackendSync] '{m.mision_id}' no está en el banco de " +
+                                     "preguntas. El progreso se guarda igual, pero el id de Unity y " +
+                                     "el del banco no están alineados.");
+            }
+
+            var misiones = MissionManager.GetOrCreate();
+
+            // Primero las completadas y despues todas: asi una mision ya terminada se
+            // registra como completada en vez de aparecer disponible de nuevo.
+            misiones.PrecargarCompletados(completadas);
+            misiones.PrecargarConocidos(conocidas);
+            SeguirObjetivosDeLoGuardado();
+
+            // Despues de aplicar, no antes: quien espere esta senal tiene que
+            // encontrarse el estado ya puesto.
+            if (!ProgresoDeMisionesAplicado)
+            {
+                ProgresoDeMisionesAplicado = true;
+                OnProgresoDeMisionesAplicado?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Engancha el seguimiento de objetivos de las misiones que volvieron del
+        /// servidor.
+        ///
+        /// <b>Restaurar la misión no bastaba.</b> <c>PrecargarConocidos</c> la vuelve a
+        /// poner en el panel, pero los objetivos no viven en la ficha: los lleva
+        /// <see cref="MissionTracker"/>, y a ese solo lo arrancaban los cinco sitios que
+        /// ENTREGAN una misión —un NPC, un disparador—, ninguno de los cuales corre al
+        /// retomar la partida. Resultado: la misión reaparecía con su título y su
+        /// descripción, y <c>MissionTracker.Progreso</c> devolvía null, así que el panel
+        /// no decía cuántos objetivos faltaban. El niño/a veía la misión sin saber qué
+        /// tenía que hacer.
+        ///
+        /// Va aquí y no en <c>MissionManager</c> porque el rastreador y
+        /// <c>ObjetivoMision</c> viven en Assembly-CSharp, al otro lado de la frontera
+        /// del assembly <c>Fishy.Mision</c>.
+        ///
+        /// <c>Seguir</c> no hace nada si esa misión ya se seguía, así que esto no pisa los
+        /// objetivos que un NPC haya puesto a mano en el Inspector, y se puede llamar
+        /// tantas veces como haga falta. Por eso también se llama cuando cambia el
+        /// catálogo: si llegó después del progreso, aquí es donde se recupera.
+        /// </summary>
+        private void SeguirObjetivosDeLoGuardado()
+        {
+            if (misionesEnServidor.Count == 0) return;
+
+            foreach (string misionId in new List<string>(misionesEnServidor.Keys))
+            {
+                DesafioData ficha = MissionManager.BuscarFicha(misionId);
+                if (ficha == null) continue;   // el catálogo aún no la conoce
+
+                List<ObjetivoMision> objetivos = ObjetivoMision.DesdeCatalogo(misionId);
+                if (objetivos.Count == 0) continue;
+
+                MissionTracker.GetOrCreate().Seguir(ficha, objetivos);
+            }
+        }
+
+        private void AplicarZonas(List<ZonaProgresoDto> progreso)
+        {
+            if (progreso == null) return;
+
+            foreach (var z in progreso)
+            {
+                if (z == null || string.IsNullOrEmpty(z.zona)) continue;
+                zonasEnServidor.Add(z.zona);
+                AbrirZonaEnEscena(z.zona);
+            }
+        }
+
+        /// <summary>
+        /// Abre la zona del mapa que corresponde a ese slug. Se busca por
+        /// <see cref="BlockedZone.ZonaBackend"/> y no por <c>zoneId</c>, porque el id
+        /// del collider en la escena y el slug del banco no tienen por qué coincidir.
+        /// </summary>
+        private void AbrirZonaEnEscena(string zona)
+        {
+            foreach (var bloqueada in FindObjectsByType<BlockedZone>())
+            {
+                if (bloqueada == null || bloqueada.ZonaBackend != zona) continue;
+                if (!bloqueada.isLocked) continue;
+
+                // Sin cinemática: esto es restaurar algo que el niño/a ya había abierto,
+                // no un logro nuevo. Celebrarlo otra vez al entrar confundiría.
+                bloqueada.UnlockInmediato();
+                Debug.Log($"[MisionBackendSync] Zona '{zona}' restaurada como desbloqueada.");
+            }
+        }
+
+        // ── 2. Subir cada cambio ─────────────────────────────────────────────
+
+        private void AlRegistrarDesafio(DesafioRuntime runtime)
+        {
+            if (runtime == null || string.IsNullOrEmpty(runtime.Id)) return;
+            Subir(runtime.Id, runtime.estado == EstadoDesafio.Completado);
+        }
+
+        private void AlCompletarDesafio(DesafioRuntime runtime)
+        {
+            if (runtime == null || string.IsNullOrEmpty(runtime.Id)) return;
+            Subir(runtime.Id, true);
+        }
+
+        /// <summary>Ids sobre los que ya se avisó de que se perdieron: uno por misión,
+        /// no uno por frame.</summary>
+        private static readonly HashSet<string> avisadosSinPartida = new HashSet<string>();
+
+        private void Subir(string misionId, bool completada)
+        {
+            var api = ApiManager.Instance;
+            if (api == null || api.IsLocalMode) return;
+
+            // Sin partida no hay dónde guardar, y esto NO se reintenta: la misión se
+            // pierde para siempre. Antes se descartaba en la misma línea que el caso
+            // normal de "todavía estamos en el menú", así que no dejaba rastro.
+            //
+            // Se distinguen los dos: sin sesión es lo esperable en el menú y se calla;
+            // con sesión iniciada y sin PartidaId es una misión que el niño/a completó
+            // en una ventana en la que el juego no sabía a qué partida escribirle, y eso
+            // hay que verlo.
+            if (!api.IsLoggedIn) return;
+            if (api.PartidaId == null)
+            {
+                if (avisadosSinPartida.Add(misionId))
+                    Debug.LogWarning(
+                        $"[MisionBackendSync] '{misionId}' cambió de estado antes de que " +
+                        "hubiera partida activa, así que no se encoló y se pierde. Si sale " +
+                        "esto, quien entrega la misión está corriendo antes de que la " +
+                        "partida esté lista.");
+                return;
+            }
+
+            // No repetir lo que ya está puesto. Ojo al cambio: `misionesEnServidor`
+            // antes quería decir "lo que el servidor confirmó" y se escribía en el
+            // onSuccess. Con la cola eso no filtraría nada, porque la confirmación no
+            // llega hasta el vaciado y entre medio pasarían diez encolados. Ahora
+            // significa "encolado o confirmado" y se escribe aquí.
+            //
+            // La regla de fondo no cambia: si ya figura completada no hay nada que
+            // mandar (completar es un camino de ida); si figura disponible, sólo
+            // interesa el paso a completada.
+            if (misionesEnServidor.TryGetValue(misionId, out bool completadaEnServidor) &&
+                (completadaEnServidor || !completada))
+                return;
+
+            misionesEnServidor[misionId] = completada;
+
+            ColaDeCambios.EncolarAppend($"mision:{misionId}",
+                (ok, error) =>
+                {
+                    var actual = ApiManager.Instance;
+                    if (actual == null || actual.PartidaId == null) { error("No hay partida."); return; }
+
+                    actual.RegistrarProgresoMision(misionId, completada,
+                        onSuccess: dto =>
+                        {
+                            misionesEnServidor[misionId] = dto != null && dto.Completada;
+                            Debug.Log($"[MisionBackendSync] Misión '{misionId}' guardada como " +
+                                      $"{(completada ? "completada" : "disponible")}.");
+                            ok();
+                        },
+                        onError: e =>
+                        {
+                            Debug.LogWarning($"[MisionBackendSync] No se pudo guardar '{misionId}': {e}");
+                            error(e);
+                        });
+                },
+                $"misión {misionId}");
+        }
+
+        private void AlDesbloquearZona(BlockedZone zona)
+        {
+            if (zona == null) return;
+
+            string slug = zona.ZonaBackend;
+            if (string.IsNullOrEmpty(slug)) return;
+
+            // Si vino del servidor, es una zona que ya estaba abierta: no hay que subirla.
+            if (zonasEnServidor.Contains(slug)) return;
+
+            var api = ApiManager.Instance;
+            if (api == null || api.IsLocalMode || !api.IsLoggedIn || api.PartidaId == null) return;
+
+            zonasEnServidor.Add(slug);
+
+            // Va por EncolarZona y no por EncolarAppend: la cola fusiona las zonas por
+            // OR. Aquí se manda `completada: false` (desbloqueada) y desde el Bosque se
+            // manda `true`; sin la fusión, este desbloqueo llegando después degradaría
+            // una zona ya completada en el reporte del adulto.
+            ColaDeCambios.EncolarZona(slug, completada: false);
+            Debug.Log($"[MisionBackendSync] Zona '{slug}' encolada como desbloqueada.");
+        }
+    }
+}

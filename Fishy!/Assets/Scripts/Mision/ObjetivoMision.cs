@@ -1,0 +1,595 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Fishy.Detective;
+using Fishy.Mision;
+using Fishy.Phone;
+using Fishy.World;
+using UnityEngine;
+using UnityEngine.Events;
+
+/// <summary>
+/// Un objetivo concreto de una misión: juntar cierto objeto, hablar con cierto NPC
+/// o atender cierto chat del celular.
+///
+/// Vive en el ensamblado por defecto (Assembly-CSharp) y NO dentro de la carpeta
+/// Scripts/Mision, porque esa tiene el asmdef "Fishy.Mision" y desde ahí no se
+/// pueden ver ni <see cref="ItemData"/> ni <see cref="DialogoNeutroNPC"/>. Las fichas de datos
+/// de misión (DesafioData) siguen viviendo allá; esto es sólo el pegamento con
+/// el mundo.
+/// </summary>
+/// <remarks>
+/// <b>Un tipo nuevo va SIEMPRE al final del enum.</b> Unity los serializa por índice,
+/// así que las escenas y prefabs guardan "tipo: 0/1/2". Meter uno en medio no da
+/// ningún error: recablea en silencio todos los objetivos ya configurados, y un
+/// "recoger objeto" pasa a ser un "hablar con NPC" sin que nadie se entere hasta
+/// jugarlo.
+/// </remarks>
+public enum TipoObjetivo
+{
+    RecogerObjeto,
+    HablarConNpc,
+    ChatearPorTelefono,
+    LlegarAZona,
+    CompletarCasoDetective,
+}
+
+[Serializable]
+public class ObjetivoMision
+{
+    public TipoObjetivo tipo = TipoObjetivo.RecogerObjeto;
+
+    [Header("Si el tipo es Recoger Objeto")]
+    [Tooltip("Qué hay que juntar. Es el mismo ItemData que lleva el WorldItem del mapa.")]
+    public ItemData objeto;
+
+    [Min(1)]
+    [Tooltip("Cuántas unidades hacen falta.")]
+    public int cantidad = 1;
+
+    [Header("Si el tipo es Hablar Con Npc")]
+    [Tooltip("Con quién hay que conversar para cumplirlo.")]
+    public DialogoNeutroNPC npc;
+
+    [Header("Si el tipo es Chatear Por Telefono")]
+    [Tooltip("Qué conversación de celular hay que atender. Cuenta igual que hablar " +
+             "con un NPC: se da por cumplido cuando el chat se cierra.")]
+    public PhoneChatLauncher telefono;
+
+    [Header("Si el tipo es Llegar A Zona")]
+    [Tooltip("Id de la zona a la que hay que llegar: los mismos que usan ZonaMundo y " +
+             "BlockedZone (zona_1, zona_2, zona_3). Se cumple en cuanto Otto entra, " +
+             "y no se deshace si vuelve a salir.")]
+    public string zonaDestino = "";
+
+    [Header("Si el tipo es Completar Caso Detective")]
+    [Tooltip("Qué caso hay que resolver. Cuenta con cualquier resultado, no hace " +
+             "falta superar el umbral de aciertos: se da por cumplido cuando el " +
+             "jugador cierra el caso.")]
+    public DetectiveLauncher detective;
+
+    [Header("Identificadores (los pone el catálogo; a mano se dejan vacíos)")]
+    [Tooltip("itemId del objeto, para resolverlo por CatalogoItems cuando el objetivo " +
+             "viene de la base o del archivo en vez de estar arrastrado aquí.")]
+    public string itemId = "";
+
+    [Tooltip("Id de diálogo del NPC (HDU1_SEC_COIPO_MASCOTA). Es lo que los NPCs del " +
+             "mapa llevan en su campo 'dialogoId'.")]
+    public string dialogoNpcId = "";
+
+    [Tooltip("escenario_id del banco, separados por coma si son varias fases.")]
+    public string escenarioIds = "";
+
+    [Tooltip("caso_id del Modo Detective (DC_CASO_01), para resolver el objetivo por " +
+             "dato cuando viene del catálogo en vez de estar arrastrado a mano.")]
+    public string casoDetectiveId = "";
+
+    [Header("Descripción (opcional)")]
+    [Tooltip("Texto fijo para el panel, en vez del automático (\"Juntar Concha (1/3)\", " +
+             "\"Hablar con Huemul\"...). Vacío usa el automático. Se ignora si la misión " +
+             "completa tiene su propia descripción: esa reemplaza a la lista entera de " +
+             "objetivos, no sólo a este.")]
+    [TextArea]
+    public string descripcion = "";
+
+
+    /// <summary>
+    /// Cumplido en esta sesión. No se serializa: el estado de la misión completa
+    /// lo guarda MissionManager en PlayerPrefs, los objetivos sueltos no.
+    /// </summary>
+    [NonSerialized] public bool cumplido;
+
+    /// <summary>
+    /// De dónde salió el <see cref="cumplido"/>. Solo para el log.
+    ///
+    /// Existe porque diagnosticar una misión que se completa sola era imposible: el log
+    /// decía "Objetivo cumplido: X" sin decir quién lo marcó, y los caminos son cuatro
+    /// —el evento del NPC o del chat, el mundo (mochila/zona), el historial de lo ya
+    /// hecho, y lo que vino guardado del servidor—. Sin saber cuál fue, cada diagnóstico
+    /// era una conjetura.
+    /// </summary>
+    [NonSerialized] public string PorQue;
+
+    /// <summary>Marca el objetivo dejando dicho por qué. Devuelve true si cambió.</summary>
+    public bool Cumplir(string porQue)
+    {
+        if (cumplido) return false;
+        cumplido = true;
+        PorQue = porQue;
+        return true;
+    }
+
+    /// <summary>
+    /// Posición del objetivo en el catálogo (<see cref="ObjetivoRegistro.orden"/>): la
+    /// mitad de la clave con la que el backend guarda su avance. 0 = no viene del
+    /// catálogo (armado a mano en la escena) y entonces no se sincroniza.
+    /// </summary>
+    [NonSerialized] public int ordenCatalogo;
+
+    /// <summary>
+    /// Construye un objetivo a partir de lo que vino en los datos.
+    ///
+    /// Sólo traduce; no busca nada en la escena todavía. De eso se encarga
+    /// <see cref="Resolver"/>, que se llama más tarde y tantas veces como haga falta:
+    /// un NPC de otra zona puede no existir aún cuando el catálogo se carga.
+    /// </summary>
+    /// <summary>
+    /// Los objetivos de esa misión, sacados del catálogo y en orden.
+    ///
+    /// Vive aquí porque este mismo bucle estaba copiado en <c>MissionGiver</c>,
+    /// <c>MisionInicial</c> y <c>EntregarMisionDelCatalogo</c>: los tres sitios que
+    /// ENTREGAN una misión. Al restaurar una partida hace falta lo mismo, y una cuarta
+    /// copia era una de más.
+    ///
+    /// Lista vacía si la misión no está en el catálogo o no tiene objetivos; nunca null.
+    /// </summary>
+    public static List<ObjetivoMision> DesdeCatalogo(string misionId)
+    {
+        var lista = new List<ObjetivoMision>();
+
+        MisionRegistro registro = CatalogoMisiones.Buscar(misionId);
+        if (registro == null) return lista;
+
+        foreach (ObjetivoRegistro o in registro.ObjetivosEnOrden())
+        {
+            ObjetivoMision objetivo = DesdeRegistro(o);
+            if (objetivo != null) lista.Add(objetivo);
+        }
+        return lista;
+    }
+
+    public static ObjetivoMision DesdeRegistro(ObjetivoRegistro registro)
+    {
+        if (registro == null) return null;
+
+        var objetivo = new ObjetivoMision
+        {
+            tipo          = TipoDesdeTexto(registro.tipo),
+            cantidad      = Mathf.Max(1, registro.cantidad),
+            itemId        = registro.item_id ?? "",
+            dialogoNpcId  = registro.dialogo_id ?? "",
+            escenarioIds    = registro.escenario_ids ?? "",
+            zonaDestino     = registro.zona_id ?? "",
+            casoDetectiveId = registro.caso_id ?? "",
+            descripcion     = registro.descripcion ?? "",
+            ordenCatalogo   = registro.orden,
+        };
+        return objetivo;
+    }
+
+    /// <summary>
+    /// Las cinco categorías en texto, tal como viajan en los datos. El texto no
+    /// reconocido cae en <see cref="TipoObjetivo.RecogerObjeto"/> avisando: es mejor
+    /// un objetivo que no se cumple y se ve raro en el panel que uno silenciosamente
+    /// convertido en otra cosa.
+    /// </summary>
+    public static TipoObjetivo TipoDesdeTexto(string tipo)
+    {
+        switch ((tipo ?? "").Trim().ToLowerInvariant())
+        {
+            case "recoger_objeto":             return TipoObjetivo.RecogerObjeto;
+            case "hablar_npc":                 return TipoObjetivo.HablarConNpc;
+            case "chatear_telefono":           return TipoObjetivo.ChatearPorTelefono;
+            case "llegar_zona":                return TipoObjetivo.LlegarAZona;
+            case "completar_caso_detective":   return TipoObjetivo.CompletarCasoDetective;
+            default:
+                Debug.LogWarning($"[ObjetivoMision] Categoría de objetivo desconocida: " +
+                                 $"'{tipo}'. Las válidas son recoger_objeto, hablar_npc, " +
+                                 "chatear_telefono, llegar_zona y completar_caso_detective.");
+                return TipoObjetivo.RecogerObjeto;
+        }
+    }
+
+    /// <summary>
+    /// Rellena las referencias del mundo a partir de los identificadores, si es que
+    /// hacen falta. Devuelve true cuando el objetivo ya tiene con qué trabajar.
+    ///
+    /// <b>Lo que está puesto a mano manda.</b> Si alguien arrastró el NPC o el ItemData
+    /// en el Inspector, no se toca: esto sólo rellena huecos.
+    ///
+    /// Se puede llamar muchas veces y es lo que se espera. Un NPC que todavía no se
+    /// cargó hace que esto devuelva false, y el siguiente intento —cuando la zona ya
+    /// esté abierta— lo encuentra. "Llegar a zona" no necesita resolver nada: su dato
+    /// es el propio id.
+    /// </summary>
+    public bool Resolver()
+    {
+        switch (tipo)
+        {
+            case TipoObjetivo.RecogerObjeto:
+                if (objeto == null && !string.IsNullOrWhiteSpace(itemId))
+                    objeto = CatalogoItems.Buscar(itemId.Trim());
+                return objeto != null;
+
+            case TipoObjetivo.HablarConNpc:
+                if (npc == null && !string.IsNullOrWhiteSpace(dialogoNpcId))
+                    npc = BuscarNpcPorDialogo(dialogoNpcId.Trim());
+                return npc != null;
+
+            case TipoObjetivo.ChatearPorTelefono:
+                if (telefono == null) telefono = BuscarLanzadorDeChat();
+                return telefono != null;
+
+            case TipoObjetivo.LlegarAZona:
+                return !string.IsNullOrWhiteSpace(zonaDestino);
+
+            case TipoObjetivo.CompletarCasoDetective:
+                if (detective == null && !string.IsNullOrWhiteSpace(casoDetectiveId))
+                    detective = BuscarDetectivePorCaso(casoDetectiveId.Trim());
+                return detective != null;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// El NPC del mapa cuyo <c>dialogoId</c> coincide. Se miran también los inactivos:
+    /// los NPCs de zonas todavía cerradas suelen estar apagados, y un objetivo que
+    /// apunta a uno de ellos tiene que poder resolverse antes de que la zona se abra.
+    /// </summary>
+    private static DialogoNeutroNPC BuscarNpcPorDialogo(string dialogoId)
+    {
+        foreach (DialogoNeutroNPC candidato in UnityEngine.Object.FindObjectsByType<DialogoNeutroNPC>(
+                     FindObjectsInactive.Include))
+        {
+            if (candidato == null) continue;
+            // También los que lo dicen más adelante: Coipo lleva su testimonio en
+            // la lista de diálogos siguientes, no en dialogoId.
+            if (candidato.DiceDialogo(dialogoId))
+                return candidato;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// El DetectiveLauncher cuyo caso_id coincide. Mismo criterio que
+    /// BuscarNpcPorDialogo: se incluyen los inactivos, porque un caso de una zona
+    /// todavía cerrada puede estar apagado cuando la misión se entrega.
+    /// </summary>
+    private static Fishy.Detective.DetectiveLauncher BuscarDetectivePorCaso(string casoId)
+    {
+        foreach (var candidato in UnityEngine.Object.FindObjectsByType<Fishy.Detective.DetectiveLauncher>(
+                     FindObjectsInactive.Include))
+        {
+            if (candidato == null) continue;
+            if (string.Equals(candidato.CasoId, casoId, StringComparison.Ordinal))
+                return candidato;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// El lanzador de chat que corresponde a este objetivo: primero por escenario
+    /// —que identifica la conversación— y si no se dio ninguno, por id de NPC de chat.
+    ///
+    /// El escenario va primero a propósito: el propio <c>PhoneChatLauncher</c> advierte
+    /// que un mismo <c>npcId</c> se repite entre conversaciones distintas del banco, así
+    /// que buscar por ahí puede enganchar la conversación equivocada.
+    /// </summary>
+    private PhoneChatLauncher BuscarLanzadorDeChat()
+    {
+        string[] escenarios = TrocearEscenarios(escenarioIds);
+
+        foreach (PhoneChatLauncher candidato in UnityEngine.Object.FindObjectsByType<PhoneChatLauncher>(
+                     FindObjectsInactive.Include))
+        {
+            if (candidato == null) continue;
+
+            if (escenarios.Length > 0)
+            {
+                string[] suyos = TrocearEscenarios(candidato.escenarioIds);
+                foreach (string pedido in escenarios)
+                    foreach (string suyo in suyos)
+                        if (string.Equals(pedido, suyo, StringComparison.OrdinalIgnoreCase))
+                            return candidato;
+            }
+        }
+
+        // Antes había un respaldo que buscaba por npc_id cuando no cuadraba ningún
+        // escenario. Se quitó con el enum 'source' de PhoneChatLauncher: el contenido
+        // se elige siempre por escenario_id, que identifica la conversación en sí,
+        // mientras que npc_id se repite entre conversaciones distintas y elegía mal.
+        return null;
+    }
+
+    private static string[] TrocearEscenarios(string lista)
+    {
+        if (string.IsNullOrWhiteSpace(lista)) return Array.Empty<string>();
+        return lista.Split(',')
+                    .Select(t => t.Trim())
+                    .Where(t => t.Length > 0)
+                    .ToArray();
+    }
+
+    /// <summary>Texto para el panel de misiones. Ej: "Juntar Concha (1/3)".</summary>
+    public string Describir()
+    {
+        // Lo escrito a mano (o traído del catálogo) manda sobre el automático: es
+        // justo para eso que existe.
+        if (!string.IsNullOrWhiteSpace(descripcion)) return descripcion.Trim();
+
+        // Resolver también aquí, y no confiar en que ya se haya hecho.
+        //
+        // El nombre que lee el niño/a —"Atender el chat de Puma"— sale de la referencia
+        // resuelta, pero hasta ahora eso solo pasaba en MissionTracker.SuscribirPendientes,
+        // que SALTA los objetivos ya cumplidos: no hay evento al que engancharse en algo
+        // que ya está hecho. Así que un objetivo que vuelve del servidor marcado como
+        // cumplido nunca se resolvía, y el panel enseñaba el id crudo del banco:
+        // "Atender el chat de M1_CHAT01". Al retomar la partida era lo normal, no la
+        // excepción.
+        //
+        // Resolver() cachea en cuanto acierta, así que esto cuesta una búsqueda por
+        // objetivo sin resolver y nada cuando ya lo está; y el panel se repinta por
+        // eventos, no cada frame.
+        Resolver();
+
+        switch (tipo)
+        {
+            case TipoObjetivo.RecogerObjeto:
+                // Sin objeto resuelto no se le puede preguntar al inventario, así que
+                // se enseña el objetivo sin contador en vez de arriesgar un nulo: esto
+                // pinta el panel, y el panel no puede tirar el juego abajo.
+                if (objeto == null)
+                    return $"Juntar {Respaldo(itemId, "objeto")} (0/{cantidad})";
+
+                string nombreObjeto = !string.IsNullOrEmpty(objeto.itemName)
+                    ? objeto.itemName
+                    : Respaldo(itemId, "objeto");
+                int tiene = InventoryManager.Instance != null
+                    ? InventoryManager.Instance.GetQuantity(objeto)
+                    : 0;
+                return $"Juntar {nombreObjeto} ({Mathf.Min(tiene, cantidad)}/{cantidad})";
+
+            case TipoObjetivo.HablarConNpc:
+                return $"Hablar con {NombreVisibleDe(npc) ?? Respaldo(dialogoNpcId, "NPC")}";
+
+            case TipoObjetivo.ChatearPorTelefono:
+                string nombreChat = telefono != null
+                    ? telefono.name
+                    : Respaldo(escenarioIds, "chat");
+                return $"Atender el chat de {nombreChat}";
+
+            case TipoObjetivo.LlegarAZona:
+                if (string.IsNullOrWhiteSpace(zonaDestino)) return "Ir a (zona sin asignar)";
+                return $"Ir a {ZonaMundo.NombreDe(zonaDestino)}";
+
+            case TipoObjetivo.CompletarCasoDetective:
+                return "Resolver un caso del Modo Detective";
+
+            default:
+                return "(objetivo desconocido)";
+        }
+    }
+
+    /// <summary>Una línea del panel o del cartel, con el contador ya puesto.</summary>
+    public readonly struct LineaDeObjetivo
+    {
+        public readonly string Texto;
+        public readonly bool Cumplida;
+
+        public LineaDeObjetivo(string texto, bool cumplida)
+        {
+            Texto = texto;
+            Cumplida = cumplida;
+        }
+    }
+
+    /// <summary>
+    /// Las líneas que se muestran de una lista de objetivos.
+    ///
+    /// Los que comparten la misma <see cref="descripcion"/> se juntan en una sola, con
+    /// el avance de todos: tres chats descritos "Interactuar con tres animales" salen
+    /// como "Interactuar con tres animales (1/3)". Los que no traen descripción van uno
+    /// por línea con su contador: "Juntar" ya trae el suyo, el resto se cumple de una
+    /// vez y cuenta 0/1 o 1/1.
+    ///
+    /// Vive aquí para que el panel del Tab y el cartel de la esquina cuenten igual.
+    /// </summary>
+    public static List<LineaDeObjetivo> Lineas(IReadOnlyList<ObjetivoMision> objetivos)
+    {
+        var lineas = new List<LineaDeObjetivo>();
+        if (objetivos == null) return lineas;
+
+        // Clave de cada línea, en el orden en que aparece por primera vez. Los sueltos
+        // llevan una clave propia que ninguna descripción puede repetir.
+        var claves  = new List<string>();
+        var hechos  = new Dictionary<string, int>();
+        var totales = new Dictionary<string, int>();
+        var sueltos = new Dictionary<string, ObjetivoMision>();
+
+        for (int i = 0; i < objetivos.Count; i++)
+        {
+            ObjetivoMision objetivo = objetivos[i];
+            if (objetivo == null) continue;
+
+            bool agrupa = !string.IsNullOrWhiteSpace(objetivo.descripcion);
+            string clave = agrupa ? objetivo.descripcion.Trim() : "\0" + i;
+
+            if (!totales.ContainsKey(clave))
+            {
+                claves.Add(clave);
+                totales[clave] = 0;
+                hechos[clave] = 0;
+                if (!agrupa) sueltos[clave] = objetivo;
+            }
+            totales[clave]++;
+            if (objetivo.cumplido) hechos[clave]++;
+        }
+
+        foreach (string clave in claves)
+        {
+            if (sueltos.TryGetValue(clave, out ObjetivoMision suelto))
+            {
+                string texto = suelto.Describir();
+                if (suelto.tipo != TipoObjetivo.RecogerObjeto)
+                    texto += $" ({(suelto.cumplido ? 1 : 0)}/1)";
+                lineas.Add(new LineaDeObjetivo(texto, suelto.cumplido));
+            }
+            else
+            {
+                lineas.Add(new LineaDeObjetivo($"{clave} ({hechos[clave]}/{totales[clave]})",
+                    hechos[clave] == totales[clave]));
+            }
+        }
+        return lineas;
+    }
+
+    /// <summary>Lo que se muestra cuando la referencia no está resuelta: el propio id,
+    /// que al menos dice de qué se trata, o una etiqueta genérica si tampoco hay id.</summary>
+    private static string Respaldo(string id, string queEs) =>
+        string.IsNullOrWhiteSpace(id) ? $"({queEs} sin asignar)" : id.Trim();
+
+    /// <summary>
+    /// Cómo se llama este NPC para el niño/a, o null si no hay NPC.
+    ///
+    /// Se prefiere el nombre del diálogo —que <c>DialogoNeutroNPC.Awake</c> rellena desde el banco,
+    /// así que dice "Huemul"— antes que el nombre del GameObject, que dice cosas como
+    /// "Neutral_NPC (1)". En el cartel de misión lo lee un niño/a, no quien montó la
+    /// escena.
+    /// </summary>
+    private static string NombreVisibleDe(DialogoNeutroNPC npc)
+    {
+        if (npc == null) return null;
+
+        if (npc.dialogueData != null && !string.IsNullOrWhiteSpace(npc.dialogueData.npcName))
+            return npc.dialogueData.npcName.Trim();
+
+        return npc.name;
+    }
+
+    /// <summary>Comprueba contra el mundo si este objetivo ya está cumplido.</summary>
+    public bool Evaluar()
+    {
+        if (cumplido) return true;
+
+        // Los hechos puntuales —hablar, chatear, cerrar un caso— se preguntan al
+        // historial.
+        //
+        // Antes no se podían consultar y solo los marcaba MissionTracker al dispararse
+        // su evento, así que haberlos hecho ANTES de recibir la misión no contaba y había
+        // que repetirlos. Con los chats del celular eso era peor que molesto: un
+        // PhoneChatLauncher sin 'repetible' no se vuelve a abrir, así que el objetivo
+        // quedaba imposible.
+        //
+        // Es una consulta a un HashSet, así que sale barato aunque esto se llame en cada
+        // cambio de inventario. Y no hace falta resolver la referencia del mundo: se
+        // pregunta por id. Cuando el objetivo viene armado a mano en el Inspector no hay
+        // id, así que se saca de la referencia, que ahí sí está puesta.
+        if (tipo == TipoObjetivo.HablarConNpc)
+        {
+            string id = !string.IsNullOrWhiteSpace(dialogoNpcId)
+                ? dialogoNpcId
+                : (npc != null ? npc.dialogoId : null);
+
+            if (HistorialDeObjetivos.HabloCon(id)) Cumplir($"historial: ya habló con '{id}'");
+        }
+
+        else if (tipo == TipoObjetivo.ChatearPorTelefono)
+        {
+            string ids = !string.IsNullOrWhiteSpace(escenarioIds)
+                ? escenarioIds
+                : (telefono != null ? telefono.escenarioIds : null);
+
+            if (HistorialDeObjetivos.AtendioElChat(ids)) Cumplir($"historial: ya atendió el chat '{ids}'");
+        }
+
+        else if (tipo == TipoObjetivo.CompletarCasoDetective)
+        {
+            string id = !string.IsNullOrWhiteSpace(casoDetectiveId)
+                ? casoDetectiveId
+                : (detective != null ? detective.CasoId : null);
+
+            if (HistorialDeObjetivos.ResolvioElCaso(id)) Cumplir($"historial: ya jugó el caso '{id}'");
+        }
+
+        else if (tipo == TipoObjetivo.RecogerObjeto)
+        {
+            // Resolver el objeto sí es barato —es una consulta al catálogo— y hace
+            // falta en cada intento: puede que el catálogo no estuviera cargado cuando
+            // se entregó la misión.
+            if (objeto == null) Resolver();
+
+            if (objeto != null && InventoryManager.Instance != null)
+            {
+                int tiene = InventoryManager.Instance.GetQuantity(objeto);
+                if (tiene >= cantidad) Cumplir($"mochila: tiene {tiene} de {cantidad}");
+            }
+        }
+
+        // Llegar a una zona sí se puede consultar, y por eso se consulta: preguntarle
+        // a ZonaActual da la respuesta correcta también cuando la misión se entrega
+        // estando Otto YA dentro de la zona, que con un evento de entrada se quedaría
+        // esperando para siempre a que saliera y volviera a entrar.
+        else if (tipo == TipoObjetivo.LlegarAZona && !string.IsNullOrWhiteSpace(zonaDestino))
+        {
+            ZonaActual zonas = ZonaActual.Instance;
+            if (zonas != null && zonas.Actual == zonaDestino.Trim())
+                Cumplir($"zona: Otto está en '{zonas.Actual}'");
+        }
+
+        return cumplido;
+    }
+
+    /// <summary>
+    /// Evento cuya invocación da por cumplido este objetivo, o null si no se cumple
+    /// por evento sino consultando el mundo (RecogerObjeto, LlegarAZona).
+    ///
+    /// A los que devuelven null hay que darles un motivo para que alguien los vuelva
+    /// a consultar: el inventario y el cambio de zona, a los que MissionTracker se
+    /// suscribe una sola vez para todos.
+    ///
+    /// Vive aquí y no en MissionTracker para que sumar un tipo de objetivo nuevo sea
+    /// tocar un solo archivo.
+    /// </summary>
+    /// <summary>
+    /// Si el evento que acaba de dispararse cumple de verdad este objetivo. Casi
+    /// siempre sí; la excepción es un NPC con varios diálogos, cuyo onDialogueEnded
+    /// salta al terminar cualquiera de ellos: solo cuenta el que este objetivo pide.
+    /// </summary>
+    public bool AceptaElEvento()
+    {
+        if (tipo != TipoObjetivo.HablarConNpc || npc == null || !npc.TieneVariosDialogos)
+            return true;
+        return string.Equals(npc.UltimoDialogoTerminado, dialogoNpcId?.Trim(),
+                             StringComparison.Ordinal);
+    }
+
+    public UnityEvent EventoQueLoCumple()
+    {
+        switch (tipo)
+        {
+            case TipoObjetivo.HablarConNpc:
+                return npc != null ? npc.onDialogueEnded : null;
+
+            case TipoObjetivo.ChatearPorTelefono:
+                return telefono != null ? telefono.onChatClosed : null;
+
+            case TipoObjetivo.CompletarCasoDetective:
+                return detective != null ? detective.onCasoResuelto : null;
+
+            default:
+                return null;
+        }
+    }
+}

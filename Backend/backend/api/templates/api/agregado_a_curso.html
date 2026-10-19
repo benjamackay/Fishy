@@ -1,0 +1,8 @@
+<!doctype html><html lang="es"><body style="margin:0;background:#f7f3ee;color:#493426;font-family:Arial,sans-serif">
+<div style="max-width:540px;margin:32px auto;padding:32px;background:white;border:1px solid #e8ded4;border-radius:16px">
+<p style="color:#8b6246">AVISO DE FISHY</p><h1 style="font-size:26px">{% if varios %}Tus hijos se sumaron a un curso{% else %}Tu hijo/a se sumó a un curso{% endif %}</h1>
+<p>{{ profesor }} agregó a <strong>{{ ninos }}</strong> al curso <strong>{{ grupo }}</strong>.</p>
+<p>El profesor podrá ver {% if varios %}sus nombres{% else %}su nombre{% endif %}, tu correo y el resumen de su avance en Fishy, para coordinar el acompañamiento. No verá conversaciones ni respuestas literales.</p>
+{% if enlace %}<p style="margin:28px 0"><a href="{{ enlace }}" style="display:inline-block;padding:14px 22px;background:#805b42;color:white;border-radius:8px;text-decoration:none">Ir al portal</a></p>{% endif %}
+<hr style="border:0;border-top:1px solid #e8ded4"><p style="font-size:13px;color:#6f655e">Si no reconoces al profesor o al curso, contáctate con el colegio o escríbele al profesor para que lo corrija. Este correo se envía a la cuenta de familia registrada en Fishy; no necesitas responderlo.</p>
+</div></body></html>

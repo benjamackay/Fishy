@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using Fishy.Chat;
@@ -18,31 +19,33 @@ namespace Fishy.Phone
     ///  5. Al cerrar: fade → zoom de vuelta → Otto puede moverse de nuevo.
     ///
     /// Necesita un Collider2D marcado como "Is Trigger" en el mismo objeto.
+    ///
+    /// Se abre con la tecla de interacción (E): implementa <see cref="IInteractable"/>,
+    /// así que el <c>InteractionDetector</c> de Otto lo encuentra al entrar en el trigger
+    /// y enciende el cartelito, igual que con un NPC neutro. Si se prefiere el
+    /// comportamiento antiguo —abrirse solo al acercarse— está <see cref="abrirAlAcercarse"/>.
     /// </summary>
     [RequireComponent(typeof(Collider2D))]
-    public class PhoneChatLauncher : MonoBehaviour
+    public class PhoneChatLauncher : MonoBehaviour, IInteractable
     {
-        public enum Source
-        {
-            /// <summary>NPC_01 (Alex) + NPC_02 (Valen) del banco de preguntas oficial.</summary>
-            ZonaDesconocidos,
-            /// <summary>Escenarios HDU-8 del banco (Grooming · Ciberacoso · Reto Viral).</summary>
-            ZonaChatSimulado,
-            /// <summary>Conversaciones asignadas manualmente en el Inspector.</summary>
-            ConversacionesAsignadas,
-            /// <summary>Un único NPC de HDU-2 identificado por <see cref="PhoneChatLauncher.npcId"/>.</summary>
-            SoloNpc,
-            /// <summary>Alias legacy — equivale a ZonaDesconocidos.</summary>
-            ZonaDesconocidosPorDefecto = ZonaDesconocidos,
-        }
 
         // ── Contenido ──────────────────────────────────────────────────────────
         [Header("Contenido del chat")]
-        public Source source = Source.ZonaDesconocidos;
-        [Tooltip("Conversaciones a usar cuando source = ConversacionesAsignadas.")]
-        public List<ChatConversation> conversaciones = new List<ChatConversation>();
-        [Tooltip("ID del NPC cuando source = SoloNpc. Ej: 'NPC_01' (Alex) o 'NPC_02' (Valen).")]
-        public string npcId = "NPC_01";
+        [Tooltip("escenario_id del banco, separadas por coma si son varias fases de una " +
+                 "misma historia (se reproducen en ese orden). Ej: 'M4_FASE01,M4_FASE02'.\n\n" +
+                 "Es la única forma de elegir contenido: identifica la conversación en sí, " +
+                 "sin ambigüedad. Antes había un enum 'source' con cinco modos, pero las 22 " +
+                 "instancias del juego usaban este, y los otros cuatro solo servían para " +
+                 "elegir mal por npc_id (que se repite entre conversaciones distintas).\n\n" +
+                 "El contenido sale del banco: de la base de datos si hay sesión, y si no de " +
+                 "la copia de Resources.")]
+        public string escenarioIds = "";
+
+        [Tooltip("Alternativas de contenido según cómo haya jugado el niño/a hasta " +
+                 "ahora (ver VariablesJugador). Se evalúan en orden y gana la " +
+                 "primera que se cumpla; si ninguna se cumple, o la lista está " +
+                 "vacía, se usa 'Escenario Ids' de arriba tal cual.")]
+        public List<VarianteSegunVariable> variantesSegunVariable = new List<VarianteSegunVariable>();
 
         // ── Referencias opcionales ─────────────────────────────────────────────
         [Header("Referencias (se buscan si quedan vacías)")]
@@ -55,8 +58,22 @@ namespace Fishy.Phone
 
         // ── Configuración ──────────────────────────────────────────────────────
         [Header("Comportamiento")]
-        [Tooltip("Si está activo solo se dispara una vez.")]
-        public bool openOnce    = true;
+        [Tooltip("Si está activo, la secuencia diegética del celular (vibración + " +
+                 "notificación + zoom). Si no, el chat se abre directo frente al NPC " +
+                 "visible, sin celular ni zoom — útil para NPCs con sprite en el mapa.")]
+        public bool modoTelefono = true;
+        [Tooltip("Le quita el control a Otto mientras dura la conversación y se lo " +
+                 "devuelve al cerrarse. Misma casilla y mismo significado que en el " +
+                 "NPC neutro. Desmarcarlo solo tiene sentido sin el celular: con el " +
+                 "zoom puesto, Otto caminaría fuera de plano.")]
+        public bool bloquearMovimiento = true;
+        [Tooltip("Permite volver a hablar con este NPC tantas veces como se quiera. " +
+                 "Hay que alejarse y volver a acercarse: la conversación no se " +
+                 "reabre sola al cerrarla, o el niño/a quedaría atrapado en ella.")]
+        public bool repetible   = false;
+        [Tooltip("Abrir la secuencia apenas Otto entra al trigger, sin pulsar nada. Por defecto " +
+                 "está apagado: se abre con la tecla de interacción (E) estando cerca.")]
+        public bool abrirAlAcercarse = false;
         public string ottoTag   = "Player";
         [Tooltip("Registrar la sesión en el backend (requiere ApiManager con sesión activa).")]
         public bool reportToBackend = false;
@@ -69,13 +86,23 @@ namespace Fishy.Phone
         [Range(0.5f, 4f)] public float previewDuration = 1.5f;
 
         [Header("Eventos")]
-        public UnityEvent onChatOpened;
-        public UnityEvent onChatClosed;
+        public UnityEvent onChatOpened = new UnityEvent();
+        [Tooltip("Se dispara al cerrarse el chat. MissionTracker se engancha aquí para " +
+                 "los objetivos de misión de tipo 'Chatear Por Telefono', igual que se " +
+                 "engancha al onDialogueEnded de un NPC.")]
+        public UnityEvent onChatClosed = new UnityEvent();
 
         // ── Estado interno ─────────────────────────────────────────────────────
         private bool               _triggered;
         private PhoneZoomController _zoom;
         private bool               _sequenceRunning;
+
+        /// <summary>
+        /// Cuántas secuencias de chat están en curso en toda la escena, incluido el
+        /// zoom de vuelta al mundo. Lo mira el sistema de finales para no aparecer
+        /// encima del celular cuando la Misión 6 termina.
+        /// </summary>
+        public static int SecuenciasEnCurso { get; private set; }
 
         // ── Unity ──────────────────────────────────────────────────────────────
         private void Awake()
@@ -96,11 +123,32 @@ namespace Fishy.Phone
             }
         }
 
+        // ── IInteractable (tecla E) ────────────────────────────────────────────
+        /// <summary>Frame en que terminó la última secuencia.</summary>
+        private int _terminoEnFrame = -10;
+
+        /// <summary>Sin mirar HayContenido(): esto se consulta cada frame y ese método avisa
+        /// por consola cuando falta el escenario.</summary>
+        public bool CanInteract()
+            => !_sequenceRunning && (repetible || !_triggered) && EscenariosPedidos().Count > 0;
+
+        public void Interact()
+        {
+            // El detector llama a Interact() sin mirar CanInteract(). Y la E con la que se
+            // cierra el chat la lee él mismo en ese frame: sin el margen reabriría la
+            // conversación al terminar.
+            if (!CanInteract()) return;
+            if (Time.frameCount - _terminoEnFrame <= 1) return;
+            OpenManual();
+        }
+
         private void OnTriggerEnter2D(Collider2D other)
         {
+            if (!abrirAlAcercarse) return;
             if (!other.CompareTag(ottoTag)) return;
-            if (openOnce && _triggered) return;
+            if (!repetible && _triggered) return;
             if (_sequenceRunning) return;
+            if (!HayContenido()) return;
 
             // Resolver Otto desde el collider si no está asignado.
             if (otto == null) otto = other.GetComponent<OttoController>();
@@ -113,12 +161,63 @@ namespace Fishy.Phone
         private IEnumerator PhoneSequence()
         {
             _sequenceRunning = true;
+            SecuenciasEnCurso++;
 
+            // Con variantes, el contenido depende de cómo viene jugando el niño/a (ver
+            // VariablesJugador), y ese valor sólo se refresca al cambiar de zona: los
+            // retos rechazados dentro de la misma zona no llegaban al chat siguiente.
+            // Se pide de nuevo antes de elegir, con un tope para no dejar a Otto
+            // esperando si el servidor no responde.
+            if (variantesSegunVariable.Count > 0)
+                yield return RefrescarVariables();
+
+            if (modoTelefono)
+                yield return PhoneSequenceConCelular();
+            else
+                yield return PhoneSequenceDirecta();
+
+            // Antes de avisar: quien escuche el evento puede preguntar por el historial
+            // en el mismo frame, y tiene que encontrarlo ya puesto.
+            //
+            // Importa especialmente aquí: sin `repetible` este lanzador NO se vuelve a
+            // abrir, así que un objetivo de misión que llegara después de la conversación
+            // se quedaba imposible de cumplir.
+            HistorialDeObjetivos.AnotarChats(EscenariosPedidos());
+
+            // Antes de avisar: al cerrar el chat se completa su misión, y si esa misión
+            // se bifurca según cómo terminó el reto, la decisión se toma en este mismo
+            // frame (ver MisionRegistro.desbloquea_si_acepta).
+            RechazosEnChats.Anotar(EscenariosPedidos(),
+                ChatModuleController.Instance != null ? ChatModuleController.Instance.UltimaEleccion : null);
+
+            onChatClosed?.Invoke();
+            _sequenceRunning = false;
+            SecuenciasEnCurso = Mathf.Max(0, SecuenciasEnCurso - 1);
+            _terminoEnFrame = Time.frameCount;
+        }
+
+        private const float EsperaMaximaVariables = 3f;
+
+        /// <summary>Pide los valores de VariablesJugador y espera la respuesta, como
+        /// mucho <see cref="EsperaMaximaVariables"/> segundos. Sin sesión vuelve al
+        /// instante y se usa el último valor conocido.</summary>
+        private IEnumerator RefrescarVariables()
+        {
+            bool listo = false;
+            VariablesJugador.GetOrCreate().Refrescar(() => listo = true);
+
+            float tope = Time.realtimeSinceStartup + EsperaMaximaVariables;
+            while (!listo && Time.realtimeSinceStartup < tope) yield return null;
+        }
+
+        /// <summary>Secuencia diegética completa: celular vibra, notificación, zoom.</summary>
+        private IEnumerator PhoneSequenceConCelular()
+        {
             // 1. Encontrar / crear el OttoPhone.
             if (phone == null) phone = OttoPhone.FindOrCreateOnOtto(otto);
 
             // 2. Detener movimiento de Otto.
-            if (otto != null) otto.DisableMovement();
+            if (bloquearMovimiento && otto != null) otto.DisableMovement();
 
             // 3. Mostrar notificación (popup flotante).
             if (!string.IsNullOrEmpty(notificationText))
@@ -160,32 +259,81 @@ namespace Fishy.Phone
             yield return new WaitUntil(() => zoomOutDone);
 
             // 11. Restaurar movimiento.
-            if (otto != null) otto.EnableMovement();
+            if (bloquearMovimiento && otto != null) otto.EnableMovement();
 
             // 12. Limpiar modo teléfono para usos futuros (sesiones normales de chat).
             ui.EnablePhoneMode(false);
+        }
 
-            onChatClosed?.Invoke();
-            _sequenceRunning = false;
+        /// <summary>Sin celular ni zoom: el chat se abre directo frente al NPC visible.</summary>
+        private IEnumerator PhoneSequenceDirecta()
+        {
+            if (bloquearMovimiento && otto != null) otto.DisableMovement();
+
+            onChatOpened?.Invoke();
+
+            var convos = BuildConversationList();
+            var controller = ChatModuleController.GetOrCreate();
+            controller.OpenSession(convos, ottoMood, reportToBackend);
+
+            yield return new WaitUntil(() => !controller.IsActive);
+
+            if (bloquearMovimiento && otto != null) otto.EnableMovement();
         }
 
         // ── Helpers ────────────────────────────────────────────────────────────
         private IList<ChatConversation> BuildConversationList()
         {
-            switch (source)
+            return BancoPreguntasLoader.CreateConversationsForEscenarioIds(EscenariosPedidos());
+        }
+
+        /// <summary>
+        /// Comprueba que haya algo que reproducir ANTES de arrancar la secuencia.
+        ///
+        /// Se mira aquí y no dentro de la corrutina porque para cuando esta llega a
+        /// construir las conversaciones ya le quitó el control a Otto, encendió el
+        /// celular y fundió a negro: abortar ahí dejaría al niño/a mirando una pantalla
+        /// vacía sin poder moverse.
+        /// </summary>
+        private bool HayContenido()
+        {
+            if (EscenariosPedidos().Count > 0) return true;
+
+            Debug.LogWarning($"[{name}] No tiene 'Escenario Ids', así que no hay " +
+                             "conversación que abrir. Pon al menos un escenario_id del banco.", this);
+            return false;
+        }
+
+        /// <summary>
+        /// Los escenario_id a abrir, ya separados y limpios: los de la primera
+        /// variante cuya condición se cumpla, o si ninguna se cumple, los de
+        /// <see cref="escenarioIds"/> tal cual.
+        /// </summary>
+        private List<string> EscenariosPedidos()
+        {
+            string idsElegidos = escenarioIds;
+
+            foreach (var variante in variantesSegunVariable)
             {
-                case Source.ConversacionesAsignadas when conversaciones != null && conversaciones.Count > 0:
-                    return conversaciones;
+                if (string.IsNullOrWhiteSpace(variante.variable)) continue;
 
-                case Source.SoloNpc:
-                    return BancoPreguntasLoader.CreateHDU2ConversationForNpc(npcId);
+                int actual = VariablesJugador.Instance != null
+                    ? VariablesJugador.Instance.Get(variante.variable)
+                    : 0;
 
-                case Source.ZonaChatSimulado:
-                    return ChatDefaultConversations.CreateZonaChatSimulado();
-
-                default: // ZonaDesconocidos / ZonaDesconocidosPorDefecto
-                    return ChatDefaultConversations.CreateZonaDesconocidos();
+                if (variante.Cumple(actual))
+                {
+                    idsElegidos = variante.escenarioIds;
+                    break;
+                }
             }
+
+            if (string.IsNullOrWhiteSpace(idsElegidos)) return new List<string>();
+
+            return idsElegidos.Split(',')
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
         }
 
         // ── Apertura manual (botón de UI) ──────────────────────────────────────
@@ -193,7 +341,10 @@ namespace Fishy.Phone
         public void OpenManual()
         {
             if (_sequenceRunning) return;
-            if (otto == null) otto = FindFirstObjectByType<OttoController>();
+            // Mismo criterio que el trigger: sin "repetible", una sola vez.
+            if (!repetible && _triggered) return;
+            if (!HayContenido()) return;
+            if (otto == null) otto = FindAnyObjectByType<OttoController>();
             _triggered = true;
             StartCoroutine(PhoneSequence());
         }

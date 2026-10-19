@@ -10,3 +10,43 @@
 
 *.sh   text eol=lf
 *.ps1  text eol=crlf
+
+# Merge de los archivos YAML de Unity (escenas, prefabs, assets).
+#
+# Va aquí y no en Fishy!/.gitattributes porque merge=unityyamlmerge tiene que
+# resolverse desde la raíz: allá se declaraba vía un macro [attr], y git
+# ignora los macros fuera del .gitattributes raíz. Resultado: SampleScene.unity
+# se mergeaba línea a línea y cualquier merge de dev era un campo minado.
+#
+# Solo se declara el driver: nada de eol ni de lfs, para no renormalizar
+# archivos ya versionados.
+#
+# ── Cómo se resuelven los conflictos de escena ────────────────────────────────
+#
+# No hace falta registrar ningún driver, y no esperes que git fusione esto solo.
+# UnityYAMLMerge decide cómo fusionar por la EXTENSIÓN del archivo, y git le pasa
+# temporales sin extensión (.merge_file_XXXX): falla con "Don't know how to
+# merge" y se rinde. El resultado es que deja la versión de HEAD en el árbol,
+# marcada como conflicto, sin marcadores y sin avisar de que no fusionó nada.
+#
+# Que el driver se declare igualmente es a propósito: ese fallo es SEGURO —deja
+# HEAD intacto y te obliga a mirar—, mientras que sin la declaración git
+# fusionaría la escena línea a línea, que es lo que de verdad la corrompe.
+#
+# Para resolver, desde la raíz del repo:
+#
+#   ./resolver-escena.sh                     # lista lo que está en conflicto
+#   ./resolver-escena.sh SampleScene         # fusiona esa escena
+#   ./resolver-escena.sh SampleScene --ours  # si hay conflictos, elige un lado
+#
+# El script saca las tres etapas del índice con la extensión correcta y llama a
+# UnityYAMLMerge con los lados en el orden que espera. Después abre la escena en
+# Unity una vez: que el YAML fusione no garantiza que la escena cargue.
+
+*.unity       merge=unityyamlmerge
+*.prefab      merge=unityyamlmerge
+*.asset       merge=unityyamlmerge
+*.anim        merge=unityyamlmerge
+*.controller  merge=unityyamlmerge
+*.mat         merge=unityyamlmerge
+*.physicMaterial2D merge=unityyamlmerge

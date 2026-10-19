@@ -1,8 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -34,23 +37,62 @@ namespace Fishy.Net
         public static ApiManager Instance { get; private set; }
 
         [Header("Configuracion")]
-        [Tooltip("URL base del backend Django, sin slash final. Ej: http://127.0.0.1:8000/api")]
-        [SerializeField] private string baseUrl = "http://127.0.0.1:8000/api";
+        // Una sola dirección para salud, autenticación y progreso. No se serializa:
+        // una escena antigua no puede sobrescribirla con su URL de localhost.
+        public const string BaseUrl = "https://fishy-test.up.railway.app/api";
 
         [Tooltip("Timeout por peticion en segundos.")]
         [SerializeField] private int timeoutSeconds = 15;
 
         [Tooltip("Mostrar en consola el detalle de cada peticion/respuesta.")]
+        // En un build, Debug.Log no va a una consola: va a Player.log, un archivo
+        // de texto en el disco de quien juega. Por eso el detalle queda encendido
+        // solo en el editor. Aun asi, lo que se imprime pasa por Censurar().
+#if UNITY_EDITOR
         [SerializeField] private bool verboseLogs = true;
+#else
+        [SerializeField] private bool verboseLogs = false;
+#endif
 
-        [Header("Modo local (sin servidor)")]
+        [Header("Simulación explícita (solo Editor)")]
         [Tooltip("Si esta activo, NO se conecta al backend: simula todo localmente " +
                  "(usuarios en PlayerPrefs, partidas/NPCs/chats en memoria). " +
-                 "Se activa automaticamente si el servidor no responde.")]
+                 "Solo para pruebas del Editor. Nunca se activa por fallos de conexión.")]
         [SerializeField] private bool useLocalMode = false;
 
         /// <summary>True si se esta simulando todo localmente (sin servidor).</summary>
         public bool IsLocalMode => useLocalMode;
+
+        // ── Peticiones en vuelo ─────────────────────────────────────────────────
+        //
+        // Todas las llamadas son StartCoroutine(Send(...)) y nadie guarda el handle,
+        // asi que hasta ahora no habia forma de saber cuando termino una peticion.
+        // La cola de cambios lo necesita para poder decir "ya esta todo subido" antes
+        // de dejar que el juego se cierre.
+        //
+        // No basta con que la cola cuente sus propios callbacks: en el chat, el
+        // onSuccess de una peticion lanza la siguiente, asi que una operacion puede
+        // "terminar" con otra todavia en el aire. Este contador si las ve todas.
+
+        private int _enVuelo;
+
+        /// <summary>Cuantas peticiones HTTP hay ahora mismo sin resolver.</summary>
+        public int PeticionesEnVuelo => _enVuelo;
+
+        /// <summary>
+        /// Recorta el timeout de la peticion que se cree mientras este puesto. Solo
+        /// recorta: nunca pasa de <c>timeoutSeconds</c>. Null = usar <c>timeoutSeconds</c>.
+        ///
+        /// Lo pone la cola de guardado alrededor del envio de cada cambio, y solo ahi:
+        /// el timeout se lee al crear la peticion, en la misma llamada que la manda. Sin
+        /// esto, al cerrar el juego una peticion podria seguir viva despues de que el
+        /// vaciado se haya rendido: se le diria al nino/a que su avance se perdio cuando
+        /// todavia podia llegar.
+        ///
+        /// Quien lo pone es responsable de devolverlo a null en un <c>finally</c>, o el
+        /// juego se queda con timeouts cortos para el resto de la sesion.
+        /// </summary>
+        public int? TopeDeTiempoParaPeticiones { get; set; }
 
         // ── Estado de sesion (en memoria) ───────────────────────────────────────
         public string Token { get; private set; }
@@ -88,6 +130,12 @@ namespace Fishy.Net
                 return;
             }
             Instance = this;
+#if !UNITY_EDITOR
+            // Los builds siempre usan el servidor, aunque una escena de pruebas
+            // haya guardado estos campos activados en el Inspector.
+            useLocalMode = false;
+            verboseLogs = false;
+#endif
             DontDestroyOnLoad(gameObject);
         }
 
@@ -96,8 +144,8 @@ namespace Fishy.Net
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
         /// <summary>
-        /// Hace un ping a /health/ con timeout corto (4 s).
-        /// Si el servidor no responde, activa el modo local automáticamente.
+        /// Comprueba /health/ por HTTPS. Un fallo no cambia el origen de los datos
+        /// ni activa la simulación local. Da margen al arranque del servicio remoto.
         /// onResult recibe true si el backend está disponible.
         /// </summary>
         public void CheckHealth(Action<bool> onResult)
@@ -106,25 +154,42 @@ namespace Fishy.Net
             StartCoroutine(HealthRoutine(onResult));
         }
 
+        /// <summary>
+        /// Reconsulta el servicio remoto. También permite salir de una simulación
+        /// iniciada explícitamente en el Editor. Nunca crea una sesión local.
+        /// </summary>
+        public void ReintentarConexion(Action<bool> onResult)
+        {
+            useLocalMode = false;
+            StartCoroutine(HealthRoutine(onResult));
+        }
+
         private IEnumerator HealthRoutine(Action<bool> onResult)
         {
-            string url = baseUrl + "/health/";
+            string url = BaseUrl + "/health/";
             using var req = UnityWebRequest.Get(url);
-            req.timeout = 4;
+            req.timeout = 30;
             yield return req.SendWebRequest();
 
-            bool ok = req.result == UnityWebRequest.Result.Success;
+            bool ok = req.result == UnityWebRequest.Result.Success &&
+                      RespuestaSaludValida(req.downloadHandler.text);
             if (!ok)
             {
                 Debug.LogWarning($"[API] Backend no disponible ({req.error}). " +
-                                 "Activando modo local automáticamente.");
-                useLocalMode = true;
+                                 "Los datos no se simularán localmente. Puedes reintentar la conexión.");
             }
             else
             {
-                Debug.Log($"[API] Backend disponible en {baseUrl}.");
+                Debug.Log($"[API] Backend disponible en {BaseUrl}.");
             }
             onResult?.Invoke(ok);
+        }
+
+        internal static bool RespuestaSaludValida(string cuerpo)
+        {
+            // Un proxy puede devolver HTML con HTTP 200. Eso no confirma Django.
+            try { return (string)JObject.Parse(cuerpo)["status"] == "ok"; }
+            catch (Exception) { return false; }
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -323,6 +388,64 @@ namespace Fishy.Net
                 onError: onError);
         }
 
+        /// <summary>
+        /// Retoma una partida CONCRETA de las que devuelve <see cref="ObtenerPartidasJugador"/>.
+        ///
+        /// <see cref="ContinuarOCrearPartida"/> impone siempre la más reciente, que es lo
+        /// correcto para el atajo de "elegir perfil y jugar", pero deja fuera el caso de
+        /// la pantalla "Continuar": ahí el menor ve sus sesiones con fecha y elige. Sin
+        /// este método, elegir una sesión anterior era imposible desde fuera de ApiManager
+        /// porque AdoptarPartida es privado.
+        ///
+        /// Devuelve false si la partida no sirve, en vez de lanzar: quien llama es UI y lo
+        /// único que puede hacer con el fallo es avisar y quedarse donde está.
+        /// </summary>
+        public bool RetomarPartida(PartidaDto partida)
+        {
+            if (partida == null || partida.id <= 0) return false;
+
+            // El avance cuelga del perfil, no de la cuenta. Si se adoptara la partida sin
+            // fijar su dueño, JugadorId y PartidaId quedarían apuntando a menores distintos
+            // y el hermano equivocado escribiría en esta partida. Va ANTES de adoptar:
+            // SeleccionarJugador limpia el estado de sesión al cambiar de perfil, y hacerlo
+            // después borraría el PartidaId recién puesto.
+            if (partida.usuario_jugador > 0) SeleccionarJugador(partida.usuario_jugador);
+
+            AdoptarPartida(partida);
+            if (verboseLogs) Debug.Log($"[API] Partida {PartidaId} retomada a pedido del jugador.");
+            return true;
+        }
+
+        /// <summary>
+        /// Se dejó de jugar la partida sin cerrar la aplicación: el jugador volvió al
+        /// menú. Ya no hay <see cref="PartidaId"/>, y quien restauró algo de ella tiene
+        /// que olvidarlo.
+        /// </summary>
+        public static event Action OnPartidaCerrada;
+
+        /// <summary>
+        /// Suelta la partida activa, conservando la sesión y el perfil para que el menú
+        /// pueda ofrecer seguir.
+        ///
+        /// Los sincronizadores restauran cuando <i>cambia</i> la partida. Sin esto, volver
+        /// a entrar en la misma desde el menú no restauraba nada sobre la escena recién
+        /// cargada: Otto aparecía en el punto de inicio —y el siguiente guardado pisaba
+        /// la posición buena— y las zonas abiertas volvían a estar cerradas. Al soltarla,
+        /// volver a entrar recorre el mismo camino que la primera vez.
+        /// </summary>
+        public void CerrarPartida()
+        {
+            if (PartidaId == null) return;
+
+            int cerrada = PartidaId.Value;
+            PartidaId = null;
+            NpcId = null;
+            ChatId = null;
+
+            if (verboseLogs) Debug.Log($"[API] Partida {cerrada} cerrada: se volvió al menú.");
+            OnPartidaCerrada?.Invoke();
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  PARTIDA (HDU-2)                                                        ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
@@ -500,6 +623,41 @@ namespace Fishy.Net
                 onError: onError));
         }
 
+        /// <summary>
+        /// Sube una conversación ENTERA en una sola petición y atómica
+        /// (<c>POST /partidas/{id}/chats/completo/</c>): o entra completa o no entra
+        /// nada. Reemplaza a la cadena RegistrarNPC → IniciarChat → N × RegistrarMensaje
+        /// → FinalizarChat, que son ~9 peticiones en serie y deja una conversación
+        /// partida si el juego se cierra a mitad.
+        ///
+        /// A propósito NO toca <see cref="NpcId"/> ni <see cref="ChatId"/>: no hay
+        /// estado de "chat abierto" que dejar puesto, la conversación ya llegó cerrada.
+        /// Sin backend (modo local) responde error y quien llama decide qué hacer.
+        /// </summary>
+        public void RegistrarChatCompleto(string nombreNpc, string area, string tipoNpc,
+            string categoriaRiesgo, List<Dictionary<string, object>> mensajes, string respuestaFinal = "",
+            Action<ChatCompletoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: la conversación completa no se sube sin backend.");
+                return;
+            }
+
+            if (!RequireId(PartidaId, "PartidaId", onError)) return;
+
+            var body = new Dictionary<string, object>
+            {
+                { "npc", new { nombre = nombreNpc, area, tipo = tipoNpc, confianza = 0 } },
+                { "chat", new { categoria_riesgo = categoriaRiesgo } },
+                { "mensajes", mensajes ?? new List<Dictionary<string, object>>() },
+                { "finalizar", true },
+                { "respuesta_final", respuestaFinal ?? "" },
+            };
+            StartCoroutine(Send<ChatCompletoDto>("POST", $"/partidas/{PartidaId}/chats/completo/", body,
+                auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  RIESGO POR ZONA                                                        ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
@@ -525,74 +683,807 @@ namespace Fishy.Net
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  MODO DETECTIVE (HDU-10)                                                ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Lista los casos del modo Detective (zona opcional). A diferencia del banco
+        /// de preguntas, este contenido no viaja empaquetado con el build de Unity —
+        /// se consulta en vivo, para poder agregar casos sin republicar la app.
+        /// </summary>
+        public void ObtenerCasosDetective(string zona = null,
+            Action<List<CasoDetectiveDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: los casos Detective no están disponibles sin backend.");
+                return;
+            }
+
+            string path = "/casos-detective/";
+            if (!string.IsNullOrEmpty(zona))
+                path += "?zona=" + UnityWebRequest.EscapeURL(zona);
+
+            StartCoroutine(Send<List<CasoDetectiveDto>>("GET", path, null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>Un caso concreto por su caso_id (ej: "DC_CASO_01").</summary>
+        public void ObtenerCasoDetective(string casoId,
+            Action<CasoDetectiveDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: los casos Detective no están disponibles sin backend.");
+                return;
+            }
+
+            StartCoroutine(Send<CasoDetectiveDto>("GET", $"/casos-detective/{casoId}/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>Diálogo de un NPC neutro (HDU-1), por su dialogo_id (ej: NPC_FLAMENCO_SEC).</summary>
+        /// <summary>
+        /// Trae el banco de preguntas entero desde la base (/banco/preguntas/).
+        ///
+        /// Es la misma fuente que el JSON empaquetado —`manage.py cargar_banco` llena
+        /// la tabla desde ese archivo—, pero la base es la que el equipo puede corregir
+        /// sin recompilar el juego. Lo usa <c>BancoBackendSync</c> al arrancar; si falla
+        /// o no hay sesión, el chat sigue con la copia de Resources.
+        /// </summary>
+        public void ObtenerPreguntasBanco(
+            Action<List<PreguntaBancoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el banco no se descarga; se usa la copia de Resources.");
+                return;
+            }
+
+            StartCoroutine(Send<List<PreguntaBancoDto>>("GET", "/banco/preguntas/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Trae el catalogo de misiones entero, con sus objetivos (/misiones/).
+        ///
+        /// <b>Es catalogo, no progreso.</b> Que misiones lleva hechas un nino concreto
+        /// sigue estando en /partidas/{id}/misiones/. Esto es el contenido, igual para
+        /// todos y sin necesidad de partida abierta.
+        ///
+        /// <b>Se usa Fishy.Mision.MisionRegistro como tipo de la respuesta</b>, el mismo
+        /// que lee el archivo de respaldo Resources/misiones.json. Es a proposito: las
+        /// dos fuentes tienen el mismo contenido, asi que darles formas distintas
+        /// obligaria a mantener dos traducciones y a que una se quedara atras. Si el
+        /// backend acaba llamando distinto a algun campo, la traduccion va en un solo
+        /// sitio, aqui.
+        ///
+        /// Lo usa <c>MisionCatalogoSync</c> al arrancar; si falla, no hay sesion o se
+        /// juega en modo local, el juego se queda con el archivo de respaldo.
+        /// </summary>
+        public void ObtenerCatalogoMisiones(
+            Action<List<Fishy.Mision.MisionRegistro>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el catalogo de misiones no se descarga; " +
+                                "se usa Resources/misiones.json.");
+                return;
+            }
+
+            StartCoroutine(Send<List<Fishy.Mision.MisionRegistro>>("GET", "/misiones/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        public void ObtenerDialogoNpc(string dialogoId,
+            Action<DialogoNpcDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: los diálogos de NPC no están disponibles sin backend.");
+                return;
+            }
+
+            StartCoroutine(Send<DialogoNpcDto>("GET", $"/dialogos-npc/{dialogoId}/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Registra el resultado de un intento del jugador sobre un caso, para la
+        /// partida activa (o la indicada). Reintentar el mismo caso no crea una fila
+        /// nueva: el backend actualiza el resultado y suma 1 a <c>intentos</c>.
+        /// </summary>
+        public void RegistrarProgresoDetective(string casoId, List<string> mensajesMarcados,
+            int aciertos, int totalRiesgo, float porcentaje, int? partidaId = null,
+            Action<ProgresoDetectiveDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso Detective no se registra sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new
+            {
+                partida_id = pId.Value,
+                mensajes_marcados = mensajesMarcados ?? new List<string>(),
+                aciertos,
+                total_riesgo = totalRiesgo,
+                porcentaje,
+            };
+            StartCoroutine(Send<ProgresoDetectiveDto>("POST", $"/casos-detective/{casoId}/progreso/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Progreso de todos los casos Detective jugados en una partida — para saber
+        /// cuáles ya están completados sin llevar la cuenta local (mismo rol que
+        /// cumple PlayerPrefs en MissionManager cuando no hay backend).
+        /// </summary>
+        public void ObtenerProgresoDetective(int? partidaId = null,
+            Action<List<ProgresoDetectiveDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso Detective no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<ProgresoDetectiveDto>>("GET", $"/partidas/{pId}/casos-detective/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═════════════════════════════════════════════════════════════════════╗
+        // ║  PROGRESO DE MISIONES Y ZONAS (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)     ║
+        // ╚═════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Misiones que esta partida tiene desbloqueadas, con su estado. Es lo que
+        /// necesita <c>MissionManager</c> al cargar una partida para saber qué ya
+        /// estaba completado, en vez de fiarse solo de PlayerPrefs (que vive en el
+        /// dispositivo y no sigue al niño si juega en otro).
+        /// </summary>
+        public void ObtenerProgresoMisiones(int? partidaId = null,
+            Action<List<MisionProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de misiones no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<MisionProgresoDto>>("GET", $"/partidas/{pId}/misiones/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Registra una misión como disponible (<paramref name="completada"/> = false, al
+        /// desbloquearla) o como completada, en la partida activa o la indicada.
+        ///
+        /// Es idempotente: repetir la llamada no duplica la fila ni mueve la fecha.
+        /// <b>Completar es un camino de ida</b>: mandar <c>false</c> sobre una misión ya
+        /// completada no la reabre, porque el orden en que llegan estas llamadas no
+        /// está garantizado y el registro para el adulto no puede retroceder.
+        ///
+        /// El <paramref name="misionId"/> es el <c>desafioId</c> del DesafioData. Si el
+        /// banco no lo tiene, el backend lo guarda igual y responde con
+        /// <c>en_catalogo: false</c> — hoy pasa con MISION_NPC_01 y MISION_NPC_02.
+        /// </summary>
+        public void RegistrarProgresoMision(string misionId, bool completada, int? partidaId = null,
+            Action<MisionProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de misiones no se registra sin backend.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(misionId))
+            {
+                onError?.Invoke("Falta el misionId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new
+            {
+                mision_id = misionId,
+                estado = completada ? "completada" : "disponible",
+            };
+            StartCoroutine(Send<MisionProgresoDto>("POST", $"/partidas/{pId}/misiones/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>Objetivos con avance guardado en la partida (<c>GET /partidas/{id}/objetivos/</c>).</summary>
+        public void ObtenerProgresoObjetivos(int? partidaId = null,
+            Action<List<ObjetivoProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el avance por objetivo no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<ObjetivoProgresoDto>>("GET", $"/partidas/{pId}/objetivos/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca un objetivo de una misión como cumplido. Camino de ida e idempotente,
+        /// igual que las misiones: repetirlo no duplica nada y un <c>false</c> sobre
+        /// uno ya cumplido se ignora. <paramref name="orden"/> es el del catálogo
+        /// (<c>ObjetivoRegistro.orden</c>), la mitad de la clave con la que se guarda.
+        /// </summary>
+        public void RegistrarProgresoObjetivo(string misionId, int orden, bool cumplido = true,
+            int? partidaId = null, Action<ObjetivoProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el avance por objetivo no se registra sin backend.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(misionId))
+            {
+                onError?.Invoke("Falta el misionId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new { mision_id = misionId, orden, cumplido };
+            StartCoroutine(Send<ObjetivoProgresoDto>("POST", $"/partidas/{pId}/objetivos/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Zonas desbloqueadas en esta partida, y cuáles además quedaron completadas.
+        /// Lo que no viene en la lista sigue oscurecido en el mapa.
+        /// </summary>
+        public void ObtenerProgresoZonas(int? partidaId = null,
+            Action<List<ZonaProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de zonas no está disponible sin backend.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            StartCoroutine(Send<List<ZonaProgresoDto>>("GET", $"/partidas/{pId}/zonas/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca una zona como desbloqueada (<paramref name="completada"/> = false) o como
+        /// completada. Que la fila exista ya significa desbloqueada, así que al abrir
+        /// una zona nueva se llama con <c>false</c>.
+        ///
+        /// La <paramref name="zona"/> es el slug del banco (<c>desconocidos</c>,
+        /// <c>ciberacoso</c>, <c>reto_viral</c>). El backend no valida contra una lista
+        /// fija: agregar una temática es contenido, no código.
+        /// </summary>
+        public void RegistrarProgresoZona(string zona, bool completada, int? partidaId = null,
+            Action<ZonaProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el progreso de zonas no se registra sin backend.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(zona))
+            {
+                onError?.Invoke("Falta el id de la zona.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new { zona, completada };
+            StartCoroutine(Send<ZonaProgresoDto>("POST", $"/partidas/{pId}/zonas/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  INVENTARIO (HDU-15)                                                    ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Lo que Otto lleva encima en esta partida.
+        ///
+        /// A diferencia de misiones y zonas, <b>esto sí funciona en modo local</b>: se
+        /// guarda en PlayerPrefs por partida. Sin eso, el inventario seguiría
+        /// perdiéndose justo en el escenario de la feria, que es cuando el backend
+        /// puede no estar. El progreso local no reemplaza al del servidor —vive en
+        /// este computador— pero es infinitamente mejor que nada.
+        /// </summary>
+        public void ObtenerInventario(int? partidaId = null,
+            Action<List<ItemInventarioDto>> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // El trabajo va en su propia linea y NO adentro de `onSuccess?.Invoke(...)`:
+                // el `?.` corta la expresion entera cuando el callback es null, argumento
+                // incluido, asi que el guardado no llegaba a ocurrir si a quien llama no
+                // le interesaba la respuesta. Aqui leer no tiene efecto, pero se escribe
+                // igual que en GuardarInventario para que el patron no invite al error.
+                var guardado = LocalLeerInventario(pId.Value);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            StartCoroutine(Send<List<ItemInventarioDto>>("GET", $"/partidas/{pId}/inventario/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Guarda la mochila. <b>Manda la lista COMPLETA: lo que no va, se borra.</b>
+        ///
+        /// El endpoint es un PUT de reemplazo y no un POST por objeto, porque el
+        /// inventario encoge —un objeto consumido sale de la mochila— y con un POST
+        /// por fila no habría forma de decir "ya no tengo esto". Así que hay que
+        /// pasarle todo el inventario, no el objeto que cambió.
+        /// </summary>
+        public void GuardarInventario(IList<ItemInventarioEnvio> items, int? partidaId = null,
+            Action<List<ItemInventarioDto>> onSuccess = null, Action<string> onError = null)
+        {
+            if (items == null)
+            {
+                onError?.Invoke("La lista de items no puede ser null (usa una lista vacía para vaciar).");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // OJO: guardar va en su propia linea. Si fuera el argumento de
+                // `onSuccess?.Invoke(...)`, el `?.` cortaria la expresion completa
+                // cuando el callback es null y la mochila NO se guardaria, en silencio
+                // y sin error. Paso de verdad, y solo se vio en la prueba headless.
+                var guardado = LocalGuardarInventario(pId.Value, items);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            var body = new { items };
+            StartCoroutine(Send<List<ItemInventarioDto>>("PUT", $"/partidas/{pId}/inventario/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  PERSONAJE — donde quedo Otto (HDU-15)                                  ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Donde quedo Otto en esta partida. Si nunca se guardo, el DTO viene con
+        /// <c>tiene_posicion = false</c> y hay que dejarlo en el spawnPoint.
+        /// </summary>
+        public void ObtenerPersonaje(int? partidaId = null,
+            Action<PersonajeDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                var local = LocalLeerPersonaje(pId.Value);
+                onSuccess?.Invoke(local);
+                return;
+            }
+
+            StartCoroutine(Send<PersonajeDto>("GET", $"/partidas/{pId}/personaje/", null, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Guarda donde esta Otto. Es un PATCH: manda solo lo que cambia y lo demas
+        /// se queda como estaba.
+        /// </summary>
+        /// <param name="zonaActual">
+        /// Zona del mapa donde esta Otto (`zona_2`). Null o vacio = no se manda, y
+        /// entonces el backend deja la que ya tenia. Ver la nota de abajo.
+        /// </param>
+        public void GuardarPersonaje(string escena, float x, float y, string zonaActual = null,
+            int? partidaId = null,
+            Action<PersonajeDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // El trabajo NO va adentro de `onSuccess?.Invoke(...)`: el `?.` corta
+                // la expresion entera cuando el callback es null y no se guardaria
+                // nada, en silencio. Ya paso con el inventario.
+                var guardado = LocalGuardarPersonaje(pId.Value, escena, x, y, zonaActual);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            // Sin zona se manda solo la posicion, y el campo se omite del cuerpo.
+            // Es un PATCH: omitir `zona_actual` deja la que ya estaba guardada, pero
+            // mandarla como "" la PISA con vacio, y el vacio significa "nunca se
+            // guardo". Mandar la posicion sin la zona es legitimo; borrar la zona sin
+            // querer, no.
+            object body = string.IsNullOrEmpty(zonaActual)
+                ? (object)new { escena, pos_x = x, pos_y = y }
+                : new { escena, pos_x = x, pos_y = y, zona_actual = zonaActual };
+
+            StartCoroutine(Send<PersonajeDto>("PATCH", $"/partidas/{pId}/personaje/", body, auth: true,
+                onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  OBJETOS DEL MAPA YA RECOGIDOS (HDU-1 CA2)                              ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>Objetos del mapa que esta partida ya recogio.</summary>
+        public void ObtenerObjetosRecogidos(int? partidaId = null,
+            Action<List<ObjetoRecogidoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                var local = LoadLocalList<ObjetoRecogidoDto>(ObjetosKey(pId.Value));
+                onSuccess?.Invoke(local);
+                return;
+            }
+
+            StartCoroutine(Send<List<ObjetoRecogidoDto>>("GET", $"/partidas/{pId}/objetos-recogidos/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca un objeto del mapa como recogido. Es POST por objeto y no la lista
+        /// entera como el inventario, porque esto solo crece: recoger es un camino de
+        /// ida. Idempotente.
+        /// </summary>
+        public void MarcarObjetoRecogido(string objetoId, int? partidaId = null,
+            Action<ObjetoRecogidoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (string.IsNullOrWhiteSpace(objetoId))
+            {
+                onError?.Invoke("Falta el objetoId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // El trabajo va en su propia linea, NO como argumento de
+                // `onSuccess?.Invoke(...)`: el `?.` cortaria la expresion completa
+                // cuando el callback es null y no se guardaria nada, en silencio.
+                var guardado = LocalMarcarObjeto(pId.Value, objetoId.Trim());
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            var body = new { objeto_id = objetoId.Trim() };
+            StartCoroutine(Send<ObjetoRecogidoDto>("POST", $"/partidas/{pId}/objetos-recogidos/",
+                body, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
+        // ║  PROGRESO POR NPC DE TEMATICA (HDU-3 CA5 / HDU-4 CA5)                   ║
+        // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>NPCs de tematica cuya interaccion esta partida ya termino.</summary>
+        public void ObtenerProgresoNpcs(int? partidaId = null,
+            Action<List<NpcProgresoDto>> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                var local = LoadLocalList<NpcProgresoDto>(NpcsKey(pId.Value));
+                onSuccess?.Invoke(local);
+                return;
+            }
+
+            StartCoroutine(Send<List<NpcProgresoDto>>("GET", $"/partidas/{pId}/progreso-npcs/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═════════════════════════════════════════════════════════════════════╗
+        // ║  PRESION SOCIAL EN RETOS VIRALES (HDU-04 CA4)                            ║
+        // ╠═════════════════════════════════════════════════════════════════════╣
+        // ║  EL NIVEL NO SE CUENTA AQUI, SE PIDE. Un contador en Unity no sirve: una  ║
+        // ║  tematica se puede completar en varias sesiones (HDU-3 CA5 / HDU-4 CA5),  ║
+        // ║  asi que al volver estaria siempre en cero y el criterio no se gatillaria  ║
+        // ║  nunca. El servidor lo deriva del historial que ya guarda.                 ║
+        // ╚═════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Nivel de presion social que le toca al proximo NPC de Retos Virales.
+        ///
+        /// <para><b>Como usarlo:</b> llamarlo al ENTRAR a la zona, antes de armar la
+        /// conversacion, y usar <c>SocialPressureLevel</c> para elegir con que
+        /// apertura arranca el NPC (el <c>startNodeId</c> de BancoPreguntasLoader).</para>
+        ///
+        /// <para><b>PENDIENTE: falta el contenido, no el codigo.</b> Hoy los tres NPCs
+        /// de la zona tienen UNA sola apertura cada uno, las tres en
+        /// <c>nivel_riesgo: 3</c>. Mientras el banco no traiga una version mas dura de
+        /// cada apertura, no hay entre que elegir y este numero no cambia nada. El
+        /// criterio se cierra cuando llegue ese contenido.</para>
+        /// </summary>
+        public void ObtenerPresionSocial(int? partidaId = null,
+            Action<PresionSocialDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // Sin servidor no hay historial que mirar: la zona parte sin presion
+                // extra, que es el mismo estado que tiene un jugador nuevo.
+                onSuccess?.Invoke(new PresionSocialDto());
+                return;
+            }
+
+            StartCoroutine(Send<PresionSocialDto>("GET", $"/partidas/{pId}/presion-social/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Puntaje de la aventura completa (puntos de chat de las tres zonas sobre el
+        /// maximo posible), para elegir el final (HDU-09). En modo local no hay
+        /// historial: avisa por onError y quien llama usa lo que sumo en la sesion.
+        /// </summary>
+        public void ObtenerPuntajeFinal(int? partidaId = null,
+            Action<PuntajeFinalDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: no hay historial de decisiones en el servidor.");
+                return;
+            }
+
+            StartCoroutine(Send<PuntajeFinalDto>("GET", $"/partidas/{pId}/puntaje-final/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
+        /// Marca que la interaccion con ese NPC termino. A diferencia de los objetos
+        /// recogidos, repetir SI actualiza: un NPC con `repetible` puede rehacerse y
+        /// vale el ultimo resultado.
+        /// </summary>
+        public void MarcarNpcTerminado(string npcId, bool exito, int? partidaId = null,
+            Action<NpcProgresoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (string.IsNullOrWhiteSpace(npcId))
+            {
+                onError?.Invoke("Falta el npcId.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                // En su propia linea, no dentro de `onSuccess?.Invoke(...)`.
+                var guardado = LocalMarcarNpc(pId.Value, npcId.Trim(), exito);
+                onSuccess?.Invoke(guardado);
+                return;
+            }
+
+            var body = new { npc_id = npcId.Trim(), exito };
+            StartCoroutine(Send<NpcProgresoDto>("POST", $"/partidas/{pId}/progreso-npcs/",
+                body, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  NUCLEO HTTP                                                            ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
+
+        /// <summary>
+        /// Campos cuyo VALOR nunca debe salir por consola. La contrasena del adulto es
+        /// la obvia; el token no lo es tanto y es igual de grave: es una credencial
+        /// portadora que no expira -DRF TokenAuthentication no le pone vencimiento- asi
+        /// que quien lo lea entra como ese tutor a los perfiles de todos sus menores.
+        /// </summary>
+        private static readonly HashSet<string> CamposSecretos = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            "password", "password1", "password2", "contrasena", "contraseña",
+            "token", "auth_token", "access_token", "refresh_token", "key",
+        };
+
+        private const string Tapado = "***";
+
+        /// <summary>
+        /// Devuelve el JSON con los valores secretos reemplazados por <c>***</c>, para
+        /// poder seguir viendo peticiones y respuestas mientras se depura sin que la
+        /// contrasena ni el token queden escritos.
+        ///
+        /// <b>Importa mas de lo que parece:</b> en un build, Debug.Log va a `Player.log`,
+        /// un archivo de texto que se queda en el disco del computador. La contrasena
+        /// del tutor no puede terminar ahi.
+        ///
+        /// Si el texto no es JSON valido, NO se devuelve el original: se devuelve un
+        /// aviso. Es a proposito —fallar cerrado—: no se puede garantizar que algo que
+        /// no se pudo leer no traiga un secreto adentro.
+        /// </summary>
+        private static string Redactar(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return json;
+
+            try
+            {
+                var token = JToken.Parse(json);
+                TaparSecretos(token);
+                return token.ToString(Formatting.None);
+            }
+            catch
+            {
+                return $"(cuerpo no-JSON de {json.Length} caracteres, omitido por si trae secretos)";
+            }
+        }
+
+        private static void TaparSecretos(JToken token)
+        {
+            if (token is JObject obj)
+            {
+                foreach (var prop in obj.Properties())
+                {
+                    if (CamposSecretos.Contains(prop.Name) && prop.Value.Type != JTokenType.Object
+                                                           && prop.Value.Type != JTokenType.Array)
+                        prop.Value = Tapado;
+                    else
+                        TaparSecretos(prop.Value);
+                }
+            }
+            else if (token is JArray arr)
+            {
+                foreach (var hijo in arr) TaparSecretos(hijo);
+            }
+        }
+
+        // ── Que puede salir en un log ────────────────────────────────────────
+        //
+        // Son dos fugas distintas y por eso hay dos capas:
+        //
+        //   1. El CUERPO de las rutas de `auth/` lleva la contrasena del adulto
+        //      responsable, en texto plano. Ese cuerpo no se imprime nunca.
+        //   2. El TOKEN puede venir en la respuesta de cualquier ruta, y es una
+        //      credencial al portador: con el se entra sin saber la contrasena.
+        //      Se tapa siempre, venga de donde venga.
+        //
+        // Ojo si algun dia se pasa a JWT: el token seguira viajando en el JSON,
+        // asi que esta misma censura lo cubre. Lo que habria que agregar es el
+        // refresh token, si el nombre del campo cambia.
+        private static bool RutaConCredenciales(string path)
+            => !string.IsNullOrEmpty(path) && path.Contains("/auth/");
+
+        private static readonly Regex TokenEnJson = new Regex(
+            "\"(token|access|refresh)\"\\s*:\\s*\"[^\"]*\"",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>Deja un cuerpo en condiciones de ir a un log.</summary>
+        private static string Censurar(string cuerpo, string path)
+        {
+            if (string.IsNullOrEmpty(cuerpo)) return cuerpo;
+            if (RutaConCredenciales(path)) return "{ omitido: la ruta lleva credenciales }";
+            return TokenEnJson.Replace(cuerpo, "\"$1\":\"<oculto>\"");
+        }
 
         private IEnumerator Send<TResponse>(string method, string path, object body, bool auth,
             Action<TResponse> onSuccess, Action<string> onError)
         {
-            string url = baseUrl + path;
-
-            using var req = new UnityWebRequest(url, method);
-            req.timeout = timeoutSeconds;
-            req.downloadHandler = new DownloadHandlerBuffer();
-
-            if (body != null)
+            // El contador se baja en un `finally` para que lo hagan tambien los tres
+            // `yield break` de mas abajo (sin token, error de red, JSON invalido). Si
+            // alguno se escapara, el contador se quedaria clavado en >0 y el cierre del
+            // juego esperaria para siempre a una peticion que ya no existe.
+            //
+            // Un `yield return` dentro de un `try` solo es legal si ese try NO tiene
+            // `catch`; por eso el catch del parseo se queda en su propio try interno,
+            // que no lleva ningun yield.
+            _enVuelo++;
+            try
             {
-                string json = JsonConvert.SerializeObject(body);
-                byte[] raw = Encoding.UTF8.GetBytes(json);
-                req.uploadHandler = new UploadHandlerRaw(raw);
-                req.SetRequestHeader("Content-Type", "application/json");
-                if (verboseLogs) Debug.Log($"[API] {method} {url}\n{json}");
-            }
-            else if (verboseLogs)
-            {
-                Debug.Log($"[API] {method} {url}");
-            }
+                string url = BaseUrl + path;
 
-            if (auth)
-            {
-                if (!IsLoggedIn)
+                using var req = new UnityWebRequest(url, method);
+                req.timeout = TopeDeTiempoParaPeticiones.HasValue
+                    ? Mathf.Min(TopeDeTiempoParaPeticiones.Value, timeoutSeconds)
+                    : timeoutSeconds;
+                req.downloadHandler = new DownloadHandlerBuffer();
+
+                if (body != null)
                 {
-                    onError?.Invoke("No hay token: debes hacer Login/Registro primero.");
+                    string json = JsonConvert.SerializeObject(body);
+                    byte[] raw = Encoding.UTF8.GetBytes(json);
+                    req.uploadHandler = new UploadHandlerRaw(raw);
+                    req.SetRequestHeader("Content-Type", "application/json");
+                    if (verboseLogs) Debug.Log($"[API] {method} {url}\n{Censurar(json, path)}");
+                }
+                else if (verboseLogs)
+                {
+                    Debug.Log($"[API] {method} {url}");
+                }
+
+                if (auth)
+                {
+                    if (!IsLoggedIn)
+                    {
+                        onError?.Invoke("No hay token: debes hacer Login/Registro primero.");
+                        yield break;
+                    }
+                    req.SetRequestHeader("Authorization", $"Token {Token}");
+                }
+
+                yield return req.SendWebRequest();
+
+                string text = req.downloadHandler != null ? req.downloadHandler.text : "";
+
+                if (req.result != UnityWebRequest.Result.Success)
+                {
+                    // La respuesta de error tambien se censura: con DEBUG=True el
+                    // servidor devuelve una traza HTML que incluye la contrasena.
+                    string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{Censurar(text, path)}";
+                    if (verboseLogs) Debug.LogError(msg);
+                    onError?.Invoke(string.IsNullOrEmpty(text) ? req.error : text);
                     yield break;
                 }
-                req.SetRequestHeader("Authorization", $"Token {Token}");
-            }
 
-            yield return req.SendWebRequest();
+                if (verboseLogs) Debug.Log($"[API] OK {(int)req.responseCode} {path}\n{Censurar(text, path)}");
 
-            string text = req.downloadHandler != null ? req.downloadHandler.text : "";
-
-            if (req.result != UnityWebRequest.Result.Success)
-            {
-                string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{text}";
-                if (verboseLogs) Debug.LogError(msg);
-                onError?.Invoke(string.IsNullOrEmpty(text) ? req.error : text);
-                yield break;
-            }
-
-            if (verboseLogs) Debug.Log($"[API] OK {(int)req.responseCode} {path}\n{text}");
-
-            TResponse parsed = default;
-            if (!string.IsNullOrEmpty(text) && typeof(TResponse) != typeof(string))
-            {
-                try
+                TResponse parsed = default;
+                if (!string.IsNullOrEmpty(text) && typeof(TResponse) != typeof(string))
                 {
-                    parsed = JsonConvert.DeserializeObject<TResponse>(text);
+                    try
+                    {
+                        parsed = JsonConvert.DeserializeObject<TResponse>(text);
+                    }
+                    catch (Exception e)
+                    {
+                        onError?.Invoke($"Error al parsear JSON: {e.Message}\n{text}");
+                        yield break;
+                    }
                 }
-                catch (Exception e)
+                else if (typeof(TResponse) == typeof(string))
                 {
-                    onError?.Invoke($"Error al parsear JSON: {e.Message}\n{text}");
-                    yield break;
+                    parsed = (TResponse)(object)text;
                 }
-            }
-            else if (typeof(TResponse) == typeof(string))
-            {
-                parsed = (TResponse)(object)text;
-            }
 
-            onSuccess?.Invoke(parsed);
+                onSuccess?.Invoke(parsed);
+            }
+            finally
+            {
+                _enVuelo--;
+            }
         }
 
         /// <summary>
@@ -626,6 +1517,159 @@ namespace Fishy.Net
 
         private static string JugadoresKey(int adultoId) => $"fishy.jugadores.{adultoId}";
         private static string PartidasKey(int jugadorId) => $"fishy.partidas.{jugadorId}";
+
+        // Por partida, igual que la clave de MissionManager: sin el id adentro, el
+        // inventario del Perfil 1 se le aparecería al Perfil 2 en el mismo equipo.
+        private static string InventarioKey(int partidaId) => $"fishy.inventario.{partidaId}";
+
+        private static string PersonajeKey(int partidaId) => $"fishy.personaje.{partidaId}";
+        private static string ObjetosKey(int partidaId) => $"fishy.objetos.{partidaId}";
+        private static string NpcsKey(int partidaId) => $"fishy.npcs.{partidaId}";
+
+        /// <summary>Espeja el update_or_create del backend: no duplica, pero actualiza `exito`.</summary>
+        private static NpcProgresoDto LocalMarcarNpc(int partidaId, string npcId, bool exito)
+        {
+            var lista = LoadLocalList<NpcProgresoDto>(NpcsKey(partidaId));
+
+            var existente = lista.Find(n => n != null && n.npc_id == npcId);
+            if (existente != null)
+            {
+                existente.exito = exito;
+                SaveLocalList(NpcsKey(partidaId), lista);
+                return existente;
+            }
+
+            var nuevo = new NpcProgresoDto
+            {
+                id = lista.Count + 1,
+                npc_id = npcId,
+                exito = exito,
+                fecha = LocalNow(),
+            };
+            lista.Add(nuevo);
+            SaveLocalList(NpcsKey(partidaId), lista);
+            return nuevo;
+        }
+
+        /// <summary>
+        /// Espeja el POST idempotente del backend: si el objeto ya estaba, devuelve la
+        /// fila existente sin duplicarla ni mover la fecha.
+        /// </summary>
+        private static ObjetoRecogidoDto LocalMarcarObjeto(int partidaId, string objetoId)
+        {
+            var lista = LoadLocalList<ObjetoRecogidoDto>(ObjetosKey(partidaId));
+
+            var existente = lista.Find(o => o != null && o.objeto_id == objetoId);
+            if (existente != null) return existente;
+
+            var nuevo = new ObjetoRecogidoDto
+            {
+                id = lista.Count + 1,
+                objeto_id = objetoId,
+                fecha = LocalNow(),
+            };
+            lista.Add(nuevo);
+            SaveLocalList(ObjetosKey(partidaId), lista);
+            return nuevo;
+        }
+
+        /// <summary>Donde quedo Otto segun este equipo. Nunca devuelve null.</summary>
+        private static PersonajeDto LocalLeerPersonaje(int partidaId)
+        {
+            string raw = PlayerPrefs.GetString(PersonajeKey(partidaId), "");
+            if (string.IsNullOrEmpty(raw)) return new PersonajeDto { tiene_posicion = false };
+
+            try
+            {
+                var dto = JsonConvert.DeserializeObject<PersonajeDto>(raw);
+                if (dto == null) return new PersonajeDto { tiene_posicion = false };
+                // Se recalcula en vez de confiar en lo guardado: si el JSON quedo a
+                // medias, `tiene_posicion` podria decir true sin coordenadas.
+                dto.tiene_posicion = dto.pos_x.HasValue && dto.pos_y.HasValue;
+                return dto;
+            }
+            catch { return new PersonajeDto { tiene_posicion = false }; }
+        }
+
+        private static PersonajeDto LocalGuardarPersonaje(int partidaId, string escena, float x, float y,
+            string zonaActual)
+        {
+            // Sin zona se conserva la que ya habia, igual que hace el PATCH del
+            // servidor al omitir el campo. Aqui hay que leerla a mano porque esto no
+            // parchea una fila: reescribe el DTO entero, y un `zonaActual ?? ""` la
+            // borraria. Si las dos ramas divergen, el bug aparece recien al
+            // reconectar, que es el peor momento para descubrirlo.
+            string zona = string.IsNullOrEmpty(zonaActual)
+                ? (LocalLeerPersonaje(partidaId).zona_actual ?? "")
+                : zonaActual;
+
+            var dto = new PersonajeDto
+            {
+                escena = escena ?? "",
+                pos_x = x,
+                pos_y = y,
+                zona_actual = zona,
+                tiene_posicion = true,
+                fecha_actualizacion = LocalNow(),
+            };
+            PlayerPrefs.SetString(PersonajeKey(partidaId), JsonConvert.SerializeObject(dto));
+            PlayerPrefs.Save();
+            return dto;
+        }
+
+        /// <summary>Inventario guardado en este equipo para esa partida.</summary>
+        private static List<ItemInventarioDto> LocalLeerInventario(int partidaId)
+        {
+            return LoadLocalList<ItemInventarioDto>(InventarioKey(partidaId));
+        }
+
+        /// <summary>
+        /// Espeja el PUT del backend: reemplaza, no acumula. Se replican aquí las
+        /// mismas reglas —cantidades no positivas se descartan y los repetidos se
+        /// suman— para que jugar con o sin servidor dé el mismo resultado. Si las
+        /// dos ramas divergen, el bug aparece recién al reconectar, que es el peor
+        /// momento para descubrirlo.
+        /// </summary>
+        private static List<ItemInventarioDto> LocalGuardarInventario(
+            int partidaId, IList<ItemInventarioEnvio> items)
+        {
+            var sumados = new Dictionary<string, int>();
+            foreach (var item in items)
+            {
+                if (item == null || string.IsNullOrWhiteSpace(item.item_id)) continue;
+                if (item.cantidad <= 0) continue;
+
+                string id = item.item_id.Trim();
+                sumados[id] = (sumados.TryGetValue(id, out int previo) ? previo : 0) + item.cantidad;
+            }
+
+            // Se conserva `fecha_agregado` de lo que ya estaba: el objeto no volvió a
+            // entrar a la mochila, sigue ahí. Es la misma semántica que da el
+            // update_or_create del backend, que no toca auto_now_add al actualizar.
+            var antes = LocalLeerInventario(partidaId)
+                .Where(d => d != null && !string.IsNullOrEmpty(d.item_id))
+                .ToDictionary(d => d.item_id, d => d);
+
+            string ahora = LocalNow();
+            var lista = new List<ItemInventarioDto>();
+            int seq = 1;
+
+            foreach (var par in sumados)
+            {
+                antes.TryGetValue(par.Key, out var previo);
+                lista.Add(new ItemInventarioDto
+                {
+                    id = seq++,
+                    item_id = par.Key,
+                    cantidad = par.Value,
+                    fecha_agregado = previo != null ? previo.fecha_agregado : ahora,
+                    fecha_actualizacion = ahora,
+                });
+            }
+
+            SaveLocalList(InventarioKey(partidaId), lista);
+            return lista;
+        }
 
         private static List<T> LoadLocalList<T>(string key)
         {
@@ -661,7 +1705,7 @@ namespace Fishy.Net
             _localAdultoNombre = nombre;
             _localAdultoEmail = email;
             ResetSessionState();
-            if (verboseLogs) Debug.Log($"[API-LOCAL] Registro adulto '{nombre}' (id={seq}).");
+            if (verboseLogs) Debug.Log($"[API-LOCAL] Registro de adulto (id={seq}).");
             onSuccess?.Invoke();
         }
 
@@ -678,7 +1722,7 @@ namespace Fishy.Net
             _localAdultoNombre = nombre;
             _localAdultoEmail = PlayerPrefs.GetString("fishy.useremail." + nombre, "");
             ResetSessionState();
-            if (verboseLogs) Debug.Log($"[API-LOCAL] Login adulto '{nombre}' (id={AdultoId}).");
+            if (verboseLogs) Debug.Log($"[API-LOCAL] Login de adulto (id={AdultoId}).");
             onSuccess?.Invoke();
         }
 
@@ -724,7 +1768,7 @@ namespace Fishy.Net
             lista.Add(dto);
             SaveLocalList(JugadoresKey(AdultoId.Value), lista);
 
-            if (verboseLogs) Debug.Log($"[API-LOCAL] Perfil de menor '{nombre}' creado (id={seq}).");
+            if (verboseLogs) Debug.Log($"[API-LOCAL] Perfil de menor creado (id={seq}).");
             onSuccess?.Invoke(dto);
         }
 
@@ -1040,6 +2084,16 @@ namespace Fishy.Net
         public float progreso;
         public string fecha_inicio;
         public string fecha_update;
+        /// <summary>
+        /// Zona donde quedo Otto (`zona_1`, `zona_2`...), para poder decir de que
+        /// partida se trata sin pedir el personaje de cada una.
+        ///
+        /// La manda el backend dentro de la lista de partidas. Hasta que ese cambio
+        /// este desplegado llega null, y la tarjeta ya lo contempla: tambien llega
+        /// vacia en toda partida recien creada, porque la fila de PersonajeJugador
+        /// nace recien en el primer guardado de posicion.
+        /// </summary>
+        public string zona_actual;
     }
 
     [Serializable]
@@ -1133,6 +2187,288 @@ namespace Fishy.Net
             this.texto = texto;
             this.orden = orden;
             this.calidad_respuesta = calidadRespuesta;
+        }
+    }
+
+    [Serializable]
+    public class MensajeDetectiveDto
+    {
+        public int id;
+        public string mensaje_id;
+        public string npc_sender;
+        public string texto;
+        public bool es_senal_riesgo;
+        public bool es_ambiguo;
+        public string explicacion;
+        public string nota_ambiguo;
+        public int orden;
+    }
+
+    [Serializable]
+    public class CasoDetectiveDto
+    {
+        public int id;
+        public string caso_id;
+        public string titulo;
+        public string zona;
+        public List<string> etiquetas_ml = new List<string>();
+        public string permiso_player_text;
+        public string permiso_npc_nombre;
+        public string permiso_npc_response;
+        public List<MensajeDetectiveDto> mensajes = new List<MensajeDetectiveDto>();
+
+        // HDU-11 — el backend todavía no los manda (ver
+        // REQUISITOS_BD.md, seccion C); quedan en su default
+        // y DetectiveCaseManager cae al catálogo local cuando vienen vacíos.
+        public string recompensa_item_id;
+        public string recompensa_nombre;
+        public string recompensa_accesorio_hdu06;
+        public float recompensa_umbral_aciertos;
+        public bool recompensa_no_duplica_al_repetir;
+    }
+
+    [Serializable]
+    /// <summary>Una opción de respuesta del banco, tal como la sirve el backend.
+    /// Ojo: el backend la llama <c>opcion_id</c> y <c>opciones</c>, mientras que el
+    /// JSON empaquetado usa <c>id</c> y <c>opciones_respuesta</c>. La traducción se
+    /// hace en BancoPreguntasLoader, no aquí.</summary>
+    public class OpcionBancoDto
+    {
+        public string opcion_id;
+        public string texto;
+        public string tipo;
+        public string consecuencia_narrativa;
+        public int    impacto_puntuacion;
+        public string siguiente_pregunta;
+        public int    orden;
+    }
+
+    public class HistorialPrevioDto
+    {
+        public string remitente;
+        public string npc_nombre;
+        public string mensaje;
+        public string categoria;
+    }
+
+    /// <summary>Una pregunta del banco servida por /banco/preguntas/.</summary>
+    public class PreguntaBancoDto
+    {
+        public string pregunta_id;
+        public string hdu;
+        public string zona;
+        public string npc_id;
+        public string npc_nombre;
+        public string npc_avatar;
+
+        // Nullables en la base: hay preguntas sueltas que no pertenecen a ninguna
+        // fase. Con int a secas, Newtonsoft revienta al encontrarse un null.
+        public int?   fase;
+        public int?   orden_en_fase;
+
+        public string narrativa_continuacion;
+        public string escenario_id;
+        public string escenario_nombre;
+        public List<HistorialPrevioDto> historial_previo = new List<HistorialPrevioDto>();
+        public string categoria;
+        public int    nivel_riesgo;
+        public bool   es_mensaje_riesgo;
+        public bool   es_fin_de_npc;
+        public bool   es_fin_de_zona;
+        public string mensaje_npc;
+        public string pensamiento_otto;
+        public List<OpcionBancoDto> opciones = new List<OpcionBancoDto>();
+    }
+
+    public class DialogoNpcDto
+    {
+        public string dialogo_id;
+        public string hdu;
+        public string zona;
+        public string npc_id;
+        public string npc_nombre;
+        public string npc_avatar;
+        public string tipo;
+        public string trigger;
+        public List<string> lineas = new List<string>();
+        public string pista_mision;
+        public string mision_id;
+    }
+
+    [Serializable]
+    public class ProgresoDetectiveDto
+    {
+        public int id;
+        public int partida;
+        public int caso;         // PK numerica
+        public string caso_id;   // "DC_CASO_01" — lo que el prefab tiene serializado
+        public List<string> mensajes_marcados = new List<string>();
+        public int aciertos;
+        public int total_riesgo;
+        public float porcentaje;
+        public int intentos;
+        public string fecha_inicio;
+        public string fecha_termino;
+    }
+
+    /// <summary>Progreso de una misión dentro de una partida (HDU-1 CA4/CA5).</summary>
+    [Serializable]
+    public class MisionProgresoDto
+    {
+        public int id;
+        public string mision_id;     // "MISION_NPC_01" — el desafioId del DesafioData
+        public string estado;        // "disponible" | "completada"
+        public string nombre;        // del catálogo del banco; vacío si el id no está ahí
+        public string zona;          // idem
+        public bool en_catalogo;     // false = el banco no tiene ese id (se guarda igual)
+        public string fecha_desbloqueo;
+        public string fecha_completada;
+
+        public bool Completada => estado == "completada";
+    }
+
+    /// <summary>Respuesta de <c>chats/completo</c>: lo que quedó guardado.</summary>
+    [Serializable]
+    public class ChatCompletoDto
+    {
+        public NpcDto npc;
+        public ChatDto chat;
+        public List<MensajeDto> mensajes;
+    }
+
+    /// <summary>Avance de un objetivo dentro de una partida (B.3 de REQUISITOS_BD).</summary>
+    [Serializable]
+    public class ObjetivoProgresoDto
+    {
+        public string mision_id;
+        public int orden;
+        public bool cumplido;
+        public string fecha;
+    }
+
+    /// <summary>Progreso de una zona dentro de una partida (HDU-3 CA5, HDU-4 CA5).</summary>
+    [Serializable]
+    public class ZonaProgresoDto
+    {
+        public int id;
+        public string zona;          // slug del banco: "desconocidos" | "ciberacoso" | ...
+        public bool desbloqueada;    // siempre true: la fila sólo existe si se desbloqueó
+        public bool completada;
+        public string fecha_desbloqueo;
+        public string fecha_completada;
+    }
+
+    /// <summary>Un objeto de la mochila de Otto dentro de una partida (HDU-15).</summary>
+    [Serializable]
+    public class ItemInventarioDto
+    {
+        public int id;
+        public string item_id;   // "ITEM_BRUJULA" — el itemId del ItemData
+        public int cantidad;
+        public string fecha_agregado;
+        public string fecha_actualizacion;
+    }
+
+    /// <summary>Un objeto del mapa que esta partida ya recogio (HDU-1 CA2).</summary>
+    [Serializable]
+    public class ObjetoRecogidoDto
+    {
+        public int id;
+        public string objeto_id;   // "SAMPLESCENE_CONCHA_01" — el objetoId del WorldItem
+        public string fecha;
+    }
+
+    /// <summary>
+    /// Respuesta de <c>/partidas/{id}/presion-social/</c> (HDU-04 CA4).
+    ///
+    /// <c>SocialPressureLevel</c> va en ingles y en CamelCase a proposito, rompiendo
+    /// la convencion del resto de los DTO: es el nombre EXACTO que la ficha de HDU-04
+    /// del plan de proyecto le da al campo en su criterio de prueba
+    /// ("el campo SocialPressureLevel del siguiente NPC aumenta en al menos 1 nivel").
+    /// El nombre tiene que calzar con el JSON del servidor, asi que se eligio ese en
+    /// los dos lados. NO renombrarlo por prolijidad.
+    /// </summary>
+    [Serializable]
+    public class PuntajeFinalDto
+    {
+        public int    partida_id;
+        public int    puntos;           // ya con el piso en 0
+        public int    puntos_brutos;    // la suma tal cual, puede ser negativa
+        public int    puntos_maximos;   // mejor ruta de cada chat, desde el banco
+        public float? porcentaje;       // null si el banco no tiene decisiones
+        public int    decisiones;
+    }
+
+    public class PresionSocialDto
+    {
+        public int partida_id;
+        public int SocialPressureLevel;      // 0, 1 o 2
+        public int rechazos_consecutivos;    // retos rechazados seguidos, sin cortar
+        public int umbral;                   // cuantos hacen falta para subir a 1
+        public int nivel_maximo;
+        public string zona;
+        public List<RetoResultadoDto> retos; // un elemento por NPC, en orden
+    }
+
+    /// <summary>Como termino un reto: "rechazado", "aceptado" o "indeciso".</summary>
+    [Serializable]
+    public class RetoResultadoDto
+    {
+        public string npc_id;
+        public string resultado;
+    }
+
+    /// <summary>Un NPC de tematica cuya interaccion esta partida ya termino.</summary>
+    [Serializable]
+    public class NpcProgresoDto
+    {
+        public int id;
+        public string npc_id;   // "BOSQUE_DESCONOCIDO_01" — el npcId de la escena
+        public bool exito;      // supero el umbral: decide si el NPC se retira del mapa
+        public string fecha;
+    }
+
+    /// <summary>Donde quedo Otto en esta partida (HDU-15).</summary>
+    [Serializable]
+    public class PersonajeDto
+    {
+        public string escena;
+        public float? pos_x;
+        public float? pos_y;
+        /// <summary>
+        /// Region del mapa donde quedo Otto: el `zoneId` de la BlockedZone
+        /// (`zona_1`, `zona_2`...). Cadena vacia = nunca se guardo, nunca null.
+        ///
+        /// NO es lo mismo que la `zona` de ZonaProgresoDto, que es la tematica del
+        /// banco (`desconocidos`, `ciberacoso`). Son dos vocabularios distintos y no
+        /// hay tabla que los relacione.
+        /// </summary>
+        public string zona_actual;
+        /// <summary>False = nunca se guardo. Distinto de estar en el (0,0).</summary>
+        public bool tiene_posicion;
+        public string fecha_actualizacion;
+    }
+
+    /// <summary>
+    /// Lo que se manda al guardar: solo id y cantidad.
+    ///
+    /// Va aparte de <see cref="ItemInventarioDto"/> a propósito. Si se reenviara el
+    /// DTO completo iría también el `id` de la fila y las fechas del servidor, que
+    /// el cliente no tiene por qué decidir; y peor, un `id` inventado en modo local
+    /// viajaría al backend real el día que se recupere la conexión.
+    /// </summary>
+    [Serializable]
+    public class ItemInventarioEnvio
+    {
+        public string item_id;
+        public int cantidad;
+
+        public ItemInventarioEnvio() { }
+
+        public ItemInventarioEnvio(string itemId, int cantidad)
+        {
+            this.item_id = itemId;
+            this.cantidad = cantidad;
         }
     }
 }

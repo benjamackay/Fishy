@@ -76,7 +76,7 @@ namespace Fishy.World
 
             if (zone == null || _cam == null || IsPlaying)
             {
-                if (zone != null) zone.Unlock();   // fallback: desbloqueo inmediato
+                if (zone != null) zone.UnlockInmediato();   // fallback: desbloqueo inmediato
                 onComplete?.Invoke();
                 return;
             }
@@ -89,9 +89,9 @@ namespace Fishy.World
             IsPlaying = true;
 
             // Bloquear movimiento de Otto y pausar el seguimiento de la cámara.
-            var otto = FindFirstObjectByType<OttoController>();
+            var otto = FindAnyObjectByType<OttoController>();
             if (otto != null) otto.DisableMovement();
-            if (_follow == null) _follow = FindFirstObjectByType<CameraFollow2D>();
+            if (_follow == null) _follow = FindAnyObjectByType<CameraFollow2D>();
             if (_follow != null) _follow.enabled = false;
 
             float   startOrtho = _cam.orthographicSize;
@@ -109,7 +109,7 @@ namespace Fishy.World
             ShowBanner(mensaje);
 
             // 3) Revelar: desvanecer el oscurecido (darkenAlpha -> 0).
-            float a0 = zone.Overlay != null ? zone.Overlay.color.a : 0f;
+            float a0 = zone.CurrentDarkenAlpha;
             float elapsed = 0f;
             while (elapsed < revealDuration)
             {
@@ -118,7 +118,9 @@ namespace Fishy.World
                 yield return null;
             }
             // Desbloqueo efectivo: desactiva los colliders (el oscurecido ya está en 0).
-            zone.Unlock();
+            // UnlockInmediato() y no Unlock(): éste último vuelve a llamar aquí mismo, a
+            // Play(), y se llamarían en círculo.
+            zone.UnlockInmediato();
 
             // 4) Mantener un momento con la zona iluminada.
             yield return new WaitForSeconds(holdDuration);
@@ -212,6 +214,14 @@ namespace Fishy.World
             panel.GetComponent<Image>().color = new Color(0.08f, 0.1f, 0.16f, 0.92f);
             _bannerGroup = panel.GetComponent<CanvasGroup>();
             _bannerGroup.alpha = 0f;
+
+            // El banner es sólo un cartel: no recibe clics. Con alpha 0 sigue existiendo, y
+            // por defecto un CanvasGroup invisible sigue bloqueando el ratón; como este canvas
+            // es de los de más arriba (8000), tapaba en silencio cualquier botón que quedara
+            // debajo (la X del álbum de evidencias, por ejemplo). Va en el grupo para que
+            // valga también para el texto hijo.
+            _bannerGroup.blocksRaycasts = false;
+            _bannerGroup.interactable   = false;
 
             var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
             txtGO.transform.SetParent(panel.transform, false);

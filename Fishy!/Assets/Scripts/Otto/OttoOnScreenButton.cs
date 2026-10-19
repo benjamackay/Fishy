@@ -30,7 +30,7 @@ namespace Fishy.World
         private void Awake()
         {
             if (otto == null)
-                otto = FindFirstObjectByType<OttoController>();
+                otto = FindAnyObjectByType<OttoController>();
         }
 
         public void OnPointerDown(PointerEventData eventData) => SetPressed(true);

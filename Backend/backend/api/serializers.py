@@ -2,12 +2,22 @@ from rest_framework import serializers
 from .models import (
     AdultoResponsable, UsuarioJugador, NivelRiesgo, Partida, NPC, Chat,
     Mensaje, PosibleRespuesta, PreguntaBanco, OpcionBanco,
+    CasoDetective, MensajeDetective, CasoDetectiveProgreso,
+    DialogoNPC, MisionProgreso, ZonaProgreso, ItemInventario,
+    PersonajeJugador, ObjetoRecogido, NpcProgreso,
+    Mision, ObjetivoMision, ObjetivoProgreso,
 )
 
 
 class RegistroSerializer(serializers.ModelSerializer):
     """Alta de la cuenta del adulto responsable (la única con login)."""
     password = serializers.CharField(write_only=True, min_length=4)
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if AdultoResponsable.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Ya existe una cuenta con este correo.")
+        return value
 
     class Meta:
         model = AdultoResponsable
@@ -18,10 +28,11 @@ class RegistroSerializer(serializers.ModelSerializer):
 
 
 class AdultoResponsableSerializer(serializers.ModelSerializer):
-    """Datos del adulto autenticado (sin password)."""
+    """Datos del adulto autenticado (sin password). Expone `rol`, no `is_admin`:
+    el privilegio técnico de Django no le sirve al portal."""
     class Meta:
         model = AdultoResponsable
-        fields = ["id", "nombre", "apellido", "email", "edad", "fecha_nacimiento", "fecha_creacion"]
+        fields = ["id", "nombre", "apellido", "email", "edad", "fecha_nacimiento", "fecha_creacion", "rol"]
         read_only_fields = fields
 
 
@@ -41,10 +52,39 @@ class NivelRiesgoSerializer(serializers.ModelSerializer):
 
 
 class PartidaSerializer(serializers.ModelSerializer):
+    """`zona_actual` viene de `PersonajeJugador`, el uno-a-uno de la partida, para
+    que la lista de partidas se pueda pintar sin pedir `/personaje/` una por una.
+
+    Una partida recien creada todavia no tiene fila de personaje: la crea
+    `GET/PATCH /partidas/<id>/personaje/` con get_or_create, no `POST /partidas/`.
+    Asi que el campo tiene que resolver ese caso, y aca devuelve la **cadena vacia**,
+    no null, porque es lo mismo que ya responde `PersonajeJugadorSerializer` cuando
+    la zona no se ha guardado -y lo que el propio modelo documenta: en `zona_actual`
+    el vacio significa "no se guardo". El cliente no deberia tener que distinguir dos
+    formas de decir lo mismo segun por que endpoint entro.
+
+    Es un `SerializerMethodField` y no un `CharField(source="personaje.zona_actual",
+    default="")` por eso mismo: el `source` no revienta, pero el `get_attribute` de
+    DRF atrapa el ObjectDoesNotExist del uno-a-uno inverso y devuelve None *antes* de
+    mirar el `default`, asi que ese `default=""` es letra muerta y la respuesta sale
+    con null igual. Verificado contra la version de DRF del venv.
+    """
+    zona_actual = serializers.SerializerMethodField()
+
     class Meta:
         model = Partida
-        fields = ["id", "usuario_jugador", "nivel_riesgo", "progreso", "fecha_inicio", "fecha_update"]
+        fields = [
+            "id", "usuario_jugador", "nivel_riesgo", "progreso",
+            "zona_actual", "fecha_inicio", "fecha_update",
+        ]
         read_only_fields = ["id", "usuario_jugador", "fecha_inicio", "fecha_update"]
+
+    def get_zona_actual(self, obj):
+        # getattr con default funciona porque el RelatedObjectDoesNotExist del
+        # uno-a-uno inverso hereda de AttributeError. Si la vista hizo
+        # select_related("personaje"), esto no dispara consulta.
+        personaje = getattr(obj, "personaje", None)
+        return personaje.zona_actual if personaje is not None else ""
 
 
 class NPCSerializer(serializers.ModelSerializer):
@@ -102,6 +142,213 @@ class PreguntaBancoSerializer(serializers.ModelSerializer):
             "escenario_id", "escenario_nombre", "historial_previo",
             "categoria", "nivel_riesgo", "es_mensaje_riesgo",
             "es_fin_de_npc", "es_fin_de_zona",
-            "mensaje_npc", "etiquetas_ml",
+            "mensaje_npc", "pensamiento_otto", "etiquetas_ml",
             "opciones",
         ]
+
+
+class MensajeDetectiveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MensajeDetective
+        fields = [
+            "id", "mensaje_id", "npc_sender", "texto",
+            "es_senal_riesgo", "es_ambiguo", "explicacion", "nota_ambiguo", "orden",
+        ]
+
+
+class CasoDetectiveSerializer(serializers.ModelSerializer):
+    """Caso completo con sus mensajes anidados (mismo patrón que PreguntaBanco.opciones)."""
+    mensajes = MensajeDetectiveSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = CasoDetective
+        fields = [
+            "id", "caso_id", "titulo", "zona", "etiquetas_ml",
+            "permiso_player_text", "permiso_npc_nombre", "permiso_npc_response",
+            "recompensa_item_id", "recompensa_nombre", "recompensa_accesorio_hdu06",
+            "recompensa_umbral_aciertos", "recompensa_no_duplica_al_repetir",
+            "mensajes",
+        ]
+
+
+class DialogoNPCSerializer(serializers.ModelSerializer):
+    """Diálogo de un NPC neutro (sin árbol de decisiones): líneas planas + la
+    misión que desbloquea, si tiene una (mision_id, no el FK entero)."""
+    mision_id = serializers.CharField(source="mision.mision_id", read_only=True, default=None)
+
+    class Meta:
+        model = DialogoNPC
+        fields = [
+            "dialogo_id", "hdu", "zona", "npc_id", "npc_nombre", "npc_avatar",
+            "tipo", "trigger", "lineas", "pista_mision", "mision_id",
+        ]
+
+
+class CasoDetectiveProgresoSerializer(serializers.ModelSerializer):
+    """Resultado de un intento del jugador sobre un caso. `partida`/`caso`/`intentos`
+    nunca vienen del cliente: los fija la vista (mismo patrón que UsuarioJugador.adulto).
+
+    `caso` es la PK numérica; se agrega `caso_id` (el string, ej. DC_CASO_01) porque es
+    lo que el cliente tiene serializado en el prefab y lo único con lo que puede saber
+    si un caso ya está completado."""
+    caso_id = serializers.CharField(source="caso.caso_id", read_only=True)
+
+    class Meta:
+        model = CasoDetectiveProgreso
+        fields = [
+            "id", "partida", "caso", "caso_id", "mensajes_marcados",
+            "aciertos", "total_riesgo", "porcentaje", "intentos",
+            "fecha_inicio", "fecha_termino",
+        ]
+        read_only_fields = ["id", "partida", "caso", "intentos", "fecha_inicio"]
+
+
+class ObjetivoMisionSerializer(serializers.ModelSerializer):
+    """Un objetivo del catalogo, tal como lo lee `ObjetivoRegistro` de Unity.
+
+    Todos los campos salen siempre, tambien los que no aplican al tipo: van
+    vacios (`""` / `0`) y nunca ausentes. `JsonUtility` no distingue un campo que
+    falta de uno vacio, y un contrato con campos que aparecen y desaparecen es
+    peor de depurar que uno con ruido."""
+
+    class Meta:
+        model = ObjetivoMision
+        fields = [
+            "orden", "tipo", "descripcion",
+            "item_id", "cantidad", "dialogo_id", "escenario_ids", "zona_id", "caso_id",
+        ]
+        read_only_fields = fields
+
+
+class MisionCatalogoSerializer(serializers.ModelSerializer):
+    """El catalogo, no el progreso: que misiones existen y que pide cada una.
+
+    `titulo` es un alias de `nombre`. La tabla lo llama `nombre` desde el banco y
+    el archivo de Unity lo llama `titulo`; `MisionRegistro` acepta los dos y se
+    queda con el que venga, asi que se mandan ambos y ninguna mision aparece sin
+    titulo por una diferencia de nombre."""
+    titulo    = serializers.CharField(source="nombre", read_only=True)
+    objetivos = ObjetivoMisionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Mision
+        fields = [
+            "mision_id", "titulo", "nombre", "tipo", "zona", "zona_objetivo",
+            "orden", "descripcion", "objetivos",
+            "desbloquea_mision", "recompensa_item_id", "recompensa_cantidad",
+        ]
+        read_only_fields = fields
+
+
+class ObjetivoProgresoSerializer(serializers.ModelSerializer):
+    """Avance de un objetivo dentro de una partida. Ver ObjetivoProgreso."""
+
+    class Meta:
+        model = ObjetivoProgreso
+        fields = ["mision_id", "orden", "cumplido", "fecha"]
+        read_only_fields = ["fecha"]
+
+class MisionProgresoSerializer(serializers.ModelSerializer):
+    """Progreso de una mision dentro de una partida.
+
+    `estado` y `en_catalogo` no son columnas: el primero se deriva de
+    `fecha_completada` (ver el modelo) y el segundo lo resuelve la vista de una
+    sola consulta al catalogo y lo pasa por `context["en_catalogo"]`, para no
+    hacer un SELECT por fila."""
+    estado      = serializers.CharField(read_only=True)
+    nombre      = serializers.SerializerMethodField()
+    zona        = serializers.SerializerMethodField()
+    en_catalogo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MisionProgreso
+        fields = [
+            "id", "mision_id", "estado", "nombre", "zona", "en_catalogo",
+            "fecha_desbloqueo", "fecha_completada",
+        ]
+        read_only_fields = fields
+
+    def _catalogo(self, obj):
+        return (self.context.get("catalogo") or {}).get(obj.mision_id)
+
+    def get_nombre(self, obj):
+        mision = self._catalogo(obj)
+        return mision.nombre if mision else ""
+
+    def get_zona(self, obj):
+        mision = self._catalogo(obj)
+        return mision.zona if mision else ""
+
+    def get_en_catalogo(self, obj):
+        return self._catalogo(obj) is not None
+
+
+class ZonaProgresoSerializer(serializers.ModelSerializer):
+    """Progreso de una zona dentro de una partida. Que la fila exista significa
+    que la zona esta desbloqueada; `completada` se deriva de la fecha."""
+    completada   = serializers.BooleanField(read_only=True)
+    desbloqueada = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ZonaProgreso
+        fields = [
+            "id", "zona", "desbloqueada", "completada",
+            "fecha_desbloqueo", "fecha_completada",
+        ]
+        read_only_fields = fields
+
+    def get_desbloqueada(self, obj):
+        # Siempre True: la fila solo existe si la zona se desbloqueo. Va explicito
+        # igual porque Unity pinta el mapa leyendo este campo, no la ausencia de fila.
+        return True
+
+
+class ItemInventarioSerializer(serializers.ModelSerializer):
+    """Un objeto de la mochila de Otto dentro de una partida.
+
+    Solo viaja el `item_id` y cuanto lleva: el nombre visible, el icono y la
+    descripcion viven en el ScriptableObject de Unity y no se duplican aca (ver
+    el comentario del modelo). No hay `en_catalogo` como en MisionProgreso
+    porque no hay catalogo de items contra el cual comparar."""
+
+    class Meta:
+        model = ItemInventario
+        fields = ["id", "item_id", "cantidad", "fecha_agregado", "fecha_actualizacion"]
+        read_only_fields = fields
+
+
+class PersonajeJugadorSerializer(serializers.ModelSerializer):
+    """Donde quedo Otto en esta partida.
+
+    `tiene_posicion` no es columna: lo deriva el modelo. Va explicito para que el
+    cliente no tenga que decidir si un null significa "nunca jugo" o "esta en el
+    origen del mapa", que son cosas distintas."""
+    tiene_posicion = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = PersonajeJugador
+        fields = ["escena", "pos_x", "pos_y", "zona_actual",
+                  "tiene_posicion", "fecha_actualizacion"]
+        read_only_fields = ["tiene_posicion", "fecha_actualizacion"]
+
+
+class ObjetoRecogidoSerializer(serializers.ModelSerializer):
+    """Un objeto del mapa que esta partida ya recogio.
+
+    Solo viaja el id del objeto de la escena: que exista la fila significa que ya
+    no esta en el suelo. No hay un campo `recogido` porque no habria estado en que
+    valiera false -recoger es un camino de ida y la fila no se borra."""
+
+    class Meta:
+        model = ObjetoRecogido
+        fields = ["id", "objeto_id", "fecha"]
+        read_only_fields = fields
+
+
+class NpcProgresoSerializer(serializers.ModelSerializer):
+    """Un NPC de una tematica cuya interaccion esta partida ya termino."""
+
+    class Meta:
+        model = NpcProgreso
+        fields = ["id", "npc_id", "exito", "fecha"]
+        read_only_fields = ["id", "fecha"]

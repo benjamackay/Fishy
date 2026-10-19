@@ -1,0 +1,1039 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using Fishy.UI;
+using Col = Fishy.Detective.DetectiveUITheme.Colores;
+using Med = Fishy.Detective.DetectiveUITheme.Medidas;
+using Fnt = Fishy.Detective.DetectiveUITheme.Fuente;
+using Txt = Fishy.Detective.DetectiveUITheme.Textos;
+using Spr = Fishy.Detective.DetectiveUITheme.Sprites;
+using Fnd = Fishy.Detective.DetectiveUITheme.Fondo;
+
+namespace Fishy.Detective
+{
+    /// <summary>
+    /// HDU-10 — Interfaz del modo detective.
+    /// Burbujas izquierda/derecha según autor. Click en burbuja = marcar/desmarcar con borde rojo.
+    /// Se autogenera en runtime sin prefabs ni referencias en inspector.
+    ///
+    /// Usa TextMeshPro (no el Text legacy): a los tamaños grandes que pide el
+    /// diseño, el Text legacy se ve borroso porque escala un bitmap, mientras que
+    /// TMP renderiza desde SDF y se mantiene nítido. Además es lo que ya usa el
+    /// resto del juego (menú del Tab, panel de diálogo).
+    /// </summary>
+    public class DetectiveUI : MonoBehaviour
+    {
+        public static DetectiveUI Instance { get; private set; }
+
+        // ── Referencias runtime ───────────────────────────────────────────────
+        private GameObject       _window;
+        private RectTransform    _content;
+        private ScrollRect       _scrollRect;
+        private GameObject       _panelResultado;
+        private TextMeshProUGUI  _txtMarcador;
+        private TextMeshProUGUI  _txtResultado;
+        private Button           _btnConfirmar;
+        private Button           _btnRepetir;
+        private Button           _btnVerExplicacion;
+        private RectTransform    _contenedorExplicaciones;
+        private RectTransform    _cardResultado;
+        private ScrollRect       _scrollExplicaciones;
+        private LayoutElement    _altoExplicaciones;
+
+        // ── Fuentes ───────────────────────────────────────────────────────────
+        private TMP_FontAsset _fontIconos;    // símbolos que no están en las otras dos
+        private Sprite        _spriteLupa;
+
+        // ── Ritual de permiso (HDU-10 CA1) ───────────────────────────────────
+        private GameObject    _panelPermiso;
+        private FishyUIKit.PanelDialogo _permisoDialogo;
+        private Button        _btnContinuarPermiso;
+        /// <summary>El ritual son dos tiempos con el mismo botón: primero pide Otto
+        /// y luego contesta el NPC. Sin esto el primer clic ya abriría el teléfono.</summary>
+        private bool          _permisoRespondido;
+
+        /// <summary>La ventana del caso: el teléfono. Se guarda porque durante el
+        /// ritual hay que esconderla —Otto todavía no lo tiene en la mano— y
+        /// enseñarla justo cuando el NPC da permiso.</summary>
+        private GameObject    _panelPrincipal;
+        private Image         _backdrop;
+        private MarcoTelefono _marcoTelefono;
+
+        // ── Estado ────────────────────────────────────────────────────────────
+        private DetectiveCaseManager _manager;
+        private Action _onCerrar;
+        private Action _onRepetir;
+        private List<(DetectiveMessage mensaje, string explicacion)> _noIdentificados;
+
+        // ─────────────────────────────────────────────────────────────────────
+        private void Awake()
+        {
+            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+            Instance = this;
+            CargarRecursos();
+            BuildRuntimeUI();
+            Hide();
+        }
+
+        public static DetectiveUI GetOrCreate()
+        {
+            if (Instance == null)
+            {
+                var go = new GameObject("DetectiveUI");
+                Instance = go.AddComponent<DetectiveUI>();
+            }
+            return Instance;
+        }
+
+        /// <summary>
+        /// Solo carga lo que es propio del Modo Detective. Las fuentes de la marca
+        /// y del cuerpo, y el sprite de esquinas redondeadas, los aporta FishyUIKit:
+        /// son los mismos que usan el chat de NPCs y el diálogo neutro, y tenerlos
+        /// una sola vez evita que se vayan separando con el tiempo.
+        /// </summary>
+        private void CargarRecursos()
+        {
+            // Opcional: si no está, el header dibuja la lupa por su cuenta.
+            _fontIconos = Resources.Load<TMP_FontAsset>(DetectiveUITheme.Fuentes.RutaIconos);
+        }
+
+        /// <summary>La textura del sprite se crea a mano, así que hay que soltarla a
+        /// mano: Unity no recoge lo que se marcó DontSave.</summary>
+        private void OnDestroy()
+        {
+            // Solo la lupa: el sprite redondeado lo cachea FishyUIKit y lo comparten
+            // las demás pantallas, así que soltarlo aquí las dejaría sin fondo.
+            SoltarSprite(_spriteLupa);
+        }
+
+        /// <summary>Suelta un sprite dibujado en memoria junto con su textura.</summary>
+        private void SoltarSprite(Sprite sprite)
+        {
+            if (sprite == null) return;
+
+            Texture2D tex = sprite.texture;
+            Destroy(sprite);
+            if (tex != null) Destroy(tex);
+        }
+
+        /// <summary>
+        /// Se le pregunta a la fuente de la marca si puede escribir el texto y,
+        /// si le falta algún carácter, se cae a la de cuerpo. Preguntar en vez de
+        /// asumir evita el bug clásico: un carácter sin glifo se dibuja como un
+        /// cuadrito roto y nadie se entera hasta que aparece en pantalla.
+        /// </summary>
+        private TMP_FontAsset FuentePara(string texto) => FishyUIKit.FuentePara(texto);
+
+        /// <summary>
+        /// ¿Esta fuente puede dibujar el símbolo? Se pregunta por code point y no
+        /// con HasCharacters(string), que aquí falla por dos motivos distintos:
+        ///
+        ///   • 🔍 es U+1F50D, fuera del BMP: en C# son dos char (surrogate pair) y
+        ///     HasCharacters los revisa por separado, así que da false siempre,
+        ///     tenga la fuente el glifo o no.
+        ///   • la fuente de iconos se genera en modo Dynamic, o sea que nace con
+        ///     la tabla de caracteres VACÍA y rasteriza cada glifo la primera vez
+        ///     que se pide. Preguntarle a la tabla, entonces, no dice nada sobre
+        ///     lo que el TTF realmente tiene.
+        ///
+        /// TryAddCharacters hace justo lo que falta: rasteriza el glifo si el TTF
+        /// lo trae, y lo devuelve en 'faltantes' si no.
+        /// </summary>
+        private static bool PuedeDibujar(TMP_FontAsset fuente, string simbolo)
+        {
+            if (fuente == null || string.IsNullOrEmpty(simbolo)) return false;
+
+            // Sin ConvertToUtf32 directo: revienta si el texto del theme quedó con
+            // medio surrogate suelto, que es fácil al editarlo a mano.
+            uint punto = simbolo.Length >= 2 && char.IsSurrogatePair(simbolo[0], simbolo[1])
+                ? (uint)char.ConvertToUtf32(simbolo[0], simbolo[1])
+                : simbolo[0];
+
+            // Una fuente Static ya trae todos sus glifos horneados y no acepta
+            // agregados, así que ahí sí corresponde mirar la tabla.
+            if (fuente.atlasPopulationMode == AtlasPopulationMode.Static)
+                return fuente.HasCharacter((int)punto);
+
+            return fuente.TryAddCharacters(new[] { punto }, out uint[] faltantes)
+                   && (faltantes == null || faltantes.Length == 0);
+        }
+
+        // ── API pública ───────────────────────────────────────────────────────
+
+        public void Inicializar(DetectiveCaseManager manager, Action onCerrar, Action onRepetir)
+        {
+            _manager   = manager;
+            _onCerrar  = onCerrar;
+            _onRepetir = onRepetir;
+        }
+
+        /// <summary>
+        /// Ritual de permiso previo al caso (HDU-10 CA1): Otto le pide permiso al
+        /// NPC para revisar su conversación, y el NPC autoriza explícitamente
+        /// pidiendo ayuda para identificar señales de riesgo.
+        ///
+        /// Son dos tiempos y un clic cada uno, en el panel de diálogo de siempre:
+        /// primero pide Otto, después contesta el NPC. Recién al tercer clic aparece
+        /// el teléfono con la conversación observada. El orden importa: el teléfono
+        /// no está a la vista mientras se pide, porque lo que se enseña aquí es que
+        /// primero se pregunta y después se mira.
+        /// </summary>
+        public void MostrarPermiso(DetectiveCase caso, Action onContinuar)
+        {
+            _panelResultado.SetActive(false);
+            _window.SetActive(true);
+
+            // El teléfono no está a la vista todavía: primero hay que pedirlo. Y el
+            // mundo se oscurece apenas, porque Otto sigue de pie frente al NPC.
+            MostrarTelefono(false);
+            if (_backdrop != null) _backdrop.color = Col.BackdropPermiso;
+
+            _panelPermiso.SetActive(true);
+            _panelPermiso.transform.SetAsLastSibling();
+
+            _permisoRespondido = false;
+            EscribirPeticionPermiso(caso);
+
+            _btnContinuarPermiso.onClick.RemoveAllListeners();
+            _btnContinuarPermiso.onClick.AddListener(() =>
+            {
+                // Un clic por tiempo: pedir y que te contesten no son el mismo gesto.
+                if (!_permisoRespondido)
+                {
+                    _permisoRespondido = true;
+                    EscribirRespuestaPermiso(caso);
+                    return;
+                }
+
+                _panelPermiso.SetActive(false);
+                onContinuar?.Invoke();
+            });
+        }
+
+        /// <summary>
+        /// Enciende o apaga el teléfono entero. El bisel es hermano de la pantalla y
+        /// no hijo, así que no basta con apagar el panel: se quedaría el marco negro
+        /// flotando sin nada dentro.
+        /// </summary>
+        private void MostrarTelefono(bool visible)
+        {
+            if (_panelPrincipal != null) _panelPrincipal.SetActive(visible);
+            if (_marcoTelefono != null) _marcoTelefono.gameObject.SetActive(visible);
+        }
+
+        /// <summary>Primer tiempo: Otto pide ver la conversación.</summary>
+        private void EscribirPeticionPermiso(DetectiveCase caso)
+        {
+            _permisoDialogo.Nombre.text = Txt.NombreOtto;
+            _permisoDialogo.Texto.text  = caso.permisoPlayerText;
+            _permisoDialogo.Respuesta.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// Segundo tiempo: el NPC autoriza. La petición de Otto se queda abajo en la
+        /// línea de respuesta para que el permiso se lea como un ida y vuelta y no
+        /// como una frase suelta: es el CA1, y lo que se le está enseñando al niño/a
+        /// es justamente que hay que pedir antes de mirar.
+        /// </summary>
+        private void EscribirRespuestaPermiso(DetectiveCase caso)
+        {
+            _permisoDialogo.Nombre.text    = caso.permisoNpcNombre;
+            _permisoDialogo.Texto.text     = caso.permisoNpcResponse;
+            _permisoDialogo.Respuesta.text = Txt.PrefijoPeticionPermiso + caso.permisoPlayerText;
+            _permisoDialogo.Respuesta.gameObject.SetActive(true);
+        }
+
+        public void MostrarConversacion()
+        {
+            LimpiarHistorial();
+            LimpiarExplicaciones();
+            _panelResultado.SetActive(false);
+            _panelPermiso.SetActive(false);
+            _btnConfirmar.interactable = false;
+            _window.SetActive(true);
+
+            // Aquí es donde aparece el teléfono, ya con permiso dado.
+            MostrarTelefono(true);
+            if (_backdrop != null) _backdrop.color = Col.Backdrop;
+            StartCoroutine(ReproducirMensajes(_manager.GetMensajes()));
+        }
+
+        public void Hide()
+        {
+            if (_window != null) _window.SetActive(false);
+        }
+
+        // ── Reproducción ──────────────────────────────────────────────────────
+
+        private IEnumerator ReproducirMensajes(List<DetectiveMessage> mensajes)
+        {
+            foreach (var msg in mensajes)
+            {
+                CrearBurbuja(msg);
+                yield return new WaitForSeconds(DetectiveUITheme.Ritmo.RetardoEntreMensajes);
+            }
+            _btnConfirmar.interactable = true;
+        }
+
+        private void CrearBurbuja(DetectiveMessage msg)
+        {
+            bool esIzquierda = msg.autor == _manager.GetMensajes()[0].autor;
+            Color colorBase  = esIzquierda ? Col.BurbujaIzquierda : Col.BurbujaDerecha;
+
+            // ── Fila ─────────────────────────────────────────────────────────
+            var row = new GameObject("Row_" + msg.id,
+                typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            row.transform.SetParent(_content, false);
+            var hlg = row.GetComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment        = esIzquierda ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
+            hlg.childControlWidth     = true; hlg.childControlHeight     = true;
+            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
+            hlg.padding = Med.PaddingFila;
+
+            // Spacer lado contrario para empujar la burbuja
+            if (!esIzquierda) AgendarSpacer(row.transform);
+
+            // ── Burbuja ───────────────────────────────────────────────────────
+            var bubble = new GameObject("Bubble",
+                typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement),
+                typeof(Button));                          // Button para capturar el click
+            bubble.transform.SetParent(row.transform, false);
+
+            var bubbleImg = bubble.GetComponent<Image>();
+            AplicarFondoRedondeado(bubbleImg, colorBase);
+
+            // Borde (Outline component) — invisible por defecto, rojo al marcar
+            var outline = bubble.AddComponent<Outline>();
+            outline.effectColor    = Color.clear;
+            outline.effectDistance = new Vector2(Med.GrosorBordeMarcado, -Med.GrosorBordeMarcado);
+            outline.useGraphicAlpha = false;
+
+            var vlg = bubble.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = Med.PaddingBurbuja;
+            vlg.spacing = Med.EspaciadoBurbuja;
+            vlg.childControlWidth     = true; vlg.childControlHeight     = true;
+            vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
+
+            var fitter = bubble.GetComponent<ContentSizeFitter>();
+            fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            var le = bubble.GetComponent<LayoutElement>();
+            le.preferredWidth = Med.AnchoBurbuja;
+            le.flexibleWidth  = Med.FlexBurbuja;
+
+            // Quitar visual de hover/pressed del Button (solo queremos el click)
+            var btn = bubble.GetComponent<Button>();
+            var colors = btn.colors;
+            colors.highlightedColor = colorBase;
+            colors.pressedColor     = colorBase;
+            colors.selectedColor    = colorBase;
+            btn.colors = colors;
+            btn.transition = Selectable.Transition.None;
+
+            if (esIzquierda) AgendarSpacer(row.transform);
+
+            // ── Contenido de la burbuja ───────────────────────────────────────
+
+            // Nombre del autor (solo burbuja izquierda)
+            if (esIzquierda)
+            {
+                var at = CrearTexto(bubble.transform, "Autor", msg.autor, Fnt.AutorBurbuja,
+                    Col.TextoSuave, TextAlignmentOptions.TopLeft);
+                at.fontStyle = FontStyles.Bold;
+            }
+
+            // Texto del mensaje
+            CrearTexto(bubble.transform, "Texto", msg.texto, Fnt.TextoBurbuja,
+                Col.Texto, TextAlignmentOptions.TopLeft);
+
+            // Timestamp
+            CrearTexto(bubble.transform, "Time", DateTime.Now.ToString("HH:mm"), Fnt.Hora,
+                new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, Col.AlfaTextoSecundario),
+                TextAlignmentOptions.Right);
+
+            // ── Click para marcar/desmarcar ───────────────────────────────────
+            btn.onClick.AddListener(() =>
+            {
+                _manager.ToggleMarca(msg.id);
+                bool marcado = _manager.EstaMarcado(msg.id);
+
+                // Borde rojo visible / invisible
+                outline.effectColor = marcado ? Col.BordeMarcado : Color.clear;
+
+                // Leve tinte rojo en la burbuja al marcar
+                bubbleImg.color = marcado
+                    ? Color.Lerp(colorBase, Col.BordeMarcado, Col.FuerzaTinteMarcado)
+                    : colorBase;
+            });
+
+            ScrollToBottom();
+        }
+
+        private static void AgendarSpacer(Transform parent)
+        {
+            var sp = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
+            sp.transform.SetParent(parent, false);
+            var le = sp.GetComponent<LayoutElement>();
+            le.minWidth      = Med.AnchoEspaciador;
+            le.flexibleWidth = 1f;
+        }
+
+        // ── Confirmar ─────────────────────────────────────────────────────────
+
+        private void OnConfirmar()
+        {
+            var resultado = _manager.CalcularResultado();
+            MostrarResultado(resultado);
+        }
+
+        private void MostrarResultado(DetectiveCaseResult r)
+        {
+            _panelResultado.SetActive(true);
+            _panelResultado.transform.SetAsLastSibling();
+
+            _txtMarcador.text = $"{r.aciertos} / {r.totalRiesgo}";
+            _txtMarcador.gameObject.SetActive(r.totalRiesgo > 0);
+
+            _txtResultado.text = r.totalRiesgo > 0
+                ? Txt.ResultadoConSenales
+                : Txt.ResultadoSinSenales;
+            _txtResultado.font = FuentePara(_txtResultado.text);
+
+            // Repetir solo se ofrece si le fue mal (50% o menos); la explicación, siempre.
+            _btnRepetir.gameObject.SetActive(r.DebeOfrecerRepetir);
+            _btnVerExplicacion.gameObject.SetActive(true);
+            _noIdentificados = r.noIdentificados;
+        }
+
+        private void MostrarExplicaciones()
+        {
+            LimpiarExplicaciones();
+            foreach (var (msg, exp) in _noIdentificados)
+            {
+                var item = new GameObject("Exp_" + msg.id,
+                    typeof(RectTransform), typeof(Image),
+                    typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+                item.transform.SetParent(_contenedorExplicaciones, false);
+                AplicarFondoRedondeado(item.GetComponent<Image>(),
+                    new Color(Col.BotonExplicacion.r, Col.BotonExplicacion.g,
+                              Col.BotonExplicacion.b, Col.AlfaExplicacion));
+                var vlg = item.GetComponent<VerticalLayoutGroup>();
+                vlg.padding = Med.PaddingExplicacion;
+                vlg.childControlWidth = true; vlg.childControlHeight = true;
+                vlg.childForceExpandWidth = true;
+                item.GetComponent<ContentSizeFitter>().verticalFit =
+                    ContentSizeFitter.FitMode.PreferredSize;
+
+                CrearTexto(item.transform, "Txt", $"<b>\"{msg.texto}\"</b>\n{exp}",
+                    Fnt.Explicacion, Col.Texto, TextAlignmentOptions.TopLeft);
+            }
+            _btnVerExplicacion.interactable = false;
+            AjustarAltoExplicaciones();
+        }
+
+        /// <summary>
+        /// Le da a la zona de explicaciones el alto de su contenido, con tope en lo que
+        /// la pantalla deja libre. Sin el tope, la tarjeta crecía con cada explicación
+        /// —el mensaje citado más su párrafo— y con tres o cuatro ya se salía por arriba
+        /// y por abajo. Lo que no cabe se desplaza dentro de la tarjeta.
+        /// </summary>
+        private void AjustarAltoExplicaciones()
+        {
+            if (_scrollExplicaciones == null || _cardResultado == null) return;
+
+            _scrollExplicaciones.gameObject.SetActive(_contenedorExplicaciones.childCount > 0);
+
+            // Primero la tarjeta, sin las explicaciones: así se sabe cuánto ocupa el
+            // resto, y de paso la zona recién encendida recibe su ancho. Medir antes el
+            // contenido lo haría con ancho cero y el texto saldría altísimo.
+            _altoExplicaciones.preferredHeight = 0f;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_cardResultado);
+            float resto = LayoutUtility.GetPreferredHeight(_cardResultado);
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_contenedorExplicaciones);
+            float contenido = LayoutUtility.GetPreferredHeight(_contenedorExplicaciones);
+
+            float pantalla = ((RectTransform)_panelResultado.transform).rect.height;
+            float libre = pantalla - Med.MargenPantallaResultado * 2f - resto;
+
+            _altoExplicaciones.preferredHeight =
+                Mathf.Min(contenido, Mathf.Max(libre, Med.AltoMinimoExplicaciones));
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_cardResultado);
+            _scrollExplicaciones.verticalNormalizedPosition = 1f;
+        }
+
+        // ── Construcción de UI en runtime ─────────────────────────────────────
+
+        private void BuildRuntimeUI()
+        {
+            Fishy.UI.UiBootstrap.EnsureEventSystem();
+
+            var canvasGO = new GameObject("DetectiveCanvas",
+                typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            canvasGO.transform.SetParent(transform, false);
+            var canvas = canvasGO.GetComponent<Canvas>();
+            canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 950;
+            var scaler = canvasGO.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight  = 0.5f;
+
+            _window = new GameObject("Root", typeof(RectTransform));
+            _window.transform.SetParent(canvasGO.transform, false);
+            Stretch(_window.GetComponent<RectTransform>());
+
+            // Backdrop
+            var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
+            backdrop.transform.SetParent(_window.transform, false);
+            Stretch(backdrop.GetComponent<RectTransform>());
+            _backdrop = backdrop.GetComponent<Image>();
+            _backdrop.color = Col.Backdrop;
+
+            // Panel principal
+            var panel = new GameObject("ChatWindow", typeof(RectTransform), typeof(Image));
+            panel.transform.SetParent(_window.transform, false);
+            var panelRT = panel.GetComponent<RectTransform>();
+            panelRT.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRT.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRT.pivot     = new Vector2(0.5f, 0.5f);
+            panelRT.sizeDelta = Med.Ventana;
+            AplicarFondoRedondeado(panel.GetComponent<Image>(), Col.Ventana);
+            _panelPrincipal = panel;
+
+            BuildHeader(panel.transform);
+            BuildScroll(panel.transform);
+            BuildBarraInferior(panel.transform);
+
+            // La ventana del caso no es una ventana: es la pantalla del teléfono que
+            // el NPC acaba de prestar. Va después de las zonas porque la barra de
+            // estado se cuelga dentro del panel.
+            var ajustes = MarcoTelefono.Ajustes.PorDefecto;
+            ajustes.Pantalla          = Med.Ventana;
+            ajustes.Borde             = Med.BordeTelefono;
+            ajustes.AlturaBarraEstado = Med.AlturaBarraEstado;
+            ajustes.TamanoReloj       = Fnt.Reloj;
+            ajustes.MargenBarraInicio = Med.MargenBarraInicio;
+            // Aquí las zonas van por anclajes, no en una pila, y el panel ya está
+            // centrado y medido: nada que recolocar.
+            ajustes.BarraEstadoEnPila = false;
+            ajustes.RecolocarPantalla = false;
+            _marcoTelefono = MarcoTelefono.Montar(panelRT, ajustes);
+
+            BuildPanelResultado(_window.transform);
+            BuildPanelPermiso(_window.transform);
+        }
+
+        /// <summary>
+        /// Panel del ritual de permiso. Es el mismo panel de diálogo que usan los
+        /// NPCs neutros y el chat cara a cara, no una tarjeta flotante: lo que pasa
+        /// ahí es que Otto le habla a alguien que tiene delante, y la interfaz de
+        /// "hablar en persona" ya existe en el juego. Antes eran dos burbujas de
+        /// chat dentro de una tarjeta centrada, que es el lenguaje de una pantalla
+        /// —justo lo que el niño/a todavía no está mirando.
+        /// </summary>
+        private void BuildPanelPermiso(Transform parent)
+        {
+            _permisoDialogo = FishyUIKit.CrearPanelDialogo(parent,
+                fondo:           Col.Ventana,
+                colorNombre:     Col.Texto,
+                colorTexto:      Col.Texto,
+                colorRespuesta:  Col.TextoSuave,
+                ancho:           Med.AnchoPanelPermiso,
+                tamNombre:       Fnt.NombrePermiso,
+                tamTexto:        Fnt.TextoPermiso,
+                tamRespuesta:    Fnt.RespuestaPermiso,
+                margenInferior:  Med.MargenInferiorPermiso,
+                radio:           Spr.RadioRedondeado);
+
+            _panelPermiso = _permisoDialogo.Raiz;
+
+            _btnContinuarPermiso = CrearBotonCard(_permisoDialogo.Opciones,
+                Txt.BotonContinuarPermiso, Col.BotonConfirmar, null);
+
+            _panelPermiso.SetActive(false);
+        }
+
+        private void BuildHeader(Transform parent)
+        {
+            var header = new GameObject("Header", typeof(RectTransform), typeof(Image));
+            header.transform.SetParent(parent, false);
+            var rt = header.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot     = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(0f, Med.AlturaHeader);
+            rt.anchoredPosition = new Vector2(0f, -Med.AlturaBarraEstado);
+            header.GetComponent<Image>().color = Col.Header;
+
+            bool hayIcono = CrearIconoLupa(header.transform);
+            float sangria = hayIcono ? Med.SangriaTextoHeader : Med.SangriaTextoHeaderSinIcono;
+
+            // Título
+            var lbl = CrearTexto(header.transform, "Titulo", Txt.TituloHeader, Fnt.TituloHeader,
+                Col.Texto, TextAlignmentOptions.BottomLeft);
+            lbl.fontStyle = FontStyles.Bold;
+            var lblRT = lbl.rectTransform;
+            lblRT.anchorMin = new Vector2(0f, 0.5f); lblRT.anchorMax = new Vector2(1f, 1f);
+            lblRT.offsetMin = new Vector2(sangria, 0f);
+            lblRT.offsetMax = new Vector2(Med.MargenDerechoHeader, 0f);
+
+            // Subtítulo
+            var sub = CrearTexto(header.transform, "Sub", Txt.SubtituloHeader, Fnt.SubtituloHeader,
+                Col.TextoSuave, TextAlignmentOptions.TopLeft);
+            var subRT = sub.rectTransform;
+            subRT.anchorMin = new Vector2(0f, 0f); subRT.anchorMax = new Vector2(1f, 0.5f);
+            subRT.offsetMin = new Vector2(sangria, 0f);
+            subRT.offsetMax = new Vector2(Med.MargenDerechoHeader, 0f);
+        }
+
+        /// <summary>
+        /// Lupa del header, por orden de preferencia:
+        ///   1. un sprite propio en Resources, si Valentina hizo uno;
+        ///   2. el glifo 🔍 de la fuente de iconos, que es monocromática y por eso
+        ///      se puede teñir con el color de la paleta;
+        ///   3. nada, y el título se corre a la izquierda.
+        /// Nunca se dibuja el glifo con Mango: no lo tiene y saldría un cuadro roto.
+        /// </summary>
+        /// <returns>True si se creó el icono.</returns>
+        private bool CrearIconoLupa(Transform parent)
+        {
+            var propio = Resources.Load<Sprite>(Spr.IconoLupa);
+            if (propio != null)
+            {
+                var avatar = new GameObject("Avatar", typeof(RectTransform), typeof(Image));
+                avatar.transform.SetParent(parent, false);
+                ColocarEnRanuraDelIcono(avatar.GetComponent<RectTransform>());
+
+                var img = avatar.GetComponent<Image>();
+                img.sprite        = propio;
+                img.color         = Color.white;   // sin teñir: el sprite manda
+                img.raycastTarget = false;
+                return true;
+            }
+
+            // Los dos motivos van separados a propósito: juntos no se sabe cuál
+            // arreglar, que es exactamente lo que costó encontrar este bug.
+            if (_fontIconos == null)
+            {
+                return CrearIconoLupaDibujada(parent);
+            }
+
+            if (!PuedeDibujar(_fontIconos, Txt.IconoHeader))
+            {
+                return CrearIconoLupaDibujada(parent);
+            }
+
+            var icono = CrearTexto(parent, "Icono", Txt.IconoHeader, Fnt.IconoHeader,
+                Col.TextoSuave, TextAlignmentOptions.Center);
+            icono.font = _fontIconos;          // se impone a la elección automática
+            icono.raycastTarget = false;
+            ColocarEnRanuraDelIcono(icono.rectTransform);
+            return true;
+        }
+
+        /// <summary>
+        /// Lupa dibujada en memoria: un anillo y un mango en diagonal. Es el
+        /// camino que siempre funciona, y por eso es el último de la lista.
+        ///
+        /// Se llegó acá después de que la vía del glifo fallara: 🔍 es U+1F50D,
+        /// fuera del BMP, y aunque NotoSansSymbols2 lo trae (glifo #1031, en sus
+        /// dos subtablas cmap de formato 12), el motor de fuentes de Unity no lo
+        /// encontró. Dibujarla no depende de ninguna fuente ni de ningún atlas.
+        /// </summary>
+        private bool CrearIconoLupaDibujada(Transform parent)
+        {
+            _spriteLupa = CrearSpriteLupa(Spr.LadoLupa, Spr.GrosorLupa, Spr.MangoLupa);
+
+            var go = new GameObject("Lupa", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            ColocarEnRanuraDelIcono(go.GetComponent<RectTransform>());
+
+            var img = go.GetComponent<Image>();
+            img.sprite        = _spriteLupa;
+            img.color         = Col.TextoSuave;   // la forma es blanca: se tiñe acá
+            img.raycastTarget = false;
+            return true;
+        }
+
+        /// <summary>
+        /// Dibuja la lupa. Las medidas entran como proporciones del radio del
+        /// lente y la forma se reescala sola para llenar la textura, así que
+        /// cambiar la resolución no descuadra el diseño.
+        /// </summary>
+        private static Sprite CrearSpriteLupa(int lado, float grosorRel, float mangoRel)
+        {
+            lado = Mathf.Max(16, lado);
+            const float margen = 3f;
+            float diag = Mathf.Sqrt(0.5f);        // coseno de 45°, la inclinación del mango
+
+            // Caja que ocupa la forma en unidades de radio, para calzarla al sprite.
+            float bajo = -(1f + grosorRel / 2f);
+            float alto = (1f + mangoRel) * diag + grosorRel / 2f;
+            float k = (lado - 2f * margen) / (alto - bajo);
+
+            float radio = k, grosor = grosorRel * k, mango = mangoRel * k;
+            float cx = margen - bajo * k, cy = cx;                 // centro del lente
+            float ax = cx + radio * diag,  ay = cy + radio * diag; // arranque del mango
+            float bx = ax + mango * diag,  by = ay + mango * diag; // punta
+
+            var px = new Color32[lado * lado];
+            for (int y = 0; y < lado; y++)
+            {
+                for (int x = 0; x < lado; x++)
+                {
+                    float fx = x + 0.5f, fy = y + 0.5f;
+
+                    // Distancia al anillo del lente y a la cápsula del mango; la
+                    // forma es la unión de ambas, o sea la menor de las dos.
+                    float anillo = Mathf.Abs(Mathf.Sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy)) - radio)
+                                   - grosor / 2f;
+
+                    float dx = bx - ax, dy = by - ay;
+                    float t = Mathf.Clamp01(((fx - ax) * dx + (fy - ay) * dy) / (dx * dx + dy * dy));
+                    float mx = fx - (ax + t * dx), my = fy - (ay + t * dy);
+                    float capsula = Mathf.Sqrt(mx * mx + my * my) - grosor / 2f;
+
+                    // Medio píxel a cada lado del borde: sin esto la curva sale dentada.
+                    float alfa = Mathf.Clamp01(0.5f - Mathf.Min(anillo, capsula));
+
+                    // La fila se invierte porque SetPixels32 recibe los píxeles de
+                    // ABAJO hacia arriba: el índice 0 es la esquina inferior
+                    // izquierda. Escribiendo y directo, la lupa salía espejada —
+                    // el lente abajo y el mango apuntando arriba-derecha.
+                    px[(lado - 1 - y) * lado + x] = new Color32(255, 255, 255, (byte)(alfa * 255f));
+                }
+            }
+
+            var tex = new Texture2D(lado, lado, TextureFormat.RGBA32, false)
+            {
+                name       = "DetectiveLupa",
+                filterMode = FilterMode.Bilinear,
+                wrapMode   = TextureWrapMode.Clamp,
+                hideFlags  = HideFlags.HideAndDontSave,
+            };
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+
+            return Sprite.Create(tex, new Rect(0f, 0f, lado, lado), new Vector2(0.5f, 0.5f),
+                pixelsPerUnit: 100f, extrude: 0, meshType: SpriteMeshType.FullRect);
+        }
+
+        /// <summary>Deja el icono pegado al borde izquierdo del header y centrado
+        /// en vertical, con el tamaño reservado para él.</summary>
+        private static void ColocarEnRanuraDelIcono(RectTransform rt)
+        {
+            rt.anchorMin = new Vector2(0f, 0.5f); rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot     = new Vector2(0f, 0.5f);
+            rt.anchoredPosition = new Vector2(Med.MargenAvatar, 0f);
+            rt.sizeDelta        = Med.TamanoAvatar;
+        }
+
+        private void BuildScroll(Transform parent)
+        {
+            var scrollGO = new GameObject("Scroll",
+                typeof(RectTransform), typeof(Image), typeof(ScrollRect), typeof(RectMask2D));
+            scrollGO.transform.SetParent(parent, false);
+            var scrollRT = scrollGO.GetComponent<RectTransform>();
+            scrollRT.anchorMin = new Vector2(0f, 0f); scrollRT.anchorMax = new Vector2(1f, 1f);
+            scrollRT.offsetMin = new Vector2(0f, Med.MargenScrollAbajo);
+            scrollRT.offsetMax = new Vector2(0f, -(Med.MargenScrollArriba + Med.AlturaBarraEstado));
+            scrollGO.GetComponent<Image>().color = Col.Historial;
+            _scrollRect = scrollGO.GetComponent<ScrollRect>();
+            _scrollRect.horizontal        = false;
+            _scrollRect.vertical          = true;
+            _scrollRect.scrollSensitivity = 30f;
+
+            // El fondo va como hijo del Scroll y no como su Image, para que el
+            // color liso siga debajo: así el alfa del tinte mezcla ilustración y
+            // paleta en vez de reemplazarla. Y va antes que Content, o taparía
+            // los mensajes.
+            CrearFondoIlustrado(scrollGO.transform);
+
+            var contentGO = new GameObject("Content",
+                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            contentGO.transform.SetParent(scrollGO.transform, false);
+            _content = contentGO.GetComponent<RectTransform>();
+            _content.anchorMin = new Vector2(0f, 1f); _content.anchorMax = new Vector2(1f, 1f);
+            _content.pivot     = new Vector2(0.5f, 1f);
+            _content.offsetMin = Vector2.zero; _content.offsetMax = Vector2.zero;
+            var cvlg = contentGO.GetComponent<VerticalLayoutGroup>();
+            cvlg.spacing  = Med.EspaciadoHistorial; cvlg.padding = Med.PaddingHistorial;
+            cvlg.childControlWidth     = true; cvlg.childControlHeight     = true;
+            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
+            contentGO.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+            _scrollRect.content = _content;
+        }
+
+        /// <summary>
+        /// Telón de fondo del historial. Mientras se elige cuál usar, lo maneja
+        /// <see cref="FondoAleatorio"/>, que va rotando imágenes de una
+        /// carpeta con una tecla. Sin imágenes no pasa nada: el historial se ve
+        /// con su color liso.
+        /// </summary>
+        private void CrearFondoIlustrado(Transform parent)
+        {
+            var go = new GameObject("Fondo", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+
+            var img = go.GetComponent<Image>();
+            img.raycastTarget = false;   // los clics son de las burbujas
+            img.enabled       = false;   // hasta que haya una imagen que poner
+
+            var rotador = go.AddComponent<FondoAleatorio>();
+            rotador.destino       = img;
+            rotador.etiquetaPadre = _window != null ? _window.transform : null;
+            rotador.carpeta          = Fnd.Carpeta;
+            rotador.rotar            = Fnd.Rotar;
+            rotador.fijoPorNombre    = Fnd.FijoPorNombre;
+            rotador.teclaSiguiente   = Fnd.TeclaSiguiente;
+            rotador.tinte            = Fnd.Tinte;
+            rotador.repetir          = Fnd.Repetir;
+            rotador.mostrarNombre    = Fnd.MostrarNombre;
+            rotador.tamanoNombre     = Fnd.TamanoNombre;
+            rotador.colorNombre      = Col.TextoSuave;
+            rotador.rutaFuenteNombre = DetectiveUITheme.Fuentes.RutaCuerpo;
+            rotador.modulo           = "Detective";
+            rotador.Iniciar();
+        }
+
+        private void BuildBarraInferior(Transform parent)
+        {
+            var barra = new GameObject("BarraInferior", typeof(RectTransform), typeof(Image));
+            barra.transform.SetParent(parent, false);
+            var barraRT = barra.GetComponent<RectTransform>();
+            barraRT.anchorMin = new Vector2(0f, 0f); barraRT.anchorMax = new Vector2(1f, 0f);
+            barraRT.pivot     = new Vector2(0.5f, 0f);
+            barraRT.sizeDelta = new Vector2(0f, Med.AlturaBarraInferior);
+            barra.GetComponent<Image>().color = Col.BarraInferior;
+
+            var btnGO = new GameObject("BtnConfirmar",
+                typeof(RectTransform), typeof(Image), typeof(Button));
+            btnGO.transform.SetParent(barra.transform, false);
+            var btnRT = btnGO.GetComponent<RectTransform>();
+            btnRT.anchorMin = new Vector2(0f, 0f); btnRT.anchorMax = new Vector2(1f, 1f);
+            btnRT.offsetMin = Med.MargenBotonBarra;
+            btnRT.offsetMax = new Vector2(-Med.MargenBotonBarra.x, -Med.MargenBotonBarra.y);
+            AplicarFondoRedondeado(btnGO.GetComponent<Image>(), Col.BotonConfirmar);
+            _btnConfirmar = btnGO.GetComponent<Button>();
+            _btnConfirmar.onClick.AddListener(OnConfirmar);
+
+            var t = CrearTexto(btnGO.transform, "Text", Txt.BotonConfirmar, Fnt.Boton,
+                Col.TextoSobre(Col.BotonConfirmar), TextAlignmentOptions.Center);
+            Stretch(t.rectTransform);
+        }
+
+        private void BuildPanelResultado(Transform parent)
+        {
+            _panelResultado = new GameObject("PanelResultado",
+                typeof(RectTransform), typeof(Image));
+            _panelResultado.transform.SetParent(parent, false);
+            Stretch(_panelResultado.GetComponent<RectTransform>());
+            _panelResultado.GetComponent<Image>().color = Col.PanelResultado;
+
+            var card = CrearCard(_panelResultado.transform, Med.AnchoCardResultado, Med.PaddingCardResultado);
+
+            AgregarTitulo(card, Txt.TituloResultado);
+
+            _txtMarcador = CrearTexto(card, "Marcador", "", Fnt.Marcador,
+                Col.Texto, TextAlignmentOptions.Center);
+            _txtMarcador.fontStyle        = FontStyles.Bold;
+            _txtMarcador.textWrappingMode = TextWrappingModes.NoWrap;
+            // Nace vacío, así que hay que decirle con qué se va a llenar ("3 / 4")
+            // para que elija fuente: si no, CrearTexto asume la de cuerpo.
+            _txtMarcador.font = FuentePara("0123456789 /");
+
+            _txtResultado = CrearTexto(card, "Resultado", "", Fnt.Resultado,
+                Col.Texto, TextAlignmentOptions.Center);
+
+            _cardResultado = (RectTransform)card;
+            ConstruirScrollExplicaciones(card);
+
+            var expGO = new GameObject("Explicaciones",
+                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            expGO.transform.SetParent(_scrollExplicaciones.transform, false);
+            _contenedorExplicaciones = expGO.GetComponent<RectTransform>();
+            _contenedorExplicaciones.anchorMin = new Vector2(0f, 1f);
+            _contenedorExplicaciones.anchorMax = new Vector2(1f, 1f);
+            _contenedorExplicaciones.pivot     = new Vector2(0.5f, 1f);
+            // Hueco a la derecha para la barra, que no tape las tarjetas.
+            _contenedorExplicaciones.offsetMin = Vector2.zero;
+            _contenedorExplicaciones.offsetMax = new Vector2(
+                -(Med.AnchoBarraExplicaciones + Med.HuecoBarraExplicaciones), 0f);
+            _scrollExplicaciones.content = _contenedorExplicaciones;
+            var explVlg = expGO.GetComponent<VerticalLayoutGroup>();
+            explVlg.spacing = Med.EspaciadoExplicaciones;
+            explVlg.childControlWidth = true; explVlg.childControlHeight = true;
+            explVlg.childForceExpandWidth = true; explVlg.childForceExpandHeight = false;
+            expGO.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+
+            _btnRepetir = CrearBotonCard(card, Txt.BotonRepetir, Col.BotonRepetir,
+                () => { Hide(); _onRepetir?.Invoke(); });
+            _btnVerExplicacion = CrearBotonCard(card, Txt.BotonExplicacion, Col.BotonExplicacion,
+                () => MostrarExplicaciones());
+            // El cierre pasa por la celebración del pin: primero se va la ventana,
+            // después se celebra lo ganado (si hay algo pendiente) y sólo al acabar
+            // se suelta _onCerrar, que es quien le devuelve el control a Otto. Así
+            // la animación no compite con el feedback ni el jugador camina bajo ella.
+            // Sin pin pendiente, MostrarPendiente llama al callback en el acto.
+            CrearBotonCard(card, Txt.BotonCerrar, Col.BotonConfirmar,
+                () => { Hide(); DetectiveRewardPopup.MostrarPendiente(() => _onCerrar?.Invoke()); });
+
+            _panelResultado.SetActive(false);
+        }
+
+        /// <summary>
+        /// La zona donde se desplazan las explicaciones. Va en la pila de la tarjeta con
+        /// un alto que fija <see cref="AjustarAltoExplicaciones"/>; nace apagada para
+        /// no dejar un hueco antes de pulsar "Ver explicación".
+        /// </summary>
+        private void ConstruirScrollExplicaciones(Transform card)
+        {
+            var go = new GameObject("ExplicacionesScroll",
+                typeof(RectTransform), typeof(ScrollRect), typeof(RectMask2D), typeof(LayoutElement));
+            go.transform.SetParent(card, false);
+
+            _altoExplicaciones = go.GetComponent<LayoutElement>();
+            _altoExplicaciones.preferredHeight = 0f;
+            _altoExplicaciones.flexibleHeight  = 0f;
+
+            _scrollExplicaciones = go.GetComponent<ScrollRect>();
+            _scrollExplicaciones.horizontal        = false;
+            _scrollExplicaciones.vertical          = true;
+            _scrollExplicaciones.movementType      = ScrollRect.MovementType.Clamped;
+            _scrollExplicaciones.scrollSensitivity = 30f;
+
+            // Barra fina a la derecha. Se esconde sola si todo cabe.
+            var barraGO = new GameObject("Barra", typeof(RectTransform), typeof(Image), typeof(Scrollbar));
+            barraGO.transform.SetParent(go.transform, false);
+            var barraRT = barraGO.GetComponent<RectTransform>();
+            barraRT.anchorMin = new Vector2(1f, 0f); barraRT.anchorMax = new Vector2(1f, 1f);
+            barraRT.pivot     = new Vector2(1f, 0.5f);
+            barraRT.sizeDelta = new Vector2(Med.AnchoBarraExplicaciones, 0f);
+            AplicarFondoRedondeado(barraGO.GetComponent<Image>(),
+                new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, 0.15f));
+
+            var asaGO = new GameObject("Asa", typeof(RectTransform), typeof(Image));
+            asaGO.transform.SetParent(barraGO.transform, false);
+            var asaRT = asaGO.GetComponent<RectTransform>();
+            asaRT.offsetMin = Vector2.zero; asaRT.offsetMax = Vector2.zero;
+            var asa = asaGO.GetComponent<Image>();
+            AplicarFondoRedondeado(asa, new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, 0.6f));
+
+            var barra = barraGO.GetComponent<Scrollbar>();
+            barra.direction     = Scrollbar.Direction.BottomToTop;
+            barra.handleRect    = asaRT;
+            barra.targetGraphic = asa;
+
+            _scrollExplicaciones.verticalScrollbar           = barra;
+            _scrollExplicaciones.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+            go.SetActive(false);
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+
+        /// <summary>Tarjeta centrada de ancho fijo y alto automático según su contenido.</summary>
+        private Transform CrearCard(Transform parent, float ancho, RectOffset padding)
+        {
+            var card = new GameObject("Card",
+                typeof(RectTransform), typeof(Image),
+                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            card.transform.SetParent(parent, false);
+            var cardRT = card.GetComponent<RectTransform>();
+            cardRT.anchorMin = new Vector2(0.5f, 0.5f); cardRT.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRT.pivot     = new Vector2(0.5f, 0.5f);
+            cardRT.sizeDelta = new Vector2(ancho, 0f);
+            AplicarFondoRedondeado(card.GetComponent<Image>(), Col.Card);
+            var cvlg = card.GetComponent<VerticalLayoutGroup>();
+            cvlg.padding = padding; cvlg.spacing = Med.EspaciadoCard;
+            cvlg.childControlWidth     = true; cvlg.childControlHeight     = true;
+            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
+            card.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+            return card.transform;
+        }
+
+        private void AgregarTitulo(Transform parent, string texto)
+        {
+            var t = CrearTexto(parent, "Titulo", texto, Fnt.TituloCard,
+                Col.Texto, TextAlignmentOptions.Center);
+            t.fontStyle = FontStyles.Bold;
+        }
+
+        private Button CrearBotonCard(Transform parent, string texto, Color color, Action onClick)
+        {
+            var btnGO = new GameObject("Btn_" + texto,
+                typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+            btnGO.transform.SetParent(parent, false);
+            AplicarFondoRedondeado(btnGO.GetComponent<Image>(), color);
+            btnGO.GetComponent<LayoutElement>().minHeight = Med.AlturaBoton;
+            var btn = btnGO.GetComponent<Button>();
+            if (onClick != null) btn.onClick.AddListener(() => onClick());
+
+            var t = CrearTexto(btnGO.transform, "Text", texto, Fnt.Boton,
+                Col.TextoSobre(color), TextAlignmentOptions.Center);
+            Stretch(t.rectTransform);
+
+            return btn;
+        }
+
+        /// <summary>
+        /// Crea un texto TMP ya configurado. La fuente se decide sola según los
+        /// caracteres que trae el texto (ver <see cref="FuentePara"/>).
+        /// </summary>
+        private TextMeshProUGUI CrearTexto(Transform parent, string nombre, string texto,
+            float tamano, Color color, TextAlignmentOptions alineacion)
+            => FishyUIKit.Texto(parent, nombre, texto, tamano, color, alineacion);
+
+        private void AplicarFondoRedondeado(Image img, Color color)
+            => FishyUIKit.FondoRedondeado(img, color, Spr.LadoRedondeado, Spr.RadioRedondeado);
+
+        private void LimpiarHistorial()
+        {
+            if (_content == null) return;
+            for (int i = _content.childCount - 1; i >= 0; i--)
+                Destroy(_content.GetChild(i).gameObject);
+        }
+
+
+        private void LimpiarExplicaciones()
+        {
+            if (_contenedorExplicaciones == null) return;
+            // Se sacan del contenedor antes de destruirlas: Destroy espera al final del
+            // frame, y la medición de AjustarAltoExplicaciones las contaría todavía.
+            for (int i = _contenedorExplicaciones.childCount - 1; i >= 0; i--)
+            {
+                var hijo = _contenedorExplicaciones.GetChild(i).gameObject;
+                hijo.SetActive(false);
+                hijo.transform.SetParent(null, false);
+                Destroy(hijo);
+            }
+            if (_scrollExplicaciones != null) _scrollExplicaciones.gameObject.SetActive(false);
+        }
+
+        private void ScrollToBottom()
+        {
+            if (_scrollRect == null) return;
+            Canvas.ForceUpdateCanvases();
+            _scrollRect.verticalNormalizedPosition = 0f;
+        }
+
+        private static void Stretch(RectTransform rt, float padX = 0f, float padY = 0f)
+        {
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(padX, padY);
+            rt.offsetMax = new Vector2(-padX, -padY);
+        }
+    }
+}

@@ -1,7 +1,17 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using Fishy.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using ChatCol = Fishy.Chat.ChatUITheme.Colores;
+using ChatMed = Fishy.Chat.ChatUITheme.Medidas;
+using MedCara = Fishy.Chat.ChatUITheme.CaraACara;
+using MedTel  = Fishy.Chat.ChatUITheme.Telefono;
+using ChatFnt = Fishy.Chat.ChatUITheme.Fuente;
+using ChatTxt = Fishy.Chat.ChatUITheme.Textos;
+using ChatAnim = Fishy.Chat.ChatUITheme.Animo;
 
 namespace Fishy.Chat
 {
@@ -19,7 +29,7 @@ namespace Fishy.Chat
 
         [Header("Referencias (opcionales: si faltan, se generan en runtime)")]
         public GameObject window;
-        public Text headerLabel;
+        public TextMeshProUGUI headerLabel;
         public ScrollRect scrollRect;
         public RectTransform content;
         public RectTransform optionsContainer;
@@ -27,19 +37,31 @@ namespace Fishy.Chat
 
         [Header("Panel de estado emocional (Otto)")]
         public GameObject moodPanel;
-        public Text moodEmoji;
-        public Text moodMessage;
+        public TextMeshProUGUI moodEmoji;
+        [Tooltip("Animación de Otto en el sitio del emoji. Si falta, se muestra el emoji.")]
+        public Image moodAnimacion;
+        public TextMeshProUGUI moodMessage;
         public Button moodCloseButton;
 
         private readonly List<GameObject> spawnedOptions = new List<GameObject>();
-        private Font font;
+        private string _contactName;
+        private bool       _construida, _debeReconstruir;
+        private GameObject _canvasRoot;
+        private FishyUIKit.PanelDialogo _panel;
+        private ScrollRect    _opcionesScroll;
+        private LayoutElement _opcionesLayout;
+        private Coroutine     _animoEnCurso;
+
+        /// <summary>Frames ya cargados por ruta, para no ir a Resources en cada cierre.</summary>
+        private static readonly Dictionary<string, Sprite[]> _framesPorRuta =
+            new Dictionary<string, Sprite[]>();
 
         // ── Modo teléfono ──────────────────────────────────────────────────────
         private bool           _phoneMode;
         private RectTransform  _chatPanelRT;  // referencia al panel del chat
-        private GameObject     _phoneChromeRoot; // bezel + status bar generados
-        private Text           _phoneClockText;
-        private Coroutine      _clockCoroutine;
+        private Image          _backdropImage;
+        private static Vector2 NormalWindowSize => ChatMed.Ventana;
+        private MarcoTelefono  _marcoTelefono;   // bisel, barra de estado y reloj
 
         private void Awake()
         {
@@ -49,11 +71,9 @@ namespace Fishy.Chat
                 return;
             }
             Instance = this;
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-            if (window == null || content == null || optionsContainer == null)
-                BuildRuntimeUI();
-
+            // No se construye aquí: el diseño depende de si la conversación es
+            // cara a cara o por teléfono, y eso se sabe recién al abrirla.
             Hide();
             if (moodPanel != null) moodPanel.SetActive(false);
         }
@@ -72,16 +92,63 @@ namespace Fishy.Chat
         /// Activa el modo teléfono antes de llamar a <see cref="Open"/>.
         /// En modo teléfono el chat se encuadra como la pantalla de un celular.
         /// </summary>
-        public void EnablePhoneMode(bool on) => _phoneMode = on;
+        /// <summary>
+        /// Cara a cara o por teléfono. Cambia el diseño entero, no solo el marco:
+        /// hablando en persona se ve un panel de diálogo como el de los NPCs
+        /// neutros, y por el teléfono una app de mensajería como el Modo Detective.
+        /// La distinción es del juego, no decorativa: enseña que lo que pasa en un
+        /// chat no es lo mismo que lo que pasa cara a cara.
+        /// </summary>
+        public void EnablePhoneMode(bool on)
+        {
+            if (_phoneMode == on && _construida) return;
+            _phoneMode = on;
+            _debeReconstruir = true;
+        }
+
+        /// <summary>Rehace la UI si hace falta. Se llama al abrir, cuando ya se sabe
+        /// el modo.</summary>
+        private void AsegurarUI()
+        {
+            if (_construida && !_debeReconstruir) return;
+
+            if (_canvasRoot != null) Destroy(_canvasRoot);
+            // Todo lo que colgaba del canvas queda destruido: dejarlo apuntando
+            // ahí funcionaría por el null falso de Unity, pero se presta a errores.
+            _canvasRoot      = null;
+            _panel           = null;
+            _opcionesScroll  = null;
+            _opcionesLayout  = null;
+            window           = null;
+            content          = null;
+            optionsContainer = null;
+            scrollRect       = null;
+            headerLabel      = null;
+            closeButton      = null;
+            moodPanel        = null;
+            moodAnimacion    = null;
+            _chatPanelRT     = null;
+            _backdropImage   = null;
+            _marcoTelefono   = null;
+
+            BuildRuntimeUI();
+            _construida      = true;
+            _debeReconstruir = false;
+        }
 
         public void Open(string contactName, Action onCloseRequested)
         {
+            _contactName = contactName;
+            AsegurarUI();
             if (window != null) window.SetActive(true);
             if (moodPanel != null) moodPanel.SetActive(false);
             if (headerLabel != null) headerLabel.text = contactName;
 
             if (_phoneMode) ApplyPhoneChrome(contactName);
             else            RemovePhoneChrome();
+
+            if (_backdropImage != null)
+                _backdropImage.color = _phoneMode ? ChatCol.BackdropTelefono : ChatCol.Backdrop;
 
             ClearHistory();
             ClearOptions();
@@ -103,6 +170,29 @@ namespace Fishy.Chat
         public void PostNpc(string text, bool isSystem) => AddBubble(text, npc: true, system: isSystem);
         public void PostChild(string text) => AddBubble(text, npc: false, system: false);
 
+        /// <summary>
+        /// Lo que Otto piensa sin escribirlo: del lado de Otto, como su respuesta, pero
+        /// con autor, porque si no se leería como algo que le mandó al NPC.
+        /// </summary>
+        public void PostPensamientoOtto(string text)
+        {
+            if (_panel != null)
+            {
+                _panel.Respuesta.text = ChatTxt.AutorPensamiento + ": " + text;
+                _panel.Respuesta.gameObject.SetActive(true);
+                return;
+            }
+
+            FishyUIKit.Burbuja(content, text, ChatTxt.AutorPensamiento,
+                izquierda: false,
+                fondo: ChatCol.BurbujaNino,
+                anchoMax: AnchoBurbujaActual(),
+                tamanoTexto: ChatFnt.TextoBurbuja,
+                tamanoAutor: ChatFnt.Autor);
+
+            ScrollToBottom();
+        }
+
         public void ShowOptions(IReadOnlyList<string> options, Action<int> onPick)
         {
             ClearOptions();
@@ -110,8 +200,9 @@ namespace Fishy.Chat
             {
                 int index = i;
                 spawnedOptions.Add(CreateButton(optionsContainer, options[i],
-                    new Color(0.16f, 0.22f, 0.34f, 0.95f), () => onPick?.Invoke(index)));
+                    ChatCol.BotonOpcion, () => onPick?.Invoke(index)));
             }
+            AjustarAltoOpciones();
         }
 
         public void ClearOptions()
@@ -119,15 +210,39 @@ namespace Fishy.Chat
             foreach (var go in spawnedOptions)
                 if (go != null) Destroy(go);
             spawnedOptions.Clear();
+
+            // Sin opciones la zona se encoge y el historial recupera el sitio.
+            if (_opcionesLayout != null) _opcionesLayout.preferredHeight = 0f;
         }
 
-        public void ShowMood(string emoji, string message, Color color, Action onClose)
+        /// <summary>
+        /// Deja la zona de respuestas justo del alto que piden los botones, con un
+        /// tope. Hay que medir después de crearlos porque el alto de cada uno sale
+        /// de cuántas líneas envuelve su texto, y eso no se sabe hasta que el layout
+        /// resuelve el ancho.
+        /// </summary>
+        private void AjustarAltoOpciones()
+        {
+            if (_opcionesLayout == null || optionsContainer == null) return;
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(optionsContainer);
+            float pedido = LayoutUtility.GetPreferredHeight(optionsContainer);
+
+            float altoPanel = _chatPanelRT != null ? _chatPanelRT.rect.height : ChatMed.Ventana.y;
+            float tope      = altoPanel * ChatMed.FraccionMaxOpciones;
+
+            _opcionesLayout.preferredHeight = Mathf.Min(pedido, tope);
+        }
+
+        public void ShowMood(string emoji, string message, Color color, Action onClose,
+            string animacion = null)
         {
             ClearOptions();
             if (moodPanel == null) return;
             moodPanel.SetActive(true);
             moodPanel.transform.SetAsLastSibling();
             if (moodEmoji != null) moodEmoji.text = emoji;
+            MostrarAnimacion(animacion);
             if (moodMessage != null) { moodMessage.text = message; moodMessage.color = color; }
             if (moodCloseButton != null)
             {
@@ -136,48 +251,138 @@ namespace Fishy.Chat
             }
         }
 
+        /// <summary>
+        /// Reproduce la animación de Otto en bucle, en el sitio del emoji, mientras el
+        /// panel esté a la vista: se queda ahí hasta que el niño/a pulse Continuar.
+        /// Sin frames —la hoja no está en Resources o no se cortó— vuelve al emoji,
+        /// para que el panel no quede con un hueco.
+        /// </summary>
+        private void MostrarAnimacion(string ruta)
+        {
+            if (_animoEnCurso != null) { StopCoroutine(_animoEnCurso); _animoEnCurso = null; }
+
+            Sprite[] frames = FramesDe(ruta);
+            bool hayAnimacion = moodAnimacion != null && frames.Length > 0;
+
+            if (moodEmoji != null) moodEmoji.gameObject.SetActive(!hayAnimacion);
+            if (moodAnimacion == null) return;
+
+            moodAnimacion.gameObject.SetActive(hayAnimacion);
+            if (hayAnimacion) _animoEnCurso = StartCoroutine(ReproducirEnBucle(frames));
+        }
+
+        private IEnumerator ReproducirEnBucle(Sprite[] frames)
+        {
+            // Da vueltas mientras el panel esté a la vista. Al esconderse termina sola,
+            // y el siguiente cierre de sesión arranca otra.
+            int i = 0;
+            while (moodAnimacion != null && moodAnimacion.gameObject.activeInHierarchy)
+            {
+                moodAnimacion.sprite = frames[i];
+                i = (i + 1) % frames.Length;
+                // Tiempo real: el chat puede abrirse con el juego en pausa.
+                yield return new WaitForSecondsRealtime(ChatAnim.SegundosPorFrame);
+            }
+            _animoEnCurso = null;
+        }
+
+        /// <summary>Los frames de una hoja, en orden. Resources.LoadAll no promete
+        /// ninguno, así que se ordenan por nombre: otto_safe_0, _1, _2.</summary>
+        private static Sprite[] FramesDe(string ruta)
+        {
+            if (string.IsNullOrWhiteSpace(ruta)) return Array.Empty<Sprite>();
+            if (_framesPorRuta.TryGetValue(ruta, out var guardados)) return guardados;
+
+            Sprite[] frames = Resources.LoadAll<Sprite>(ruta);
+            Array.Sort(frames, (a, b) => string.CompareOrdinal(a.name, b.name));
+            if (frames.Length == 0)
+                Debug.LogWarning($"[ChatModuleUI] No hay frames en Resources/{ruta}: " +
+                                 "se muestra el emoji.");
+
+            _framesPorRuta[ruta] = frames;
+            return frames;
+        }
+
         // ── Burbujas ────────────────────────────────────────────────────────────
+        /// <summary>
+        /// Una burbuja del historial. La forma la pone FishyUIKit —la misma que usa
+        /// el Modo Detective—, así que si allí se cambia el redondeo, aquí también.
+        /// El autor solo se muestra en los mensajes del NPC: en los del niño/a
+        /// sobra, porque la posición a la derecha ya dice de quién son.
+        /// </summary>
         private void AddBubble(string text, bool npc, bool system)
         {
-            var row = new GameObject(npc ? "NpcRow" : "ChildRow",
-                typeof(RectTransform), typeof(HorizontalLayoutGroup));
-            row.transform.SetParent(content, false);
-            var hlg = row.GetComponent<HorizontalLayoutGroup>();
-            hlg.childAlignment = npc ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
-            hlg.childControlWidth = true; hlg.childControlHeight = true;
-            hlg.childForceExpandWidth = false; hlg.childForceExpandHeight = false;
+            if (_panel != null) { EscribirEnPanel(text, npc, system); return; }
 
-            var bubble = new GameObject("Bubble",
-                typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup),
-                typeof(ContentSizeFitter), typeof(LayoutElement));
-            bubble.transform.SetParent(row.transform, false);
-            bubble.GetComponent<Image>().color = system
-                ? new Color(0.35f, 0.3f, 0.12f, 0.95f)          // sistema (aviso)
-                : npc ? new Color(0.2f, 0.22f, 0.27f, 0.95f)    // NPC
-                      : new Color(0.13f, 0.35f, 0.55f, 0.95f);  // niño/a
-            var bvlg = bubble.GetComponent<VerticalLayoutGroup>();
-            bvlg.padding = new RectOffset(20, 20, 14, 14);
-            bvlg.childControlWidth = true; bvlg.childControlHeight = true;
-            bvlg.childForceExpandWidth = true; bvlg.childForceExpandHeight = false;
-            var fitter = bubble.GetComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            bubble.GetComponent<LayoutElement>().preferredWidth = 720f;
+            Color fondo = system ? ChatCol.BurbujaSistema
+                        : npc    ? ChatCol.BurbujaNpc
+                                 : ChatCol.BurbujaNino;
 
-            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
-            txtGO.transform.SetParent(bubble.transform, false);
-            var t = txtGO.GetComponent<Text>();
-            t.font = font; t.fontSize = 30; t.color = Color.white;
-            t.alignment = TextAnchor.UpperLeft;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            t.text = text;
+            string autor = npc && !system && !string.IsNullOrEmpty(_contactName)
+                ? _contactName
+                : null;
+
+            FishyUIKit.Burbuja(content, text, autor,
+                izquierda: npc,
+                fondo: fondo,
+                anchoMax: AnchoBurbujaActual(),
+                tamanoTexto: ChatFnt.TextoBurbuja,
+                tamanoAutor: ChatFnt.Autor);
 
             ScrollToBottom();
         }
 
+        /// <summary>
+        /// Versión cara a cara: el panel no acumula, reemplaza.
+        ///
+        /// La respuesta del jugador va en su propia línea y se queda ahí. Hace falta
+        /// porque el controller llama a PostChild e inmediatamente después avanza al
+        /// siguiente nodo, sin pausa: si la respuesta se escribiera en el mismo sitio
+        /// que el texto del NPC, se borraría en el mismo frame y el niño/a nunca
+        /// llegaría a leer lo que acababa de elegir.
+        /// </summary>
+        private void EscribirEnPanel(string text, bool npc, bool system)
+        {
+            if (npc)
+            {
+                _panel.Nombre.text = system ? "" : _contactName;
+                _panel.Nombre.gameObject.SetActive(!system);
+                _panel.Texto.text  = text;
+                _panel.Texto.color = system ? ChatCol.TextoSuave : ChatCol.Texto;
+                return;
+            }
+
+            _panel.Respuesta.text = ChatTxt.PrefijoRespuesta + text;
+            _panel.Respuesta.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Ancho máximo de burbuja para el tamaño de pantalla que haya ahora. Se mide
+        /// en vez de fijarse porque el panel cambia de tamaño entre cara a cara y
+        /// teléfono, y una burbuja pensada para uno se ve mal en el otro.
+        /// </summary>
+        private float AnchoBurbujaActual()
+        {
+            if (_chatPanelRT == null) return ChatMed.AnchoBurbuja;
+
+            float ancho = _chatPanelRT.rect.width;
+            if (ancho <= 1f) ancho = _chatPanelRT.sizeDelta.x;   // aún sin resolver el layout
+            if (ancho <= 1f) return ChatMed.AnchoBurbuja;
+
+            return ancho * MedTel.FraccionAnchoBurbuja;
+        }
+
         private void ClearHistory()
         {
+            if (_panel != null)
+            {
+                _panel.Nombre.text = "";
+                _panel.Texto.text  = "";
+                _panel.Respuesta.text = "";
+                _panel.Respuesta.gameObject.SetActive(false);
+                return;
+            }
+
             if (content == null) return;
             for (int i = content.childCount - 1; i >= 0; i--)
                 Destroy(content.GetChild(i).gameObject);
@@ -194,27 +399,8 @@ namespace Fishy.Chat
         // ── Construcción de UI ─────────────────────────────────────────────────
         private GameObject CreateButton(Transform parent, string text, Color color, Action onClick)
         {
-            var btnGO = new GameObject("Option",
-                typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
-            btnGO.transform.SetParent(parent, false);
-            btnGO.GetComponent<Image>().color = color;
-            btnGO.GetComponent<LayoutElement>().minHeight = 68f;
-            var btn = btnGO.GetComponent<Button>();
-            btn.onClick.AddListener(() => onClick?.Invoke());
-
-            var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
-            txtGO.transform.SetParent(btnGO.transform, false);
-            var rt = txtGO.GetComponent<RectTransform>();
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-            rt.offsetMin = new Vector2(18f, 6f); rt.offsetMax = new Vector2(-18f, -6f);
-            var t = txtGO.GetComponent<Text>();
-            t.font = font; t.fontSize = 28; t.color = Color.white;
-            t.alignment = TextAnchor.MiddleCenter;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            t.text = text;
-
-            return btnGO;
+            return FishyUIKit.Boton(parent, text, color,
+                ChatFnt.Boton, ChatMed.AlturaBoton, onClick).gameObject;
         }
 
         private void BuildRuntimeUI()
@@ -223,6 +409,7 @@ namespace Fishy.Chat
 
             var canvasGO = new GameObject("ChatCanvas",
                 typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            _canvasRoot = canvasGO;
             canvasGO.transform.SetParent(transform, false);
             var canvas = canvasGO.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -241,94 +428,262 @@ namespace Fishy.Chat
             var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
             backdrop.transform.SetParent(window.transform, false);
             Stretch(backdrop.GetComponent<RectTransform>());
-            backdrop.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+            backdrop.GetComponent<Image>().color = ChatCol.Backdrop;
+            _backdropImage = backdrop.GetComponent<Image>();
 
-            // Ventana del chat.
-            var chatPanel = new GameObject("ChatWindow", typeof(RectTransform), typeof(Image));
+            // Cara a cara se ve como el diálogo de un NPC neutro; por teléfono, como
+            // el Modo Detective. No es decoración: el juego enseña que un chat y una
+            // conversación en persona no son lo mismo, y la interfaz lo respalda.
+            if (_phoneMode) BuildDisenoMensajeria();
+            else            BuildDisenoCaraACara();
+
+            BuildMoodPanel(window.transform);
+        }
+
+        /// <summary>
+        /// Tarjeta del estado de ánimo de Otto al terminar la conversación. Usa las
+        /// mismas piezas que el resto para que no parezca de otro juego.
+        /// </summary>
+        /// <summary>Ventana de mensajería: cabecera, historial de burbujas y
+        /// opciones abajo. Es el aspecto del Modo Detective, para el chat por
+        /// teléfono.</summary>
+        private void BuildDisenoMensajeria()
+        {
+            // El panel es una PILA vertical, no un montón de anclajes con márgenes
+            // fijos. Antes las opciones tenían 300px reservados y el historial se
+            // recortaba a mano para dejarles sitio: en cuanto un nodo traía tres
+            // respuestas largas, no cabían y se pisaban entre ellas. Así cada zona
+            // pide el alto que necesita y el historial se queda con el resto.
+            var chatPanel = new GameObject("ChatWindow",
+                typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
             chatPanel.transform.SetParent(window.transform, false);
+
             var winRT = chatPanel.GetComponent<RectTransform>();
-            winRT.anchorMin = new Vector2(0.5f, 0.5f);
-            winRT.anchorMax = new Vector2(0.5f, 0.5f);
-            winRT.pivot = new Vector2(0.5f, 0.5f);
-            winRT.sizeDelta = new Vector2(1040f, 1500f);
-            chatPanel.GetComponent<Image>().color = new Color(0.07f, 0.09f, 0.13f, 1f);
-            _chatPanelRT = winRT; // guardamos referencia para el modo teléfono
+            winRT.anchorMin = new Vector2(1f, 0f);
+            winRT.anchorMax = new Vector2(1f, 0f);
+            winRT.pivot     = new Vector2(1f, 0f);
+            winRT.anchoredPosition = new Vector2(-40f, 40f);
+            winRT.sizeDelta = NormalWindowSize;
+            FishyUIKit.FondoRedondeado(chatPanel.GetComponent<Image>(), ChatCol.Ventana,
+                radio: ChatMed.RadioEsquina);
+            _chatPanelRT = winRT;
 
-            // Header.
-            var header = new GameObject("Header", typeof(RectTransform), typeof(Image));
-            header.transform.SetParent(chatPanel.transform, false);
-            var headRT = header.GetComponent<RectTransform>();
-            headRT.anchorMin = new Vector2(0f, 1f); headRT.anchorMax = new Vector2(1f, 1f);
-            headRT.pivot = new Vector2(0.5f, 1f);
-            headRT.sizeDelta = new Vector2(0f, 90f);
-            header.GetComponent<Image>().color = new Color(0.1f, 0.13f, 0.2f, 1f);
+            var pila = chatPanel.GetComponent<VerticalLayoutGroup>();
+            pila.padding = new RectOffset(MedTel.PadPanel, MedTel.PadPanel,
+                                          MedTel.PadPanel, MedTel.PadPanel);
+            pila.spacing = ChatMed.EspaciadoLista;
+            pila.childControlWidth      = true; pila.childControlHeight      = true;
+            pila.childForceExpandWidth  = true; pila.childForceExpandHeight  = false;
 
-            var headLabelGO = new GameObject("Name", typeof(RectTransform), typeof(Text));
-            headLabelGO.transform.SetParent(header.transform, false);
-            Stretch(headLabelGO.GetComponent<RectTransform>(), 30f, 0f);
-            headerLabel = headLabelGO.GetComponent<Text>();
-            headerLabel.font = font; headerLabel.fontSize = 36; headerLabel.fontStyle = FontStyle.Bold;
-            headerLabel.color = Color.white; headerLabel.alignment = TextAnchor.MiddleLeft;
+            BuildHeaderMensajeria(chatPanel.transform);
+            BuildHistorial(chatPanel.transform);
+            BuildOpciones(chatPanel.transform);
+        }
 
-            // Botón cerrar (X).
-            var closeGO = new GameObject("Close", typeof(RectTransform), typeof(Image), typeof(Button));
+        /// <summary>Cabecera: nombre del contacto y botón de cerrar.</summary>
+        private void BuildHeaderMensajeria(Transform parent)
+        {
+            var header = new GameObject("Header",
+                typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            header.transform.SetParent(parent, false);
+
+            var le = header.GetComponent<LayoutElement>();
+            le.minHeight = MedTel.AlturaHeader;
+            le.preferredHeight = MedTel.AlturaHeader;
+
+            FishyUIKit.FondoRedondeado(header.GetComponent<Image>(), ChatCol.Header,
+                radio: ChatMed.RadioEsquina);
+
+            headerLabel = FishyUIKit.Texto(header.transform, "Name", "", ChatFnt.Header,
+                ChatCol.Texto, TextAlignmentOptions.MidlineLeft);
+            headerLabel.fontStyle = FontStyles.Bold;
+            var lblRT = headerLabel.rectTransform;
+            lblRT.anchorMin = Vector2.zero; lblRT.anchorMax = Vector2.one;
+            lblRT.offsetMin = new Vector2(24f, 0f);
+            // Deja libre la esquina del botón de cerrar, o el nombre se le mete debajo.
+            lblRT.offsetMax = new Vector2(-(MedTel.LadoBotonCerrar + 24f), 0f);
+
+            var closeGO = new GameObject("Close",
+                typeof(RectTransform), typeof(Image), typeof(Button));
             closeGO.transform.SetParent(header.transform, false);
             var closeRT = closeGO.GetComponent<RectTransform>();
             closeRT.anchorMin = new Vector2(1f, 0.5f); closeRT.anchorMax = new Vector2(1f, 0.5f);
-            closeRT.pivot = new Vector2(1f, 0.5f);
-            closeRT.anchoredPosition = new Vector2(-20f, 0f);
-            closeRT.sizeDelta = new Vector2(64f, 64f);
-            closeGO.GetComponent<Image>().color = new Color(0.6f, 0.2f, 0.2f, 1f);
+            closeRT.pivot     = new Vector2(1f, 0.5f);
+            closeRT.anchoredPosition = new Vector2(-14f, 0f);
+            closeRT.sizeDelta = new Vector2(MedTel.LadoBotonCerrar, MedTel.LadoBotonCerrar);
+            FishyUIKit.FondoRedondeado(closeGO.GetComponent<Image>(), ChatCol.BotonCerrar, radio: 18);
             closeButton = closeGO.GetComponent<Button>();
-            var closeTxtGO = new GameObject("X", typeof(RectTransform), typeof(Text));
-            closeTxtGO.transform.SetParent(closeGO.transform, false);
-            Stretch(closeTxtGO.GetComponent<RectTransform>());
-            var closeTxt = closeTxtGO.GetComponent<Text>();
-            closeTxt.font = font; closeTxt.fontSize = 40; closeTxt.color = Color.white;
-            closeTxt.alignment = TextAnchor.MiddleCenter; closeTxt.text = "✕";
 
-            // Zona de opciones (abajo).
-            var optionsGO = new GameObject("Options",
-                typeof(RectTransform), typeof(VerticalLayoutGroup));
-            optionsGO.transform.SetParent(chatPanel.transform, false);
-            optionsContainer = optionsGO.GetComponent<RectTransform>();
-            optionsContainer.anchorMin = new Vector2(0f, 0f); optionsContainer.anchorMax = new Vector2(1f, 0f);
-            optionsContainer.pivot = new Vector2(0.5f, 0f);
-            optionsContainer.anchoredPosition = new Vector2(0f, 24f);
-            optionsContainer.sizeDelta = new Vector2(-48f, 300f);
-            var ovlg = optionsGO.GetComponent<VerticalLayoutGroup>();
-            ovlg.spacing = 12f; ovlg.childAlignment = TextAnchor.LowerCenter;
-            ovlg.childControlWidth = true; ovlg.childControlHeight = true;
-            ovlg.childForceExpandWidth = true; ovlg.childForceExpandHeight = false;
+            FishyUIKit.Aspa(closeGO.transform, ChatCol.Texto,
+                largo: MedTel.LadoBotonCerrar * MedTel.FraccionAspa,
+                grosor: MedTel.GrosorAspa);
+        }
 
-            // ScrollRect del historial (entre header y opciones).
+        /// <summary>Historial de burbujas. Es el que cede espacio: se queda con lo que
+        /// dejen la cabecera y las opciones.</summary>
+        private void BuildHistorial(Transform parent)
+        {
             var scrollGO = new GameObject("Scroll",
-                typeof(RectTransform), typeof(Image), typeof(ScrollRect), typeof(RectMask2D));
-            scrollGO.transform.SetParent(chatPanel.transform, false);
-            var scrollRT = scrollGO.GetComponent<RectTransform>();
-            scrollRT.anchorMin = new Vector2(0f, 0f); scrollRT.anchorMax = new Vector2(1f, 1f);
-            scrollRT.offsetMin = new Vector2(20f, 330f);   // deja espacio para opciones
-            scrollRT.offsetMax = new Vector2(-20f, -100f); // deja espacio para header
-            scrollGO.GetComponent<Image>().color = new Color(0.05f, 0.06f, 0.09f, 0.6f);
+                typeof(RectTransform), typeof(Image), typeof(ScrollRect),
+                typeof(RectMask2D), typeof(LayoutElement));
+            scrollGO.transform.SetParent(parent, false);
+
+            var le = scrollGO.GetComponent<LayoutElement>();
+            le.flexibleHeight = 1f;   // el único elástico de la pila
+            le.minHeight      = 120f;
+
+            FishyUIKit.FondoRedondeado(scrollGO.GetComponent<Image>(), ChatCol.Historial,
+                radio: ChatMed.RadioEsquina);
+
             scrollRect = scrollGO.GetComponent<ScrollRect>();
             scrollRect.horizontal = false; scrollRect.vertical = true;
+            scrollRect.scrollSensitivity = 30f;
+
+            // El tapiz va como hijo del Scroll y no como su Image, para que el
+            // color liso siga debajo: así el alfa del tinte mezcla ilustración y
+            // paleta en vez de reemplazarla. Y va antes que Content, o taparía
+            // los mensajes.
+            CrearTapiz(scrollGO.transform);
 
             var contentGO = new GameObject("Content",
                 typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
             contentGO.transform.SetParent(scrollGO.transform, false);
             content = contentGO.GetComponent<RectTransform>();
             content.anchorMin = new Vector2(0f, 1f); content.anchorMax = new Vector2(1f, 1f);
-            content.pivot = new Vector2(0.5f, 1f);
-            content.offsetMin = new Vector2(10f, 0f); content.offsetMax = new Vector2(-10f, 0f);
-            var cvlg = contentGO.GetComponent<VerticalLayoutGroup>();
-            cvlg.spacing = 12f; cvlg.padding = new RectOffset(8, 8, 8, 8);
-            cvlg.childControlWidth = true; cvlg.childControlHeight = true;
-            cvlg.childForceExpandWidth = true; cvlg.childForceExpandHeight = false;
-            var cFitter = contentGO.GetComponent<ContentSizeFitter>();
-            cFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            scrollRect.content = content;
+            content.pivot     = new Vector2(0.5f, 1f);
+            content.offsetMin = Vector2.zero; content.offsetMax = Vector2.zero;
 
-            BuildMoodPanel(window.transform);
+            var cvlg = contentGO.GetComponent<VerticalLayoutGroup>();
+            cvlg.spacing = ChatMed.EspaciadoLista;
+            cvlg.padding = new RectOffset(14, 14, 14, 14);
+            cvlg.childControlWidth      = true; cvlg.childControlHeight      = true;
+            cvlg.childForceExpandWidth  = true; cvlg.childForceExpandHeight  = false;
+
+            contentGO.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+            scrollRect.content = content;
+        }
+
+        /// <summary>
+        /// Papel tapiz del historial, lo mismo que hace el Modo Detective: mientras
+        /// se elige cuál usar lo maneja <see cref="FondoAleatorio"/>, que va rotando
+        /// imágenes de una carpeta con una tecla. Sin imágenes no pasa nada: el
+        /// historial se ve con su color liso.
+        ///
+        /// Solo se llama desde el diseño de mensajería, así que el tapiz sale
+        /// únicamente en el chat por teléfono. El cara a cara se queda liso a
+        /// propósito: una conversación en persona no es una pantalla.
+        ///
+        /// Va envuelto en una máscara y no suelto como en el detective porque aquí
+        /// el historial tiene las esquinas redondeadas: una imagen rectangular
+        /// asomaría por las cuatro puntas. La máscara usa el mismo 9-slice que pinta
+        /// el redondeo, así que el recorte encaja solo aunque cambie el radio.
+        /// </summary>
+        private void CrearTapiz(Transform parent)
+        {
+            var recorteGO = new GameObject("TapizRecorte",
+                typeof(RectTransform), typeof(Image), typeof(Mask));
+            recorteGO.transform.SetParent(parent, false);
+            Stretch(recorteGO.GetComponent<RectTransform>());
+
+            var recorteImg = recorteGO.GetComponent<Image>();
+            recorteImg.sprite        = FishyUIKit.SpriteRedondeado(radio: ChatMed.RadioEsquina);
+            recorteImg.type          = Image.Type.Sliced;
+            recorteImg.raycastTarget = false;
+            recorteGO.GetComponent<Mask>().showMaskGraphic = false;
+
+            var go = new GameObject("Tapiz", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(recorteGO.transform, false);
+            Stretch(go.GetComponent<RectTransform>());
+
+            var img = go.GetComponent<Image>();
+            img.raycastTarget = false;   // los clics son de las burbujas
+            img.enabled       = false;   // hasta que haya una imagen que poner
+
+            var rotador = go.AddComponent<FondoAleatorio>();
+            rotador.destino          = img;
+            // El rótulo de prueba se cuelga de la raíz y no del panel: el panel es
+            // una pila vertical y un hijo más le descuadraría el reparto de alto.
+            rotador.etiquetaPadre    = window != null ? window.transform : null;
+            rotador.carpeta          = MedTel.Fondo.Carpeta;
+            rotador.rotar            = MedTel.Fondo.Rotar;
+            rotador.fijoPorNombre    = MedTel.Fondo.FijoPorNombre;
+            rotador.teclaSiguiente   = MedTel.Fondo.TeclaSiguiente;
+            rotador.tinte            = MedTel.Fondo.Tinte;
+            rotador.repetir          = MedTel.Fondo.Repetir;
+            rotador.mostrarNombre    = MedTel.Fondo.MostrarNombre;
+            rotador.tamanoNombre     = MedTel.Fondo.TamanoNombre;
+            rotador.colorNombre      = ChatCol.TextoSuave;
+            rotador.rutaFuenteNombre = FishyUIKit.RutaCuerpo;
+            rotador.modulo           = "Chat";
+            rotador.Iniciar();
+        }
+
+        /// <summary>
+        /// Zona de respuestas. Crece con los botones, pero con tope: si un nodo trae
+        /// muchas opciones largas, hacen scroll en vez de comerse el historial.
+        /// </summary>
+        private void BuildOpciones(Transform parent)
+        {
+            var opcionesGO = new GameObject("Options",
+                typeof(RectTransform), typeof(ScrollRect), typeof(RectMask2D),
+                typeof(LayoutElement));
+            opcionesGO.transform.SetParent(parent, false);
+
+            var le = opcionesGO.GetComponent<LayoutElement>();
+            le.flexibleHeight = 0f;
+            le.preferredHeight = ChatMed.AlturaBoton * 3f;   // se recalcula al mostrarlas
+
+            _opcionesScroll = opcionesGO.GetComponent<ScrollRect>();
+            _opcionesScroll.horizontal = false; _opcionesScroll.vertical = true;
+            _opcionesScroll.scrollSensitivity = 30f;
+            _opcionesLayout = le;
+
+            var listaGO = new GameObject("Lista",
+                typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            listaGO.transform.SetParent(opcionesGO.transform, false);
+            optionsContainer = listaGO.GetComponent<RectTransform>();
+            optionsContainer.anchorMin = new Vector2(0f, 1f);
+            optionsContainer.anchorMax = new Vector2(1f, 1f);
+            optionsContainer.pivot     = new Vector2(0.5f, 1f);
+            optionsContainer.offsetMin = Vector2.zero; optionsContainer.offsetMax = Vector2.zero;
+
+            var vlg = listaGO.GetComponent<VerticalLayoutGroup>();
+            vlg.spacing = 10f;
+            vlg.childControlWidth      = true; vlg.childControlHeight      = true;
+            vlg.childForceExpandWidth  = true; vlg.childForceExpandHeight  = false;
+
+            listaGO.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+            _opcionesScroll.content = optionsContainer;
+        }
+
+        /// <summary>
+        /// Panel de diálogo abajo, igual que el de los NPCs neutros, para hablar
+        /// cara a cara. No hay historial ni burbujas: el NPC dice una cosa, el
+        /// jugador elige y se sigue.
+        /// </summary>
+        private void BuildDisenoCaraACara()
+        {
+            _panel = FishyUIKit.CrearPanelDialogo(window.transform,
+                fondo: ChatCol.Ventana,
+                colorNombre: ChatCol.Texto,
+                colorTexto: ChatCol.Texto,
+                colorRespuesta: ChatCol.TextoSuave,
+                ancho: MedCara.AnchoPanel,
+                tamNombre: ChatFnt.NombrePanel,
+                tamTexto: ChatFnt.TextoPanel,
+                tamRespuesta: ChatFnt.RespuestaPanel,
+                margenInferior: MedCara.MargenInferior,
+                radio: ChatMed.RadioEsquina);
+
+            // ShowOptions y ClearOptions no saben de diseños: escriben aquí.
+            optionsContainer = _panel.Opciones;
+
+            // Sin ventana de mensajería no hay cabecera ni historial que rellenar.
+            headerLabel = _panel.Nombre;
+            content     = null;
+            scrollRect  = null;
         }
 
         private void BuildMoodPanel(Transform canvas)
@@ -336,55 +691,62 @@ namespace Fishy.Chat
             moodPanel = new GameObject("MoodPanel", typeof(RectTransform), typeof(Image));
             moodPanel.transform.SetParent(canvas, false);
             Stretch(moodPanel.GetComponent<RectTransform>());
-            moodPanel.GetComponent<Image>().color = new Color(0.03f, 0.05f, 0.09f, 0.92f);
+            moodPanel.GetComponent<Image>().color = ChatCol.BackdropTelefono;
 
+            // Arriba y no centrada: centrada tapaba la cola de la conversación (el
+            // último mensaje, justo debajo de donde el niño/a estaba leyendo) al
+            // aparecer. Ancladas las dos al borde de arriba, queda libre la parte
+            // baja de la pantalla, donde vive esa cola.
             var card = new GameObject("Card", typeof(RectTransform), typeof(Image));
             card.transform.SetParent(moodPanel.transform, false);
             var cardRT = card.GetComponent<RectTransform>();
-            cardRT.anchorMin = new Vector2(0.5f, 0.5f); cardRT.anchorMax = new Vector2(0.5f, 0.5f);
-            cardRT.pivot = new Vector2(0.5f, 0.5f);
-            cardRT.sizeDelta = new Vector2(900f, 700f);
-            card.GetComponent<Image>().color = new Color(0.1f, 0.13f, 0.2f, 1f);
+            cardRT.anchorMin = new Vector2(0.5f, 1f); cardRT.anchorMax = new Vector2(0.5f, 1f);
+            cardRT.pivot = new Vector2(0.5f, 1f);
+            cardRT.anchoredPosition = new Vector2(0f, -60f);
+            cardRT.sizeDelta = ChatMed.CardAnimo;
+            FishyUIKit.FondoRedondeado(card.GetComponent<Image>(), ChatCol.Card,
+                radio: ChatMed.RadioEsquina);
 
-            var emojiGO = new GameObject("Emoji", typeof(RectTransform), typeof(Text));
-            emojiGO.transform.SetParent(card.transform, false);
-            var emojiRT = emojiGO.GetComponent<RectTransform>();
+            // El emoji va con la fuente de cuerpo, no con Mango: Mango es la fuente
+            // de la marca y no trae pictogramas, así que saldrían cuadros rotos.
+            moodEmoji = FishyUIKit.Texto(card.transform, "Emoji", "", ChatFnt.Emoji,
+                ChatCol.Texto, TextAlignmentOptions.Center);
+            moodEmoji.font = FishyUIKit.Cuerpo;
+            var emojiRT = moodEmoji.rectTransform;
             emojiRT.anchorMin = new Vector2(0.5f, 1f); emojiRT.anchorMax = new Vector2(0.5f, 1f);
             emojiRT.pivot = new Vector2(0.5f, 1f);
             emojiRT.anchoredPosition = new Vector2(0f, -60f);
             emojiRT.sizeDelta = new Vector2(400f, 240f);
-            moodEmoji = emojiGO.GetComponent<Text>();
-            moodEmoji.font = font; moodEmoji.fontSize = 160; moodEmoji.alignment = TextAnchor.MiddleCenter;
-            moodEmoji.color = Color.white;
 
-            var msgGO = new GameObject("Message", typeof(RectTransform), typeof(Text));
-            msgGO.transform.SetParent(card.transform, false);
-            var msgRT = msgGO.GetComponent<RectTransform>();
+            // La animación de Otto va en el mismo sitio y reemplaza al emoji cuando
+            // hay frames; ver MostrarAnimacion.
+            var animGO = new GameObject("Animacion", typeof(RectTransform), typeof(Image));
+            animGO.transform.SetParent(card.transform, false);
+            moodAnimacion = animGO.GetComponent<Image>();
+            moodAnimacion.preserveAspect = true;
+            moodAnimacion.raycastTarget = false;
+            var animRT = moodAnimacion.rectTransform;
+            animRT.anchorMin = new Vector2(0.5f, 1f); animRT.anchorMax = new Vector2(0.5f, 1f);
+            animRT.pivot = new Vector2(0.5f, 1f);
+            animRT.anchoredPosition = emojiRT.anchoredPosition;
+            animRT.sizeDelta = ChatAnim.Tamano;
+            animGO.SetActive(false);
+
+            moodMessage = FishyUIKit.Texto(card.transform, "Message", "", ChatFnt.MensajeAnimo,
+                ChatCol.Texto, TextAlignmentOptions.Center);
+            var msgRT = moodMessage.rectTransform;
             msgRT.anchorMin = new Vector2(0.5f, 0.5f); msgRT.anchorMax = new Vector2(0.5f, 0.5f);
             msgRT.pivot = new Vector2(0.5f, 0.5f);
             msgRT.anchoredPosition = new Vector2(0f, -40f);
             msgRT.sizeDelta = new Vector2(800f, 220f);
-            moodMessage = msgGO.GetComponent<Text>();
-            moodMessage.font = font; moodMessage.fontSize = 44; moodMessage.alignment = TextAnchor.MiddleCenter;
-            moodMessage.color = Color.white;
-            moodMessage.horizontalOverflow = HorizontalWrapMode.Wrap;
-            moodMessage.verticalOverflow = VerticalWrapMode.Overflow;
 
-            var btnGO = new GameObject("CloseMood", typeof(RectTransform), typeof(Image), typeof(Button));
-            btnGO.transform.SetParent(card.transform, false);
-            var btnRT = btnGO.GetComponent<RectTransform>();
+            moodCloseButton = FishyUIKit.Boton(card.transform, ChatTxt.BotonContinuar,
+                ChatCol.BotonContinuar, ChatFnt.Boton, ChatMed.BotonAnimo.y, null);
+            var btnRT = moodCloseButton.GetComponent<RectTransform>();
             btnRT.anchorMin = new Vector2(0.5f, 0f); btnRT.anchorMax = new Vector2(0.5f, 0f);
             btnRT.pivot = new Vector2(0.5f, 0f);
             btnRT.anchoredPosition = new Vector2(0f, 50f);
-            btnRT.sizeDelta = new Vector2(360f, 90f);
-            btnGO.GetComponent<Image>().color = new Color(0.16f, 0.45f, 0.3f, 1f);
-            moodCloseButton = btnGO.GetComponent<Button>();
-            var btnTxtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
-            btnTxtGO.transform.SetParent(btnGO.transform, false);
-            Stretch(btnTxtGO.GetComponent<RectTransform>());
-            var btnTxt = btnTxtGO.GetComponent<Text>();
-            btnTxt.font = font; btnTxt.fontSize = 34; btnTxt.color = Color.white;
-            btnTxt.alignment = TextAnchor.MiddleCenter; btnTxt.text = "Continuar";
+            btnRT.sizeDelta = ChatMed.BotonAnimo;
 
             moodPanel.SetActive(false);
         }
@@ -401,118 +763,38 @@ namespace Fishy.Chat
 
             if (_chatPanelRT == null) return;
 
-            // 1. Redimensionar el panel a proporción de celular (9:16).
-            _chatPanelRT.sizeDelta = new Vector2(600f, 1060f);
-
             // Actualizar etiqueta de contacto en el header existente.
             if (headerLabel != null) headerLabel.text = contactName;
 
-            // 2. Crear carcasa del celular (visible detrás del panel, con borde).
-            _phoneChromeRoot = new GameObject("PhoneChrome", typeof(RectTransform), typeof(Image));
-            _phoneChromeRoot.transform.SetParent(_chatPanelRT.parent, false);
-            _phoneChromeRoot.transform.SetSiblingIndex(_chatPanelRT.GetSiblingIndex()); // debajo del panel
+            var ajustes = MarcoTelefono.Ajustes.PorDefecto;
+            ajustes.Pantalla          = MedTel.Ventana;
+            ajustes.Borde             = MedTel.Borde;
+            ajustes.AlturaBarraEstado = MedTel.AlturaBarraEstado;
+            ajustes.TamanoReloj       = ChatFnt.Reloj;
+            ajustes.MargenBarraInicio = MedTel.MargenBarraInicio;
+            // El panel del chat es una pila vertical, y fuera del teléfono vive en una
+            // esquina y más chico: hay que centrarlo y medirlo al montar la carcasa.
+            ajustes.BarraEstadoEnPila = true;
+            ajustes.RecolocarPantalla = true;
 
-            var bezelRT = _phoneChromeRoot.GetComponent<RectTransform>();
-            bezelRT.anchorMin = new Vector2(0.5f, 0.5f);
-            bezelRT.anchorMax = new Vector2(0.5f, 0.5f);
-            bezelRT.pivot     = new Vector2(0.5f, 0.5f);
-            bezelRT.sizeDelta = new Vector2(640f, 1120f); // 20px de borde en cada lado
-            _phoneChromeRoot.GetComponent<Image>().color = new Color(0.06f, 0.06f, 0.08f, 1f);
-
-            // 3. Notch / cámara frontal.
-            var notch = new GameObject("Notch", typeof(RectTransform), typeof(Image));
-            notch.transform.SetParent(_phoneChromeRoot.transform, false);
-            var notchRT = notch.GetComponent<RectTransform>();
-            notchRT.anchorMin = new Vector2(0.5f, 1f);
-            notchRT.anchorMax = new Vector2(0.5f, 1f);
-            notchRT.pivot     = new Vector2(0.5f, 1f);
-            notchRT.anchoredPosition = new Vector2(0f, -8f);
-            notchRT.sizeDelta = new Vector2(120f, 28f);
-            notch.GetComponent<Image>().color = new Color(0.04f, 0.04f, 0.05f, 1f);
-
-            // 4. Barra de estado DENTRO del panel del chat (encima del header).
-            var statusGO = new GameObject("StatusBar", typeof(RectTransform), typeof(Image));
-            statusGO.transform.SetParent(_chatPanelRT, false);
-            statusGO.transform.SetAsFirstSibling();
-            var statusRT = statusGO.GetComponent<RectTransform>();
-            statusRT.anchorMin = new Vector2(0f, 1f);
-            statusRT.anchorMax = new Vector2(1f, 1f);
-            statusRT.pivot     = new Vector2(0.5f, 1f);
-            statusRT.sizeDelta = new Vector2(0f, 48f);
-            statusGO.GetComponent<Image>().color = new Color(0.05f, 0.07f, 0.10f, 1f);
-
-            // Reloj (izq).
-            var clockGO = new GameObject("Clock", typeof(RectTransform), typeof(Text));
-            clockGO.transform.SetParent(statusGO.transform, false);
-            var clockRT = clockGO.GetComponent<RectTransform>();
-            clockRT.anchorMin = new Vector2(0f, 0f); clockRT.anchorMax = new Vector2(0f, 1f);
-            clockRT.pivot     = new Vector2(0f, 0.5f);
-            clockRT.anchoredPosition = new Vector2(18f, 0f);
-            clockRT.sizeDelta        = new Vector2(160f, 0f);
-            _phoneClockText = clockGO.GetComponent<Text>();
-            _phoneClockText.font      = font; _phoneClockText.fontSize = 24;
-            _phoneClockText.color     = Color.white;
-            _phoneClockText.alignment = TextAnchor.MiddleLeft;
-            _phoneClockText.text      = System.DateTime.Now.ToString("HH:mm");
-
-            // Iconos de señal + batería (der).
-            var iconsGO = new GameObject("Icons", typeof(RectTransform), typeof(Text));
-            iconsGO.transform.SetParent(statusGO.transform, false);
-            var iconsRT = iconsGO.GetComponent<RectTransform>();
-            iconsRT.anchorMin = new Vector2(1f, 0f); iconsRT.anchorMax = new Vector2(1f, 1f);
-            iconsRT.pivot     = new Vector2(1f, 0.5f);
-            iconsRT.anchoredPosition = new Vector2(-14f, 0f);
-            iconsRT.sizeDelta        = new Vector2(180f, 0f);
-            var iconsTxt = iconsGO.GetComponent<Text>();
-            iconsTxt.font = font; iconsTxt.fontSize = 22;
-            iconsTxt.color = Color.white; iconsTxt.alignment = TextAnchor.MiddleRight;
-            iconsTxt.text = "▲▲▲  WiFi  🔋";
-
-            // 5. Mover el header del chat hacia abajo para dejar espacio a la status bar.
-            var headerTF = _chatPanelRT.Find("Header");
-            if (headerTF != null)
-            {
-                var hRT = headerTF.GetComponent<RectTransform>();
-                // Añadimos padding superior equivalente al status bar.
-                hRT.offsetMin = new Vector2(0f, 0f);
-                hRT.anchoredPosition = new Vector2(hRT.anchoredPosition.x, -48f);
-            }
-
-            // 6. Barra de inicio (home bar) en el fondo del panel.
-            var homeGO = new GameObject("HomeBar", typeof(RectTransform), typeof(Image));
-            homeGO.transform.SetParent(_chatPanelRT, false);
-            var homeRT = homeGO.GetComponent<RectTransform>();
-            homeRT.anchorMin = new Vector2(0.25f, 0f);
-            homeRT.anchorMax = new Vector2(0.75f, 0f);
-            homeRT.pivot     = new Vector2(0.5f, 0f);
-            homeRT.anchoredPosition = new Vector2(0f, 10f);
-            homeRT.sizeDelta        = new Vector2(0f, 8f);
-            homeGO.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.35f);
-
-            // 7. Iniciar reloj actualizable.
-            _clockCoroutine = StartCoroutine(ClockRoutine());
+            _marcoTelefono = MarcoTelefono.Montar(_chatPanelRT, ajustes);
         }
 
         private void RemovePhoneChrome()
         {
-            if (_clockCoroutine != null) { StopCoroutine(_clockCoroutine); _clockCoroutine = null; }
-            if (_phoneChromeRoot != null) { Destroy(_phoneChromeRoot); _phoneChromeRoot = null; }
-            _phoneClockText = null;
+            if (_marcoTelefono != null) { _marcoTelefono.Desmontar(); _marcoTelefono = null; }
 
-            // Restaurar tamaño original del panel.
+            // Restaurar posición/tamaño del panel normal (esquina, angosto).
             if (_chatPanelRT != null && !_phoneMode)
-                _chatPanelRT.sizeDelta = new Vector2(1040f, 1500f);
-        }
-
-        private System.Collections.IEnumerator ClockRoutine()
-        {
-            while (true)
             {
-                if (_phoneClockText != null)
-                    _phoneClockText.text = System.DateTime.Now.ToString("HH:mm");
-                yield return new WaitForSecondsRealtime(30f);
+                _chatPanelRT.anchorMin = new Vector2(1f, 0f);
+                _chatPanelRT.anchorMax = new Vector2(1f, 0f);
+                _chatPanelRT.pivot = new Vector2(1f, 0f);
+                _chatPanelRT.anchoredPosition = new Vector2(-40f, 40f);
+                _chatPanelRT.sizeDelta = NormalWindowSize;
             }
         }
+
 
         private static void Stretch(RectTransform rt, float padX = 0f, float padY = 0f)
         {

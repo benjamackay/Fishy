@@ -13,6 +13,76 @@ namespace Fishy.Chat
     {
         public string version;
         public List<PreguntaBanco> preguntas = new List<PreguntaBanco>();
+
+        /// <summary>
+        /// Diálogos de los NPCs neutros (HDU-1) y los de cierre de zona (HDU-9).
+        ///
+        /// Estaban en el JSON desde el principio, pero esta lista no existía, y
+        /// JsonUtility descarta en silencio lo que no encuentra en la clase: los once
+        /// diálogos escritos del banco no llegaban nunca a Unity, y los NPCs neutros
+        /// hablaban con los NPCDialogue de relleno del inspector.
+        /// </summary>
+        public List<DialogoNeutroBanco> dialogos_npc_neutros = new List<DialogoNeutroBanco>();
+
+        /// <summary>Los tres finales (HDU-09) que se muestran al terminar la Misión 6.
+        /// Ver <see cref="Fishy.Finales.SistemaDeFinales"/>.</summary>
+        public FinalesNarrativos finales_narrativos = new FinalesNarrativos();
+    }
+
+    [System.Serializable]
+    public class FinalesNarrativos
+    {
+        public string nota;
+
+        /// <summary>escenario_id cuyos nodos FIN disparan los finales: las dos
+        /// variantes de la Misión 6 (con y sin la presión intensificada).</summary>
+        public List<string> disparan_al_terminar = new List<string>();
+
+        public List<FinalNarrativo> finales = new List<FinalNarrativo>();
+    }
+
+    /// <summary>Un final tal cual viene en el banco. Los textos ya dicen cómo se ve la
+    /// brújula (brilla, con manchas, opaca): es lo único que cambia entre los tres.</summary>
+    [System.Serializable]
+    public class FinalNarrativo
+    {
+        public string id;                 // "FINAL_A" | "FINAL_B" | "FINAL_C"
+        public string nombre;             // "Detective Ejemplar"
+        public string nivel;              // "alto" | "medio" | "bajo"
+        public int    porcentaje_minimo;  // % de decisiones seguras desde el que aplica
+        public List<LineaDeFinal> lineas = new List<LineaDeFinal>();
+        public string recompensa;         // nombre visible
+        public string recompensa_item_id; // ItemData de Resources/Items
+        public bool   permite_rejugar;
+    }
+
+    [System.Serializable]
+    public class LineaDeFinal
+    {
+        public string npc_nombre;
+        public bool   por_radio;
+        public string texto;
+    }
+
+    /// <summary>
+    /// Un diálogo de NPC neutro tal cual viene en banco_preguntas.json. Los nombres de
+    /// los campos son los del JSON y no se tocan: JsonUtility empareja por nombre.
+    /// </summary>
+    [System.Serializable]
+    public class DialogoNeutroBanco
+    {
+        public string id;                 // "HDU1_NPC_HUEMUL"
+        public string hdu;                // "HDU-1" | "HDU-9"
+        public string zona;               // "desconocidos" | "ciberacoso" | "reto_viral"
+        public string npc_id;             // "NPC_GUIA" | "NPC_PUDU" …
+        public string npc_nombre;         // "Huemul" | "Pudú" …
+        public string npc_avatar;         // "npc_huemul_01" — hoy no hay ningún sprite así
+        public string tipo;               // "neutro" | "cierre_zona"
+        public string trigger;            // "boton_E" | "salida_de_zona"
+        public string mision_desbloquea;  // "MISION_SEC_COLLAR_PUDU" | ""
+        public string nombre_mision;
+        public List<string> lineas = new List<string>();
+        public string pista_mision;
     }
 
     [System.Serializable]
@@ -34,6 +104,7 @@ namespace Fishy.Chat
         public bool   es_fin_de_npc;
         public bool   es_fin_de_zona;
         public string mensaje_npc;
+        public string pensamiento_otto;  // lo que Otto piensa "para sí" antes de las opciones
         public List<OpcionBanco> opciones_respuesta = new List<OpcionBanco>();
         public string narrativa_continuacion; // nextNodeId para avance automático
     }
