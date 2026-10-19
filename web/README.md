@@ -15,9 +15,16 @@ npm run dev
 
 En Windows, si PowerShell bloquea npm.ps1, usar `npm.cmd` en los comandos.
 Abrir la URL que muestra Vite e iniciar sesión con una cuenta de Django.
-El portal usa únicamente la API configurada: no incluye accesos de demostración,
-simuladores de progreso ni datos de prueba. Los errores del servicio no activan
-datos alternativos. Las fixtures están en `tests/fixtures`, fuera del código publicado.
+En producción el portal usa únicamente la API configurada. Los errores del servicio
+no activan datos alternativos.
+
+Para recorrer solo el frontend, agrega `VITE_FRONTEND_MOCK=true` en `web/.env.local`
+y ejecuta el servidor de desarrollo. Entrarás automáticamente como Camila Rojas,
+con datos ficticios y un aviso de demostración. El cliente bloquea las llamadas
+al backend en este modo. Puedes abrir Configuración desde el menú de usuario.
+Elimina la variable o cámbiala a `false` para volver al acceso real.
+La demostración está deshabilitada en las compilaciones de producción y en tests;
+sus datos reutilizables se encuentran en `src/demo`.
 
 ```sh
 npm test

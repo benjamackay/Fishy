@@ -10,6 +10,7 @@ import ReporteGrupoPage from '@/pages/admin/ReporteGrupoPage'
 import PartidaPage from '@/pages/panel/PartidaPage'
 import SesionesPage from '@/pages/panel/SesionesPage'
 import ReporteNinoPage from '@/pages/panel/ReporteNinoPage'
+import ConfiguracionPage from '@/pages/ConfiguracionPage'
 
 export const rutas = [{
   path: '/', element: <RootLayout />, errorElement: <NotFoundPage />,
@@ -17,6 +18,7 @@ export const rutas = [{
     { path: 'login', element: <LoginPage /> },
     { path: 'invitacion', element: <InvitacionPage /> },
     { element: <RequiereSesion />, children: [
+      { path: 'configuracion', element: <ConfiguracionPage /> },
       { element: <RequierePadre />, children: [
         { index: true, element: <SesionesPage /> },
         { path: 'reportes', element: <Navigate to="/" replace /> },

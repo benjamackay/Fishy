@@ -71,6 +71,7 @@ describe('tutores padres y administradores', () => {
   it('cambiar de profesor a padre retira el grupo que estaba abierto', async () => {
     const user = abrir('/admin/grupos/grupo-demo-1002-a/reporte', 'alternativa')
     await screen.findByRole('heading', { name: '5° Básico A' })
+    await user.click(screen.getByRole('button', { name: 'Menú de usuario' }))
     await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
     prepararCuenta('principal', false)
     await user.type(await screen.findByLabelText('Nombre de usuario'), 'camila')

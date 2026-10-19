@@ -57,6 +57,7 @@ describe('criterios de aceptación en las pantallas', () => {
   it('al cambiar de tutor no muestra los niños de la cuenta anterior', async () => {
     const { user } = abrir('/', 'principal')
     expect(await screen.findByRole('link', { name: 'Ver reporte de Martina' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Menú de usuario' }))
     await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     prepararCuenta('alternativa', false)
