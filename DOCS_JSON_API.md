@@ -135,39 +135,51 @@ El token recibido se almacena en `ApiManager.Token` y se adjunta a todos los req
 
 ### Recuperar la contraseña (portal web)
 
-Tres pasos sin sesión (no mandar `Authorization`): pedir un código de 6 dígitos al
-correo de la cuenta, canjearlo por un permiso y fijar la contraseña nueva con ese
-permiso. Código en `Backend/backend/api/recuperacion.py`.
+Tres pasos sin sesión (no mandar `Authorization`). Sigue el contrato propuesto en
+`docs/INFORME_INTEGRACION_BACKEND_TRES_FEATURES.md` (sección 4), en la rama
+`Feature/ReportePorPeriodo`. Código en `Backend/backend/api/recuperacion.py`.
 
-**1. POST `/auth/recuperar/solicitar/`** `{"email": "adulto@ejemplo.cl"}` → `202`
+**1. POST `/auth/recuperacion/solicitar/`** `{"email": "adulto@ejemplo.cl"}` → `202`
 ```json
-{ "detalle": "Si el correo está registrado en Fishy, te enviamos un código. Revisa también la carpeta de spam." }
+{
+  "detail": "Si existe una cuenta asociada, recibirás un código en tu correo. Revisa también la carpeta de spam.",
+  "solicitud_id": "uuid",
+  "expira_en_segundos": 600,
+  "reenvio_en_segundos": 60
+}
 ```
-Responde lo mismo exista o no la cuenta: el portal no debe decir "ese correo no existe".
-Pedir otro código anula el anterior; dentro del mismo minuto no manda otro (responde
-igual `202`). `503` si el correo no está configurado o el proveedor falló.
+Responde igual exista o no la cuenta (también con un `solicitud_id`), y el correo sale
+en segundo plano: el portal no debe decir "ese correo no existe". Pedir otro código
+anula el anterior. Antes de `reenvio_en_segundos` responde `429`
+`{"code": "reenvio_muy_pronto"}` con `Retry-After`. `503` `correo_no_disponible` si el
+correo no está configurado en el servidor.
 
-**2. POST `/auth/recuperar/verificar/`** `{"email": "adulto@ejemplo.cl", "codigo": "042517"}` → `200`
+**2. POST `/auth/recuperacion/verificar/`** `{"solicitud_id": "uuid", "codigo": "012345"}` → `200`
 ```json
-{ "permiso": "43 caracteres", "vence_en": "2026-10-19T21:40:00Z" }
+{ "reset_token": "43 caracteres", "expira_en_segundos": 300 }
 ```
-`400` con `["El código no es correcto o ya venció. Revisa el correo o pide uno nuevo."]`
-si no coincide. El código vence a los 15 minutos, sirve una vez y se anula al quinto
-error: después hay que volver al paso 1. El `codigo` va como **string** (puede empezar con 0).
+El `codigo` va como **string** (puede empezar con 0). Si no coincide, venció, ya se
+usó o se agotaron los intentos: `400` `{"code": "codigo_invalido", "detail": "..."}`.
+Vence a los 10 minutos y se anula al quinto error: después hay que volver al paso 1.
+El `reset_token` no es un token de sesión.
 
-**3. POST `/auth/recuperar/cambiar/`** `{"permiso": "...", "password": "nueva"}` → `200`
+**3. POST `/auth/recuperacion/restablecer/`**
+`{"reset_token": "...", "password_nueva": "...", "password_confirmacion": "..."}` → `200`
 ```json
-{ "detalle": "Listo. Ya puedes iniciar sesión con tu contraseña nueva." }
+{ "detail": "Contraseña actualizada. Inicia sesión nuevamente.", "requiere_login": true }
 ```
-El permiso dura 10 minutos y sirve una vez. Contraseña débil → `400`
-`{"password": ["Esta contraseña es demasiado corta..."]}` y el permiso sigue sirviendo
-para reintentar. Permiso vencido o usado → `400` `["El plazo para cambiar la
-contraseña terminó. Pide un código nuevo."]`. Al cambiarla se cierran **todas** las
-sesiones de la cuenta (juego y portal): el usuario vuelve al login.
+El `reset_token` dura 5 minutos y sirve una vez; vencido o usado → `400`
+`reset_token_invalido`. Contraseña débil o confirmación distinta → `400`
+`{"code": "password_invalida", "detail": "...", "errors": {"password_nueva": [...]}}`
+(o `password_confirmacion`), y el `reset_token` sigue sirviendo para reintentar. La
+política es la de Django: mínimo 8 caracteres, no común, no parecida al nombre. Al
+cambiarla se cierran **todas** las sesiones de la cuenta (juego y portal) y no se
+inicia sesión sola.
 
-Topes: 5 solicitudes de código por hora por correo y 20 llamadas por hora por IP
-sumando los tres pasos; pasado el
-tope, `429` con `{"detail": "..."}`.
+Errores: formato `{"code", "detail", "errors"?}`; datos mal formados → `400`
+`datos_invalidos` con `errors` por campo. Topes: 5 solicitudes por hora por correo y
+20 llamadas por hora por IP sumando los tres pasos; pasado el tope, `429` con
+`Retry-After` y `{"detail": "..."}`.
 
 ---
 

@@ -177,9 +177,10 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "").strip() or "Fishy 
 FISHY_INVITACION_DIAS = 7
 # Recuperación de contraseña (api/recuperacion.py): vida del código y del permiso
 # para fijar la clave nueva, e intentos antes de anular el código.
-FISHY_RECUPERACION_MINUTOS = 15
-FISHY_RECUPERACION_PERMISO_MINUTOS = 10
+FISHY_RECUPERACION_MINUTOS = 10
+FISHY_RECUPERACION_PERMISO_MINUTOS = 5
 FISHY_RECUPERACION_INTENTOS = 5
+FISHY_RECUPERACION_REENVIO_SEGUNDOS = 60
 FISHY_REPORTE_MINIMO = 3
 
 # Criterios educativos iniciales, configurables por el equipo. No son una escala clínica.

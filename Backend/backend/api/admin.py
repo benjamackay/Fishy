@@ -61,8 +61,8 @@ class InvitacionGrupoAdmin(GrupoSoloLecturaAdmin):
 
 @admin.register(CodigoRecuperacion)
 class CodigoRecuperacionAdmin(GrupoSoloLecturaAdmin):
-    """Para ver si a una cuenta le llegó a pedir código y cuántos errores lleva.
-    Ni el código ni el permiso se muestran, tampoco sus huellas."""
+    """Para ver si una cuenta pidió código y cuántos errores lleva.
+    Ni el código ni el reset_token se muestran, tampoco sus huellas."""
     list_display = ("adulto", "intentos", "vence_en", "fecha_creacion")
     search_fields = ("adulto__nombre",)
     fields = ("adulto", "intentos", "vence_en", "permiso_vence_en", "fecha_creacion")

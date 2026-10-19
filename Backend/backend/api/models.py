@@ -1110,6 +1110,9 @@ class CodigoRecuperacion(models.Model):
     """Código de 6 dígitos para recuperar la contraseña (ver api/recuperacion.py).
     Se guarda solo su HMAC: con un millón de combinaciones un hash simple se
     revierte probándolas todas, el HMAC exige además la SECRET_KEY."""
+    # Lo único que el portal conoce de la solicitud. Las de correos sin cuenta reciben
+    # uno al azar que no está en la tabla: así no se distinguen desde afuera.
+    solicitud_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     adulto = models.ForeignKey(AdultoResponsable, on_delete=models.CASCADE, related_name="codigos_recuperacion")
     codigo_hash = models.CharField(max_length=64)
     intentos = models.PositiveSmallIntegerField(default=0)
