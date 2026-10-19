@@ -203,7 +203,7 @@ FISHY_EMAIL_ENABLED = os.environ.get("FISHY_EMAIL_ENABLED", "False").lower() == 
 # la API HTTPS de Brevo (django-anymail) y las variables EMAIL_HOST* se ignoran.
 # Sin ella se usa SMTP, que sirve en local o en un plan que lo permita.
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
-ANYMAIL = {"BREVO_API_KEY": BREVO_API_KEY}
+ANYMAIL = {"BREVO_API_KEY": BREVO_API_KEY, "REQUESTS_TIMEOUT": 10}
 # En local se puede poner EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 # para ver los correos en la terminal sin proveedor.
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "").strip() or (
