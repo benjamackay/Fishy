@@ -8,7 +8,7 @@ import type { NinoResumen, ReporteGrupo, ReporteNino } from '@/types/reportes'
 import type { Consulta } from '@/types/panel'
 
 function reporte<T>(ruta: string, opciones?: Consulta): Promise<T> {
-  if (opciones?.periodo) throw new ErrorUsuario('El reporte por período requiere conectar el servicio de decisiones fechadas.')
+  if (opciones?.periodo) ruta += '?' + new URLSearchParams({ inicio: opciones.periodo.inicio, fin: opciones.periodo.fin })
   return api.get<T>(ruta, opciones)
 }
 

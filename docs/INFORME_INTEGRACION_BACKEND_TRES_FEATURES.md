@@ -1,5 +1,8 @@
 # Informe de integración backend: cuenta, acceso y reportes
 
+> Documento de propuestas previo a la integración. Para el comportamiento
+> implementado, ver [estado actual](INTEGRACION_FEATURES_WEB.md).
+
 Fecha: 19 de octubre de 2026. Proyecto: Fishy!.
 
 ## 1. Alcance y estado de entrega

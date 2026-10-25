@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { Periodo } from '@/lib/periodo'
 import { FiltroPeriodo } from '@/components/FiltroPeriodo'
 import { useSesion } from '@/auth/contexto'
-import { usePanel, useEsDemoPeriodo } from '@/hooks/usePanel'
+import { usePanel } from '@/hooks/usePanel'
 import { useDatosVivos } from '@/hooks/useDatosVivos'
 import { Cargando } from '@/components/Cargando'
 import { ErrorAviso } from '@/components/Aviso'
@@ -17,13 +17,12 @@ export default function ReporteNinoPage() {
   const { perfil } = useSesion()
   const panel = usePanel()
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
-  const demo = useEsDemoPeriodo()
   const estado = useDatosVivos(signal => panel.obtenerReporteNino(ninoId, { signal, periodo: periodo ?? undefined }), 'reporte:' + perfil?.id + ':' + id + ':' + JSON.stringify(periodo))
   const r = estado.datos
   const resultados = tematicasCompletas(r?.tematicas ?? [])
   return <>
     <nav className="migas" aria-label="Ruta de navegación"><Link to="/"><Icono nombre="volver" /> Reportes</Link><span>/</span><span>Reporte individual</span></nav>
-    <FiltroPeriodo periodo={periodo} cambiar={setPeriodo} habilitado={demo} />
+    <FiltroPeriodo periodo={periodo} cambiar={setPeriodo} habilitado />
     {estado.cargando && <Cargando mensaje="Cargando el reporte…" />}
     {estado.error && <ErrorAviso error={estado.error} onReintentar={estado.recargar} />}
     {r && <>

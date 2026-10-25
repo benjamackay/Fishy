@@ -47,7 +47,7 @@ export default function CompararPeriodosPage() {
     const errorA = errorPeriodo(a.inicio, a.fin)
     const errorB = errorPeriodo(b.inicio, b.fin)
     if (errorA || errorB) { setError(`${errorA ? 'Período A: ' + errorA : 'Período B: ' + errorB}`); return }
-    if (!demo || !grupo.datos || grupo.error) { setError('No se puede consultar la comparación de este grupo.'); return }
+    if (!grupo.datos || grupo.error) { setError('No se puede consultar la comparación de este grupo.'); return }
     setError(null); setConsulta({ a: { ...a }, b: { ...b } }); setRevision(v => v + 1)
   }
   const resultado = consulta && !grupo.error ? comparacion.datos : null
@@ -61,14 +61,14 @@ export default function CompararPeriodosPage() {
       <section className="comparar-controls" aria-label="Elegir períodos para comparar">
         <form onSubmit={comparar} noValidate>
           <div className="comparar-rangos">{([{ clave: 'A', valor: a, cambiar: setA }, { clave: 'B', valor: b, cambiar: setB }] as const).map(({ clave, valor, cambiar }) => <fieldset key={clave} className={'comparar-rango rango-' + clave.toLowerCase()}><legend><span>{clave}</span>Período {clave}</legend><div>
-            <label className="campo">Fecha inicial · {clave}<input type="date" required disabled={!demo} value={valor.inicio} onChange={e => cambiar({ ...valor, inicio: e.target.value })} aria-invalid={!!error || undefined} aria-describedby={error ? 'comparar-error' : 'comparar-ayuda'} /></label>
+            <label className="campo">Fecha inicial · {clave}<input type="date" required disabled={!!grupo.error} value={valor.inicio} onChange={e => cambiar({ ...valor, inicio: e.target.value })} aria-invalid={!!error || undefined} aria-describedby={error ? 'comparar-error' : 'comparar-ayuda'} /></label>
             <span className="comparar-separador" aria-hidden="true">→</span>
-            <label className="campo">Fecha final · {clave}<input type="date" required disabled={!demo} value={valor.fin} onChange={e => cambiar({ ...valor, fin: e.target.value })} aria-invalid={!!error || undefined} aria-describedby={error ? 'comparar-error' : 'comparar-ayuda'} /></label>
+            <label className="campo">Fecha final · {clave}<input type="date" required disabled={!!grupo.error} value={valor.fin} onChange={e => cambiar({ ...valor, fin: e.target.value })} aria-invalid={!!error || undefined} aria-describedby={error ? 'comparar-error' : 'comparar-ayuda'} /></label>
           </div></fieldset>)}</div>
-          <div className="comparar-actions"><p id="comparar-ayuda">Días completos en hora de Chile. Diferencia = período B menos período A.</p><button className="boton boton--primario" disabled={!demo || (!!consulta && comparacion.cargando)}><Icono nombre="reportes" />{consulta && comparacion.cargando ? 'Comparando…' : 'Comparar períodos'}</button></div>
+          <div className="comparar-actions"><p id="comparar-ayuda">Días completos en hora de Chile. Diferencia = período B menos período A.</p><button className="boton boton--primario" disabled={!!grupo.error || (!!consulta && comparacion.cargando)}><Icono nombre="reportes" />{consulta && comparacion.cargando ? 'Comparando…' : 'Comparar períodos'}</button></div>
           {error && <p className="aviso aviso--error" id="comparar-error" role="alert">{error}</p>}
         </form>
-        {demo ? <div className="comparar-demo"><span>Prueba la muestra</span><button type="button" onClick={() => { setA({ inicio: '2026-10-05', fin: '2026-10-05' }); setB({ inicio: '2026-10-15', fin: '2026-10-15' }); setError(null) }}>Dos muestras suficientes</button><button type="button" onClick={() => { setA({ inicio: '2026-10-15', fin: '2026-10-15' }); setB({ inicio: '2026-10-18', fin: '2026-10-18' }); setError(null) }}>Una temática sin muestra suficiente</button></div> : <p className="mini muted">La comparación estará disponible al conectar el servicio de agregados por período. Puedes probarla en la demostración local.</p>}
+        {demo ? <div className="comparar-demo"><span>Prueba la muestra</span><button type="button" onClick={() => { setA({ inicio: '2026-10-05', fin: '2026-10-05' }); setB({ inicio: '2026-10-15', fin: '2026-10-15' }); setError(null) }}>Dos muestras suficientes</button><button type="button" onClick={() => { setA({ inicio: '2026-10-15', fin: '2026-10-15' }); setB({ inicio: '2026-10-18', fin: '2026-10-18' }); setError(null) }}>Una temática sin muestra suficiente</button></div> : <p className="mini muted">Se comparan las decisiones registradas en cada rango de fechas.</p>}
       </section>
       {consulta && comparacion.cargando && <Cargando mensaje="Comparando los dos períodos…" />}
       {consulta && comparacion.error && <ErrorAviso error={comparacion.error} onReintentar={comparacion.recargar} />}

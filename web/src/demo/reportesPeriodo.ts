@@ -35,7 +35,7 @@ export function crearPanelPeriodo(adultoId: number) {
   const obtenerReporteNino = async (id: number, opciones?: Consulta) => {
     opciones?.signal?.throwIfAborted()
     const original = await base.obtenerReporteNino(id, opciones)
-    return { ...original, tematicas: agregarDecisiones([id], opciones?.periodo), actualizado_en: actualizado([id], opciones?.periodo) }
+    return { ...original, periodo: opciones?.periodo ? { ...opciones.periodo, zona_horaria: 'America/Santiago' } : null, tematicas: agregarDecisiones([id], opciones?.periodo), actualizado_en: actualizado([id], opciones?.periodo) }
   }
   return { ...base, obtenerReporteNino,
     listarNinos: async (opciones?: Consulta) => Promise.all((await base.listarNinos(opciones)).map(async n => {
@@ -49,7 +49,7 @@ export function crearPanelPeriodo(adultoId: number) {
       const identificadores: Record<string, number> = { Sofía: 103, Lucas: 904, Emilia: 905, Agustín: 906 }
       const ids = detalle.miembros.map(m => identificadores[m.nombre_nino]).filter((id): id is number => id !== undefined)
       const filas = decisionesEnPeriodo(ids, opciones?.periodo)
-      return { ...original, tematicas: agregarDecisiones(ids, opciones?.periodo, Math.max(3, original.minimo_participantes)), participantes_con_resultados: new Set(filas.map(d => d.nino)).size, actualizado_en: actualizado(ids, opciones?.periodo) }
+      return { ...original, periodo: opciones?.periodo ? { ...opciones.periodo, zona_horaria: 'America/Santiago' } : null, tematicas: agregarDecisiones(ids, opciones?.periodo, Math.max(3, original.minimo_participantes)), participantes_con_resultados: new Set(filas.map(d => d.nino)).size, actualizado_en: actualizado(ids, opciones?.periodo) }
     },
   }
 }

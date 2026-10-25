@@ -17,7 +17,7 @@ export default function LoginPage({ invitacion, registro = false }: { invitacion
   const { entrar, autenticado, esProfesor, cargando } = useSesion()
   const ubicacion = useLocation()
   const navegar = useNavigate()
-  const estado = ubicacion.state as { desde?: string; nombre?: string } | null
+  const estado = ubicacion.state as { desde?: string; nombre?: string; mensaje?: string } | null
   const [registroInvitacion, setRegistroInvitacion] = useState(false)
   const esRegistro = invitacion ? registroInvitacion : registro
   const [nombre, setNombre] = useState(estado?.nombre ?? '')
@@ -46,6 +46,7 @@ export default function LoginPage({ invitacion, registro = false }: { invitacion
       <section className="auth-card" aria-label={esRegistro ? 'Registro en Fishy' : 'Acceso a Fishy'}>
         <Link to="/" className="auth-back"><Icono nombre="volver" />Volver a Fishy!</Link>
         {invitacion && <div className="aviso"><strong>Invitación para {invitacion.nombre_nino}</strong><p>{invitacion.grupo} · {invitacion.profesor}</p><p>Inicia sesión o regístrate con <strong>{invitacion.email}</strong>. Después confirmarás únicamente el perfil de este niño.</p></div>}
+        {estado?.mensaje && <p className="aviso" role="status">{estado.mensaje}</p>}
         {esRegistro ? <FormularioRegistro emailInvitacion={invitacion?.email} ocupado={ocupado} cambiarOcupado={setEnviando} volverAlLogin={usuario => {
           if (invitacion) { setNombre(usuario); setRegistroInvitacion(false) }
           else navegar('/login', { state: { ...estado, nombre: usuario } })

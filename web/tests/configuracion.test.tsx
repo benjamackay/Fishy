@@ -1,4 +1,6 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
+import * as auth from '@/api/auth'
+import { perfilesDemo } from './fixtures/sesionDemo'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -27,15 +29,16 @@ it('abre configuración desde el menú y permite cerrarlo con Escape', async () 
   expect(await screen.findByRole('form', { name: 'Información personal' })).toBeTruthy()
 })
 
-it('valida el perfil sin simular un guardado en la cuenta', async () => {
+it('guarda el perfil y actualiza el nombre de la sesión', async () => {
+  const guardar = vi.spyOn(auth, 'guardarPerfil').mockResolvedValue({ ...perfilesDemo.principal, nombre: 'nuevo_nombre' })
   const user = abrir()
   const nombre = await screen.findByRole('textbox', { name: /Nombre de usuario/ })
   await user.clear(nombre)
   await user.type(nombre, 'nuevo_nombre')
-  await user.click(screen.getByRole('button', { name: 'Revisar cambios' }))
-  expect(screen.getByRole('status').textContent).toContain('no aplica cambios')
-  await user.click(screen.getByRole('button', { name: 'Descartar cambios' }))
-  expect(screen.queryByRole('status')).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+  expect((await screen.findByRole('status')).textContent).toContain('guardados correctamente')
+  expect(guardar).toHaveBeenCalledWith(expect.objectContaining({ nombre: 'nuevo_nombre' }))
+  expect((screen.getByRole('button', { name: 'Guardar cambios' }) as HTMLButtonElement).disabled).toBe(true)
 })
 
 it('detecta contraseñas distintas y cierra la sesión desde seguridad', async () => {
@@ -44,7 +47,7 @@ it('detecta contraseñas distintas y cierra la sesión desde seguridad', async (
   await user.type(screen.getByLabelText('Contraseña actual', { exact: true }), 'Anterior123')
   await user.type(screen.getByLabelText('Nueva contraseña', { exact: true }), 'NuevaClave123')
   await user.type(screen.getByLabelText('Confirmar contraseña', { exact: true }), 'OtraClave123')
-  await user.click(screen.getByRole('button', { name: 'Revisar contraseña' }))
+  await user.click(screen.getByRole('button', { name: 'Cambiar contraseña' }))
   expect(screen.getByRole('alert').textContent).toContain('no coinciden')
   await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
   expect(await screen.findByRole('button', { name: 'Iniciar sesión', exact: true })).toBeTruthy()

@@ -78,7 +78,7 @@ it('filtra el agregado del profesor y recupera su acumulado sin exponer menores'
   fechas('2026-10-05', '2026-10-05')
   await user.click(screen.getByRole('button', { name: 'Aplicar filtro' }))
   await porcentaje(0)
-  expect((screen.getByRole('button', { name: 'Descargar reporte' }) as HTMLButtonElement).disabled).toBe(true)
+  expect((screen.getByRole('button', { name: 'Descargar reporte' }) as HTMLButtonElement).disabled).toBe(false)
   expect(screen.queryByText('Sofía')).toBeNull()
   await user.click(screen.getByRole('button', { name: 'Eliminar filtro' }))
   await porcentaje(67)

@@ -15,13 +15,9 @@ individual o grupal para filtrar; las fechas incluyen ambos días completos en
 `America/Santiago`. Prueba 05/10/2026 (0%), 15/10/2026 (100%) o agosto de 2026
 (sin decisiones evaluadas). El acumulado de la muestra es 67% por temática.
 
-La demostración se excluye del build de producción. El filtro real permanece
-deshabilitado hasta que el servicio entregue decisiones fechadas o agregados
-por período: los totales acumulados no permiten reconstruir un rango.
-La exportación PDF por período queda pendiente de esa integración y está
-deshabilitada mientras hay un filtro aplicado. Elimina el filtro para recuperar
-el acumulado y su exportación. Para volver al acceso real, elimina la variable
-o cámbiala a `false`.
+La demostracion se excluye del build de produccion. Los filtros reales y el PDF
+por periodo ya estan conectados a Django. Para volver al acceso real, elimina
+la variable o cambiala a `false`. `VITE_FRONTEND_MOCK=true` usa el mismo proveedor.
 
 Para comparar, entra como profesor y abre **Reporte grupal → Comparar períodos**.
 La demo de `5° Básico A` también tiene acceso directo en
@@ -34,7 +30,7 @@ sus fechas, las decisiones evaluadas y la diferencia B − A en puntos porcentua
 Una muestra insuficiente no publica cantidad evaluada, porcentaje ni diferencia
 de ese período. La pertenencia al grupo se comprueba antes de consultar los dos
 agregados; cualquier error evita publicar resultados parciales. La autorización
-real y el cálculo de agregados por fechas deben implementarse en el servidor.
+real y el calculo de agregados por fechas se aplican en Django.
 
 Se requiere Node compatible con el proyecto (22.19 o superior).
 
@@ -49,9 +45,9 @@ secciones informativas, al contacto oficial y a los formularios independientes
 de `/login` y `/registro`. El panel autenticado se encuentra en `/panel`;
 las sesiones existentes que entran a `/` se redirigen allí. Para usar el panel,
 iniciar sesión con una cuenta de Django.
-El portal usa únicamente la API configurada: no incluye accesos de demostración,
-simuladores de progreso ni datos de prueba. Los errores del servicio no activan
-datos alternativos. Las fixtures están en `tests/fixtures`, fuera del código publicado.
+En produccion el portal usa unicamente la API configurada. La demostracion
+solo se habilita explicitamente en desarrollo. Los errores del servicio no
+activan datos alternativos.
 
 ```sh
 npm test
@@ -96,6 +92,8 @@ las lecturas individuales de profesores antes de invocar la fuente de datos,
 incluso si el servicio antiguo todavía les atribuye perfiles infantiles.
 
 ## Integración del backend
+
+Las tres interfaces ya estan conectadas. Ver el [estado de integracion](../docs/INTEGRACION_FEATURES_WEB.md).
 
 Ver [INTEGRACION_FRONTEND.md](INTEGRACION_FRONTEND.md).
 El contrato es `src/types/panel.ts` (`FuentePanel`); el punto de conexión es

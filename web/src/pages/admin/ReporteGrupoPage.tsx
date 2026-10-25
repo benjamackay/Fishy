@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useSesion } from '@/auth/contexto'
-import { usePanel, useEsDemoPeriodo } from '@/hooks/usePanel'
+import { usePanel } from '@/hooks/usePanel'
 import { FiltroPeriodo } from '@/components/FiltroPeriodo'
 import type { Periodo } from '@/lib/periodo'
 import { useDatosVivos } from '@/hooks/useDatosVivos'
@@ -17,7 +17,6 @@ export default function ReporteGrupoPage() {
   const { perfil } = useSesion()
   const panel = usePanel()
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
-  const demo = useEsDemoPeriodo()
   const estado = useDatosVivos(signal => panel.obtenerReporteGrupo(id, { signal, periodo: periodo ?? undefined }), 'reporte-grupo:' + perfil?.id + ':' + id + ':' + JSON.stringify(periodo))
   const [descargando, setDescargando] = useState(false)
   const [error, setError] = useState<Error | null>(null)
@@ -25,11 +24,11 @@ export default function ReporteGrupoPage() {
   const r = estado.datos
   const disponible = r && r.participantes_con_resultados >= Math.max(3, r.minimo_participantes) && hayResultados(r.tematicas)
   async function descargar() {
-    if (descargando || periodo) return
+    if (descargando) return
     setDescargando(true); setError(null); setExito(false)
     try {
       // Reconsulta antes de exportar: el archivo usa el último agregado disponible.
-      const ultimo = await panel.obtenerReporteGrupo(id)
+      const ultimo = await panel.obtenerReporteGrupo(id, { periodo: periodo ?? undefined })
       const { descargarPdfGrupo } = await import('@/lib/pdf')
       descargarPdfGrupo(ultimo)
       setExito(true)
@@ -38,12 +37,11 @@ export default function ReporteGrupoPage() {
   }
   return <>
     <nav className="migas" aria-label="Ruta de navegación"><Link to="/admin/grupos">Mis grupos</Link><span>/</span><Link to={'/admin/grupos/' + id}>Gestionar grupo</Link><span>/</span><span>Reporte grupal</span></nav>
-    <div className="comparar-report-tools"><Link className="boton" to={'/admin/grupos/' + id + '/comparar'}><Icono nombre="reportes" />Comparar períodos</Link><FiltroPeriodo periodo={periodo} cambiar={p => { setPeriodo(p); setExito(false); setError(null) }} habilitado={demo} /></div>
+    <div className="comparar-report-tools"><Link className="boton" to={'/admin/grupos/' + id + '/comparar'}><Icono nombre="reportes" />Comparar períodos</Link><FiltroPeriodo periodo={periodo} cambiar={p => { setPeriodo(p); setExito(false); setError(null) }} habilitado /></div>
     {estado.cargando && <Cargando mensaje="Cargando el reporte grupal…" />}
     {estado.error && <ErrorAviso error={estado.error} onReintentar={estado.recargar} />}
     {r && <>
-      <div className="encabezado"><div><h1>{r.nombre_grupo}</h1><p className="muted">Reporte grupal</p></div><button type="button" className="boton boton--primario" disabled={!disponible || descargando || !!estado.error || !!periodo} onClick={descargar}><Icono nombre="descargar" />{descargando ? 'Generando PDF…' : 'Descargar reporte'}</button></div>
-      {periodo && <p className="mini muted">La vista por período está disponible en pantalla. El PDF estará disponible cuando se conecte la exportación por fechas.</p>}
+      <div className="encabezado"><div><h1>{r.nombre_grupo}</h1><p className="muted">Reporte grupal</p></div><button type="button" className="boton boton--primario" disabled={!disponible || descargando || !!estado.error} onClick={descargar}><Icono nombre="descargar" />{descargando ? 'Generando PDF…' : 'Descargar reporte'}</button></div>
       {error && <ErrorAviso error={error} />}{exito && <Exito>PDF generado. Revisa las descargas de tu navegador.</Exito>}
       {disponible ? <>
         <div className="kpis"><Estadistica etiqueta="Integrantes del grupo" valor={r.total_integrantes} /><Estadistica etiqueta="Con resultados" valor={r.participantes_con_resultados} /><Estadistica etiqueta="Temáticas disponibles" valor={tematicasCompletas(r.tematicas).filter(t => t.metricas).length + ' de 3'} /></div>
