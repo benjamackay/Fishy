@@ -14,7 +14,11 @@ npm run dev
 ```
 
 En Windows, si PowerShell bloquea npm.ps1, usar `npm.cmd` en los comandos.
-Abrir la URL que muestra Vite e iniciar sesión con una cuenta de Django.
+Abrir la URL que muestra Vite para ver la portada pública. El menú lleva a las
+secciones informativas, al contacto oficial y a los formularios independientes
+de `/login` y `/registro`. El panel autenticado se encuentra en `/panel`;
+las sesiones existentes que entran a `/` se redirigen allí. Para usar el panel,
+iniciar sesión con una cuenta de Django.
 El portal usa únicamente la API configurada: no incluye accesos de demostración,
 simuladores de progreso ni datos de prueba. Los errores del servicio no activan
 datos alternativos. Las fixtures están en `tests/fixtures`, fuera del código publicado.

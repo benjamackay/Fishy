@@ -10,7 +10,7 @@ export default function RootLayout() {
   const { pathname } = useLocation()
   const main = useRef<HTMLElement>(null)
   useEffect(() => { main.current?.focus({ preventScroll: true }); window.scrollTo(0, 0) }, [pathname])
-  return <div className={autenticado ? 'app-shell' : 'login-shell'}>
+  return <div className={autenticado ? 'app-shell' : 'public-shell'}>
     <a href="#contenido" className="skip-link">Saltar al contenido</a>
     {autenticado && <header className="app-header"><div className="header-inner">
       <Link to={esProfesor ? '/admin/grupos' : '/'} className="brand" aria-label="Fishy! Inicio"><Marca /></Link>

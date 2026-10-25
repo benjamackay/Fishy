@@ -75,7 +75,7 @@ export function FormularioRegistro({ ocupado, cambiarOcupado, volverAlLogin, ema
   </div>
 
   return <>
-    <div className="auth-heading"><h1>Crea tu cuenta.</h1></div>
+    <div className="auth-heading"><span className="welcome-kicker">TU PRÓXIMA AVENTURA EMPIEZA AQUÍ</span><h1>Crea tu cuenta.</h1><p>Comienza a acompañar sus aprendizajes digitales.</p></div>
     <form onSubmit={enviar} aria-label="Crear una cuenta" aria-busy={ocupado}>
       <div className="auth-fields auth-fields--register">
         <div className="campo auth-wide"><label htmlFor="registro-nombre">Nombre de usuario</label><input id="registro-nombre" ref={nombreInput} value={nombre} onChange={e => setNombre(e.target.value)} autoComplete="username" required maxLength={150} disabled={ocupado} aria-describedby="registro-nombre-ayuda" /><small id="registro-nombre-ayuda">Lo usarás para iniciar sesión.</small></div>

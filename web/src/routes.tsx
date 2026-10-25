@@ -10,15 +10,20 @@ import ReporteGrupoPage from '@/pages/admin/ReporteGrupoPage'
 import PartidaPage from '@/pages/panel/PartidaPage'
 import SesionesPage from '@/pages/panel/SesionesPage'
 import ReporteNinoPage from '@/pages/panel/ReporteNinoPage'
+import BienvenidaPage from '@/pages/BienvenidaPage'
+import RecuperarContrasenaPage from '@/pages/RecuperarContrasenaPage'
 
 export const rutas = [{
   path: '/', element: <RootLayout />, errorElement: <NotFoundPage />,
   children: [
+    { index: true, element: <BienvenidaPage /> },
     { path: 'login', element: <LoginPage /> },
+    { path: 'registro', element: <LoginPage registro /> },
+    { path: 'recuperar-contrasena', element: <RecuperarContrasenaPage /> },
     { path: 'invitacion', element: <InvitacionPage /> },
     { element: <RequiereSesion />, children: [
       { element: <RequierePadre />, children: [
-        { index: true, element: <SesionesPage /> },
+        { path: 'panel', element: <SesionesPage /> },
         { path: 'reportes', element: <Navigate to="/" replace /> },
         { path: 'reportes/:id', element: <ReporteNinoPage /> },
         { path: 'partidas/:id', element: <PartidaPage /> },

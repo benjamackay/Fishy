@@ -12,7 +12,7 @@ function abrir() {
 }
 
 async function completarRegistro(user: ReturnType<typeof userEvent.setup>, confirmacion = 'Clave-larga-24') {
-  await user.click(screen.getByRole('tab', { name: 'Registrarse' }))
+  await user.click(screen.getAllByRole('link', { name: 'Registrarse' })[0])
   await user.type(screen.getByLabelText('Nombre de usuario'), 'nuevo_tutor')
   await user.type(screen.getByLabelText('Correo electrónico'), 'familia@example.com')
   await user.type(screen.getByLabelText('Contraseña', { exact: true }), 'Clave-larga-24')
@@ -52,22 +52,15 @@ describe('acceso y registro', () => {
     expect(enviar.mock.calls[0][0]).toMatch(/\/auth\/perfil\/$/)
     expect(screen.queryByRole('link', { name: 'Mis grupos' })).toBeNull()
   })
-  it('permite alternar con teclado y solo expone el formulario activo', async () => {
+  it('separa ingreso y registro en páginas navegables con teclado', async () => {
     const user = abrir()
-    const login = screen.getByRole('tab', { name: 'Iniciar sesión' })
-    const registro = screen.getByRole('tab', { name: 'Registrarse' })
-    expect(login.getAttribute('aria-selected')).toBe('true')
-    expect(screen.queryByLabelText('Correo electrónico')).toBeNull()
-    login.focus()
-    await user.keyboard('{ArrowRight}')
-    expect(document.activeElement).toBe(registro)
-    expect(registro.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tabpanel').id).toBe('panel-registro')
-    expect(screen.getByLabelText('Correo electrónico')).toBeTruthy()
+    expect(screen.getByRole('form', { name: 'Iniciar sesión' })).toBeTruthy()
+    const registro = screen.getAllByRole('link', { name: 'Registrarse' })[0]
+    registro.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('form', { name: 'Crear una cuenta' })).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Iniciar sesión' })).toBeNull()
-    await user.keyboard('{Home}')
-    expect(document.activeElement).toBe(login)
-    expect(screen.getByRole('tabpanel').id).toBe('panel-login')
+    await user.click(screen.getAllByRole('link', { name: 'Iniciar sesión' })[0])
     expect(screen.queryByLabelText('Correo electrónico')).toBeNull()
   })
   it('rechaza contraseñas diferentes antes de enviar datos y enfoca la confirmación', async () => {
@@ -132,8 +125,8 @@ describe('acceso y registro', () => {
     await user.click(screen.getByRole('button', { name: 'Mostrar contraseña', exact: true }))
     expect(clave.type).toBe('text')
     expect(clave.value).toBe('Clave-privada')
-    await user.click(screen.getByRole('tab', { name: 'Registrarse' }))
-    await user.click(screen.getByRole('tab', { name: 'Iniciar sesión' }))
+    await user.click(screen.getAllByRole('link', { name: 'Registrarse' })[0])
+    await user.click(screen.getAllByRole('link', { name: 'Iniciar sesión' })[0])
     const nueva = screen.getByLabelText('Contraseña', { exact: true }) as HTMLInputElement
     expect(nueva.type).toBe('password')
     expect(nueva.value).toBe('')
