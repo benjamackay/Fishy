@@ -6,6 +6,36 @@ proveedor elegido. Ver [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
 ## Ejecutar y probar
 
+### Demostración de reportes por período
+
+Agrega `VITE_PERIODO_DEMO=true` en `web/.env.local` y levanta el servidor de
+desarrollo. La sesión ficticia entra automáticamente, sin llamadas al backend.
+El aviso superior permite alternar entre familia y profesor. Abre un reporte
+individual o grupal para filtrar; las fechas incluyen ambos días completos en
+`America/Santiago`. Prueba 05/10/2026 (0%), 15/10/2026 (100%) o agosto de 2026
+(sin decisiones evaluadas). El acumulado de la muestra es 67% por temática.
+
+La demostración se excluye del build de producción. El filtro real permanece
+deshabilitado hasta que el servicio entregue decisiones fechadas o agregados
+por período: los totales acumulados no permiten reconstruir un rango.
+La exportación PDF por período queda pendiente de esa integración y está
+deshabilitada mientras hay un filtro aplicado. Elimina el filtro para recuperar
+el acumulado y su exportación. Para volver al acceso real, elimina la variable
+o cámbiala a `false`.
+
+Para comparar, entra como profesor y abre **Reporte grupal → Comparar períodos**.
+La demo de `5° Básico A` también tiene acceso directo en
+`/admin/grupos/grupo-demo-1002-a/comparar?demoRol=profesor`.
+Los ejemplos rápidos cargan fechas; presiona **Comparar períodos** para aplicarlas.
+El 05/10 frente al 15/10 tiene muestras suficientes. El 15/10 frente al 18/10
+deja Ciberacoso sin mínimo de participantes en el segundo período, mientras las
+otras temáticas siguen disponibles. Cada tarjeta muestra los dos porcentajes,
+sus fechas, las decisiones evaluadas y la diferencia B − A en puntos porcentuales.
+Una muestra insuficiente no publica cantidad evaluada, porcentaje ni diferencia
+de ese período. La pertenencia al grupo se comprueba antes de consultar los dos
+agregados; cualquier error evita publicar resultados parciales. La autorización
+real y el cálculo de agregados por fechas deben implementarse en el servidor.
+
 Se requiere Node compatible con el proyecto (22.19 o superior).
 
 ```sh
@@ -14,7 +44,6 @@ npm run dev
 ```
 
 En Windows, si PowerShell bloquea npm.ps1, usar `npm.cmd` en los comandos.
-<<<<<<< HEAD
 Abrir la URL que muestra Vite para ver la portada pública. El menú lleva a las
 secciones informativas, al contacto oficial y a los formularios independientes
 de `/login` y `/registro`. El panel autenticado se encuentra en `/panel`;
@@ -23,19 +52,6 @@ iniciar sesión con una cuenta de Django.
 El portal usa únicamente la API configurada: no incluye accesos de demostración,
 simuladores de progreso ni datos de prueba. Los errores del servicio no activan
 datos alternativos. Las fixtures están en `tests/fixtures`, fuera del código publicado.
-=======
-Abrir la URL que muestra Vite e iniciar sesión con una cuenta de Django.
-En producción el portal usa únicamente la API configurada. Los errores del servicio
-no activan datos alternativos.
-
-Para recorrer solo el frontend, agrega `VITE_FRONTEND_MOCK=true` en `web/.env.local`
-y ejecuta el servidor de desarrollo. Entrarás automáticamente como Camila Rojas,
-con datos ficticios y un aviso de demostración. El cliente bloquea las llamadas
-al backend en este modo. Puedes abrir Configuración desde el menú de usuario.
-Elimina la variable o cámbiala a `false` para volver al acceso real.
-La demostración está deshabilitada en las compilaciones de producción y en tests;
-sus datos reutilizables se encuentran en `src/demo`.
->>>>>>> origin/Feature/CambioDeDatos
 
 ```sh
 npm test

@@ -7,7 +7,7 @@ import { modoDemo } from '@/lib/modoDemo'
 import './index.css'
 
 async function iniciar() {
-  const Proveedor = import.meta.env.DEV && modoDemo ? (await import('@/demo/ProveedorDemo')).ProveedorDemo : ProveedorSesion
+  const Proveedor = import.meta.env.DEV && modoDemo ? (await import('@/demo/ProveedorPeriodoDemo')).ProveedorPeriodoDemo : ProveedorSesion
   createRoot(document.getElementById('root')!).render(
     <StrictMode><Proveedor><RouterProvider router={router} /></Proveedor></StrictMode>,
   )
