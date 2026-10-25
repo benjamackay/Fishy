@@ -3,10 +3,11 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useSesion } from '@/auth/contexto'
 import { Icono } from '@/components/Icono'
 import { Marca } from '@/components/Marca'
+import { MenuCuenta } from '@/components/MenuCuenta'
 import './header.css'
 
 export default function RootLayout() {
-  const { autenticado, perfil, salir, esProfesor } = useSesion()
+  const { autenticado, perfil, esProfesor } = useSesion()
   const { pathname } = useLocation()
   const main = useRef<HTMLElement>(null)
   useEffect(() => { main.current?.focus({ preventScroll: true }); window.scrollTo(0, 0) }, [pathname])
@@ -17,9 +18,9 @@ export default function RootLayout() {
       <nav className="header-nav" aria-label="Navegación principal">
         {esProfesor
           ? <NavLink to="/admin/grupos" className={({ isActive }) => 'nav-link ' + (isActive ? 'active' : '')}><Icono nombre="grupo" />Mis grupos</NavLink>
-          : perfil?.rol === 'padre' ? <NavLink to="/" end className={() => !pathname.startsWith('/admin') ? 'nav-link active' : 'nav-link'}><Icono nombre="reportes" />Reportes</NavLink> : null}
+          : perfil?.rol === 'padre' ? <NavLink to="/" end className={() => pathname === '/' || pathname.startsWith('/reportes') || pathname.startsWith('/partidas') ? 'nav-link active' : 'nav-link'}><Icono nombre="reportes" />Reportes</NavLink> : null}
       </nav>
-        <div className="account"><span className="avatar small">{perfil?.nombre.slice(0, 1)}</span><div><strong>{perfil?.nombre}</strong><span>{esProfesor ? 'Tutor administrador' : perfil?.rol === 'padre' ? 'Tutor padre/madre' : perfil?.rol === 'admin' ? 'Administrador de Fishy' : 'Cuenta sin rol asignado'}</span></div><button type="button" className="icon-button" onClick={salir} aria-label="Cerrar sesión" title="Cerrar sesión"><Icono nombre="salir" /></button></div>
+      <MenuCuenta key={pathname} />
     </div></header>}
     <div className="app-content">
       <main id="contenido" ref={main} tabIndex={-1} className={autenticado ? 'main-content' : 'login-main'}>

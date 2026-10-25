@@ -12,6 +12,7 @@ import SesionesPage from '@/pages/panel/SesionesPage'
 import ReporteNinoPage from '@/pages/panel/ReporteNinoPage'
 import BienvenidaPage from '@/pages/BienvenidaPage'
 import RecuperarContrasenaPage from '@/pages/RecuperarContrasenaPage'
+import ConfiguracionPage from '@/pages/ConfiguracionPage'
 
 export const rutas = [{
   path: '/', element: <RootLayout />, errorElement: <NotFoundPage />,
@@ -22,6 +23,7 @@ export const rutas = [{
     { path: 'recuperar-contrasena', element: <RecuperarContrasenaPage /> },
     { path: 'invitacion', element: <InvitacionPage /> },
     { element: <RequiereSesion />, children: [
+      { path: 'configuracion', element: <ConfiguracionPage /> },
       { element: <RequierePadre />, children: [
         { path: 'panel', element: <SesionesPage /> },
         { path: 'reportes', element: <Navigate to="/" replace /> },
