@@ -10,7 +10,12 @@ function errorRegistro(error: unknown): Error {
   if (error instanceof ApiError) {
     if (error.status === 400 || error.status === 409) {
       const campos = error.data && typeof error.data === 'object' ? error.data : {}
-      if ('password' in campos) return new ErrorUsuario('La contraseña no cumple los requisitos del servicio. Prueba con otra.')
+      if ('password' in campos) {
+        // El backend explica qué regla no se cumple (largo, común, solo números, parecida al nombre).
+        const motivos = (campos as { password?: unknown }).password
+        const detalle = Array.isArray(motivos) ? motivos.filter(m => typeof m === 'string').join(' ') : ''
+        return new ErrorUsuario(detalle || 'La contraseña no cumple los requisitos del servicio. Prueba con otra.')
+      }
       return new ErrorUsuario('Revisa los datos ingresados. El nombre de usuario o el correo podrían estar registrados.')
     }
     if (error.status === 404 || error.status === 405) return new ErrorUsuario('El registro aún no está disponible. Inténtalo más adelante.')
@@ -85,7 +90,7 @@ export function FormularioRegistro({ ocupado, cambiarOcupado, volverAlLogin, ema
         <CampoContrasena id="registro-password" etiqueta="Contraseña" valor={password} cambiar={setPassword} ocupado={ocupado} nueva />
         <CampoContrasena id="registro-confirmacion" etiqueta="Confirmar contraseña" valor={confirmacion} cambiar={setConfirmacion} ocupado={ocupado} nueva error={errorConfirmacion} inputRef={confirmacionInput} />
       </div>
-      <p className="auth-password-hint">Mínimo 4 caracteres.</p>
+      <p className="auth-password-hint">Mínimo 8 caracteres. Evita claves comunes, solo números o parecidas a tu nombre o correo.</p>
       {error && <ErrorAviso error={error} />}
       <button className="boton boton--primario auth-submit full-width" disabled={ocupado}>{ocupado ? 'Creando tu cuenta…' : 'Crear cuenta'}{ocupado ? <span className="spinner" aria-hidden="true" /> : <Icono nombre="flecha" />}</button>
     </form>

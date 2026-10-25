@@ -147,8 +147,12 @@ PASSWORD_HASHERS = [
 ]
 
 # ─── Validación de contraseñas ────────────────────────────────────────────────
+# Una sola regla para registro, recuperación y cambio de contraseña (mínimo 8).
+# La similitud por defecto busca username/first_name, que AdultoResponsable no
+# tiene: sin user_attributes solo se comparaba con el correo.
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+     "OPTIONS": {"user_attributes": ("nombre", "apellido", "email")}},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
