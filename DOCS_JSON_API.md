@@ -133,6 +133,54 @@ El token recibido se almacena en `ApiManager.Token` y se adjunta a todos los req
 
 **El token vence** a los `FISHY_TOKEN_DIAS` días de creado (30 por defecto); con uno vencido, cualquier endpoint responde `401` con `{"detail": "La sesión venció. Vuelve a iniciar sesión."}` y el cliente debe volver al login. Es un solo token por cuenta, compartido por el juego y el portal: el login devuelve el mismo mientras no haya pasado la mitad de su vida y uno nuevo después (el anterior deja de servir), así que un login siempre entrega al menos 15 días por delante.
 
+### Recuperar la contraseña (portal web)
+
+Tres pasos sin sesión (no mandar `Authorization`). Sigue el contrato propuesto en
+`docs/INFORME_INTEGRACION_BACKEND_TRES_FEATURES.md` (sección 4), en la rama
+`Feature/ReportePorPeriodo`. Código en `Backend/backend/api/recuperacion.py`.
+
+**1. POST `/auth/recuperacion/solicitar/`** `{"email": "adulto@ejemplo.cl"}` → `202`
+```json
+{
+  "detail": "Si existe una cuenta asociada, recibirás un código en tu correo. Revisa también la carpeta de spam.",
+  "solicitud_id": "uuid",
+  "expira_en_segundos": 600,
+  "reenvio_en_segundos": 60
+}
+```
+Responde igual exista o no la cuenta (también con un `solicitud_id`), y el correo sale
+en segundo plano: el portal no debe decir "ese correo no existe". Pedir otro código
+anula el anterior. Antes de `reenvio_en_segundos` responde `429`
+`{"code": "reenvio_muy_pronto"}` con `Retry-After`. `503` `correo_no_disponible` si el
+correo no está configurado en el servidor.
+
+**2. POST `/auth/recuperacion/verificar/`** `{"solicitud_id": "uuid", "codigo": "012345"}` → `200`
+```json
+{ "reset_token": "43 caracteres", "expira_en_segundos": 300 }
+```
+El `codigo` va como **string** (puede empezar con 0). Si no coincide, venció, ya se
+usó o se agotaron los intentos: `400` `{"code": "codigo_invalido", "detail": "..."}`.
+Vence a los 10 minutos y se anula al quinto error: después hay que volver al paso 1.
+El `reset_token` no es un token de sesión.
+
+**3. POST `/auth/recuperacion/restablecer/`**
+`{"reset_token": "...", "password_nueva": "...", "password_confirmacion": "..."}` → `200`
+```json
+{ "detail": "Contraseña actualizada. Inicia sesión nuevamente.", "requiere_login": true }
+```
+El `reset_token` dura 5 minutos y sirve una vez; vencido o usado → `400`
+`reset_token_invalido`. Contraseña débil o confirmación distinta → `400`
+`{"code": "password_invalida", "detail": "...", "errors": {"password_nueva": [...]}}`
+(o `password_confirmacion`), y el `reset_token` sigue sirviendo para reintentar. La
+política es la de Django: mínimo 8 caracteres, no común, no parecida al nombre. Al
+cambiarla se cierran **todas** las sesiones de la cuenta (juego y portal) y no se
+inicia sesión sola.
+
+Errores: formato `{"code", "detail", "errors"?}`; datos mal formados → `400`
+`datos_invalidos` con `errors` por campo. Topes: 5 solicitudes por hora por correo y
+20 llamadas por hora por IP sumando los tres pasos; pasado el tope, `429` con
+`Retry-After` y `{"detail": "..."}`.
+
 ---
 
 ## Perfiles de menores

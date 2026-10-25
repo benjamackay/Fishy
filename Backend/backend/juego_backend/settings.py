@@ -170,12 +170,19 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "api.AdultoResponsable"
 
 # Invitaciones: el remitente y la URL se configuran en el servidor, nunca en el navegador.
-# Sin FISHY_EMAIL_ENABLED=True y un proveedor SMTP, invitar responde 503 sin guardar nada.
+# Sin FISHY_EMAIL_ENABLED=True y un proveedor de correo, invitar responde 503 sin guardar nada.
 FISHY_WEB_URL = os.environ.get("FISHY_WEB_URL", "http://127.0.0.1:5174").rstrip("/")
 FISHY_EMAIL_ENABLED = os.environ.get("FISHY_EMAIL_ENABLED", "False").lower() == "true"
+# Railway bloquea el SMTP saliente (puertos 25/465/587) en los planes Free, Trial y
+# Hobby: el envío se queda esperando y expira. Con BREVO_API_KEY el correo sale por
+# la API HTTPS de Brevo (django-anymail) y las variables EMAIL_HOST* se ignoran.
+# Sin ella se usa SMTP, que sirve en local o en un plan que lo permita.
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "").strip()
+ANYMAIL = {"BREVO_API_KEY": BREVO_API_KEY, "REQUESTS_TIMEOUT": 10}
 # En local se puede poner EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 # para ver los correos en la terminal sin proveedor.
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "").strip() or (
+    "anymail.backends.brevo.EmailBackend" if BREVO_API_KEY else "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
@@ -185,6 +192,12 @@ EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() == "true"
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "").strip() or "Fishy <no-reply@fishygame.cl>"
 FISHY_INVITACION_DIAS = 7
+# Recuperación de contraseña (api/recuperacion.py): vida del código y del permiso
+# para fijar la clave nueva, e intentos antes de anular el código.
+FISHY_RECUPERACION_MINUTOS = 10
+FISHY_RECUPERACION_PERMISO_MINUTOS = 5
+FISHY_RECUPERACION_INTENTOS = 5
+FISHY_RECUPERACION_REENVIO_SEGUNDOS = 60
 FISHY_REPORTE_MINIMO = 3
 
 # Criterios educativos iniciales, configurables por el equipo. No son una escala clínica.

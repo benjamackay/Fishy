@@ -12,6 +12,11 @@ using UnityEngine.InputSystem;
 /// (el cartelito sobre la cabeza) y al pulsar la tecla de interacción —E por
 /// defecto— se llama a <see cref="IInteractable.Interact"/> del más cercano.
 ///
+/// Junto al icono del mundo puede encenderse <see cref="screenPrompt"/>, el
+/// cartel del Canvas ("E para interactuar") que vive en la esquina de la
+/// pantalla. Los dos se mandan desde el mismo sitio, así que no pueden
+/// desincronizarse.
+///
 /// La acción de entrada se arma en código, igual que en OttoController: no hace
 /// falta un PlayerInput ni cablear nada en el inspector.
 ///
@@ -39,6 +44,15 @@ public class InteractionDetector : MonoBehaviour
     [Tooltip("Color de la letra. El cartel por defecto es un cuadro blanco, así que negro contrasta.")]
     public Color keyLabelColor = Color.black;
 
+    [Header("Aviso en pantalla")]
+    [Tooltip("Cartel del Canvas que se enciende a la vez que la manito. Si se deja vacío sólo " +
+             "se usa el aviso del mundo.")]
+    public GameObject screenPrompt;
+
+    [Tooltip("Texto de ese cartel donde va la letra de la tecla. Se escribe solo desde " +
+             "'Interact Key': no hace falta teclearla a mano.")]
+    public TMP_Text screenPromptKeyLabel;
+
     [Header("Entrada")]
     [Tooltip("Tecla que dispara la interacción.")]
     public Key interactKey = Key.E;
@@ -64,13 +78,22 @@ public class InteractionDetector : MonoBehaviour
     {
         ResolverIcono();
         PrepararEtiqueta();
+        PrepararCartel();
         RevisarCollider();
         if (useOwnInputAction) ConstruirInput();
     }
 
     private void OnEnable() => interactAction?.Enable();
 
-    private void OnDisable() => interactAction?.Disable();
+    private void OnDisable()
+    {
+        interactAction?.Disable();
+
+        // El cartel cuelga del Canvas, no de Otto: si este detector se apaga
+        // —cambio de zona, cinemática, pausa— nadie más lo escondería y se
+        // quedaría clavado en pantalla pidiendo una E que ya no hace nada.
+        MostrarAviso(false);
+    }
 
     private void OnDestroy() => interactAction?.Dispose();
 
@@ -163,6 +186,9 @@ public class InteractionDetector : MonoBehaviour
     {
         if (interactionIcon != null && interactionIcon.activeSelf != visible)
             interactionIcon.SetActive(visible);
+
+        if (screenPrompt != null && screenPrompt.activeSelf != visible)
+            screenPrompt.SetActive(visible);
     }
 
     // ── Montaje ──────────────────────────────────────────────────────────────
@@ -216,6 +242,17 @@ public class InteractionDetector : MonoBehaviour
             keyLabel.sortingLayerID = fondo.sortingLayerID;
             keyLabel.sortingOrder = fondo.sortingOrder + 1;
         }
+    }
+
+    private void PrepararCartel()
+    {
+        // La letra se escribe aquí y no en el inspector para que siga a
+        // 'interactKey': si mañana la interacción pasa a F, el cartel lo dice.
+        if (screenPromptKeyLabel != null) screenPromptKeyLabel.text = interactKey.ToString();
+
+        // Arranca apagado pase lo que pase: en la escena es fácil dejárselo
+        // encendido tras moverlo y no notarlo hasta ver la partida empezada.
+        if (screenPrompt != null) screenPrompt.SetActive(false);
     }
 
     private void ConstruirInput()

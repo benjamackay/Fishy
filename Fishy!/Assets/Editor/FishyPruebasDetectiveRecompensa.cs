@@ -1,10 +1,12 @@
 #if UNITY_EDITOR
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using Fishy.Detective;
 using Fishy.Net;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Fishy.EditorTools
 {
@@ -59,6 +61,7 @@ namespace Fishy.EditorTools
             ProbarAlbumLlegaConElPrimerPinYNoSeDuplica(log);
             ProbarCasoSinRecompensaNoRevienta(log);
             ProbarUsaRecompensaDelBackendSiElCasoLaTrae(log);
+            ProbarLasExplicacionesNoDesbordanLaPantalla(log);
 
             log.AppendLine();
             log.AppendLine(new string('=', 70));
@@ -325,6 +328,76 @@ namespace Fishy.EditorTools
             so.FindProperty("useLocalMode").boolValue = true;
             so.FindProperty("verboseLogs").boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // ── Pantalla de explicaciones ────────────────────────────────────────────
+
+        /// <summary>
+        /// La tarjeta de resultado crecía con cada explicación —el mensaje citado más su
+        /// párrafo— y con tres o cuatro se salía de la pantalla. Ahora las explicaciones
+        /// se desplazan dentro de una zona con tope.
+        /// </summary>
+        private static void ProbarLasExplicacionesNoDesbordanLaPantalla(StringBuilder log)
+        {
+            const BindingFlags privado = BindingFlags.Instance | BindingFlags.NonPublic;
+            var go = new GameObject("DetectiveUIDePrueba") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var ui = go.AddComponent<DetectiveUI>();
+                typeof(DetectiveUI).GetMethod("Awake", privado).Invoke(ui, null);   // en edición no corre
+                // Awake la deja escondida; en el juego la ventana ya está a la vista
+                // cuando llega el resultado.
+                ((GameObject)typeof(DetectiveUI).GetField("_window", privado).GetValue(ui)).SetActive(true);
+                // Y el canvas ya escalado: en el juego lleva muchos frames vivo cuando llega
+                // el resultado; en edición el escalador aún no actuó y el canvas mediría el
+                // tamaño crudo de la ventana.
+                foreach (var escalador in go.GetComponentsInChildren<CanvasScaler>(true))
+                    typeof(CanvasScaler).GetMethod("Handle", privado)?.Invoke(escalador, null);
+                Canvas.ForceUpdateCanvases();
+
+                string largo = "Pide la dirección de tu casa con la excusa de mandarte un regalo. " +
+                               "Nadie que conoces solo por internet necesita saber dónde vives, " +
+                               "aunque prometa algo bonito a cambio. Si alguien insiste, avisa a un adulto.";
+                var noIdentificados = new List<(DetectiveMessage mensaje, string explicacion)>();
+                for (int i = 0; i < 6; i++)
+                    noIdentificados.Add((new DetectiveMessage
+                    {
+                        id = $"MSG_{i}", autor = "Puma", esRiesgo = true,
+                        texto = "Oye, ¿me pasas tu dirección? Te quiero mandar algo genial, de verdad.",
+                    }, largo));
+
+                var resultado = new DetectiveCaseResult
+                {
+                    aciertos = 0, totalRiesgo = 6, porcentaje = 0f, noIdentificados = noIdentificados,
+                };
+                typeof(DetectiveUI).GetMethod("MostrarResultado", privado).Invoke(ui, new object[] { resultado });
+                typeof(DetectiveUI).GetMethod("MostrarExplicaciones", privado).Invoke(ui, null);
+
+                var panel = (GameObject)typeof(DetectiveUI).GetField("_panelResultado", privado).GetValue(ui);
+                var card = (RectTransform)typeof(DetectiveUI).GetField("_cardResultado", privado).GetValue(ui);
+                var scroll = (ScrollRect)typeof(DetectiveUI).GetField("_scrollExplicaciones", privado).GetValue(ui);
+                var contenido = (RectTransform)typeof(DetectiveUI).GetField("_contenedorExplicaciones", privado).GetValue(ui);
+
+                float alto = ((RectTransform)panel.transform).rect.height;
+                float altoCard = LayoutUtility.GetPreferredHeight(card);
+                float zona = LayoutUtility.GetPreferredHeight((RectTransform)scroll.transform);
+                float todo = LayoutUtility.GetPreferredHeight(contenido);
+
+                // Que no se salga, pero tampoco que se encoja de más: la zona tiene que
+                // aprovechar lo libre, no quedarse en el mínimo con sitio de sobra.
+                float margen = DetectiveUITheme.Medidas.MargenPantallaResultado;
+                bool cabe = altoCard <= alto - margen * 2f + 1f;
+                bool aprovecha = altoCard >= alto - margen * 2f - 1f;
+                Comprobar(log, "Las explicaciones no hacen que la tarjeta se salga de la pantalla",
+                    scroll.gameObject.activeSelf && alto > 0f && cabe && aprovecha && zona < todo,
+                    $"pantalla {alto:F0}, tarjeta {altoCard:F0}, zona {zona:F0} de {todo:F0} de contenido");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                typeof(DetectiveUI).GetProperty("Instance", BindingFlags.Static | BindingFlags.Public)
+                    ?.GetSetMethod(nonPublic: true)?.Invoke(null, new object[] { null });
+            }
         }
 
         private static void Comprobar(StringBuilder log, string que, bool paso, string detalle)

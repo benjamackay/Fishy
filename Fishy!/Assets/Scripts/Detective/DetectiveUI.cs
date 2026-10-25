@@ -40,6 +40,9 @@ namespace Fishy.Detective
         private Button           _btnRepetir;
         private Button           _btnVerExplicacion;
         private RectTransform    _contenedorExplicaciones;
+        private RectTransform    _cardResultado;
+        private ScrollRect       _scrollExplicaciones;
+        private LayoutElement    _altoExplicaciones;
 
         // ── Fuentes ───────────────────────────────────────────────────────────
         private TMP_FontAsset _fontIconos;    // símbolos que no están en las otras dos
@@ -430,6 +433,38 @@ namespace Fishy.Detective
                     Fnt.Explicacion, Col.Texto, TextAlignmentOptions.TopLeft);
             }
             _btnVerExplicacion.interactable = false;
+            AjustarAltoExplicaciones();
+        }
+
+        /// <summary>
+        /// Le da a la zona de explicaciones el alto de su contenido, con tope en lo que
+        /// la pantalla deja libre. Sin el tope, la tarjeta crecía con cada explicación
+        /// —el mensaje citado más su párrafo— y con tres o cuatro ya se salía por arriba
+        /// y por abajo. Lo que no cabe se desplaza dentro de la tarjeta.
+        /// </summary>
+        private void AjustarAltoExplicaciones()
+        {
+            if (_scrollExplicaciones == null || _cardResultado == null) return;
+
+            _scrollExplicaciones.gameObject.SetActive(_contenedorExplicaciones.childCount > 0);
+
+            // Primero la tarjeta, sin las explicaciones: así se sabe cuánto ocupa el
+            // resto, y de paso la zona recién encendida recibe su ancho. Medir antes el
+            // contenido lo haría con ancho cero y el texto saldría altísimo.
+            _altoExplicaciones.preferredHeight = 0f;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_cardResultado);
+            float resto = LayoutUtility.GetPreferredHeight(_cardResultado);
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_contenedorExplicaciones);
+            float contenido = LayoutUtility.GetPreferredHeight(_contenedorExplicaciones);
+
+            float pantalla = ((RectTransform)_panelResultado.transform).rect.height;
+            float libre = pantalla - Med.MargenPantallaResultado * 2f - resto;
+
+            _altoExplicaciones.preferredHeight =
+                Mathf.Min(contenido, Mathf.Max(libre, Med.AltoMinimoExplicaciones));
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_cardResultado);
+            _scrollExplicaciones.verticalNormalizedPosition = 1f;
         }
 
         // ── Construcción de UI en runtime ─────────────────────────────────────
@@ -820,10 +855,21 @@ namespace Fishy.Detective
             _txtResultado = CrearTexto(card, "Resultado", "", Fnt.Resultado,
                 Col.Texto, TextAlignmentOptions.Center);
 
+            _cardResultado = (RectTransform)card;
+            ConstruirScrollExplicaciones(card);
+
             var expGO = new GameObject("Explicaciones",
                 typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
-            expGO.transform.SetParent(card, false);
+            expGO.transform.SetParent(_scrollExplicaciones.transform, false);
             _contenedorExplicaciones = expGO.GetComponent<RectTransform>();
+            _contenedorExplicaciones.anchorMin = new Vector2(0f, 1f);
+            _contenedorExplicaciones.anchorMax = new Vector2(1f, 1f);
+            _contenedorExplicaciones.pivot     = new Vector2(0.5f, 1f);
+            // Hueco a la derecha para la barra, que no tape las tarjetas.
+            _contenedorExplicaciones.offsetMin = Vector2.zero;
+            _contenedorExplicaciones.offsetMax = new Vector2(
+                -(Med.AnchoBarraExplicaciones + Med.HuecoBarraExplicaciones), 0f);
+            _scrollExplicaciones.content = _contenedorExplicaciones;
             var explVlg = expGO.GetComponent<VerticalLayoutGroup>();
             explVlg.spacing = Med.EspaciadoExplicaciones;
             explVlg.childControlWidth = true; explVlg.childControlHeight = true;
@@ -844,6 +890,55 @@ namespace Fishy.Detective
                 () => { Hide(); DetectiveRewardPopup.MostrarPendiente(() => _onCerrar?.Invoke()); });
 
             _panelResultado.SetActive(false);
+        }
+
+        /// <summary>
+        /// La zona donde se desplazan las explicaciones. Va en la pila de la tarjeta con
+        /// un alto que fija <see cref="AjustarAltoExplicaciones"/>; nace apagada para
+        /// no dejar un hueco antes de pulsar "Ver explicación".
+        /// </summary>
+        private void ConstruirScrollExplicaciones(Transform card)
+        {
+            var go = new GameObject("ExplicacionesScroll",
+                typeof(RectTransform), typeof(ScrollRect), typeof(RectMask2D), typeof(LayoutElement));
+            go.transform.SetParent(card, false);
+
+            _altoExplicaciones = go.GetComponent<LayoutElement>();
+            _altoExplicaciones.preferredHeight = 0f;
+            _altoExplicaciones.flexibleHeight  = 0f;
+
+            _scrollExplicaciones = go.GetComponent<ScrollRect>();
+            _scrollExplicaciones.horizontal        = false;
+            _scrollExplicaciones.vertical          = true;
+            _scrollExplicaciones.movementType      = ScrollRect.MovementType.Clamped;
+            _scrollExplicaciones.scrollSensitivity = 30f;
+
+            // Barra fina a la derecha. Se esconde sola si todo cabe.
+            var barraGO = new GameObject("Barra", typeof(RectTransform), typeof(Image), typeof(Scrollbar));
+            barraGO.transform.SetParent(go.transform, false);
+            var barraRT = barraGO.GetComponent<RectTransform>();
+            barraRT.anchorMin = new Vector2(1f, 0f); barraRT.anchorMax = new Vector2(1f, 1f);
+            barraRT.pivot     = new Vector2(1f, 0.5f);
+            barraRT.sizeDelta = new Vector2(Med.AnchoBarraExplicaciones, 0f);
+            AplicarFondoRedondeado(barraGO.GetComponent<Image>(),
+                new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, 0.15f));
+
+            var asaGO = new GameObject("Asa", typeof(RectTransform), typeof(Image));
+            asaGO.transform.SetParent(barraGO.transform, false);
+            var asaRT = asaGO.GetComponent<RectTransform>();
+            asaRT.offsetMin = Vector2.zero; asaRT.offsetMax = Vector2.zero;
+            var asa = asaGO.GetComponent<Image>();
+            AplicarFondoRedondeado(asa, new Color(Col.Texto.r, Col.Texto.g, Col.Texto.b, 0.6f));
+
+            var barra = barraGO.GetComponent<Scrollbar>();
+            barra.direction     = Scrollbar.Direction.BottomToTop;
+            barra.handleRect    = asaRT;
+            barra.targetGraphic = asa;
+
+            _scrollExplicaciones.verticalScrollbar           = barra;
+            _scrollExplicaciones.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+            go.SetActive(false);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
@@ -915,8 +1010,16 @@ namespace Fishy.Detective
         private void LimpiarExplicaciones()
         {
             if (_contenedorExplicaciones == null) return;
+            // Se sacan del contenedor antes de destruirlas: Destroy espera al final del
+            // frame, y la medición de AjustarAltoExplicaciones las contaría todavía.
             for (int i = _contenedorExplicaciones.childCount - 1; i >= 0; i--)
-                Destroy(_contenedorExplicaciones.GetChild(i).gameObject);
+            {
+                var hijo = _contenedorExplicaciones.GetChild(i).gameObject;
+                hijo.SetActive(false);
+                hijo.transform.SetParent(null, false);
+                Destroy(hijo);
+            }
+            if (_scrollExplicaciones != null) _scrollExplicaciones.gameObject.SetActive(false);
         }
 
         private void ScrollToBottom()
