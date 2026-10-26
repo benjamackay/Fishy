@@ -1,3 +1,5 @@
+import type { TematicaId } from './reportes'
+
 export interface Grupo {
   id: string
   nombre: string
@@ -17,6 +19,8 @@ export interface PerfilFamilia {
 export interface FamiliaEncontrada { perfiles: PerfilFamilia[] }
 /** Cada integrante representa a un niño; un padre puede recibir invitaciones para distintos hijos. */
 export interface MiembroGrupo {
+  /** Opcional para la vista frontend; ausencia no implica buen rendimiento. */
+  areas_apoyo?: TematicaId[]
   id: string
   email: string
   nombre_nino: string
