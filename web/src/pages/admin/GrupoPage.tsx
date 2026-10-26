@@ -8,6 +8,7 @@ import { ErrorAviso, Exito } from '@/components/Aviso'
 import { Modal } from '@/components/Modal'
 import { Icono } from '@/components/Icono'
 import { AgregarNinos } from '@/components/AgregarNinos'
+import { AlertasGrupo } from '@/components/AlertasGrupo'
 import { EVENTO_DATOS } from '@/hooks/useDatosVivos'
 import { comoError } from '@/lib/errores'
 import { fechaActualizacion } from '@/lib/reportes'
@@ -52,6 +53,7 @@ export default function GrupoPage() {
     {g && <>
       <div className="encabezado"><div><h1>{g.nombre}</h1>{g.descripcion && <p className="muted">{g.descripcion}</p>}</div><div className="grupo-acciones"><Link className="boton boton--primario" to={'/admin/grupos/' + id + '/reporte'}><Icono nombre="reportes" />Ver reporte</Link><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar('grupo')}><Icono nombre="borrar" />Eliminar grupo</button></div></div>
       {exito && <Exito>{exito}</Exito>}
+      <AlertasGrupo key={g.id} />
       <section className="card">
         <div className="pila spread"><div><h2>Niños del curso</h2><span className="mini muted">{g.miembros.length} {g.miembros.length === 1 ? 'perfil vinculado' : 'perfiles vinculados'}</span></div><button type="button" className="boton" disabled={ocupado} onClick={() => { setError(null); setExito(''); setAgregarNinos(true) }}><Icono nombre="mas" />Agregar usuario</button>
         </div>
