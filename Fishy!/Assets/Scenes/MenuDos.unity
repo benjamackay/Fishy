@@ -4197,6 +4197,7 @@ GameObject:
   - component: {fileID: 2060825284}
   - component: {fileID: 2060825283}
   - component: {fileID: 2060825287}
+  - component: {fileID: 2060825288}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -4312,6 +4313,22 @@ MonoBehaviour:
   panelPartidas: {fileID: 0}
   escenaJuego: MainScene
   pantallaDeCarga: {fileID: 623651211}
+--- !u!114 &2060825288
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2060825282}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab235bf730dc4c34cbfb9a12687d2bf2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DesvioAlTutorial
+  menu: {fileID: 0}
+  escenaTutorial: Tutorial
+  escenaDelJuego: MainScene
+  cadaCuantoRevisa: 0.5
 --- !u!1 &2076473002
 GameObject:
   m_ObjectHideFlags: 0

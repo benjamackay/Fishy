@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6f4bd54c2ed4484db1fdcb18e43bbd1, type: 3}
+  m_Name: Dialogo_Tutorial_NPC
+  m_EditorClassIdentifier: Assembly-CSharp::NPCDialogue
+  npcName: Huemulcito
+  npcPortrait: {fileID: -167164456610951095, guid: bd29d4dbcec8bb94faafc5ea8c894378, type: 3}
+  dialogueLines:
+  - "\xA1Hola, bienvenidx al tutorial! Abajito a la izquierda ya habr\xE1s visto
+    el bot\xF3n con el que pudiste interactuar conmigo. Con ese mismo bot\xF3n podr\xE1s
+    seguir hablando."
+  - "\xA1Bien! As\xED es como se interact\xFAa."
+  - "Con esta maravillosa habilidad, podr\xE1s hablar con los dem\xE1s personajes
+    y tambi\xE9n recoger objetos tirados por el mapa jeje."
+  autoProgressLine: 
+  typingSpeed: 0.03
+  voiceSound: {fileID: 0}
+  voicePitch: 0
+  autoProgressDelay: 0
