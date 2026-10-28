@@ -185,7 +185,8 @@ class AvisoALaFamiliaTests(TestCase):
         self.assertIn("5° Básico A", correo.body)
         self.assertIn("Ana Rojas", correo.body)
         self.assertIn("https://fishy.example.com", correo.body)
-        self.assertIn("No verá conversaciones", correo.body)
+        self.assertIn("recibirá una alerta", correo.body)
+        self.assertIn("no verá sus resultados", correo.body)
         self.assertNotIn("Tomás", correo.body)          # el hermano no se agregó
         self.assertEqual(len(correo.alternatives), 1)    # versión HTML
 

@@ -1,4 +1,8 @@
-"""Seguimiento privado del curso. Reglas educativas explícitas, no diagnósticos."""
+"""Seguimiento privado del curso. Reglas educativas explícitas, no diagnósticos.
+
+A las familias se les promete que el profesor recibe una alerta, no los resultados:
+la respuesta lleva solo estados. Porcentajes y conteos se calculan aquí y no salen.
+"""
 from datetime import timedelta
 
 from django.conf import settings
@@ -35,7 +39,7 @@ def nivel(seguras, evaluadas, reglas):
 
 
 def evaluar_alumno(miembro, muestras, reglas, ahora):
-    temas = []
+    temas, evaluables = [], []
     for tema in TEMAS:
         datos = muestras.get(tema, [])
         total = len(datos)
@@ -43,19 +47,15 @@ def evaluar_alumno(miembro, muestras, reglas, ahora):
         fecha = max((d[1] for d in datos), default=None)
         suficiente = total >= reglas["minimo_decisiones"]
         estado = nivel(seguras, total, reglas) if suficiente else "muestra_insuficiente" if total else "sin_datos"
-        temas.append({"tematica": tema, "estado": estado, "decisiones_evaluadas": total,
-                      "decisiones_seguras": seguras if suficiente else None,
-                      "porcentaje_seguro": round(seguras * 100 / total, 1) if suficiente else None,
-                      "actualizado_en": fecha,
+        if suficiente:
+            evaluables.append((seguras, total))
+        temas.append({"tematica": tema, "estado": estado, "actualizado_en": fecha,
                       "datos_antiguos": any(d[1] < ahora - timedelta(days=reglas["dias_datos_antiguos"]) for d in datos)})
-    evaluables = [t for t in temas if t["porcentaje_seguro"] is not None]
-    total = sum(t["decisiones_evaluadas"] for t in evaluables)
-    seguras = sum(t["decisiones_seguras"] for t in evaluables)
+    total = sum(t for _, t in evaluables)
+    seguras = sum(s for s, _ in evaluables)
     general = None
     if len(evaluables) >= reglas["minimo_tematicas_general"] and total >= reglas["minimo_decisiones_general"]:
-        general = {"estado": nivel(seguras, total, reglas), "decisiones_seguras": seguras,
-                   "decisiones_evaluadas": total, "porcentaje_seguro": round(seguras * 100 / total, 1),
-                   "tematicas_evaluadas": len(evaluables)}
+        general = {"estado": nivel(seguras, total, reglas)}
     niveles = [t["estado"] for t in temas] + ([general["estado"]] if general else [])
     estado = next((n for n in ("prioritario", "apoyo", "sin_alertas", "muestra_insuficiente") if n in niveles), "sin_datos")
     return {"miembro_id": str(miembro.pk), "nombre_nino": miembro.nombre_invitado,
