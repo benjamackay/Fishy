@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Fishy.Chat;
 using Fishy.Detective;
@@ -54,6 +55,10 @@ public class TutorialPasos : MonoBehaviour
              "para qué sirve, y un botón sin explicar es ruido.")]
     public GameObject botonDelTab;
 
+    [Tooltip("La pantalla de carga de ESTA escena: la copia pegada del menú, apagada. " +
+             "Se busca sola. Si no está, se entra al juego de golpe como antes.")]
+    public Fishy.UI.PantallaDeCarga pantallaDeCarga;
+
     [Header("Paso 1 — moverse")]
     [Tooltip("Unidades que tiene que recorrer Otto para dar el paso por aprendido. " +
              "Se mide el camino andado, no las teclas pulsadas.")]
@@ -83,6 +88,12 @@ public class TutorialPasos : MonoBehaviour
         "¡Listo! Ya sabes moverte, hablar, elegir respuestas y usar el Modo Detective.\n\n" +
         "Pulsa Espacio para empezar tu aventura.";
 
+    [Header("Imágenes que pueden salir en los mensajes")]
+    [Tooltip("Un renglón suelto que diga [img:nombre] se convierte en una burbuja con " +
+             "esa imagen. Arrastra aquí el sprite y ponle el nombre que uses en el texto; " +
+             "por ejemplo \"misiones\" para IconoMisiones, y en el texto [img:misiones].")]
+    public CelularDelGuia.ImagenDelGuia[] imagenesDelGuia = new CelularDelGuia.ImagenDelGuia[0];
+
     [Header("Título de arriba")]
     [Tooltip("Lo que va delante del contador: \"TUTORIAL 3/7\".")]
     public string rotulo = "TUTORIAL";
@@ -93,6 +104,10 @@ public class TutorialPasos : MonoBehaviour
     [Tooltip("Tecla que entra al juego en la última línea. Espacio a propósito: con la " +
              "E, estando al lado de la foca, la misma pulsación podría reabrirle el caso.")]
     public Key teclaParaEmpezar = Key.Space;
+
+    [Tooltip("Los dos renglones de la celebración final, antes de la despedida.")]
+    public string tituloFinal = "¡FELICIDADES!";
+    public string subtituloFinal = "Terminaste el tutorial";
 
     [Tooltip("Sacar de la cola de guardado el progreso que generó el tutorial antes de " +
              "entrar al juego. Desmárcalo si algún día el backend conoce estos ids " +
@@ -106,6 +121,10 @@ public class TutorialPasos : MonoBehaviour
         public Func<bool> Cumplido;
         public Action AlEmpezar;
     }
+
+    /// <summary>Por delante de todo lo que dibuja esta escena, celebración incluida
+    /// (1400). Ver <see cref="TaparConLaPantallaDeCarga"/>.</summary>
+    private const int OrdenDeLaPantallaDeCarga = 1500;
 
     private readonly List<Paso> pasos = new List<Paso>();
     private int indice = -1;          // -1 = todavía no empezó ninguno
@@ -128,6 +147,7 @@ public class TutorialPasos : MonoBehaviour
 
     private bool movimientoQuitadoPorElChat;
     private bool despedido;
+    private bool celebrando;
     private bool entrando;
 
     // ── El "solo la primera vez" ─────────────────────────────────────────────
@@ -184,7 +204,21 @@ public class TutorialPasos : MonoBehaviour
 
         if (lupa != null) idDeLaLupa = lupa.objetoId;
 
+        // Todo bajo llave desde el principio: cada paso abre lo suyo y lo deja
+        // abierto para siempre (ver Candado).
+        Candado(npcInteractuar, false);
+        Candado(lupa, false);
+        Candado(npcOpciones, false);
+        Candado(npcDetective, false);
+        StartCoroutine(CerrarElPanelTrasUnFrame());
+
         celular = CelularDelGuia.GetOrCreate();
+
+        // El celular se crea en código y no vive en la escena, así que no tiene
+        // Inspector donde arrastrarle nada: las imágenes se le pasan desde aquí, que
+        // es donde ya están los textos que las nombran.
+        if (imagenesDelGuia != null && imagenesDelGuia.Length > 0)
+            celular.imagenes = imagenesDelGuia;
 
         ArmarPasos();
         Suscribir();
@@ -209,6 +243,11 @@ public class TutorialPasos : MonoBehaviour
         if (npcDetective == null) npcDetective = FindAnyObjectByType<DetectiveLauncher>();
         if (panelDeJugador == null) panelDeJugador = FindAnyObjectByType<MenuController>();
 
+        // La pantalla de carga también vive apagada —la enciende ella misma al
+        // empezar a cargar—, así que va con la misma búsqueda que incluye inactivos.
+        if (pantallaDeCarga == null)
+            pantallaDeCarga = FindAnyObjectByType<Fishy.UI.PantallaDeCarga>(FindObjectsInactive.Include);
+
         // La página de misiones vive apagada dentro del panel, así que hay que
         // pedirla incluyendo los objetos inactivos o no aparece.
         if (paginaDeMisiones == null)
@@ -231,13 +270,15 @@ public class TutorialPasos : MonoBehaviour
             Debug.LogWarning("[Tutorial] Sin Otto en la escena: me salto el paso de moverse.", this);
 
         if (npcInteractuar != null)
-            Agregar(textoInteractuar, () => habloConElNpc);
+            Agregar(textoInteractuar, () => habloConElNpc,
+                alEmpezar: () => Candado(npcInteractuar, true));
 
         // La lupa se da por recogida cuando desaparece del mapa: WorldItem se destruye
         // al recogerlo, y si alguien le desmarca 'Destroy On Pickup' deja de poder
         // interactuarse. Las dos cosas se miran, así que la casilla no rompe el paso.
         if (lupa != null)
-            Agregar(textoLupa, () => lupa == null || !lupa.CanInteract());
+            Agregar(textoLupa, () => lupa == null || !lupa.CanInteract(),
+                alEmpezar: () => Candado(lupa, true));
 
         // El panel de jugador: se da por aprendido cuando el jugador pasó por la
         // sección Misiones Y volvió al mundo. Las dos condiciones, y en un solo paso,
@@ -250,7 +291,11 @@ public class TutorialPasos : MonoBehaviour
         {
             Agregar(textoPanel,
                 () => vioLasMisiones && (panelDeJugador == null || !panelDeJugador.EstaAbierto),
-                alEmpezar: () => { if (botonDelTab != null) botonDelTab.SetActive(true); });
+                alEmpezar: () =>
+                {
+                    if (botonDelTab != null) botonDelTab.SetActive(true);
+                    if (panelDeJugador != null) panelDeJugador.enabled = true;
+                });
         }
         else
         {
@@ -259,10 +304,53 @@ public class TutorialPasos : MonoBehaviour
         }
 
         if (npcOpciones != null)
-            Agregar(textoOpciones, () => cerroElChat);
+            Agregar(textoOpciones, () => cerroElChat,
+                alEmpezar: () => Candado(npcOpciones, true));
 
         if (npcDetective != null)
-            Agregar(textoDetective, () => cerroElCaso);
+            Agregar(textoDetective, () => cerroElCaso,
+                alEmpezar: () => Candado(npcDetective, true));
+    }
+
+    // ── El candado: qué se puede tocar en cada paso ──────────────────────────
+
+    /// <summary>
+    /// Abre o cierra el candado de algo interactuable, apagándole los colliders.
+    ///
+    /// <b>Por qué los colliders y no el componente.</b> El <c>InteractionDetector</c>
+    /// de Otto se queda con todo lo que entre en su trigger y tenga un
+    /// <c>IInteractable</c>, y no mira si el componente está habilitado. Sin collider
+    /// no entra en el radio: ni se le puede hablar, ni le sale la manito encima — que
+    /// es justo lo que se busca, un paso sin carteles invitando a otra cosa.
+    ///
+    /// El precio: mientras está cerrado, Otto lo atraviesa. Sale más barato que
+    /// inventar un filtro dentro de un script que usa todo el equipo.
+    ///
+    /// Se abre y no se vuelve a cerrar: quien quiera volver a hablar con Huemulcito
+    /// en el paso 4 puede, y así un paso que se dé por cumplido antes de tiempo no
+    /// deja nada inalcanzable.
+    /// </summary>
+    private static void Candado(Component quien, bool abierto)
+    {
+        if (quien == null) return;
+
+        foreach (Collider2D collider in quien.GetComponentsInChildren<Collider2D>(true))
+            collider.enabled = abierto;
+    }
+
+    /// <summary>
+    /// Apaga el panel de jugador hasta el paso que lo enseña. <c>MenuController.Update</c>
+    /// hace una sola cosa —mirar si se pulsó Tab—, así que apagar el componente deja la
+    /// tecla muda sin tocar nada más.
+    ///
+    /// Espera un frame a propósito: apagarlo dentro de nuestro <c>Start</c> podría
+    /// adelantarse al suyo, y un componente apagado antes de arrancar no ejecuta su
+    /// Start hasta que se encienda. Un frame después ya se montó solo.
+    /// </summary>
+    private IEnumerator CerrarElPanelTrasUnFrame()
+    {
+        yield return null;
+        if (panelDeJugador != null) panelDeJugador.enabled = false;
     }
 
     private void Agregar(string texto, Func<bool> cumplido, Action alEmpezar = null)
@@ -403,8 +491,14 @@ public class TutorialPasos : MonoBehaviour
     // ── Final ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Última burbuja y entrada al juego. A Otto se le quita el control aquí: no
-    /// queda nada que practicar, y así la tecla de entrar no se mezcla con el salto.
+    /// Celebración, última burbuja y entrada al juego. A Otto se le quita el control
+    /// aquí: no queda nada que practicar, y así la tecla de entrar no se mezcla con
+    /// el salto.
+    ///
+    /// <b>La celebración va antes que la despedida</b>, no a la vez: el mensaje del
+    /// celular se leería a medias por detrás del fundido. Y mientras dura, la tecla
+    /// de entrar no responde — pulsarla sin querer durante la animación se llevaría
+    /// por delante tanto la felicitación como el último mensaje.
     /// </summary>
     private void Despedida()
     {
@@ -414,8 +508,16 @@ public class TutorialPasos : MonoBehaviour
         {
             despedido = true;
             if (otto != null && !movimientoQuitadoPorElChat) otto.DisableMovement();
-            celular.Decir(textoFinal);
+
+            celebrando = true;
+            FinalDelTutorial.Mostrar(tituloFinal, subtituloFinal, () =>
+            {
+                celebrando = false;
+                celular.Decir(textoFinal);
+            });
         }
+
+        if (celebrando) return;
 
         Keyboard teclado = Keyboard.current;
         if (teclado == null || !teclado[teclaParaEmpezar].wasPressedThisFrame) return;
@@ -424,10 +526,13 @@ public class TutorialPasos : MonoBehaviour
     }
 
     /// <summary>
-    /// Entra al juego. Sin pantalla de carga: esa vive en el Canvas del menú, así
-    /// que aquí se vería a Otto colocarse cuando llegue su posición guardada. Si
-    /// algún día molesta, se monta una <c>PantallaDeCarga</c> en esta escena y se
-    /// llama a su <c>Cargar</c> en vez de esto.
+    /// Entra al juego, por la misma pantalla de carga con la que se entra desde el
+    /// menú: tapa el arranque hasta que se sabe dónde quedó Otto, en vez de dejar
+    /// que se le vea colocarse cuando llegue su posición guardada.
+    ///
+    /// <b>Si no hay pantalla en la escena se entra igual, de golpe.</b> Es una copia
+    /// que se pega a mano, y un tutorial que no sepa terminar porque falta un objeto
+    /// de adorno sería mucho peor que un salto feo.
     /// </summary>
     private void Entrar()
     {
@@ -442,9 +547,36 @@ public class TutorialPasos : MonoBehaviour
             return;
         }
 
+        // Antes de arrancar la carga, no después: lo que se saca de la cola tiene que
+        // estar fuera ya, y la escena nueva puede activarse en cualquier frame.
         if (limpiarLaColaAlSalir) LimpiarLaCola();
 
+        if (TaparConLaPantallaDeCarga()) return;
+
         SceneManager.LoadScene(escenaDelJuego);
+    }
+
+    /// <summary>
+    /// Enciende la pantalla de carga y le deja a ella la entrada al juego. Devuelve
+    /// false si no hay ninguna o si no pudo con la escena, y entonces manda quien
+    /// llama.
+    ///
+    /// <b>El orden de dibujo se le pone aquí.</b> La copia viene del menú con
+    /// sortingOrder 100, que allí sobra porque no hay nada más arriba; en esta escena
+    /// está el celular del guía (1250), el panel del Tab (1200), el cartel de misión
+    /// (710) y la celebración (1400), y con 100 la carga saldría por debajo de todos.
+    /// Se cambia desde el código y no en el Inspector a propósito: es el tutorial
+    /// quien sabe lo que tiene encima, y así pegar la copia no pide acordarse de un
+    /// campo. No se toca nada del menú — este Canvas vive y muere en esta escena.
+    /// </summary>
+    private bool TaparConLaPantallaDeCarga()
+    {
+        if (pantallaDeCarga == null) return false;
+
+        Canvas canvas = pantallaDeCarga.GetComponent<Canvas>();
+        if (canvas != null) canvas.sortingOrder = OrdenDeLaPantallaDeCarga;
+
+        return pantallaDeCarga.Cargar(escenaDelJuego);
     }
 
     /// <summary>

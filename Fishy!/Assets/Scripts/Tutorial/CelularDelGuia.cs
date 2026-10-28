@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Fishy.UI;
 using TMPro;
 using UnityEngine;
@@ -75,11 +76,48 @@ public class CelularDelGuia : MonoBehaviour
     public float tamanoTextoBurbuja = 30f;
     public float tamanoReloj = 26f;
 
+    [Header("Separador de mensajes nuevos")]
+    [Tooltip("La píldora centrada que anuncia un grupo nuevo, como en separador.png. " +
+             "Oscura sobre la pantalla clara, igual que las barras del celular.")]
+    public Color colorSeparador = new Color32(0x0D, 0x16, 0x1C, 220);
+    public Color colorTextoSeparador = Color.white;
+
+    [Tooltip("Más chico que el de las burbujas: en el mockup la píldora no compite " +
+             "con los mensajes, solo los ordena.")]
+    public float tamanoTextoSeparador = 22f;
+
+    [Header("Lo importante, destacado")]
+    [Tooltip("Color de las palabras que hay que mirar o pulsar. El amarillo cálido del " +
+             "juego: el mismo del aro del minimapa y del celular del TAB en " +
+             "botoninteractuar.png.")]
+    public Color colorDestacado = new Color32(0xF4, 0xA7, 0x23, 255);
+
+    // Qué se destaca lo marca el propio texto con *asteriscos*; ver Destacar().
+
+    [Header("Imágenes que puede mandar el guía")]
+    [Tooltip("Las imágenes que los textos llaman con [img:nombre]. No se rellena aquí: " +
+             "este celular se crea en código y no está en la escena, así que se las pasa " +
+             "TutorialPasos, que es donde viven los textos.")]
+    public ImagenDelGuia[] imagenes = new ImagenDelGuia[0];
+
+    [Tooltip("Ancho de la imagen dentro de la burbuja. El alto sale solo, respetando " +
+             "la proporción del sprite.")]
+    public float anchoImagen = 140f;
+
+    /// <summary>Una imagen con el nombre por el que la llaman los textos.</summary>
+    [System.Serializable]
+    public class ImagenDelGuia
+    {
+        public string nombre;
+        public Sprite imagen;
+    }
+
     [Header("Ritmo y scroll")]
     [Tooltip("Segundos entre un mensaje y el siguiente cuando el guía suelta varios " +
-             "de una vez. El chat del Modo Detective usa 0,5; aquí va más lento " +
-             "porque son instrucciones y hay que darles tiempo de lectura.")]
-    [Min(0f)] public float segundosEntreMensajes = 1.2f;
+             "de una vez. Cerca del 0,5 que usa el chat del Modo Detective: esperar " +
+             "más se siente lento, y el texto no se va a ningún lado — queda en " +
+             "pantalla para leerlo con calma.")]
+    [Min(0f)] public float segundosEntreMensajes = 0.6f;
 
     [Tooltip("Cuánto sube la conversación por muesca de la rueda del ratón.")]
     [Min(0f)] public float sensibilidadScroll = 40f;
@@ -114,11 +152,42 @@ public class CelularDelGuia : MonoBehaviour
     private TextMeshProUGUI titulo, tituloSombra;
     private float proximoRefrescoDelReloj;
 
-    private readonly List<GameObject> burbujas = new List<GameObject>();
+    /// <summary>Todo lo dibujado en la conversación: burbujas y separadores. Van
+    /// juntos porque <see cref="Limpiar"/> los borra igual, y porque para decidir si
+    /// un grupo lleva separador hace falta saber si hay algo encima, sea lo que
+    /// sea.</summary>
+    private readonly List<GameObject> dibujados = new List<GameObject>();
 
-    /// <summary>Mensajes que el guía ya dijo pero que todavía no se han dibujado:
-    /// salen de a uno (ver <see cref="SoltarPendientes"/>).</summary>
-    private readonly Queue<string> pendientes = new Queue<string>();
+    /// <summary>
+    /// Una cosa por dibujar cuando le toque: o una burbuja con su texto, o el
+    /// separador de un grupo con cuántos mensajes anuncia.
+    ///
+    /// Comparten cola porque lo que importa es el orden: el separador tiene que
+    /// salir justo antes de su grupo, y con dos colas aparte habría que mantenerlas
+    /// sincronizadas a mano.
+    /// </summary>
+    private readonly struct Pendiente
+    {
+        public readonly string Texto;     // una burbuja de texto
+        public readonly Sprite Imagen;    // o una de imagen
+        public readonly int    Cuantos;   // o el separador, con su número
+
+        private Pendiente(string texto, Sprite imagen, int cuantos)
+        {
+            Texto = texto; Imagen = imagen; Cuantos = cuantos;
+        }
+
+        public static Pendiente Burbuja(string texto)  => new Pendiente(texto, null, 0);
+        public static Pendiente Foto(Sprite imagen)    => new Pendiente(null, imagen, 0);
+        public static Pendiente Separador(int cuantos) => new Pendiente(null, null, cuantos);
+
+        public bool EsImagen    => Imagen != null;
+        public bool EsSeparador => Texto == null && Imagen == null;
+    }
+
+    /// <summary>Lo que el guía ya dijo pero todavía no se ha dibujado: sale de a uno
+    /// (ver <see cref="SoltarPendientes"/>).</summary>
+    private readonly Queue<Pendiente> pendientes = new Queue<Pendiente>();
     private Coroutine rutina;
 
     /// <summary>Crea el celular si no existe. Pensado para que el tutorial no tenga
@@ -186,19 +255,72 @@ public class CelularDelGuia : MonoBehaviour
     /// <summary>
     /// Suelta lo que dice el guía. Un renglón en blanco parte el texto en dos
     /// burbujas, como en la referencia: el saludo en una y la instrucción en otra.
+    ///
+    /// Cada llamada es <b>un grupo</b>, y por eso se sabe cuántos mensajes trae antes
+    /// de soltar ninguno: ese es el número que anuncia el separador.
+    ///
+    /// Un trozo que sea solo <c>[img:nombre]</c> no es texto: sale como una burbuja
+    /// con esa imagen, buscada en la lista <see cref="imagenes"/>. Cuenta como un
+    /// mensaje más, que es lo que es.
     /// </summary>
     public void Decir(string texto)
     {
         if (string.IsNullOrWhiteSpace(texto)) return;
 
+        var partes = new List<Pendiente>();
         foreach (string parte in texto.Split(new[] { "\n\n", "\r\n\r\n" },
                                              System.StringSplitOptions.RemoveEmptyEntries))
         {
             string limpio = parte.Trim();
-            if (limpio.Length > 0) pendientes.Enqueue(limpio);
+            if (limpio.Length == 0) continue;
+
+            Match marca = MarcaDeImagen.Match(limpio);
+            if (!marca.Success) { partes.Add(Pendiente.Burbuja(limpio)); continue; }
+
+            Sprite imagen = BuscarImagen(marca.Groups[1].Value.Trim());
+            if (imagen != null) partes.Add(Pendiente.Foto(imagen));
         }
 
+        if (partes.Count == 0) return;
+
+        // El primer grupo no lleva separador: no habría nada encima de lo que
+        // separarlo y la píldora anunciaría el vacío. Se mira también la cola, no
+        // solo lo dibujado: si el guía habla dos veces seguidas, el segundo grupo sí
+        // tiene algo delante aunque todavía no se vea en pantalla.
+        if (dibujados.Count > 0 || pendientes.Count > 0)
+            pendientes.Enqueue(Pendiente.Separador(partes.Count));
+
+        foreach (Pendiente parte in partes) pendientes.Enqueue(parte);
+
         if (rutina == null && isActiveAndEnabled) rutina = StartCoroutine(SoltarPendientes());
+    }
+
+    /// <summary>Un renglón que sea solo <c>[img:nombre]</c> y nada más.</summary>
+    private static readonly Regex MarcaDeImagen = new Regex(@"^\[img:(.+?)\]$");
+
+    /// <summary>
+    /// La imagen que los textos llaman por ese nombre.
+    ///
+    /// Si no está, se avisa en vez de callarlo: una marca mal escrita dejaría el
+    /// mensaje sin su imagen y no habría forma de saber por qué.
+    /// </summary>
+    private Sprite BuscarImagen(string nombre)
+    {
+        if (imagenes != null)
+        {
+            foreach (ImagenDelGuia entrada in imagenes)
+            {
+                if (entrada == null || entrada.imagen == null) continue;
+                if (string.Equals(entrada.nombre?.Trim(), nombre,
+                                  System.StringComparison.OrdinalIgnoreCase))
+                    return entrada.imagen;
+            }
+        }
+
+        Debug.LogWarning($"[Tutorial] El celular del guía no tiene ninguna imagen llamada " +
+                          $"'{nombre}'. Añádela en su lista \"Imágenes que puede mandar el " +
+                          "guía\" o corrige la marca del texto.", this);
+        return null;
     }
 
     /// <summary>
@@ -213,6 +335,10 @@ public class CelularDelGuia : MonoBehaviour
     /// Con el celular apagado la cola se detiene: si el guía hablara mientras el
     /// jugador está en un diálogo o en el panel, sus mensajes aparecerían ya dichos
     /// al volver, sin que nadie los haya visto llegar.
+    ///
+    /// El separador gasta su turno como uno más: sale solo y, tras la misma pausa,
+    /// su grupo empieza a caer debajo. Es el gesto del celular de verdad, donde la
+    /// raya queda marcando dónde te habías quedado.
     /// </summary>
     private IEnumerator SoltarPendientes()
     {
@@ -220,7 +346,11 @@ public class CelularDelGuia : MonoBehaviour
         {
             while (!EstaVisible) yield return null;
 
-            CrearBurbuja(pendientes.Dequeue());
+            Pendiente siguiente = pendientes.Dequeue();
+            if      (siguiente.EsSeparador) CrearSeparador(siguiente.Cuantos);
+            else if (siguiente.EsImagen)    CrearImagen(siguiente.Imagen);
+            else                            CrearBurbuja(siguiente.Texto);
+
             if (pendientes.Count > 0) yield return new WaitForSecondsRealtime(segundosEntreMensajes);
         }
         rutina = null;
@@ -331,9 +461,9 @@ public class CelularDelGuia : MonoBehaviour
         if (rutina != null) { StopCoroutine(rutina); rutina = null; }
         pendientes.Clear();
 
-        foreach (GameObject burbuja in burbujas)
-            if (burbuja != null) Destroy(burbuja);
-        burbujas.Clear();
+        foreach (GameObject go in dibujados)
+            if (go != null) Destroy(go);
+        dibujados.Clear();
     }
 
     // ── Construcción ─────────────────────────────────────────────────────────
@@ -544,14 +674,153 @@ public class CelularDelGuia : MonoBehaviour
         le.preferredWidth = anchoMaximoBurbuja;
         le.flexibleWidth = 0f;
 
-        TextMeshProUGUI t = FishyUIKit.Texto(burbuja.transform, "Texto", texto,
+        TextMeshProUGUI t = FishyUIKit.Texto(burbuja.transform, "Texto", Destacar(texto),
             tamanoTextoBurbuja, colorTextoBurbuja, TextAlignmentOptions.TopLeft);
         t.raycastTarget = false;
 
-        burbujas.Add(burbuja);
+        dibujados.Add(burbuja);
 
         // Medir antes de mover el scroll: el contenido acaba de crecer y sin esto
         // el salto iría al final de la lista vieja.
+        Canvas.ForceUpdateCanvases();
+        if (arrastrarLaVista && scroll != null) scroll.verticalNormalizedPosition = 0f;
+    }
+
+    /// <summary>
+    /// Una burbuja con una imagen dentro, para enseñar algo en vez de describirlo:
+    /// el icono que hay que tocar, el objeto que hay que buscar.
+    ///
+    /// La burbuja se ajusta a la imagen en vez de usar el ancho fijo de las de texto:
+    /// un icono pequeño en una burbuja ancha se vería perdido en medio de un hueco.
+    /// El alto sale de la proporción del sprite, así que un icono cuadrado sale
+    /// cuadrado y uno apaisado no se estira.
+    /// </summary>
+    private void CrearImagen(Sprite imagen)
+    {
+        bool arrastrarLaVista = EstaAlFinal();
+
+        var burbuja = new GameObject("BurbujaImagen",
+            typeof(RectTransform), typeof(Image),
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
+        burbuja.transform.SetParent(contenido, false);
+
+        var fondo = burbuja.GetComponent<Image>();
+        FishyUIKit.FondoRedondeado(fondo, colorBurbuja, 64, 18);
+        fondo.raycastTarget = false;
+
+        var vlg = burbuja.GetComponent<VerticalLayoutGroup>();
+        vlg.padding = new RectOffset(14, 14, 14, 14);
+        vlg.childAlignment = TextAnchor.MiddleCenter;
+        vlg.childControlWidth = true; vlg.childControlHeight = true;
+        vlg.childForceExpandWidth = false; vlg.childForceExpandHeight = false;
+
+        var fitter = burbuja.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+
+        burbuja.GetComponent<LayoutElement>().flexibleWidth = 0f;
+
+        var fotoGO = new GameObject("Foto",
+            typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+        fotoGO.transform.SetParent(burbuja.transform, false);
+
+        var foto = fotoGO.GetComponent<Image>();
+        foto.sprite = imagen;
+        foto.preserveAspect = true;
+        foto.raycastTarget = false;
+
+        var fotoLe = fotoGO.GetComponent<LayoutElement>();
+        fotoLe.preferredWidth  = anchoImagen;
+        fotoLe.preferredHeight = anchoImagen * (imagen.rect.height / Mathf.Max(1f, imagen.rect.width));
+
+        dibujados.Add(burbuja);
+
+        Canvas.ForceUpdateCanvases();
+        if (arrastrarLaVista && scroll != null) scroll.verticalNormalizedPosition = 0f;
+    }
+
+    /// <summary>
+    /// Pinta de amarillo lo que el texto marque entre asteriscos:
+    /// <c>*WASD/flechas*</c>, <c>*E para hablarle*</c>, <c>*abajo a tu izquierda*</c>.
+    ///
+    /// <b>Por qué marcas en el texto y no una lista de palabras.</b> Lo que hay que
+    /// destacar no siempre es una palabra: muchas veces es una frase entera, y la
+    /// misma palabra se destaca en un mensaje y en otro no —la primera vez que sale
+    /// la tecla E importa, la tercera ya no—. Con marcas lo decide quien escribe el
+    /// texto, en el mismo sitio donde lo escribe y sin tocar código.
+    ///
+    /// Hacen falta los dos asteriscos: uno suelto se queda tal cual, y las marcas no
+    /// cruzan de un renglón a otro, así que no se pueden comer medio mensaje por un
+    /// despiste.
+    /// </summary>
+    private string Destacar(string texto)
+    {
+        string hex = ColorUtility.ToHtmlStringRGB(colorDestacado);
+        return Regex.Replace(texto, @"\*(.+?)\*", $"<color=#{hex}><b>$1</b></color>");
+    }
+
+    /// <summary>
+    /// La píldora centrada que anuncia un grupo nuevo: «2 mensajes no leídos».
+    ///
+    /// <b>Por qué va dentro de una fila</b> y no suelta en la conversación: el
+    /// contenedor alinea a la izquierda, que es lo que mantiene las burbujas pegadas
+    /// a su borde. Un hijo suelto heredaría esa alineación y la píldora se iría al
+    /// margen; la fila ocupa todo el ancho y centra lo que lleva dentro.
+    ///
+    /// Medidas sacadas de <c>referencias/separador.png</c>: la píldora es un
+    /// rectángulo bien redondeado —radio en torno a un tercio de su alto, no una
+    /// cápsula—, con poco aire a los lados del texto.
+    /// </summary>
+    private void CrearSeparador(int cuantos)
+    {
+        bool arrastrarLaVista = EstaAlFinal();
+
+        var fila = new GameObject("Separador",
+            typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+        fila.transform.SetParent(contenido, false);
+
+        var filaHlg = fila.GetComponent<HorizontalLayoutGroup>();
+        filaHlg.childAlignment = TextAnchor.MiddleCenter;
+        filaHlg.childControlWidth = true; filaHlg.childControlHeight = true;
+        filaHlg.childForceExpandWidth = false; filaHlg.childForceExpandHeight = false;
+
+        var filaLe = fila.GetComponent<LayoutElement>();
+        filaLe.preferredWidth = anchoMaximoBurbuja;
+        filaLe.flexibleWidth = 0f;
+
+        var pildora = new GameObject("Pildora",
+            typeof(RectTransform), typeof(Image),
+            typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+        pildora.transform.SetParent(fila.transform, false);
+
+        var img = pildora.GetComponent<Image>();
+        FishyUIKit.FondoRedondeado(img, colorSeparador, 64, 12);
+        img.raycastTarget = false;
+
+        var vlg = pildora.GetComponent<HorizontalLayoutGroup>();
+        vlg.padding = new RectOffset(14, 14, 6, 8);
+        vlg.childAlignment = TextAnchor.MiddleCenter;
+        vlg.childControlWidth = true; vlg.childControlHeight = true;
+        vlg.childForceExpandWidth = false; vlg.childForceExpandHeight = false;
+
+        // Que se ajuste al texto en los dos sentidos: la píldora es del tamaño de lo
+        // que dice, no de un hueco fijo. "1 mensaje" ocupa menos que "12 mensajes".
+        var fitter = pildora.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+
+        // El singular importa: «1 mensajes no leídos» en un juego que además enseña
+        // a leer se nota, y mucho.
+        string texto = cuantos == 1
+            ? "1 mensaje no leído"
+            : $"{cuantos} mensajes no leídos";
+
+        TextMeshProUGUI t = FishyUIKit.Texto(pildora.transform, "Texto", texto,
+            tamanoTextoSeparador, colorTextoSeparador, TextAlignmentOptions.Center);
+        t.raycastTarget = false;
+
+        dibujados.Add(fila);
+
         Canvas.ForceUpdateCanvases();
         if (arrastrarLaVista && scroll != null) scroll.verticalNormalizedPosition = 0f;
     }
