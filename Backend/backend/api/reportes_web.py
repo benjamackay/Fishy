@@ -1,4 +1,4 @@
-"""Métricas de decisiones clasificadas en el banco; jamás serializa conversaciones."""
+"""Métricas de decisiones clasificadas en el banco y del Modo Detective; jamás serializa conversaciones."""
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone as utc
 from zoneinfo import ZoneInfo
@@ -11,7 +11,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from .invitaciones import grupo_visible
-from .models import Mensaje, OpcionBanco, UsuarioJugador, ZonaProgreso
+from .models import CasoDetectiveProgreso, Mensaje, OpcionBanco, UsuarioJugador, ZonaProgreso
 
 TEMAS = ("desconocidos", "ciberacoso", "retos_virales")
 TIPOS = {"segura_basica", "segura_optima", "insegura"}
@@ -75,19 +75,48 @@ def calcular(jugadores, minimo, periodo=None):
         completadas.add((jugador_id, tema_portal(zona)))
         if not periodo or fecha >= periodo[1][0]:
             actualizada = max(actualizada, fecha) if actualizada else fecha
+    detective, actualizada = calcular_detective(ids, periodo, actualizada)
     tematicas = []
     for tema in TEMAS:
         valores = resultados[tema]
         if len(valores) < minimo:
-            tematicas.append({"tematica": tema, "metricas": None, "motivo": "muestra_insuficiente" if valores else "sin_resultados"})
+            entrada = {"tematica": tema, "metricas": None, "motivo": "muestra_insuficiente" if valores else "sin_resultados"}
         else:
-            tematicas.append({"tematica": tema, "metricas": {
+            entrada = {"tematica": tema, "metricas": {
                 "decisiones_seguras": sum(v[0] for v in valores.values()),
                 "decisiones_evaluadas": sum(v[1] for v in valores.values()),
                 "completada": all((i, tema) in completadas for i in ids),
-            }})
-    participantes = len({i for valores in resultados.values() for i in valores})
+            }}
+        # Métrica aparte y no sumada a las decisiones: el chat mide qué elige el niño,
+        # el detective si reconoce señales de riesgo en una conversación ajena.
+        casos = detective[tema]
+        entrada["detective"] = None if len({j for j, _ in casos}) < minimo else {
+            "senales_detectadas": sum(v[0] for v in casos.values()),
+            "senales_totales": sum(v[1] for v in casos.values()),
+            "casos": len(casos),
+        }
+        tematicas.append(entrada)
+    participantes = len({i for valores in resultados.values() for i in valores}
+                        | {j for casos in detective.values() for j, _ in casos})
     return tematicas, participantes, actualizada
+
+
+def calcular_detective(ids, periodo, actualizada):
+    """Último intento de cada niño en cada caso, agrupado por temática del caso.
+
+    Dentro de una partida reintentar ya sobrescribe la fila; entre partidas se toma
+    también el más reciente, para que repetir un caso no lo cuente dos veces.
+    """
+    progresos = CasoDetectiveProgreso.objects.filter(
+        partida__usuario_jugador_id__in=ids, fecha_termino__isnull=False, caso__zona__in=ZONAS_BD)
+    if periodo:
+        progresos = progresos.filter(fecha_termino__gte=periodo[1][0], fecha_termino__lt=periodo[1][1])
+    detective = defaultdict(dict)
+    for jugador_id, caso_id, zona, aciertos, total, fecha in (progresos.order_by("fecha_termino").values_list(
+            "partida__usuario_jugador_id", "caso_id", "caso__zona", "aciertos", "total_riesgo", "fecha_termino")):
+        detective[tema_portal(zona)][(jugador_id, caso_id)] = (aciertos, total)
+        actualizada = max(actualizada, fecha) if actualizada else fecha
+    return detective, actualizada
 
 
 def sin_cache(datos):

@@ -280,9 +280,10 @@ Conservar los DTO existentes y agregar metadata del alcance aplicado:
   "actualizado_en":"2026-10-15T03:00:00Z",
   "periodo":{"inicio":"2026-10-15","fin":"2026-10-15","zona_horaria":"America/Santiago"},
   "tematicas":[
-    {"tematica":"desconocidos","metricas":{"decisiones_seguras":4,"decisiones_evaluadas":4,"completada":false}},
-    {"tematica":"ciberacoso","metricas":null,"motivo":"muestra_insuficiente"},
-    {"tematica":"retos_virales","metricas":null,"motivo":"sin_resultados"}
+    {"tematica":"desconocidos","metricas":{"decisiones_seguras":4,"decisiones_evaluadas":4,"completada":false},
+     "detective":{"senales_detectadas":9,"senales_totales":12,"casos":3}},
+    {"tematica":"ciberacoso","metricas":null,"motivo":"muestra_insuficiente","detective":null},
+    {"tematica":"retos_virales","metricas":null,"motivo":"sin_resultados","detective":null}
   ]
 }
 ```
@@ -311,6 +312,27 @@ No promediar porcentajes de menores: sumar numeradores y denominadores. No
 introducir deduplicación nueva sin definirla: el comportamiento acumulado actual
 cuenta los registros de mensajes elegibles. Un 0% con decisiones evaluadas es un
 resultado real; ausencia de decisiones es `metricas:null`, nunca un 0% inventado.
+
+**Modo Detective (`detective`, agregado el 2026-10-28).** Métrica aparte, no
+sumada a las decisiones: el chat mide qué elige el niño; el detective, si reconoce
+señales de riesgo en una conversación ajena. Sale de `CasoDetectiveProgreso`,
+agrupado por `CasoDetective.zona` (con el mismo alias `reto_viral`).
+
+```text
+senales_detectadas = suma de aciertos (señales de riesgo no ambiguas que marcó)
+senales_totales    = suma de total_riesgo de esos casos
+casos              = intentos contados (uno por niño y caso)
+```
+
+- Por niño y caso cuenta **solo el último intento** (por `fecha_termino`), también
+  entre partidas distintas: repetir un caso no lo suma dos veces.
+- El período filtra por `fecha_termino`, con los mismos límites en `America/Santiago`.
+- Mínimo de grupo: participantes distintos con un caso en esa temática; si no se
+  cumple, `detective:null`. Es independiente de `metricas`: una temática puede
+  traer una y no la otra.
+- `participantes_con_resultados` incluye a quien solo jugó el detective.
+- Nunca se exponen las marcas (`mensajes_marcados`) ni los textos del caso.
+- Sugerencia de texto: "Detectó 9 de 12 señales de riesgo".
 
 ### 5.3. Fechas y muestra
 

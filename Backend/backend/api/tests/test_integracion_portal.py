@@ -81,7 +81,7 @@ class PeriodoPortalTests(TestCase):
     def test_minimo_se_recalcula_en_cada_rango(self):
         r = self.client.get(self.url, {'inicio': '2026-10-06', 'fin': '2026-10-06'})
         self.assertEqual(r.data['participantes_con_resultados'], 1)
-        self.assertEqual(r.data['tematicas'][0], {'tematica': 'desconocidos', 'metricas': None, 'motivo': 'muestra_insuficiente'})
+        self.assertEqual(r.data['tematicas'][0], {'tematica': 'desconocidos', 'metricas': None, 'motivo': 'muestra_insuficiente', 'detective': None})
 
     def test_rangos_invalidos_y_acumulado(self):
         for datos in [{'inicio': '2026-10-05'}, {'inicio': '2026-02-30', 'fin': '2026-10-05'}, {'inicio': '2026-10-06', 'fin': '2026-10-05'}]:
