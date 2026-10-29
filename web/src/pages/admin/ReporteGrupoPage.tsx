@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useSesion } from '@/auth/contexto'
 import { usePanel } from '@/hooks/usePanel'
+import { FiltroPeriodo } from '@/components/FiltroPeriodo'
+import type { Periodo } from '@/lib/periodo'
 import { useDatosVivos } from '@/hooks/useDatosVivos'
 import { Cargando } from '@/components/Cargando'
 import { ErrorAviso, Exito } from '@/components/Aviso'
@@ -14,7 +16,8 @@ export default function ReporteGrupoPage() {
   const { id = '' } = useParams()
   const { perfil } = useSesion()
   const panel = usePanel()
-  const estado = useDatosVivos(signal => panel.obtenerReporteGrupo(id, { signal }), 'reporte-grupo:' + perfil?.id + ':' + id)
+  const [periodo, setPeriodo] = useState<Periodo | null>(null)
+  const estado = useDatosVivos(signal => panel.obtenerReporteGrupo(id, { signal, periodo: periodo ?? undefined }), 'reporte-grupo:' + perfil?.id + ':' + id + ':' + JSON.stringify(periodo))
   const [descargando, setDescargando] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [exito, setExito] = useState(false)
@@ -25,7 +28,7 @@ export default function ReporteGrupoPage() {
     setDescargando(true); setError(null); setExito(false)
     try {
       // Reconsulta antes de exportar: el archivo usa el último agregado disponible.
-      const ultimo = await panel.obtenerReporteGrupo(id)
+      const ultimo = await panel.obtenerReporteGrupo(id, { periodo: periodo ?? undefined })
       const { descargarPdfGrupo } = await import('@/lib/pdf')
       descargarPdfGrupo(ultimo)
       setExito(true)
@@ -34,6 +37,7 @@ export default function ReporteGrupoPage() {
   }
   return <>
     <nav className="migas" aria-label="Ruta de navegación"><Link to="/admin/grupos">Mis grupos</Link><span>/</span><Link to={'/admin/grupos/' + id}>Gestionar grupo</Link><span>/</span><span>Reporte grupal</span></nav>
+    <div className="comparar-report-tools"><Link className="boton" to={'/admin/grupos/' + id + '/comparar'}><Icono nombre="reportes" />Comparar períodos</Link><FiltroPeriodo periodo={periodo} cambiar={p => { setPeriodo(p); setExito(false); setError(null) }} habilitado /></div>
     {estado.cargando && <Cargando mensaje="Cargando el reporte grupal…" />}
     {estado.error && <ErrorAviso error={estado.error} onReintentar={estado.recargar} />}
     {r && <>
@@ -42,9 +46,9 @@ export default function ReporteGrupoPage() {
       {disponible ? <>
         <div className="kpis"><Estadistica etiqueta="Integrantes del grupo" valor={r.total_integrantes} /><Estadistica etiqueta="Con resultados" valor={r.participantes_con_resultados} /><Estadistica etiqueta="Temáticas disponibles" valor={tematicasCompletas(r.tematicas).filter(t => t.metricas).length + ' de 3'} /></div>
         <div className="section-heading"><h2>Decisiones seguras por temática</h2><Sincronizacion actualizando={estado.actualizando} actualizado={r.actualizado_en} error={!!estado.error} /></div>
-        <Tematicas resultados={r.tematicas} grupal />
+        <Tematicas resultados={r.tematicas} grupal porPeriodo={!!periodo} />
         <p className="report-method">Se suman las decisiones seguras y evaluadas del grupo por temática. Cada temática necesita al menos {Math.max(3, r.minimo_participantes)} participantes con resultados para mostrarse.</p>
-      </> : <section className="empty-state"><Icono nombre="reportes" /><h2>Aún no hay datos disponibles para el análisis grupal</h2><p>El reporte aparecerá automáticamente cuando al menos {Math.max(3, r.minimo_participantes)} participantes tengan resultados en una misma temática.</p><Link className="boton" to={'/admin/grupos/' + id}>Gestionar integrantes</Link></section>}
+      </> : <section className="empty-state"><Icono nombre="reportes" /><h2>{periodo ? 'Sin datos' : 'Aún no hay datos disponibles para el análisis grupal'}</h2><p>{periodo ? 'No hay suficientes decisiones evaluadas de participantes dentro del período para mostrar resultados grupales.' : 'El reporte aparecerá automáticamente cuando haya participantes suficientes con resultados.'} Se requieren al menos {Math.max(3, r.minimo_participantes)} participantes en una misma temática.</p><Link className="boton" to={'/admin/grupos/' + id}>Gestionar integrantes</Link></section>}
       <Privacidad grupal />
     </>}
   </>

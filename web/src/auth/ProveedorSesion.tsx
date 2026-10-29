@@ -47,7 +47,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const valor = useMemo<Sesion>(() => ({
     perfil, cargando, autenticado: perfil !== null,
     esProfesor: perfil?.rol === 'profesor',
-    entrar, salir,
+    entrar, salir, actualizarPerfil: setPerfil,
   }), [perfil, cargando, entrar, salir])
   return <ContextoSesion.Provider value={valor}>{children}</ContextoSesion.Provider>
 }

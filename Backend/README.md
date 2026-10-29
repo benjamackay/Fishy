@@ -17,6 +17,19 @@ Unity (ApiManager.cs)  ──HTTP + Token──▶  Backend Django (DRF)  ──
   las expone por la Data API. ⚠️ **No habilitar/usar la Data API de Supabase**
   para tocar estas tablas; todo pasa por Django.
 
+## Portal web en cPanel
+
+La API permite peticiones desde `https://fishygame.cl` y
+`https://www.fishygame.cl` por defecto, también si `CORS_ALLOWED_ORIGINS`
+está vacío. La variable permite agregar otros orígenes exactos separados
+por coma, sin rutas ni slash final. CORS se aplica únicamente a `/api/`;
+el portal conserva la autenticación por token y no usa cookies entre dominios.
+
+El despliegue debe instalar `backend/requirements.txt`, que incluye
+`django-cors-headers`, y usar los settings actualizados de `dev`. Subir el
+frontend a cPanel no actualiza el backend: volver a desplegar Django en
+Railway para activar este cambio. No es necesario regenerar el ZIP del portal.
+
 ## Estructura
 
 ```

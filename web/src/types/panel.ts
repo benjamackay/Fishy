@@ -1,7 +1,8 @@
 import type { Grupo, GrupoDetalle, NuevoGrupo, InvitacionGrupo, NuevaInvitacion, FamiliaEncontrada } from './grupos'
 import type { NinoResumen, ReporteGrupo, ReporteNino } from './reportes'
+import type { Periodo } from '@/lib/periodo'
 
-export interface Consulta { signal?: AbortSignal }
+export interface Consulta { signal?: AbortSignal; periodo?: Periodo }
 /** Contrato de frontend. La autorización y las mutaciones reales pertenecen al backend. */
 export interface FuentePanel {
   listarNinos(opciones?: Consulta): Promise<NinoResumen[]>

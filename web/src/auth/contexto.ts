@@ -10,6 +10,7 @@ export interface Sesion {
   esProfesor: boolean
   entrar: (nombre: string, password: string) => Promise<void>
   salir: () => void
+  actualizarPerfil?: (perfil: AdultoResponsable) => void
 }
 
 export const ContextoSesion = createContext<Sesion | null>(null)

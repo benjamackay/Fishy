@@ -10,7 +10,12 @@ function errorRegistro(error: unknown): Error {
   if (error instanceof ApiError) {
     if (error.status === 400 || error.status === 409) {
       const campos = error.data && typeof error.data === 'object' ? error.data : {}
-      if ('password' in campos) return new ErrorUsuario('La contraseña no cumple los requisitos del servicio. Prueba con otra.')
+      if ('password' in campos) {
+        // El backend explica qué regla no se cumple (largo, común, solo números, parecida al nombre).
+        const motivos = (campos as { password?: unknown }).password
+        const detalle = Array.isArray(motivos) ? motivos.filter(m => typeof m === 'string').join(' ') : ''
+        return new ErrorUsuario(detalle || 'La contraseña no cumple los requisitos del servicio. Prueba con otra.')
+      }
       return new ErrorUsuario('Revisa los datos ingresados. El nombre de usuario o el correo podrían estar registrados.')
     }
     if (error.status === 404 || error.status === 405) return new ErrorUsuario('El registro aún no está disponible. Inténtalo más adelante.')
@@ -75,7 +80,7 @@ export function FormularioRegistro({ ocupado, cambiarOcupado, volverAlLogin, ema
   </div>
 
   return <>
-    <div className="auth-heading"><h1>Crea tu cuenta.</h1></div>
+    <div className="auth-heading"><span className="welcome-kicker">TU PRÓXIMA AVENTURA EMPIEZA AQUÍ</span><h1>Crea tu cuenta.</h1><p>Comienza a acompañar sus aprendizajes digitales.</p></div>
     <form onSubmit={enviar} aria-label="Crear una cuenta" aria-busy={ocupado}>
       <div className="auth-fields auth-fields--register">
         <div className="campo auth-wide"><label htmlFor="registro-nombre">Nombre de usuario</label><input id="registro-nombre" ref={nombreInput} value={nombre} onChange={e => setNombre(e.target.value)} autoComplete="username" required maxLength={150} disabled={ocupado} aria-describedby="registro-nombre-ayuda" /><small id="registro-nombre-ayuda">Lo usarás para iniciar sesión.</small></div>
@@ -85,7 +90,7 @@ export function FormularioRegistro({ ocupado, cambiarOcupado, volverAlLogin, ema
         <CampoContrasena id="registro-password" etiqueta="Contraseña" valor={password} cambiar={setPassword} ocupado={ocupado} nueva />
         <CampoContrasena id="registro-confirmacion" etiqueta="Confirmar contraseña" valor={confirmacion} cambiar={setConfirmacion} ocupado={ocupado} nueva error={errorConfirmacion} inputRef={confirmacionInput} />
       </div>
-      <p className="auth-password-hint">Mínimo 4 caracteres.</p>
+      <p className="auth-password-hint">Mínimo 8 caracteres. Evita claves comunes, solo números o parecidas a tu nombre o correo.</p>
       {error && <ErrorAviso error={error} />}
       <button className="boton boton--primario auth-submit full-width" disabled={ocupado}>{ocupado ? 'Creando tu cuenta…' : 'Crear cuenta'}{ocupado ? <span className="spinner" aria-hidden="true" /> : <Icono nombre="flecha" />}</button>
     </form>

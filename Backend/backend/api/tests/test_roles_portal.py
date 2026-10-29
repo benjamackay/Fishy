@@ -25,13 +25,28 @@ class RolesPortalTests(TestCase):
 
     def test_registro_ignora_rol_e_is_admin_enviados_por_el_cliente(self):
         respuesta = self.client.post("/api/auth/registro/", {
-            "nombre": "Intruso", "email": "intruso@example.com", "password": "prueba",
+            "nombre": "Intruso", "email": "intruso@example.com", "password": "clave-larga-24",
             "rol": "profesor", "is_admin": True,
         }, format="json")
         self.assertEqual(respuesta.status_code, 201)
         cuenta = AdultoResponsable.objects.get(nombre="Intruso")
         self.assertEqual(cuenta.rol, "padre")
         self.assertFalse(cuenta.is_admin)
+
+    def test_registro_usa_la_misma_regla_de_contrasena(self):
+        # Corta, solo números, común y parecida al nombre: lo mismo que rechazan
+        # la recuperación y el cambio de contraseña.
+        for clave in ["corta-1", "84736291", "password", "familia_rojas1"]:
+            respuesta = self.client.post("/api/auth/registro/", {
+                "nombre": "familia_rojas", "email": "rojas@example.com", "password": clave,
+            }, format="json")
+            self.assertEqual(respuesta.status_code, 400, clave)
+            self.assertIn("password", respuesta.data)
+        self.assertFalse(AdultoResponsable.objects.filter(nombre="familia_rojas").exists())
+
+    def test_cuenta_antigua_con_clave_corta_sigue_entrando(self):
+        respuesta = self.client.post("/api/auth/login/", {"nombre": "Familia", "password": "prueba"}, format="json")
+        self.assertEqual(respuesta.status_code, 200)
 
     def test_perfil_expone_rol_y_no_el_privilegio_tecnico(self):
         self.client.force_authenticate(self.profesor)

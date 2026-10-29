@@ -87,7 +87,7 @@ export function crearPdfGrupo(reporte: ReporteGrupo): jsPDF {
   let y = dato('Grupo:', reporte.nombre_grupo.replace(/\s+/g, ' ').trim().slice(0, 80), 37)
   y = dato('Integrantes:', String(reporte.total_integrantes), y)
   y = dato('Con resultados:', String(reporte.participantes_con_resultados), y)
-  y = dato('Alcance del reporte:', 'Resultados acumulados disponibles', y)
+  y = dato('Alcance del reporte:', reporte.periodo ? `Del ${reporte.periodo.inicio} al ${reporte.periodo.fin} (${reporte.periodo.zona_horaria})` : 'Resultados acumulados disponibles', y)
   y = texto('Última actualización de los resultados: ' + fechaPdf(reporte.actualizado_en), y + 3, 9.5, 'italic', true)
 
   y = texto('Resumen por temática', y + 8, 15, 'bolditalic', true)

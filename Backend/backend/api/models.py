@@ -1106,6 +1106,23 @@ class InvitacionGrupo(models.Model):
         constraints = [models.UniqueConstraint(fields=["grupo", "email", "nombre_clave"], condition=models.Q(estado="pendiente"), name="invitacion_pendiente_unica_por_nino")]
 
 
+class CodigoRecuperacion(models.Model):
+    """Código de 6 dígitos para recuperar la contraseña (ver api/recuperacion.py).
+    Se guarda solo su HMAC: con un millón de combinaciones un hash simple se
+    revierte probándolas todas, el HMAC exige además la SECRET_KEY."""
+    # Lo único que el portal conoce de la solicitud. Las de correos sin cuenta reciben
+    # uno al azar que no está en la tabla: así no se distinguen desde afuera.
+    solicitud_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    adulto = models.ForeignKey(AdultoResponsable, on_delete=models.CASCADE, related_name="codigos_recuperacion")
+    codigo_hash = models.CharField(max_length=64)
+    intentos = models.PositiveSmallIntegerField(default=0)
+    vence_en = models.DateTimeField()
+    # Al acertar el código se entrega un permiso de un solo uso para fijar la contraseña.
+    permiso_hash = models.CharField(max_length=64, null=True, blank=True, unique=True)
+    permiso_vence_en = models.DateTimeField(null=True, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PROGRESO POR NPC DE UNA TEMATICA  (por partida)
 #

@@ -5,6 +5,12 @@ import { operacionGrupo } from './invitaciones'
 import type { FuentePanel } from '@/types/panel'
 import type { Grupo, GrupoDetalle, InvitacionGrupo, FamiliaEncontrada } from '@/types/grupos'
 import type { NinoResumen, ReporteGrupo, ReporteNino } from '@/types/reportes'
+import type { Consulta } from '@/types/panel'
+
+function reporte<T>(ruta: string, opciones?: Consulta): Promise<T> {
+  if (opciones?.periodo) ruta += '?' + new URLSearchParams({ inicio: opciones.periodo.inicio, fin: opciones.periodo.fin })
+  return api.get<T>(ruta, opciones)
+}
 
 /**
  * Grupos e invitaciones usan el contrato implementado en Backend/backend/api/invitaciones.py.
@@ -40,7 +46,7 @@ export const panelReal: FuentePanel = {
     }))
     return resumenes
   },
-  obtenerReporteNino: (id, opciones) => api.get<ReporteNino>('/jugadores/' + id + '/reporte/', opciones),
+  obtenerReporteNino: (id, opciones) => reporte<ReporteNino>('/jugadores/' + id + '/reporte/', opciones),
   listarGrupos: opciones => operacionGrupo(() => api.get<Grupo[]>('/grupos/', opciones)),
   crearGrupo: datos => operacionGrupo(() => api.post<Grupo>('/grupos/', datos)),
   obtenerGrupo: (id, opciones) => operacionGrupo(() => api.get<GrupoDetalle>(ruta(id), opciones)),
@@ -51,5 +57,5 @@ export const panelReal: FuentePanel = {
   cancelarInvitacion: (id, invitacionId) => operacionGrupo(() => api.delete<void>(ruta(id) + 'invitaciones/' + encodeURIComponent(invitacionId) + '/')),
   eliminarUsuario: (id, miembroId) => operacionGrupo(() => api.delete<void>(ruta(id) + 'miembros/' + encodeURIComponent(miembroId) + '/')),
   eliminarGrupo: id => operacionGrupo(() => api.delete<void>(ruta(id))),
-  obtenerReporteGrupo: (id, opciones) => operacionGrupo(() => api.get<ReporteGrupo>(ruta(id) + 'reporte/', opciones)),
+  obtenerReporteGrupo: (id, opciones) => operacionGrupo(() => reporte<ReporteGrupo>(ruta(id) + 'reporte/', opciones)),
 }

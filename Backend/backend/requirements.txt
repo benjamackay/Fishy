@@ -1,5 +1,7 @@
 django>=5.0
 psycopg2-binary
 djangorestframework
+django-cors-headers
 python-decouple
 argon2-cffi
+django-anymail[brevo]>=13.0

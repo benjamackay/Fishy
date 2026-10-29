@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from .models import (
     AdultoResponsable, UsuarioJugador, NivelRiesgo, Partida, NPC, Chat,
@@ -10,14 +12,29 @@ from .models import (
 
 
 class RegistroSerializer(serializers.ModelSerializer):
-    """Alta de la cuenta del adulto responsable (la única con login)."""
-    password = serializers.CharField(write_only=True, min_length=4)
+    """Alta de la cuenta del adulto responsable (la única con login).
+
+    La contraseña pasa por AUTH_PASSWORD_VALIDATORS, igual que en la recuperación
+    y el cambio de contraseña: una sola regla (mínimo 8, no común, no solo
+    números, no parecida al nombre o al correo). Las cuentas antiguas con claves
+    más cortas siguen entrando: los validadores solo corren al fijar una clave."""
+    password = serializers.CharField(write_only=True, max_length=128, trim_whitespace=False)
 
     def validate_email(self, value):
         value = value.strip().lower()
         if AdultoResponsable.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Ya existe una cuenta con este correo.")
         return value
+
+    def validate(self, attrs):
+        # Cuenta sin guardar para que el validador de similitud compare con
+        # el nombre, el apellido y el correo que se están registrando.
+        candidato = AdultoResponsable(**{k: v for k, v in attrs.items() if k != "password"})
+        try:
+            validate_password(attrs["password"], candidato)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)})
+        return attrs
 
     class Meta:
         model = AdultoResponsable

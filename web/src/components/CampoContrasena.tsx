@@ -20,7 +20,7 @@ export function CampoContrasena({ id, etiqueta, valor, cambiar, ocupado, nueva, 
     <div className="auth-password-input">
       <input ref={inputRef} id={id} type={visible ? 'text' : 'password'} value={valor}
         onChange={e => cambiar(e.target.value)} autoComplete={nueva ? 'new-password' : 'current-password'}
-        required minLength={nueva ? 4 : undefined} disabled={ocupado}
+        required minLength={nueva ? 8 : undefined} disabled={ocupado}
         aria-invalid={error ? true : undefined} aria-describedby={error ? id + '-error' : undefined} />
       <button type="button" className="icon-button auth-password-toggle" disabled={ocupado}
         onClick={() => setVisible(v => !v)} aria-label={(visible ? 'Ocultar ' : 'Mostrar ') + (etiqueta === 'Confirmar contraseña' ? 'confirmación de contraseña' : etiqueta.toLowerCase())}
