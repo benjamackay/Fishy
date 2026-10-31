@@ -25,10 +25,11 @@ class CuentaPortalTests(TestCase):
 
     def test_datos_invalidos_no_cambian_cuenta(self):
         AdultoResponsable.objects.create_user('otra', 'otra@example.com', 'clave')
-        for datos in [{'rol': 'admin', 'apellido': 'Cambiar'}, {'email': 'OTRA@example.com', 'apellido': 'Cambiar'}, {'fecha_nacimiento': '2999-01-01'}, {'nombre': ''}]:
+        for datos in [{'rol': 'admin', 'apellido': 'Cambiar'}, {'email': 'nuevo@example.com', 'apellido': 'Cambiar'}, {'fecha_nacimiento': '2999-01-01'}, {'nombre': ''}]:
             self.assertEqual(self.client.patch('/api/auth/perfil/', datos, format='json').status_code, 400)
         self.adulto.refresh_from_db()
         self.assertEqual(self.adulto.apellido, '')
+        self.assertEqual(self.adulto.email, 'familia@example.com')
         self.assertEqual(self.adulto.rol, 'padre')
 
     def test_cambio_clave_verifica_actual_y_revoca_token(self):

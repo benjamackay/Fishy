@@ -15,7 +15,7 @@ export default function ConfiguracionPage() {
   const [ocupado, setOcupado] = useState(false)
   const [params, setParams] = useSearchParams()
   const seguridad = params.get('seccion') === 'seguridad'
-  const inicial = { nombre: perfil?.nombre ?? '', apellido: perfil?.apellido ?? '', email: perfil?.email ?? '', fecha: perfil?.fecha_nacimiento ?? '' }
+  const inicial = { nombre: perfil?.nombre ?? '', apellido: perfil?.apellido ?? '', fecha: perfil?.fecha_nacimiento ?? '' }
   const [datos, setDatos] = useState(inicial)
   const [claves, setClaves] = useState({ actual: '', nueva: '', confirmar: '' })
   const [mensaje, setMensaje] = useState('')
@@ -32,9 +32,9 @@ export default function ConfiguracionPage() {
     if (modoDemo) { setMensaje('Demostración: no se guardan cambios.'); return }
     setOcupado(true)
     try {
-      const guardado = await guardarPerfil({ nombre: datos.nombre.trim(), apellido: datos.apellido.trim(), email: datos.email.trim(), fecha_nacimiento: datos.fecha || null })
+      const guardado = await guardarPerfil({ nombre: datos.nombre.trim(), apellido: datos.apellido.trim(), fecha_nacimiento: datos.fecha || null })
       actualizarPerfil?.(guardado)
-      setDatos({ nombre: guardado.nombre, apellido: guardado.apellido, email: guardado.email, fecha: guardado.fecha_nacimiento ?? '' })
+      setDatos({ nombre: guardado.nombre, apellido: guardado.apellido, fecha: guardado.fecha_nacimiento ?? '' })
       setMensaje('Datos guardados correctamente.')
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudieron guardar los datos.') }
     finally { setOcupado(false) }
@@ -72,7 +72,7 @@ export default function ConfiguracionPage() {
             <div className="config-avatar"><span className="avatar square">{perfil?.nombre.slice(0, 1).toUpperCase()}</span><div><strong>Tu perfil en Fishy!</strong><p>Tu inicial identifica tu cuenta.</p></div></div>
             <label className="campo">Nombre de usuario<input autoComplete="username" required maxLength={150} value={datos.nombre} onChange={e => { setMensaje(''); setDatos({ ...datos, nombre: e.target.value }) }} /><small>Es el nombre que usas para iniciar sesión.</small></label>
             <label className="campo">Apellido<input autoComplete="family-name" maxLength={150} value={datos.apellido} onChange={e => { setMensaje(''); setDatos({ ...datos, apellido: e.target.value }) }} /></label>
-            <label className="campo">Correo electrónico<input type="email" autoComplete="email" required maxLength={254} value={datos.email} onChange={e => { setMensaje(''); setDatos({ ...datos, email: e.target.value }) }} /><small>Usa un correo al que tengas acceso.</small></label>
+            <label className="campo">Correo electrónico<input type="email" readOnly value={perfil?.email ?? ''} /><small>Tu correo no se puede cambiar desde aquí.</small></label>
             <label className="campo">Fecha de nacimiento <span className="sr-only">(opcional)</span><input type="date" autoComplete="bday" value={datos.fecha} onChange={e => { setMensaje(''); setDatos({ ...datos, fecha: e.target.value }) }} /><small>Opcional.</small></label>
             {error && <p className="aviso aviso--error" role="alert">{error}</p>}
             {mensaje && <p className="aviso" role="status">{mensaje}</p>}

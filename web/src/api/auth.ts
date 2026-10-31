@@ -37,7 +37,7 @@ export async function operacionCuenta<T>(accion: () => Promise<T>): Promise<T> {
   }
 }
 
-export const guardarPerfil = (datos: Pick<AdultoResponsable, 'nombre' | 'apellido' | 'email' | 'fecha_nacimiento'>) =>
+export const guardarPerfil = (datos: Pick<AdultoResponsable, 'nombre' | 'apellido' | 'fecha_nacimiento'>) =>
   operacionCuenta(() => api.patch<AdultoResponsable>('/auth/perfil/', datos))
 export const cambiarContrasena = (password_actual: string, password_nueva: string, password_confirmacion: string) =>
   operacionCuenta(() => api.post<{ requiere_login: boolean }>('/auth/cambiar-contrasena/', { password_actual, password_nueva, password_confirmacion }))

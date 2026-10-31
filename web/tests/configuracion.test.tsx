@@ -53,3 +53,15 @@ it('detecta contraseñas distintas y cierra la sesión desde seguridad', async (
   expect(await screen.findByRole('button', { name: 'Iniciar sesión', exact: true })).toBeTruthy()
   expect(localStorage.getItem('fishy.token')).toBeNull()
 })
+
+it('muestra el correo sin permitir editarlo ni enviarlo', async () => {
+  const guardar = vi.spyOn(auth, 'guardarPerfil').mockResolvedValue(perfilesDemo.principal)
+  const user = abrir()
+  const correo = await screen.findByRole('textbox', { name: /Correo electrónico/ }) as HTMLInputElement
+  expect(correo.readOnly).toBe(true)
+  expect(correo.value).toBe(perfilesDemo.principal.email)
+  await user.type(screen.getByRole('textbox', { name: /Apellido/ }), 'Rojas')
+  await user.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+  await screen.findByRole('status')
+  expect(guardar.mock.calls.at(-1)?.[0]).not.toHaveProperty('email')
+})

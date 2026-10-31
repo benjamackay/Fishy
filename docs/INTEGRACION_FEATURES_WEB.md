@@ -8,7 +8,7 @@ las propuestas anteriores a esta implementación.
 ## Funcionalidad conectada
 
 - Portada pública, acceso y registro separados; se conservan invitaciones y destinos.
-- Configuración: `PATCH /api/auth/perfil/` edita solo nombre, apellido, correo y
+- Configuración: `PATCH /api/auth/perfil/` edita solo nombre, apellido y
   nacimiento de la cuenta autenticada. Devuelve el perfil actualizado para el encabezado.
   El nacimiento acepta `null`; la edad se recalcula. Campos de privilegios se rechazan.
 - `POST /api/auth/cambiar-contrasena/` comprueba la contraseña actual, confirma

@@ -16,18 +16,12 @@ from .recuperacion import DatosRestablecer, error, leer, sin_cache
 class DatosPerfil(serializers.ModelSerializer):
     class Meta:
         model = AdultoResponsable
-        fields = ['nombre', 'apellido', 'email', 'fecha_nacimiento']
+        fields = ['nombre', 'apellido', 'fecha_nacimiento']
 
     def validate(self, attrs):
         if set(self.initial_data) - set(self.fields):
             raise serializers.ValidationError('Solo puedes editar los datos personales del perfil.')
         return attrs
-
-    def validate_email(self, value):
-        value = value.strip().lower()
-        if AdultoResponsable.objects.exclude(pk=self.instance.pk).filter(email__iexact=value).exists():
-            raise serializers.ValidationError('Ya existe una cuenta con este correo.')
-        return value
 
     def validate_fecha_nacimiento(self, value):
         if value and value > timezone.localdate():
@@ -50,7 +44,7 @@ def perfil(request):
                     extra['edad'] = (hoy.year - nacimiento.year - ((hoy.month, hoy.day) < (nacimiento.month, nacimiento.day))) if nacimiento else None
                 adulto = datos.save(**extra)
         except IntegrityError:
-            return error('datos_duplicados', 'El nombre de usuario o correo ya está registrado.')
+            return error('datos_duplicados', 'El nombre de usuario ya está registrado.')
     else:
         adulto = request.user
     return sin_cache(Response(AdultoResponsableSerializer(adulto).data))
