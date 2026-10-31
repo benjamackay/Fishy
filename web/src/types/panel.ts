@@ -1,4 +1,4 @@
-import type { Grupo, GrupoDetalle, NuevoGrupo, InvitacionGrupo, NuevaInvitacion, FamiliaEncontrada } from './grupos'
+import type { Grupo, GrupoDetalle, NuevoGrupo, InvitacionGrupo, NuevaInvitacion, FamiliaEncontrada, SeguimientoGrupo } from './grupos'
 import type { NinoResumen, ReporteGrupo, ReporteNino } from './reportes'
 import type { Periodo } from '@/lib/periodo'
 
@@ -18,4 +18,5 @@ export interface FuentePanel {
   eliminarUsuario(id: string, miembroId: string): Promise<void>
   eliminarGrupo(id: string): Promise<void>
   obtenerReporteGrupo(id: string, opciones?: Consulta): Promise<ReporteGrupo>
+  obtenerSeguimiento(id: string, opciones?: Consulta): Promise<SeguimientoGrupo>
 }

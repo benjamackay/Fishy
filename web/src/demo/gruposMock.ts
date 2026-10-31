@@ -11,6 +11,7 @@ import type { InvitacionGrupo } from '@/types/grupos'
 
 /** Datos ficticios, separados de auth real y por cuenta. Jamás son un fallback de red. */
 export const MINIMO_PARTICIPANTES_DEMO = 3
+const APOYO_DEMO: Record<string, TematicaId[]> = { 'usuario-103': ['desconocidos', 'retos_virales'], 'usuario-904': ['ciberacoso'], 'usuario-905': ['desconocidos'] }
 interface RegistroDemo { id: string; email: string; nino_id: number }
 interface GrupoGuardado extends GrupoDetalle { actualizado_en: string }
 interface Almacen {
@@ -154,6 +155,10 @@ export function crearPanelDemo(adultoId: number): FuentePanel {
       return resumen(grupo)
     }),
     obtenerGrupo: async id => detalle(buscarGrupo(leer(adultoId), id)),
+    obtenerSeguimiento: async id => ({ alumnos: buscarGrupo(leer(adultoId), id).miembros.map(m => ({
+      miembro_id: m.id, estado: m.id in APOYO_DEMO ? 'apoyo' : 'sin_datos',
+      tematicas: (APOYO_DEMO[m.id] ?? []).map(tematica => ({ tematica, estado: 'apoyo' })),
+    })) }),
     buscarFamilia: async (id, email) => {
       const almacen = leer(adultoId)
       buscarGrupo(almacen, id)

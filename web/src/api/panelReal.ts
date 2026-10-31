@@ -3,7 +3,7 @@ import { api, ApiError } from '@/lib/api'
 import { ErrorUsuario } from '@/lib/errores'
 import { operacionGrupo } from './invitaciones'
 import type { FuentePanel } from '@/types/panel'
-import type { Grupo, GrupoDetalle, InvitacionGrupo, FamiliaEncontrada } from '@/types/grupos'
+import type { Grupo, GrupoDetalle, InvitacionGrupo, FamiliaEncontrada, SeguimientoGrupo } from '@/types/grupos'
 import type { NinoResumen, ReporteGrupo, ReporteNino } from '@/types/reportes'
 import type { Consulta } from '@/types/panel'
 
@@ -58,4 +58,5 @@ export const panelReal: FuentePanel = {
   eliminarUsuario: (id, miembroId) => operacionGrupo(() => api.delete<void>(ruta(id) + 'miembros/' + encodeURIComponent(miembroId) + '/')),
   eliminarGrupo: id => operacionGrupo(() => api.delete<void>(ruta(id))),
   obtenerReporteGrupo: (id, opciones) => operacionGrupo(() => reporte<ReporteGrupo>(ruta(id) + 'reporte/', opciones)),
+  obtenerSeguimiento: (id, opciones) => operacionGrupo(() => api.get<SeguimientoGrupo>(ruta(id) + 'seguimiento/', opciones)),
 }

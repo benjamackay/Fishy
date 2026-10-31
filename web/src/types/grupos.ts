@@ -19,8 +19,6 @@ export interface PerfilFamilia {
 export interface FamiliaEncontrada { perfiles: PerfilFamilia[] }
 /** Cada integrante representa a un niño; un padre puede recibir invitaciones para distintos hijos. */
 export interface MiembroGrupo {
-  /** Opcional para la vista frontend; ausencia no implica buen rendimiento. */
-  areas_apoyo?: TematicaId[]
   id: string
   email: string
   nombre_nino: string
@@ -29,6 +27,11 @@ export interface MiembroGrupo {
 export interface GrupoDetalle extends Grupo {
   miembros: MiembroGrupo[]
   invitaciones: InvitacionGrupo[]
+}
+export type EstadoSeguimiento = 'prioritario' | 'apoyo' | 'sin_alertas' | 'muestra_insuficiente' | 'sin_datos'
+/** Solo estados: el servidor no entrega porcentajes ni conteos por niño. */
+export interface SeguimientoGrupo {
+  alumnos: { miembro_id: string; estado: EstadoSeguimiento; tematicas: { tematica: TematicaId; estado: EstadoSeguimiento }[] }[]
 }
 export interface NuevaInvitacion { email: string; nombre_nino: string }
 export interface InvitacionGrupo extends NuevaInvitacion {

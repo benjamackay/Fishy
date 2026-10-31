@@ -159,10 +159,11 @@ describe('permisos antes de invocar el servicio', () => {
     p => p.eliminarUsuario('grupo', 'miembro'),
     p => p.eliminarGrupo('grupo'),
     p => p.obtenerReporteGrupo('grupo'),
+    p => p.obtenerSeguimiento('grupo'),
   ]
   it.each(['padre', undefined, 'Profesor', 'admin', true, null])('deniega todas las operaciones grupales con un rol no autorizado: %s', async rol => {
     const fuente = crearPanelDemo(1001)
-    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'buscarFamilia', 'agregarNinos', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
+    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'buscarFamilia', 'agregarNinos', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo', 'obtenerSeguimiento'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
     const perfil = { ...perfilesDemo.principal, is_admin: true, rol } as unknown as AdultoResponsable
     const panel = aplicarPermisosPanel(fuente, perfil)
     for (const operacion of operaciones) await expect(operacion(panel)).rejects.toThrow('Solo los tutores administradores')

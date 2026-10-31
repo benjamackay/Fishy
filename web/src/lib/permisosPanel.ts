@@ -37,5 +37,6 @@ export function aplicarPermisosPanel(fuente: FuentePanel, perfil: AdultoResponsa
     eliminarUsuario: (id, miembroId) => soloAdministrador(() => fuente.eliminarUsuario(id, miembroId)),
     eliminarGrupo: id => soloAdministrador(() => fuente.eliminarGrupo(id)),
     obtenerReporteGrupo: (id, opciones) => soloAdministrador(() => fuente.obtenerReporteGrupo(id, opciones)),
+    obtenerSeguimiento: (id, opciones) => soloAdministrador(() => fuente.obtenerSeguimiento(id, opciones)),
   }
 }

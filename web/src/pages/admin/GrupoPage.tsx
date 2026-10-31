@@ -12,11 +12,9 @@ import { AlertaApoyo } from '@/components/AlertasGrupo'
 import { EVENTO_DATOS } from '@/hooks/useDatosVivos'
 import { comoError } from '@/lib/errores'
 import { fechaActualizacion } from '@/lib/reportes'
+import { areasDeApoyo } from '@/lib/seguimiento'
 import type { MiembroGrupo } from '@/types/grupos'
-import type { TematicaId } from '@/types/reportes'
 import '../invitacion.css'
-
-const apoyoDemo: Record<string, TematicaId[]> = { 'usuario-103': ['desconocidos', 'retos_virales'], 'usuario-904': ['ciberacoso'], 'usuario-905': ['desconocidos'] }
 
 type Eliminacion = { miembro: MiembroGrupo } | 'grupo'
 export default function GrupoPage() {
@@ -27,6 +25,7 @@ export default function GrupoPage() {
   const navegar = useNavigate()
   const ubicacion = useLocation()
   const estado = useDatosVivos(signal => panel.obtenerGrupo(id, { signal }), 'grupo:' + perfil?.id + ':' + id)
+  const seguimiento = useDatosVivos(signal => panel.obtenerSeguimiento(id, { signal }), 'seguimiento:' + perfil?.id + ':' + id)
   const [soloApoyo, setSoloApoyo] = useState(false)
   const [agregarNinos, setAgregarNinos] = useState(false)
   const [eliminar, setEliminar] = useState<Eliminacion | null>(null)
@@ -35,9 +34,11 @@ export default function GrupoPage() {
   const [confirmacion, setConfirmacion] = useState<{ titulo: string; mensaje: string } | null>(null)
   const [exito, setExito] = useState((ubicacion.state as { creado?: boolean } | null)?.creado ? 'Grupo creado.' : '')
   const g = estado.datos
-  const areasDe = (miembro: MiembroGrupo) => miembro.areas_apoyo ?? (demo ? apoyoDemo[miembro.id] ?? [] : [])
-  const miembrosVisibles = (g?.miembros ?? []).filter(m => !soloApoyo || areasDe(m).length > 0)
-  const totalApoyo = (g?.miembros ?? []).filter(m => areasDe(m).length > 0).length
+  // Sin respuesta del seguimiento no se sabe quién tiene alertas: null, nunca una lista vacía.
+  const alertas = seguimiento.datos ? areasDeApoyo(seguimiento.datos) : null
+  const conApoyo = [...(alertas?.keys() ?? [])].flatMap(miembroId => g?.miembros.filter(m => m.id === miembroId) ?? [])
+  const filtrando = soloApoyo && alertas !== null
+  const miembrosVisibles = filtrando ? conApoyo : g?.miembros ?? []
   function abrirEliminar(objeto: Eliminacion) { setError(null); setExito(''); setEliminar(objeto) }
   async function confirmarEliminar() {
     if (!eliminar || ocupado) return
@@ -59,15 +60,16 @@ export default function GrupoPage() {
     {estado.error && <ErrorAviso error={estado.error} onReintentar={estado.recargar} />}
     {error && !eliminar && <ErrorAviso error={error} />}
     {g && <>
-      <div className="encabezado"><div><h1>{g.nombre}</h1>{g.descripcion && <p className="muted">{g.descripcion}</p>}</div><div className="grupo-acciones"><button type="button" className="boton filtro-apoyo" aria-label="Solo quienes necesitan apoyo" aria-pressed={soloApoyo} title="Solo quienes necesitan apoyo" onClick={() => setSoloApoyo(v => !v)}><Icono nombre="alerta" />Apoyo<span className="filtro-apoyo-cantidad">{totalApoyo}</span></button><Link className="boton boton--primario" to={'/admin/grupos/' + id + '/reporte'}><Icono nombre="reportes" />Ver reporte</Link><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar('grupo')}><Icono nombre="borrar" />Eliminar grupo</button></div></div>
+      <div className="encabezado"><div><h1>{g.nombre}</h1>{g.descripcion && <p className="muted">{g.descripcion}</p>}</div><div className="grupo-acciones"><button type="button" className="boton filtro-apoyo" aria-label="Solo quienes necesitan apoyo" aria-pressed={filtrando} disabled={!alertas} title="Solo quienes necesitan apoyo" onClick={() => setSoloApoyo(v => !v)}><Icono nombre="alerta" />Apoyo{alertas && <span className="filtro-apoyo-cantidad">{conApoyo.length}</span>}</button><Link className="boton boton--primario" to={'/admin/grupos/' + id + '/reporte'}><Icono nombre="reportes" />Ver reporte</Link><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar('grupo')}><Icono nombre="borrar" />Eliminar grupo</button></div></div>
       {exito && <Exito>{exito}</Exito>}
+      {seguimiento.error && !alertas && <p className="aviso aviso--error" role="alert">Alertas no disponibles: no pudimos consultar quién necesita apoyo. <button type="button" className="boton" onClick={seguimiento.recargar}>Reintentar</button></p>}
       <section className="card">
-        <div className="pila spread"><div><h2>Niños del curso</h2><span className="mini muted">{soloApoyo ? miembrosVisibles.length + ' de ' + g.miembros.length : g.miembros.length} {g.miembros.length === 1 ? 'perfil vinculado' : 'perfiles vinculados'}</span>{demo && <span className="apoyo-demo">Alertas de ejemplo</span>}</div><button type="button" className="boton" disabled={ocupado} onClick={() => { setError(null); setExito(''); setAgregarNinos(true) }}><Icono nombre="mas" />Agregar usuario</button>
+        <div className="pila spread"><div><h2>Niños del curso</h2><span className="mini muted">{filtrando ? miembrosVisibles.length + ' de ' + g.miembros.length : g.miembros.length} {g.miembros.length === 1 ? 'perfil vinculado' : 'perfiles vinculados'}</span>{demo && <span className="apoyo-demo">Alertas de ejemplo</span>}</div><button type="button" className="boton" disabled={ocupado} onClick={() => { setError(null); setExito(''); setAgregarNinos(true) }}><Icono nombre="mas" />Agregar usuario</button>
         </div>
         {g.miembros.length === 0 ? <div className="empty-state" style={{ marginTop: 22 }}><Icono nombre="grupo" /><h3>Agrega a los primeros niños</h3><p>Busca el correo de su apoderado y selecciona los perfiles que corresponden a este curso.</p></div> :
           miembrosVisibles.length === 0 ? <div className="empty-state apoyo-sin-coincidencias" role="status"><Icono nombre="alerta" /><p>Sin alertas de apoyo</p><button type="button" className="boton" onClick={() => setSoloApoyo(false)}>Ver todos</button></div> :
           <ul className="members">{miembrosVisibles.map(m => {
-            const areas = areasDe(m)
+            const areas = alertas?.get(m.id) ?? []
             return <li className={'member' + (areas.length ? ' member--apoyo' : '')} key={m.id}><span className="avatar small"><Icono nombre="grupo" /></span><div className="member-content"><div className="member-nombre"><strong>{m.nombre_nino}</strong><AlertaApoyo areas={areas} /></div><p>{m.email}</p><p>Vinculado el {fechaActualizacion(m.fecha_ingreso)}</p></div><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar({ miembro: m })} aria-label={'Eliminar usuario ' + m.nombre_nino}><Icono nombre="borrar" />Eliminar usuario</button></li>
           })}</ul>}
       </section>
