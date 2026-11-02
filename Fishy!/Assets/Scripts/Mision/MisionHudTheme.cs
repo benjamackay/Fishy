@@ -64,10 +64,15 @@ public static class MisionHudTheme
 
     public static class Fuente
     {
+        // Tamaños en píxeles de la resolución de referencia (1920x1080). En el equipo
+        // escolar típico, 1366x768, hay que multiplicarlos por 0,71: los 22 que tenía
+        // la línea de objetivo eran 15 px de verdad, que para un niño/a de 9 años
+        // mirando de reojo mientras camina es demasiado poco. El título y la etiqueta
+        // se quedan como estaban: son rótulos cortos y en mayúsculas.
         public static float Etiqueta    = 20f;
         public static float Titulo      = 32f;
-        public static float Objetivo    = 22f;
-        public static float Guia        = 24f;
+        public static float Objetivo    = 26f;
+        public static float Guia        = 28f;
         public static float NombreZona  = 22f;
 
         /// <summary>Mango, la de la marca, para la etiqueta y el título.</summary>
@@ -84,8 +89,18 @@ public static class MisionHudTheme
         /// (1920x1080).</summary>
         public static float AnchoPanel = 440f;
 
-        /// <summary>Separación del cartel respecto a la esquina.</summary>
-        public static Vector2 MargenPanel = new Vector2(28f, -28f);
+        /// <summary>
+        /// Separación del cartel respecto a la esquina de arriba a la izquierda.
+        ///
+        /// Baja 140 y no 28 porque desde HDU-17 esa esquina ya no está libre: el
+        /// botón de pausa en pantalla se pone ahí (a 28 del borde y de 96 de lado) y
+        /// se dibuja en el orden 9400, muy por encima del 710 de este cartel. Con los
+        /// dos a 28 el botón tapaba la palabra «MISIÓN» y el principio del título,
+        /// que es justo lo que el niño/a tiene que leer al empezar. 28 + 96 + 16 de
+        /// aire = 140, y los dos quedan alineados por la izquierda, uno debajo del
+        /// otro. Hay una prueba del arnés que avisa si vuelven a pisarse.
+        /// </summary>
+        public static Vector2 MargenPanel = new Vector2(28f, -140f);
 
         /// <summary>
         /// Cuántos objetivos se listan como mucho. El resumen es un recordatorio de

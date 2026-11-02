@@ -80,9 +80,19 @@ public class MenuController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// La tecla que saca y guarda el celular.
+    ///
+    /// Declarada en vez de escrita dentro del Update para que el teclado de ayuda
+    /// (<see cref="Fishy.UI.TecladoEnPantalla"/>) enseñe la de verdad en lugar de
+    /// una escrita a mano que puede quedarse vieja.
+    /// </summary>
+    public const Key TeclaDelCelular = Key.Tab;
+
     void Update()
     {
-        if (menuCanvas != null && !modal && Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
+        if (menuCanvas != null && !modal && Keyboard.current != null &&
+            Keyboard.current[TeclaDelCelular].wasPressedThisFrame)
             Alternar();
     }
 

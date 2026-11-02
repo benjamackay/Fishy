@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Med = Fishy.UI.DialogoNeutroTheme.Medidas;
 
 namespace Fishy.UI
 {
@@ -23,6 +24,13 @@ namespace Fishy.UI
     /// Trabaja solo sobre las referencias que el NPC ya tiene asignadas en el
     /// Inspector, y comprueba cada una: el panel de la escena no tiene retrato ni
     /// etiqueta de nombre, así que lo que falte simplemente se salta.
+    ///
+    /// <b>Además de pintar, recoloca.</b> Es lo único que hace fuera de los colores
+    /// y, como el nombre dice que solo pinta, conviene saber por qué: la escena traía
+    /// el cuerpo a 24 pt —17 px reales en el equipo escolar— en una caja de 100 px
+    /// que se solapaba con la del nombre. Las dos cosas se arreglan donde se ven, que
+    /// es en la geometría, y las medidas están en <see cref="DialogoNeutroTheme"/>.
+    /// Se puede apagar con <c>Medidas.AjustarGeometria</c>.
     /// </summary>
     public static class DialogoNeutroSkin
     {
@@ -48,7 +56,7 @@ namespace Fishy.UI
 
             var fondo = panel.GetComponent<Image>();
             if (fondo != null)
-                FishyUIKit.FondoRedondeado(fondo, DialogoNeutroTheme.Colores.Panel, radio: DialogoNeutroTheme.Medidas.RadioEsquina);
+                FishyUIKit.FondoRedondeado(fondo, DialogoNeutroTheme.Colores.Panel, radio: Med.RadioEsquina);
 
             if (nombre != null)
             {
@@ -57,15 +65,11 @@ namespace Fishy.UI
                 nombre.fontStyle = FontStyles.Bold;
                 if (DialogoNeutroTheme.Fuente.Nombre > 0f) nombre.fontSize = DialogoNeutroTheme.Fuente.Nombre;
 
-                // Un nombre largo —"Foca de Weddell"— no cabe de una línea en su caja,
-                // se partía en dos y la segunda línea caía ENCIMA del texto del diálogo.
-                // No es casualidad: en la escena las dos cajas se solapan 16 px por abajo,
-                // así que la primera línea cabe justa y la segunda ya invade al vecino.
-                //
-                // Se arregla por tipografía y no moviendo las cajas porque el panel está
-                // montado a mano, lo comparten todos los NPCs y la geometría es decisión
-                // de quien lo diseñó. Prohibirle partirse y dejarlo encoger mantiene el
-                // nombre dentro de lo suyo sea cual sea el largo.
+                // El nombre tiene ahora su propia franja y ya no se solapa con el
+                // cuerpo (lo coloca Recolocar). Lo que sigue haciendo falta es que no
+                // se parta en dos líneas: la segunda caería fuera de su franja, que es
+                // de una línea, y volvería a aterrizar sobre el diálogo. Un nombre
+                // largo —"Foca de Weddell"— encoge hasta caber en vez de envolver.
                 float tamanoDeDiseno = nombre.fontSize;   // antes de encender el ajuste
                 nombre.textWrappingMode = TextWrappingModes.NoWrap;
                 nombre.enableAutoSizing = true;
@@ -80,13 +84,100 @@ namespace Fishy.UI
                 texto.font  = FishyUIKit.Cuerpo;
                 texto.color = DialogoNeutroTheme.Colores.Texto;
                 if (DialogoNeutroTheme.Fuente.Texto > 0f) texto.fontSize = DialogoNeutroTheme.Fuente.Texto;
+
+                // Envolver sí; encoger no (ver la nota de Fuente en el tema: se
+                // escribe letra a letra y el ajuste automático lo haría temblar).
+                texto.textWrappingMode = TextWrappingModes.Normal;
+                texto.enableAutoSizing = false;
             }
+
+            if (Med.AjustarGeometria)
+                Recolocar(panel, nombre, texto, retrato);
 
             if (retrato != null)
             {
                 // Blanco = sin teñir, para no ensuciar el arte del retrato.
                 retrato.color = Color.white;
             }
+        }
+
+        /// <summary>
+        /// Pone el panel y sus tres cajas donde dicen las medidas del tema.
+        ///
+        /// El reparto es una columna: el retrato a la izquierda, y a su derecha el
+        /// nombre arriba y el cuerpo debajo, ocupando todo lo que queda hasta el
+        /// borde de abajo. Nada se solapa porque cada caja empieza donde termina la
+        /// anterior, y no al revés que antes, que estaban puestas a ojo.
+        ///
+        /// El hueco del retrato se reserva aunque el retrato esté apagado. El panel
+        /// lo comparten todos los NPCs y la pantalla de finales, y uno sin cara
+        /// dejaría el texto 150 px más a la izquierda que el siguiente: el cuerpo
+        /// cambiaría de sitio y de ancho a mitad de conversación.
+        /// </summary>
+        private static void Recolocar(GameObject panel, TMP_Text nombre, TMP_Text texto,
+            Image retrato)
+        {
+            var rt = panel.transform as RectTransform;
+            if (rt == null) return;
+
+            // Abajo y al centro, como estaba. Lo que cambia es el tamaño.
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot     = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = Med.TamanoPanel;
+            rt.anchoredPosition = new Vector2(0f, Med.MargenInferior + Med.TamanoPanel.y / 2f);
+
+            // Bordes interiores del panel, en coordenadas locales (el centro es 0,0).
+            float izquierda = -Med.TamanoPanel.x / 2f + Med.Margen;
+            float derecha   =  Med.TamanoPanel.x / 2f - Med.Margen;
+            float arriba    =  Med.TamanoPanel.y / 2f - Med.Margen;
+            float abajo     = -Med.TamanoPanel.y / 2f + Med.Margen;
+
+            if (retrato != null)
+            {
+                var rtRetrato = retrato.transform as RectTransform;
+                if (rtRetrato != null)
+                {
+                    Anclar(rtRetrato);
+                    rtRetrato.sizeDelta = new Vector2(Med.LadoRetrato, Med.LadoRetrato);
+                    rtRetrato.anchoredPosition = new Vector2(izquierda + Med.LadoRetrato / 2f, 0f);
+                }
+            }
+
+            float xTexto = izquierda + (retrato != null ? Med.LadoRetrato + Med.HuecoRetrato : 0f);
+            float ancho  = derecha - xTexto;
+            float techo  = arriba;
+
+            if (nombre != null)
+            {
+                Caja(nombre, xTexto, ancho, techo, Med.AltoNombre, TextAlignmentOptions.Left);
+                techo -= Med.AltoNombre + Med.Separacion;
+            }
+
+            if (texto != null)
+                Caja(texto, xTexto, ancho, techo, techo - abajo, TextAlignmentOptions.TopLeft);
+        }
+
+        /// <summary>Coloca una caja de texto por su esquina superior izquierda, que es
+        /// como se piensa un párrafo, y no por su centro, que es como las guarda
+        /// Unity.</summary>
+        private static void Caja(TMP_Text texto, float x, float ancho, float techo, float alto,
+            TextAlignmentOptions alineacion)
+        {
+            var rt = texto.transform as RectTransform;
+            if (rt == null) return;
+
+            Anclar(rt);
+            rt.sizeDelta = new Vector2(ancho, alto);
+            rt.anchoredPosition = new Vector2(x + ancho / 2f, techo - alto / 2f);
+            texto.alignment = alineacion;
+        }
+
+        /// <summary>Ancla al centro del padre. Sin esto, una caja anclada a una esquina
+        /// se movería sola al cambiar el tamaño del panel y todas las cuentas de
+        /// arriba —que son relativas al centro— dejarían de valer.</summary>
+        private static void Anclar(RectTransform rt)
+        {
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
         }
 
         /// <summary>Olvida lo pintado. Solo hace falta si se recarga la escena y los
