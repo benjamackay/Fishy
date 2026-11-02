@@ -97,6 +97,16 @@ namespace Fishy.World
         [Tooltip("Escribir en consola cada guardado y su motivo.")]
         public bool verboseLogs = true;
 
+        /// <summary>
+        /// Veces, como máximo, que el cierre pregunta «¿esperas o te vas?».
+        ///
+        /// Es la misma política que <c>MenuPausa.MaxPreguntas</c> y por la misma razón:
+        /// cada «Seguir esperando» cuesta <see cref="topeDeCierre"/> entero, así que un
+        /// bucle sin tope convierte un servidor caído en diez clics y cien segundos
+        /// para acabar perdiendo lo mismo que se habría perdido al primero.
+        /// </summary>
+        private const int MaxPreguntas = 2;
+
         /// <summary>Se dispara después de PEDIR el guardado, no después de que el
         /// backend conteste: las peticiones quedan en vuelo. Trae el motivo.</summary>
         public static event Action<Motivo> OnGuardado;
@@ -181,13 +191,24 @@ namespace Fishy.World
         /// sin subir, le pregunta al jugador en vez de decidir por él: puede que solo
         /// haga falta esperar un poco más, y puede que prefiera irse sabiendo lo que
         /// pierde. Lo que no vale es cerrar en silencio.
+        ///
+        /// <b>Pero se pregunta poco.</b> Como máximo <see cref="MaxPreguntas"/> veces, y
+        /// solo mientras esperar sirva de algo: una ronda que no bajó la cola significa
+        /// que el servidor no está respondiendo, y volver a sacar el mismo cartel le
+        /// traslada al niño/a una decisión que no puede tomar con más información que la
+        /// vez anterior. Preguntar en bucle no es respetar su decisión; es no tomar
+        /// ninguna.
         /// </summary>
         private IEnumerator CerrarCuandoTermine()
         {
-            while (true)
-            {
-                yield return GuardarYEsperar(Motivo.CierreDeAplicacion, topeDeCierre);
+            yield return GuardarYEsperar(Motivo.CierreDeAplicacion, topeDeCierre);
 
+            // Si se sale del bucle por una razón que ya quedó escrita —el jugador eligió
+            // irse, no hay menú—, no se repite el aviso al final.
+            bool yaSeAviso = false;
+
+            for (int pregunta = 0; pregunta < MaxPreguntas; pregunta++)
+            {
                 var cola = ColaDeCambios.Instance;
                 int pendientes = cola != null ? cola.UltimoResultado.Pendientes : 0;
                 if (pendientes <= 0 || ColaDeCambios.Pendientes <= 0) break;
@@ -199,6 +220,7 @@ namespace Fishy.World
                 {
                     Debug.LogError($"[SaveManager] Se cierra con {ColaDeCambios.Pendientes} " +
                                    "cambios sin guardar: no hay menú para preguntar.");
+                    yaSeAviso = true;
                     break;
                 }
 
@@ -213,13 +235,31 @@ namespace Fishy.World
                 {
                     Debug.LogError($"[SaveManager] El jugador eligió cerrar con " +
                                    $"{ColaDeCambios.Pendientes} cambios sin guardar.");
+                    yaSeAviso = true;
                     break;
                 }
 
-                // Vuelve a intentarlo. `Preparar` exige que haya pasado `esperaMinima`
-                // para los motivos que no son cierre; este lo es, así que no se frena.
-                _ultimoGuardado = float.NegativeInfinity;
+                // Vuelve a intentarlo vaciando la cola DIRECTAMENTE, sin pasar otra vez
+                // por `Guardar`/`Preparar`.
+                //
+                // `Preparar` tiene efectos secundarios: marca la posición de Otto como
+                // sucia y encola `partida.ultimo_guardado`. O sea que cada reintento
+                // metía dos cambios nuevos en la cola que estaba tratando de vaciar, y
+                // contra un servidor caído la cola no podía sino crecer. El trabajo ya
+                // está encolado desde la primera vuelta; lo que falta es subirlo.
+                int antes = ColaDeCambios.Pendientes;
+                yield return cola.Vaciar(Motivo.CierreDeAplicacion.ToString(), topeDeCierre,
+                                         reintentarSiFalla: true);
+
+                // Igual que en MenuPausa: si la espera no bajó la cola, insistir no es
+                // esperar más, es preguntar lo mismo otra vez. Se deja de preguntar.
+                if (ColaDeCambios.Pendientes >= antes) break;
             }
+
+            if (!yaSeAviso && ColaDeCambios.Pendientes > 0)
+                Debug.LogError($"[SaveManager] Se cierra con {ColaDeCambios.Pendientes} " +
+                               "cambio(s) sin guardar: insistir dejó de servir de nada. " +
+                               $"Último error de la cola: {ColaDeCambios.UltimoError}");
 
             _listoParaCerrar = true;
             _cerrando = false;

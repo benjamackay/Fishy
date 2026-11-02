@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using Fishy.Net;
+using Fishy.Pausa;
 using Fishy.World;
 using TMPro;
 using UnityEngine;
@@ -11,22 +12,27 @@ using UnityEngine.UI;
 namespace Fishy.UI
 {
     /// <summary>
-    /// Menú de pausa: Esc para abrirlo, y desde ahí se vuelve al menú principal
-    /// (<see cref="escenaMenu"/>) guardando.
+    /// HDU-17 — El menú de pausa: Esc lo abre en cualquier momento de la partida y
+    /// ofrece <b>Seguir jugando</b>, <b>Configuración</b> y <b>Volver al menú
+    /// principal</b> (que guarda antes de irse).
     ///
-    /// Existe porque cerrar la ventana a lo bruto era la única forma de salir, y
-    /// desde que el guardado periódico y el de cada interacción ya no están, el
-    /// cierre es uno de los <b>dos</b> momentos en que se guarda (ver
-    /// <see cref="SaveManager"/>). Volver al menú cuenta como ese cierre: se deja de
-    /// jugar la partida, así que se guarda igual que al cerrar. Cerrar la aplicación
-    /// sigue siendo cosa del aspa o del botón Salir de los menús.
+    /// <b>Esta clase es la pantalla, no la pausa.</b> Quién está pausado, qué pasa
+    /// con el <c>timeScale</c>, a quién se le quita la entrada y en qué momentos no
+    /// se puede pausar vive en <see cref="EstadoDePausa"/>, en el ensamblado
+    /// Fishy.Pausa — que es lo que deja probarlo con NUnit en PlayMode, igual que
+    /// <c>AlbumDeEvidencias</c>. Acá solo se dibujan botones y se llama a esa puerta.
     ///
-    /// Se crea sola y sobrevive entre escenas, igual que el SaveManager: no hay
-    /// nada que arrastrar en el editor. La UI no se construye hasta el primer Esc,
-    /// así que en una partida en la que nadie la abre no cuesta nada.
+    /// Volver al menú cuenta como cierre de partida: se deja de jugar, así que se
+    /// guarda igual que al cerrar la aplicación (ver <see cref="SaveManager"/>, que
+    /// guarda en dos momentos y este es uno). Cerrar la aplicación sigue siendo cosa
+    /// del aspa o del botón Salir de los menús.
+    ///
+    /// Se crea sola y sobrevive entre escenas, igual que el SaveManager: no hay nada
+    /// que arrastrar en el editor. La UI no se construye hasta el primer Esc, así que
+    /// en una partida en la que nadie la abre no cuesta nada.
     /// </summary>
     [DisallowMultipleComponent]
-    public class MenuPausa : MonoBehaviour
+    public class MenuPausa : MonoBehaviour, ISalidaAlMenu
     {
         public static MenuPausa Instance { get; private set; }
 
@@ -46,14 +52,25 @@ namespace Fishy.UI
         [Min(0f)]
         public float esperaAntesDeSalir = 1f;
 
+        /// <summary>
+        /// Veces, como máximo, que se le pregunta «¿esperas o te vas?» en una salida.
+        ///
+        /// Es un tope duro además de la regla de «solo si la espera sirvió de algo»: el
+        /// cartel es una disculpa, no una herramienta. Si a la tercera no se guardó, lo
+        /// que falta no se arregla con otro clic del niño/a, y seguir preguntando es
+        /// trasladarle un problema del servidor que no puede resolver.
+        /// </summary>
+        private const int MaxPreguntas = 2;
+
         /// <summary>Si el menú está a la vista. Con él abierto el juego está en pausa.</summary>
         public bool Abierto => _raiz != null && _raiz.activeSelf;
 
         private GameObject _raiz;
         private TextMeshProUGUI _titulo;
         private TextMeshProUGUI _estado;
-        private Button _btnSeguir, _btnSalir;
-        private float _timeScalePrevio = 1f;
+        private Transform _botonera;
+        private Button _btnSeguir, _btnConfig, _btnSalir;
+        private PanelConfiguracionUI _config;
         private bool _saliendo;
 
         // ── Ciclo de vida ─────────────────────────────────────────────────────
@@ -83,10 +100,19 @@ namespace Fishy.UI
             if (Instance != this) return;
             Instance = null;
 
-            // Dejar el juego congelado al destruirse sería peor que no haber
-            // pausado nunca: nada volvería a moverse y no habría menú que cerrar.
-            if (Abierto) Time.timeScale = _timeScalePrevio;
+            // Dejar el juego congelado al destruirse sería peor que no haber pausado
+            // nunca: nada volvería a moverse y no habría menú que cerrar.
+            if (EstadoDePausa.Pausado) EstadoDePausa.Restablecer();
         }
+
+        /// <summary>
+        /// La tecla que abre y cierra el menú.
+        ///
+        /// Está declarada en vez de escrita dentro del <c>Update</c> para que el
+        /// teclado de ayuda (<see cref="TecladoEnPantalla"/>) pueda enseñar la de
+        /// verdad: si mañana la pausa pasa a otra tecla, el cartel lo dice solo.
+        /// </summary>
+        public const Key TeclaDePausa = Key.Escape;
 
         private void Update()
         {
@@ -95,7 +121,12 @@ namespace Fishy.UI
             // Solo el nuevo Input System (activeInputHandler: 1). Sin teclado
             // —un móvil— `current` es null y aquí no hay nada que hacer.
             var teclado = Keyboard.current;
-            if (teclado == null || !teclado.escapeKey.wasPressedThisFrame) return;
+            if (teclado == null || !teclado[TeclaDePausa].wasPressedThisFrame) return;
+
+            // Con la configuración abierta, Esc es «volver», no «seguir jugando»:
+            // es lo que hace el botón que se está mirando, y saltar del ajuste al
+            // juego de un tecleo deja a cualquiera sin saber si guardó el cambio.
+            if (_config != null && _config.Abierto) { CerrarConfiguracion(); return; }
 
             if (Abierto) Cerrar();
             else Abrir();
@@ -103,6 +134,11 @@ namespace Fishy.UI
 
         // ── Abrir y cerrar ────────────────────────────────────────────────────
 
+        /// <summary>
+        /// CA1 y CA3 — Abre el menú y congela el juego, si es que se puede: durante
+        /// una cinemática o una transición de carga no se puede, y entonces Esc no
+        /// hace nada (ver <see cref="BloqueosDePausa"/>).
+        /// </summary>
         public void Abrir()
         {
             if (Abierto || _saliendo) return;
@@ -111,52 +147,93 @@ namespace Fishy.UI
             // de un menú (ver PersonajeBackendSync.BuscarOtto).
             if (soloDuranteElJuego && FindAnyObjectByType<OttoController>() == null) return;
 
+            // El veto se consulta ANTES de construir nada: si no se va a pausar,
+            // tampoco hay que dejar un canvas montado que nadie pidió.
+            if (!EstadoDePausa.Pausar()) return;
+
             if (_raiz == null) Construir();
 
-            _timeScalePrevio = Time.timeScale;
-            Time.timeScale = 0f;
-
+            if (_titulo != null) _titulo.text = "Pausa";
             if (_estado != null) _estado.text = "¿Qué quieres hacer?";
-            if (_btnSeguir != null) _btnSeguir.interactable = true;
-            if (_btnSalir != null) _btnSalir.interactable = true;
+            RestaurarBotones();
 
             _raiz.SetActive(true);
         }
 
+        /// <summary>CA4 — Vuelve al juego exactamente donde estaba.</summary>
         public void Cerrar()
         {
             if (!Abierto || _saliendo) return;
 
+            _config?.Cerrar();
             _raiz.SetActive(false);
-            Time.timeScale = _timeScalePrevio;
+
+            EstadoDePausa.Reanudar();
         }
 
-        // ── Salir ─────────────────────────────────────────────────────────────
+        // ── Configuración (CA2) ───────────────────────────────────────────────
 
-        /// <summary>Guarda y vuelve al menú. Es lo que hace el botón "Guardar y volver al menú".</summary>
+        /// <summary>Tapa la botonera con la tarjeta de ajustes. El juego sigue
+        /// congelado: configurar es parte de estar en pausa.</summary>
+        public void AbrirConfiguracion()
+        {
+            if (_saliendo) return;
+            if (_raiz == null) Construir();
+
+            if (_botonera != null) _botonera.gameObject.SetActive(false);
+            _config.Abrir();
+        }
+
+        public void CerrarConfiguracion()
+        {
+            _config?.Cerrar();
+            if (_botonera != null) _botonera.gameObject.SetActive(true);
+        }
+
+        // ── Salir al menú principal (CA5) ─────────────────────────────────────
+
+        /// <summary>Guarda y vuelve al menú. Es lo que hace el botón «Guardar y volver
+        /// al menú». El orden —guardar primero, cargar después— lo impone
+        /// <see cref="SecuenciaDeSalida"/>, que es donde se puede comprobar.</summary>
         public void Salir()
         {
             if (_saliendo) return;
-            StartCoroutine(GuardarYSalir());
+            StartCoroutine(SalirAlMenu());
         }
 
-        private IEnumerator GuardarYSalir()
+        private IEnumerator SalirAlMenu()
         {
             _saliendo = true;
+            CerrarConfiguracion();
+
+            yield return SecuenciaDeSalida.Ejecutar(this);
+
+            _saliendo = false;
+        }
+
+        /// <summary>
+        /// CA5 — El guardado automático de la salida: vacía la cola hacia el backend y
+        /// espera a que termine. Lo llama <see cref="SecuenciaDeSalida"/>, que se
+        /// encarga de que la escena del menú no se cargue hasta que esto acabe.
+        /// </summary>
+        IEnumerator ISalidaAlMenu.GuardarTodo()
+        {
             if (_btnSeguir != null) _btnSeguir.interactable = false;
+            if (_btnConfig != null) _btnConfig.interactable = false;
             if (_btnSalir != null) _btnSalir.interactable = false;
             if (_estado != null) _estado.text = "Guardando tu partida…";
 
-            // Ahora SÍ se espera: `GuardarYEsperar` termina cuando la cola está vacía o
-            // se acabó el plazo. Antes esto era un WaitForSecondsRealtime a ciegas y el
-            // texto de arriba mentía por diseño — decía "guardando" y no sabía nada.
+            // `GuardarYEsperar` termina cuando la cola está vacía o se acabó el plazo.
+            // Antes esto era un WaitForSecondsRealtime a ciegas y el texto de arriba
+            // mentía por diseño — decía "guardando" y no sabía nada.
             var save = SaveManager.Instance;
             if (save != null)
                 yield return save.GuardarYEsperar(SaveManager.Motivo.CierreDeAplicacion,
                                                   save.topeDeCierre);
 
             // Si algo quedó sin subir se pregunta, igual que en el cierre por el aspa.
-            while (ColaDeCambios.Pendientes > 0)
+            // Pero se pregunta POCO: ver `MaxPreguntas` y la regla de abajo.
+            for (int pregunta = 0; ColaDeCambios.Pendientes > 0 && pregunta < MaxPreguntas; pregunta++)
             {
                 bool esperar = false, respondido = false;
                 PreguntarSiEsperar(ColaDeCambios.Pendientes,
@@ -169,12 +246,27 @@ namespace Fishy.UI
                 // El texto ya lo puso `Congelar` al pulsar el botón.
                 var cola = ColaDeCambios.Instance;
                 if (cola == null) break;
+
+                int antes = ColaDeCambios.Pendientes;
                 yield return cola.Vaciar("CierreDeAplicacion",
                                          save != null ? save.topeDeCierre : esperaAntesDeSalir,
                                          reintentarSiFalla: true);
+
+                // Esperar no sirvió de nada: no se vuelve a preguntar lo mismo.
+                //
+                // Es la regla que arregla el «pide confirmación a cada rato». Antes el
+                // bucle solo miraba si quedaban cambios, así que contra un servidor que
+                // no responde volvía a salir el mismo cartel indefinidamente, y cada
+                // «Seguir esperando» costaba el plazo entero (10 s). Diez clics eran
+                // 100 segundos para acabar igual que al principio.
+                //
+                // Si la ronda bajó la cola, el servidor está respondiendo y preguntar
+                // otra vez es razonable. Si no bajó nada, el niño/a no tiene forma de
+                // saberlo y no es asunto suyo: se decide aquí y se vuelve al menú.
+                if (ColaDeCambios.Pendientes >= antes) break;
             }
 
-            bool quedoAlgo = ColaDeCambios.Pendientes > 0;
+            bool quedoAlgo = ColaDeCambios.Pendientes > 0 || ColaDeCambios.AlgoSeQuedoSinGuardar;
             if (_estado != null)
                 _estado.text = quedoAlgo
                     ? "No se pudo guardar todo. Volviendo al menú…"
@@ -184,12 +276,18 @@ namespace Fishy.UI
             // abierta, así que esto no muere con el proceso: hay que tirarlo a mano.
             if (quedoAlgo) ColaDeCambios.DescartarTodo("se volvió al menú sin esperar");
 
-            // Que quede a 1 pase lo que pase: timeScale es global y el menú no lo toca.
-            Time.timeScale = _timeScalePrevio;
-
             // Un frame para que se lea el mensaje final antes de que desaparezca todo.
             yield return new WaitForSecondsRealtime(0.4f);
+        }
 
+        /// <summary>
+        /// CA5 — Carga la escena del menú. Corre después del guardado, nunca antes.
+        ///
+        /// Sin escena a la que ir se cierra el juego, que es lo que esto hacía antes
+        /// de que el menú existiera en Build Settings.
+        /// </summary>
+        void ISalidaAlMenu.CargarMenu()
+        {
             if (!Application.CanStreamedLevelBeLoaded(escenaMenu))
             {
                 Debug.LogError($"[MenuPausa] La escena '{escenaMenu}' no está en Build " +
@@ -200,7 +298,7 @@ namespace Fishy.UI
 #else
                 Application.Quit();
 #endif
-                yield break;
+                return;
             }
 
             // Va ANTES de cambiar de escena: los sincronizadores olvidan lo restaurado
@@ -213,7 +311,8 @@ namespace Fishy.UI
             // conexión, los botones quedaron con otros textos y otras acciones.
             if (_raiz != null) Destroy(_raiz);
             _raiz = null;
-            _saliendo = false;
+            _config = null;
+            _botonera = null;
 
             SceneManager.LoadScene(escenaMenu);
         }
@@ -241,14 +340,22 @@ namespace Fishy.UI
         {
             if (_raiz == null) Construir();
 
-            _timeScalePrevio = Abierto ? _timeScalePrevio : Time.timeScale;
-            Time.timeScale = 0f;
+            CerrarConfiguracion();
+
+            // Pausar y no tocar el timeScale a mano: puede que ya estemos en pausa
+            // —se salió desde este mismo menú— y puede que no —se cerró con el aspa—.
+            // `Pausar()` sabe distinguirlo; dos pantallas congelando por su cuenta era
+            // justo lo que dejaba el juego parado para siempre.
+            EstadoDePausa.Pausar();
             _raiz.SetActive(true);
 
             if (_titulo != null) _titulo.text = "Guardando";
             if (_estado != null)
                 _estado.text = "El guardado del juego está tardando más de lo esperado\n" +
                                "¿Salir ahora? Se perderán datos";
+
+            // Con el cierre en marcha no hay nada que configurar.
+            if (_btnConfig != null) _btnConfig.gameObject.SetActive(false);
 
             Reemplazar(_btnSeguir, "Seguir esperando", () =>
             {
@@ -275,8 +382,22 @@ namespace Fishy.UI
             if (etiqueta != null) etiqueta.text = texto;
         }
 
+        /// <summary>Devuelve los tres botones a lo que dicen en el menú de pausa. Hace
+        /// falta porque <see cref="PreguntarSiEsperar"/> les cambia el texto y la
+        /// acción, y tras un cierre que el jugador canceló el menú se vuelve a abrir
+        /// con «Seguir esperando» escrito donde va «Seguir jugando».</summary>
+        private void RestaurarBotones()
+        {
+            Reemplazar(_btnSeguir, "Seguir jugando", Cerrar);
+            Reemplazar(_btnSalir, "Guardar y volver al menú", Salir);
+
+            if (_btnConfig == null) return;
+            _btnConfig.gameObject.SetActive(true);
+            Reemplazar(_btnConfig, "Configuración", AbrirConfiguracion);
+        }
+
         /// <summary>
-        /// Apaga los dos botones y dice qué se está haciendo.
+        /// Apaga los botones y dice qué se está haciendo.
         ///
         /// Los botones NO vuelven a ser "Seguir jugando" / "Guardar y volver al menú": una vez que
         /// se preguntó, el juego se está cerrando por un camino o por otro. Devolverlos a
@@ -290,6 +411,7 @@ namespace Fishy.UI
             if (_estado != null) _estado.text = queEstaPasando;
             if (_btnSeguir != null) _btnSeguir.interactable = false;
             if (_btnSalir != null) _btnSalir.interactable = false;
+            if (_btnConfig != null) _btnConfig.interactable = false;
         }
 
         // ── UI ────────────────────────────────────────────────────────────────
@@ -314,7 +436,9 @@ namespace Fishy.UI
             scaler.matchWidthOrHeight = 0.5f;
 
             // Velo: oscurece el juego y, sobre todo, se come los clics para que no
-            // lleguen a lo que hay debajo.
+            // lleguen a lo que hay debajo. Es la otra mitad de "se desactiva el input
+            // del jugador" (CA3): la PuertaDeEntrada calla el teclado y el mando, y
+            // esto tapa los botones táctiles y lo que haya en pantalla.
             var velo = new GameObject("Velo", typeof(RectTransform), typeof(Image));
             velo.transform.SetParent(canvasGO.transform, false);
             FishyUIKit.Estirar(velo.GetComponent<RectTransform>());
@@ -324,14 +448,16 @@ namespace Fishy.UI
                 typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
             tarjetaGO.transform.SetParent(canvasGO.transform, false);
             FishyUIKit.FondoRedondeado(tarjetaGO.GetComponent<Image>(), Paleta.Marron);
+            _botonera = tarjetaGO.transform;
 
             var rt = tarjetaGO.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(660f, 470f);
+            // Más alta que antes: ahora son tres botones y no dos.
+            rt.sizeDelta = new Vector2(660f, 570f);
 
             var vlg = tarjetaGO.GetComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(44, 44, 40, 40);
-            vlg.spacing = 20f;
+            vlg.spacing = 18f;
             vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
@@ -347,8 +473,14 @@ namespace Fishy.UI
             _btnSeguir = FishyUIKit.Boton(tarjetaGO.transform, "Seguir jugando",
                 Paleta.Verde, 34f, 88f, Cerrar);
 
+            _btnConfig = FishyUIKit.Boton(tarjetaGO.transform, "Configuración",
+                Paleta.Madera, 34f, 88f, AbrirConfiguracion);
+
             _btnSalir = FishyUIKit.Boton(tarjetaGO.transform, "Guardar y volver al menú",
                 Paleta.Rojo, 34f, 88f, Salir);
+
+            // Hermana de la tarjeta y no hija: se muestra en su lugar, tapándola.
+            _config = new PanelConfiguracionUI(canvasGO.transform, CerrarConfiguracion);
 
             _raiz = canvasGO;
         }

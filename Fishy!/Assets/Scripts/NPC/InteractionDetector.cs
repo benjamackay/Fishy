@@ -250,6 +250,11 @@ public class InteractionDetector : MonoBehaviour
         // 'interactKey': si mañana la interacción pasa a F, el cartel lo dice.
         if (screenPromptKeyLabel != null) screenPromptKeyLabel.text = interactKey.ToString();
 
+        // Y se le pone fondo, que en la escena no tiene ninguno: el texto va en
+        // crema directamente sobre el mapa, y sobre la arena no se lee. Solo pinta
+        // (ver CartelInteraccionSkin), igual que el skin del panel de diálogo.
+        if (screenPrompt != null) Fishy.UI.CartelInteraccionSkin.Aplicar(screenPrompt);
+
         // Arranca apagado pase lo que pase: en la escena es fácil dejárselo
         // encendido tras moverlo y no notarlo hasta ver la partida empezada.
         if (screenPrompt != null) screenPrompt.SetActive(false);

@@ -94,6 +94,23 @@ namespace Fishy.Net
         /// </summary>
         public int? TopeDeTiempoParaPeticiones { get; set; }
 
+        /// <summary>
+        /// Codigo HTTP del error que se esta notificando ahora mismo. 0 si el fallo no
+        /// llego a tener respuesta (sin red, timeout, sin token, falta un id).
+        ///
+        /// <b>Solo vale leerlo DENTRO de un <c>onError</c>, sincronicamente.</b> Se pone
+        /// en la linea de antes de invocar el callback y no hay ningun <c>yield</c> en
+        /// medio, asi que quien lo lee ahi ve su propio codigo; guardarlo para despues no
+        /// sirve, porque la siguiente peticion que falle lo pisa.
+        ///
+        /// Existe porque <c>onError</c> es <c>Action&lt;string&gt;</c> en las ~100
+        /// llamadas de esta clase y recibe el cuerpo de la respuesta, donde el codigo no
+        /// viene. Sin el, quien reintenta no puede distinguir "el servidor no contesta"
+        /// —que se arregla insistiendo— de "el servidor dice que este cuerpo esta mal"
+        /// —que no se arregla nunca—, y la cola de guardado los trataba igual.
+        /// </summary>
+        public int CodigoDelUltimoError { get; private set; }
+
         // ── Estado de sesion (en memoria) ───────────────────────────────────────
         public string Token { get; private set; }
 
@@ -1438,6 +1455,7 @@ namespace Fishy.Net
                 {
                     if (!IsLoggedIn)
                     {
+                        CodigoDelUltimoError = 0;
                         onError?.Invoke("No hay token: debes hacer Login/Registro primero.");
                         yield break;
                     }
@@ -1454,6 +1472,11 @@ namespace Fishy.Net
                     // servidor devuelve una traza HTML que incluye la contrasena.
                     string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{Censurar(text, path)}";
                     if (verboseLogs) Debug.LogError(msg);
+
+                    // Un timeout o un corte de red dejan responseCode en 0, que es justo
+                    // lo que hay que informar: no hubo respuesta, asi que insistir tiene
+                    // sentido. Un 400 o un 404 si la tuvieron, y no lo tiene.
+                    CodigoDelUltimoError = (int)req.responseCode;
                     onError?.Invoke(string.IsNullOrEmpty(text) ? req.error : text);
                     yield break;
                 }
@@ -1469,6 +1492,10 @@ namespace Fishy.Net
                     }
                     catch (Exception e)
                     {
+                        // El servidor contesto bien pero con algo que no se entiende.
+                        // Repetir la peticion devolveria el mismo JSON invalido, asi que
+                        // se informa como permanente y no como "no hubo respuesta".
+                        CodigoDelUltimoError = (int)req.responseCode;
                         onError?.Invoke($"Error al parsear JSON: {e.Message}\n{text}");
                         yield break;
                     }
@@ -1499,6 +1526,10 @@ namespace Fishy.Net
         private bool RequireId(int? id, string name, Action<string> onError)
         {
             if (id.HasValue) return true;
+
+            // Nunca salio una peticion, asi que no hay codigo. Se marca igual: sin esto,
+            // quien lea `CodigoDelUltimoError` veria el de la peticion anterior.
+            CodigoDelUltimoError = 0;
             onError?.Invoke($"Falta {name} en la sesion. Asegurate de crear/registrar antes de esta llamada.");
             return false;
         }

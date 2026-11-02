@@ -283,6 +283,7 @@ namespace Fishy.Net
             MissionManager.GetOrCreate().ConfigurarPersistenciaParaPartida(partidaId);
             InventoryManager.ConfigurarParaPartida(partidaId);
             HistorialDeObjetivos.ConfigurarParaPartida(partidaId);
+            Fishy.Album.AlbumDeEvidencias.ConfigurarParaPartida(partidaId);
         }
 
         /// <summary>Pide misiones y zonas de la partida activa y las aplica al juego.</summary>
