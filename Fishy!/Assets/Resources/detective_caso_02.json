@@ -1,5 +1,8 @@
 {
   "caseId": "DC_CASO_02",
+  "titulo": "El Grupo del Pantano de Flamenco",
+  "zona": "ciberacoso",
+  "etiquetasMl": ["ciberacoso", "exclusion"],
   "npcObservado1": "Flamenco",
   "npcObservado2": "Pato Juarjual",
   "permisoPlayerText": "Oye, ¿puedo ver lo que pasó en ese grupo? Quiero ayudarte a entender si hubo algo malo.",

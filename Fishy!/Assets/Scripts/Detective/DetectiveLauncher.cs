@@ -1,5 +1,6 @@
 using System.Linq;
 using UnityEngine;
+using Fishy.Album;
 using Fishy.World;
 using Fishy.Mision;
 using Fishy.Net;
@@ -90,7 +91,28 @@ namespace Fishy.Detective
             api.ObtenerProgresoDetective(
                 onSuccess: progresos =>
                 {
-                    if (progresos != null && progresos.Any(pr => pr.caso_id == casoId))
+                    if (progresos == null) return;
+
+                    // HDU-12 — Semilla del álbum para un dispositivo que todavía no
+                    // tiene nada guardado de esta partida.
+                    //
+                    // Ojo con qué es esto y qué no. El servidor PISA
+                    // mensajes_marcados con el último intento, así que esta lista no
+                    // es la verdad del álbum: quien clavó las cuatro señales y después
+                    // rejugó marcando una sola aparece acá con una. SembrarIds nunca
+                    // reemplaza ni borra —solo crea lo que falta—, así que la unión con
+                    // lo que ya hubiera en local siempre gana.
+                    //
+                    // Se siembran TODOS los casos de la respuesta y no solo el de este
+                    // lanzador: la respuesta ya los trae, y volver a pedirla por los
+                    // otros costaría otros dos segundos de un servidor que atiende una
+                    // petición a la vez. Que cada lanzador de la escena haga su propia
+                    // consulta y vuelva a sembrar lo mismo es inofensivo: sembrar dos
+                    // veces el mismo caso no cambia nada ni vuelve a escribir en disco.
+                    foreach (var progreso in progresos)
+                        AlbumDeEvidencias.SembrarIds(progreso.caso_id, progreso.mensajes_marcados);
+
+                    if (progresos.Any(pr => pr.caso_id == casoId))
                         MarcarCompletado();
                 },
                 onError: e => Debug.LogWarning(
