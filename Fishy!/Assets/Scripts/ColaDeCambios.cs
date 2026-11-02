@@ -199,6 +199,19 @@ namespace Fishy.Net
             /// <summary>Se quedaron en la cola sin llegar a salir.</summary>
             public int SinIntentar;
 
+            /// <summary>
+            /// Se dieron por perdidos y SE SACARON de la cola: el servidor los rechazo
+            /// con un codigo que no cambia por insistir (400, 404...), o agotaron
+            /// <see cref="maxIntentos"/>.
+            ///
+            /// No cuentan en <see cref="Pendientes"/> a proposito: pendiente es lo que
+            /// todavia podria subir si se espera, y esto no. Preguntarle al jugador si
+            /// quiere esperar por uno de estos es pedirle que espere a algo que no va a
+            /// pasar. Si cuentan en <see cref="TodoBien"/>, que es lo que decide si se
+            /// escribe el informe de lo que se perdio.
+            /// </summary>
+            public int Rendidos;
+
             public float Segundos;
 
             /// <summary>
@@ -210,7 +223,7 @@ namespace Fishy.Net
             /// entro ya esta contado en <see cref="SinIntentar"/>. Sumar las dos cosas
             /// contaria el mismo cambio dos veces.
             /// </summary>
-            public bool TodoBien => SinRespuesta == 0 && SinIntentar == 0;
+            public bool TodoBien => SinRespuesta == 0 && SinIntentar == 0 && Rendidos == 0;
 
             public int Pendientes => SinRespuesta + SinIntentar;
         }
@@ -229,6 +242,13 @@ namespace Fishy.Net
                  "Señal de que algún vaciado dejó de ocurrir.")]
         [Min(0)] public int avisarPorEncimaDe = 200;
 
+        [Tooltip("Veces que se intenta un mismo cambio antes de darlo por perdido.\n\n" +
+                 "El plazo manda CUÁNTO RATO se insiste, pero no puede mandar CUÁNTAS " +
+                 "veces: un envío que falla sin llegar a salir —falta un id, no hay " +
+                 "token— llama a su callback de error en la misma línea, sin gastar " +
+                 "plazo, así que sin este tope se reintenta en bucle hasta agotarlo.")]
+        [Min(1)] public int maxIntentos = 4;
+
         [Tooltip("Escribir en consola cada cambio que entra y cada vaciado.")]
         public bool verboseLogs = true;
 
@@ -244,6 +264,17 @@ namespace Fishy.Net
         /// Contra un servidor que no contesta, insistir sin pausa solo quema frames.
         /// </summary>
         private const float EsperaEntreRondas = 0.5f;
+
+        /// <summary>
+        /// Plazo que tiene que quedar para que valga la pena mandar otra peticion.
+        ///
+        /// Sin esto, con tres decimas de plazo restante la cola todavia mandaba un cambio
+        /// —`req.timeout` es entero, asi que le tocaba 1 s— y abandonaba la espera en el
+        /// frame siguiente, al vencer el plazo. El cambio salia de verdad, probablemente
+        /// llegaba, y se contaba como "sin respuesta": al jugador se le preguntaba si
+        /// queria esperar por algo que ya estaba guardado.
+        /// </summary>
+        private const float MargenParaMandar = 1f;
 
         // ── Estado ────────────────────────────────────────────────────────────
 
@@ -264,6 +295,11 @@ namespace Fishy.Net
         private int _intentados;
         private int _descartados;
 
+        /// <summary>Los que se dieron por perdidos en este vaciado, y por que. Se nombran
+        /// en el informe: "no se guardo todo" sin decir que es lo que no se guardo no
+        /// sirve para arreglar nada.</summary>
+        private readonly List<string> _rendidos = new List<string>();
+
         /// <summary>El ultimo error de red del vaciado, para poder decir por que no
         /// termino en vez de solo cuantos quedan.</summary>
         private string _ultimoError;
@@ -277,6 +313,17 @@ namespace Fishy.Net
 
         /// <summary>Cuantos cambios esperan ahora mismo.</summary>
         public static int Pendientes => _almacen.Cuenta;
+
+        /// <summary>
+        /// El ultimo vaciado dejo algo sin guardar, contando tambien lo que se dio por
+        /// perdido y por eso ya NO esta en la cola.
+        ///
+        /// Hace falta porque <see cref="Pendientes"/> solo ve el almacen: tras rendirse
+        /// con un cambio, la cola queda en cero y mirar solo eso haria que la pantalla
+        /// dijera "listo, ya se guardo" justo cuando algo se acaba de perder.
+        /// </summary>
+        public static bool AlgoSeQuedoSinGuardar
+            => Instance != null && !Instance.UltimoResultado.TodoBien;
 
         /// <summary>True mientras se esta subiendo.</summary>
         public bool Vaciando => _vaciando;
@@ -492,12 +539,17 @@ namespace Fishy.Net
             _fallidos = 0;
             _intentados = 0;
             _descartados = 0;
+            _rendidos.Clear();
             _ultimoError = null;
 
             // Todo el tiempo va en realtime: MenuPausa pone Time.timeScale = 0 al
             // abrirse, y un WaitForSeconds aqui dejaria el juego colgado para siempre.
             float arranque = Time.realtimeSinceStartup;
             _limite = arranque + Mathf.Max(0f, topeSegundos);
+
+            // El margen no puede pasarse del plazo entero, o un vaciado con un tope
+            // cortito no mandaria absolutamente nada.
+            float margen = Mathf.Min(MargenParaMandar, Mathf.Max(0f, topeSegundos));
 
             int alEmpezar = _almacen.Cuenta;
             if (verboseLogs)
@@ -526,7 +578,9 @@ namespace Fishy.Net
 
                     while (_enVueloCola >= hueco && Time.realtimeSinceStartup < _limite)
                         yield return null;
-                    if (Time.realtimeSinceStartup >= _limite) break;
+
+                    // Ver `MargenParaMandar`: lo que no se alcanza a esperar no se manda.
+                    if (Time.realtimeSinceStartup + margen > _limite) break;
 
                     // Se toma lo que hay AHORA bajo esta clave, no la copia de arriba: si
                     // mientras se esperaba un hueco entró un dato más nuevo, es ese el
@@ -575,16 +629,42 @@ namespace Fishy.Net
                             _enVueloCola--;
                             _enVueloClaves.Remove(c.Clave);
                             _fallidos++;
+                            _ultimoError = error;
 
-                            // Vuelve a la cola siempre. No hay tope de intentos: el que
-                            // manda es el plazo del vaciado, y mientras quede plazo se
-                            // insiste. Lo que no salga sigue en la cola para el siguiente
-                            // cambio de zona.
                             if (!reintentar) return;
 
+                            // El codigo se lee AQUI, dentro del callback: ApiManager lo
+                            // deja puesto en la linea de antes de llamarnos y lo pisa la
+                            // siguiente peticion que falle.
+                            int codigo = api.CodigoDelUltimoError;
+
+                            // Insistir solo arregla lo que fallo por el camino. Un cuerpo
+                            // que el servidor rechaza lo va a rechazar igual la vez 20, y
+                            // mientras tanto bloquea el cierre y llena el log.
+                            if (EsCulpaNuestra(codigo))
+                            {
+                                Rendirse(c, $"el servidor lo rechazo con {codigo} y no " +
+                                            "cambia por insistir", error);
+                                return;
+                            }
+
                             c.Intentos++;
+
+                            // El tope de intentos es el que frena los fallos que no gastan
+                            // plazo. Un envio que ni sale —falta un id, no hay token—
+                            // llama a este callback sincronicamente, en la misma linea del
+                            // `Resolver()` de arriba: la ronda entera termina en cero
+                            // milisegundos y el plazo, que es quien deberia mandar, no se
+                            // entera. Con 8 claves asi, un plazo de 10 s daba ~20 rondas
+                            // de reintentos instantaneos: 160 errores en consola y ni un
+                            // cambio subido.
+                            if (c.Intentos >= maxIntentos)
+                            {
+                                Rendirse(c, $"{c.Intentos} intentos fallidos", error);
+                                return;
+                            }
+
                             _almacen.Reencolar(c);
-                            _ultimoError = error;
                         });
                     }
                     finally
@@ -646,6 +726,8 @@ namespace Fishy.Net
                 // que los cambios- y lo que queda es mirar el almacen directamente.
                 SinIntentar = _almacen.Cuenta,
 
+                Rendidos = _rendidos.Count,
+
                 Segundos = Time.realtimeSinceStartup - arranque,
             };
 
@@ -656,6 +738,36 @@ namespace Fishy.Net
         /// `req.timeout` es entero y un 0 significaria "sin limite".</summary>
         private static int SegundosHasta(float limite)
             => Mathf.Max(1, Mathf.CeilToInt(limite - Time.realtimeSinceStartup));
+
+        /// <summary>
+        /// El servidor contesto culpando al cuerpo que le mandamos, no a la red.
+        ///
+        /// Los 4xx son del cliente: el cuerpo esta mal (400), el token no vale (401), la
+        /// partida no es de este adulto (403), el caso no esta cargado en la base (404).
+        /// Ninguno se arregla repitiendo la misma peticion.
+        ///
+        /// Las dos excepciones son 408 y 429: tambien son 4xx, pero los dos significan
+        /// literalmente "vuelve a intentarlo". Y el 0 no es un codigo: es un timeout o un
+        /// corte de red, el caso para el que el reintento existe.
+        /// </summary>
+        private static bool EsCulpaNuestra(int codigo)
+            => codigo >= 400 && codigo < 500 && codigo != 408 && codigo != 429;
+
+        /// <summary>
+        /// Da un cambio por perdido: lo deja FUERA de la cola y lo escribe.
+        ///
+        /// Sacarlo es el punto. Mientras siguiera en la cola, el cierre del juego lo
+        /// contaria como pendiente y le preguntaria al jugador si quiere esperar a algo
+        /// que no va a llegar nunca — que es exactamente lo que hacia que el dialogo de
+        /// "¿esperas o te vas?" volviera a salir una y otra vez.
+        /// </summary>
+        private void Rendirse(CambioPendiente c, string porQue, string error)
+        {
+            _rendidos.Add($"{c.Clave} ({porQue})");
+
+            Debug.LogError($"[Cola] Se da por perdido '{c.Descripcion}' [{c.Clave}]: " +
+                           $"{porQue}.\nUltimo error: {error}");
+        }
 
         private void Informar(string motivo, Resultado r)
         {
@@ -680,6 +792,7 @@ namespace Fishy.Net
                 $" ({_intentados} intento(s) en total" +
                 (_descartados > 0 ? $", {_descartados} descartado(s) de otra partida" : "") + ")." +
                 (claves.Count > 0 ? $"\nQuedan: {string.Join(", ", claves)}" : "") +
+                (_rendidos.Count > 0 ? $"\nPerdidos: {string.Join(", ", _rendidos)}" : "") +
                 (string.IsNullOrEmpty(_ultimoError) ? "" : $"\nUltimo error: {_ultimoError}"));
         }
     }

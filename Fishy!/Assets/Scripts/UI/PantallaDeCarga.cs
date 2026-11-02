@@ -48,6 +48,10 @@ namespace Fishy.UI
 
         private bool cargando;
 
+        /// <summary>Si hay una carga en curso. La mira <c>BloqueosDePausa</c>:
+        /// durante una transición de carga no se pausa (HDU-17 CA1).</summary>
+        public bool Cargando => cargando;
+
         /// <summary>
         /// Enciende la pantalla y entra a la escena cuando esté todo listo.
         ///
