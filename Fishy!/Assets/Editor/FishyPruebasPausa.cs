@@ -69,6 +69,7 @@ namespace Fishy.EditorTools
             ProbarElBotonEnPantallaSeEscondeCuandoNoTocaPausar(log);
 
             // ── El camino real de salida ──
+            ProbarSalirPideConfirmacionYSePuedeCancelar(log);
             ProbarSalirPideElGuardadoAntesDeCargarElMenu(log);
 
             // ── Lo que no se puede perder al pausar ──
@@ -107,9 +108,9 @@ namespace Fishy.EditorTools
             List<string> botones = EtiquetasDeBotones(menu);
 
             Comprobar(log, "el menú de pausa ofrece Continuar, Configuración y Salir al menú",
-                botones.Any(t => t.Contains("Seguir jugando")) &&
+                botones.Any(t => t == "Continuar") &&
                 botones.Any(t => t.Contains("Configuración")) &&
-                botones.Any(t => t.Contains("volver al menú")),
+                botones.Any(t => t.Contains("Guardar") && t.Contains("salir al menú principal")),
                 string.Join(" | ", botones));
 
             Soltar(menu, otto);
@@ -303,6 +304,47 @@ namespace Fishy.EditorTools
             }
 
             public void CargarMenu() => Pasos.Add("cargar");
+        }
+
+        /// <summary>Salir pregunta antes de irse, y cancelar deja la pausa como
+        /// estaba: sigue congelada, con Continuar a mano y sin haber guardado.</summary>
+        private static void ProbarSalirPideConfirmacionYSePuedeCancelar(StringBuilder log)
+        {
+            Reiniciar();
+
+            OttoController otto = NuevoOtto();
+            MenuPausa menu = NuevoMenu();
+            menu.Abrir();
+
+            var guardados = new List<SaveManager.Motivo>();
+            Action<SaveManager.Motivo> escucha = m => guardados.Add(m);
+            SaveManager.OnGuardado += escucha;
+
+            try
+            {
+                menu.PedirConfirmacionDeSalida();
+                List<string> alPreguntar = EtiquetasDeBotones(menu);
+
+                Comprobar(log, "salir pide confirmación con las opciones de confirmar y cancelar",
+                    alPreguntar.Contains("Cancelar") && alPreguntar.Contains("Sí, guardar y salir") &&
+                    EstadoDePausa.Pausado && guardados.Count == 0,
+                    string.Join(" | ", alPreguntar));
+
+                menu.CancelarSalida();
+                List<string> alCancelar = EtiquetasDeBotones(menu);
+
+                Comprobar(log, "cancelar la salida deja la pausa intacta y con Continuar",
+                    alCancelar.Contains("Continuar") && !alCancelar.Contains("Cancelar") &&
+                    menu.Abierto && EstadoDePausa.Pausado && !otto.movementEnabled &&
+                    guardados.Count == 0,
+                    string.Join(" | ", alCancelar));
+            }
+            finally
+            {
+                SaveManager.OnGuardado -= escucha;
+            }
+
+            Soltar(menu, otto);
         }
 
         private static void ProbarSalirPideElGuardadoAntesDeCargarElMenu(StringBuilder log)

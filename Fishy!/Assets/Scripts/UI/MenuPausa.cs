@@ -13,8 +13,8 @@ namespace Fishy.UI
 {
     /// <summary>
     /// HDU-17 — El menú de pausa: Esc lo abre en cualquier momento de la partida y
-    /// ofrece <b>Seguir jugando</b>, <b>Configuración</b> y <b>Volver al menú
-    /// principal</b> (que guarda antes de irse).
+    /// ofrece <b>Continuar</b>, <b>Configuración</b> y <b>Guardar y salir al menú
+    /// principal</b>, que pide confirmación y guarda antes de irse.
     ///
     /// <b>Esta clase es la pantalla, no la pausa.</b> Quién está pausado, qué pasa
     /// con el <c>timeScale</c>, a quién se le quita la entrada y en qué momentos no
@@ -62,6 +62,10 @@ namespace Fishy.UI
         /// </summary>
         private const int MaxPreguntas = 2;
 
+        private const string TextoContinuar = "Continuar";
+        private const string TextoConfiguracion = "Configuración";
+        private const string TextoSalir = "Guardar y salir al menú principal";
+
         /// <summary>Si el menú está a la vista. Con él abierto el juego está en pausa.</summary>
         public bool Abierto => _raiz != null && _raiz.activeSelf;
 
@@ -72,6 +76,7 @@ namespace Fishy.UI
         private Button _btnSeguir, _btnConfig, _btnSalir;
         private PanelConfiguracionUI _config;
         private bool _saliendo;
+        private bool _confirmandoSalida;
 
         // ── Ciclo de vida ─────────────────────────────────────────────────────
 
@@ -128,6 +133,9 @@ namespace Fishy.UI
             // juego de un tecleo deja a cualquiera sin saber si guardó el cambio.
             if (_config != null && _config.Abierto) { CerrarConfiguracion(); return; }
 
+            // Igual con la confirmación de salida: Esc es «no», no «a jugar».
+            if (_confirmandoSalida) { CancelarSalida(); return; }
+
             if (Abierto) Cerrar();
             else Abrir();
         }
@@ -153,11 +161,18 @@ namespace Fishy.UI
 
             if (_raiz == null) Construir();
 
+            MostrarPausa();
+            _raiz.SetActive(true);
+        }
+
+        /// <summary>Pone la tarjeta en su estado normal de pausa.</summary>
+        private void MostrarPausa()
+        {
+            _confirmandoSalida = false;
+
             if (_titulo != null) _titulo.text = "Pausa";
             if (_estado != null) _estado.text = "¿Qué quieres hacer?";
             RestaurarBotones();
-
-            _raiz.SetActive(true);
         }
 
         /// <summary>CA4 — Vuelve al juego exactamente donde estaba.</summary>
@@ -192,12 +207,44 @@ namespace Fishy.UI
 
         // ── Salir al menú principal (CA5) ─────────────────────────────────────
 
-        /// <summary>Guarda y vuelve al menú. Es lo que hace el botón «Guardar y volver
-        /// al menú». El orden —guardar primero, cargar después— lo impone
+        /// <summary>
+        /// Lo que hace el botón de salir: pregunta antes de irse, sobre la misma tarjeta.
+        /// El juego sigue congelado y no se ha guardado nada todavía.
+        ///
+        /// Cancelar va arriba y en verde, donde estaba Continuar, para que la opción
+        /// que no cambia nada sea también la que está a mano. Configuración se esconde
+        /// porque aquí no hay nada que configurar.
+        /// </summary>
+        public void PedirConfirmacionDeSalida()
+        {
+            if (!Abierto || _saliendo) return;
+
+            _confirmandoSalida = true;
+
+            if (_titulo != null) _titulo.text = "¿Seguro que deseas salir?";
+            if (_estado != null) _estado.text = "Tu partida se guardará y volverás al menú principal.";
+
+            if (_btnConfig != null) _btnConfig.gameObject.SetActive(false);
+            Reemplazar(_btnSeguir, "Cancelar", CancelarSalida);
+            Reemplazar(_btnSalir, "Sí, guardar y salir", Salir);
+        }
+
+        /// <summary>Vuelve a la tarjeta de pausa. La partida no se ha tocado: solo se
+        /// cambió lo que decía la tarjeta.</summary>
+        public void CancelarSalida()
+        {
+            if (!_confirmandoSalida || _saliendo) return;
+            MostrarPausa();
+        }
+
+        /// <summary>Guarda y vuelve al menú. Es lo que hace el botón de confirmar. El
+        /// orden —guardar primero, cargar después— lo impone
         /// <see cref="SecuenciaDeSalida"/>, que es donde se puede comprobar.</summary>
         public void Salir()
         {
             if (_saliendo) return;
+
+            _confirmandoSalida = false;
             StartCoroutine(SalirAlMenu());
         }
 
@@ -221,6 +268,7 @@ namespace Fishy.UI
             if (_btnSeguir != null) _btnSeguir.interactable = false;
             if (_btnConfig != null) _btnConfig.interactable = false;
             if (_btnSalir != null) _btnSalir.interactable = false;
+            if (_titulo != null) _titulo.text = "Guardando";
             if (_estado != null) _estado.text = "Guardando tu partida…";
 
             // `GuardarYEsperar` termina cuando la cola está vacía o se acabó el plazo.
@@ -340,6 +388,7 @@ namespace Fishy.UI
         {
             if (_raiz == null) Construir();
 
+            _confirmandoSalida = false;
             CerrarConfiguracion();
 
             // Pausar y no tocar el timeScale a mano: puede que ya estemos en pausa
@@ -385,23 +434,24 @@ namespace Fishy.UI
         /// <summary>Devuelve los tres botones a lo que dicen en el menú de pausa. Hace
         /// falta porque <see cref="PreguntarSiEsperar"/> les cambia el texto y la
         /// acción, y tras un cierre que el jugador canceló el menú se vuelve a abrir
-        /// con «Seguir esperando» escrito donde va «Seguir jugando».</summary>
+        /// con «Seguir esperando» escrito donde va «Continuar». La confirmación de
+        /// salida también pasa por aquí al cancelarse.</summary>
         private void RestaurarBotones()
         {
-            Reemplazar(_btnSeguir, "Seguir jugando", Cerrar);
-            Reemplazar(_btnSalir, "Guardar y volver al menú", Salir);
+            Reemplazar(_btnSeguir, TextoContinuar, Cerrar);
+            Reemplazar(_btnSalir, TextoSalir, PedirConfirmacionDeSalida);
 
             if (_btnConfig == null) return;
             _btnConfig.gameObject.SetActive(true);
-            Reemplazar(_btnConfig, "Configuración", AbrirConfiguracion);
+            Reemplazar(_btnConfig, TextoConfiguracion, AbrirConfiguracion);
         }
 
         /// <summary>
         /// Apaga los botones y dice qué se está haciendo.
         ///
-        /// Los botones NO vuelven a ser "Seguir jugando" / "Guardar y volver al menú": una vez que
+        /// Los botones NO vuelven a ser "Continuar" / "Guardar y salir": una vez que
         /// se preguntó, el juego se está cerrando por un camino o por otro. Devolverlos a
-        /// su estado de menú dejaba un "Seguir jugando" pulsable en mitad del cierre por
+        /// su estado de menú dejaba un "Continuar" pulsable en mitad del cierre por
         /// el aspa —donde `_saliendo` es false—, y pulsarlo escondía el menú mientras
         /// Unity seguía esperando a que la cola terminara. Si hay que volver a preguntar,
         /// <see cref="PreguntarSiEsperar"/> los reenciende.
@@ -452,8 +502,9 @@ namespace Fishy.UI
 
             var rt = tarjetaGO.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-            // Más alta que antes: ahora son tres botones y no dos.
-            rt.sizeDelta = new Vector2(660f, 570f);
+            // Más alta que antes: ahora son tres botones y no dos. Y el ancho es el que
+            // necesita el texto del botón de salir para caber en una línea.
+            rt.sizeDelta = new Vector2(800f, 570f);
 
             var vlg = tarjetaGO.GetComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(44, 44, 40, 40);
@@ -470,14 +521,14 @@ namespace Fishy.UI
             _estado = FishyUIKit.Texto(tarjetaGO.transform, "Estado", "¿Qué quieres hacer?",
                 30f, Paleta.Arena, TextAlignmentOptions.Center);
 
-            _btnSeguir = FishyUIKit.Boton(tarjetaGO.transform, "Seguir jugando",
+            _btnSeguir = FishyUIKit.Boton(tarjetaGO.transform, TextoContinuar,
                 Paleta.Verde, 34f, 88f, Cerrar);
 
-            _btnConfig = FishyUIKit.Boton(tarjetaGO.transform, "Configuración",
+            _btnConfig = FishyUIKit.Boton(tarjetaGO.transform, TextoConfiguracion,
                 Paleta.Madera, 34f, 88f, AbrirConfiguracion);
 
-            _btnSalir = FishyUIKit.Boton(tarjetaGO.transform, "Guardar y volver al menú",
-                Paleta.Rojo, 34f, 88f, Salir);
+            _btnSalir = FishyUIKit.Boton(tarjetaGO.transform, TextoSalir,
+                Paleta.Rojo, 34f, 88f, PedirConfirmacionDeSalida);
 
             // Hermana de la tarjeta y no hija: se muestra en su lugar, tapándola.
             _config = new PanelConfiguracionUI(canvasGO.transform, CerrarConfiguracion);
