@@ -26,7 +26,7 @@ using Txt = AlbumUITheme.Textos;
 /// la mitad de las señales de un caso, y una evidencia se gana marcando UNA bien. Con
 /// las dos mezcladas, un álbum con evidencias y sin pines tenía que disculparse por
 /// la mitad de su contenido. Ahora los pines viven en
-/// <see cref="PaginaDeRecompensas"/>, que es su propia pantalla.
+/// <see cref="AlbumDePinesUI"/>, que es su propia pantalla.
 /// </summary>
 public class PaginaDeEvidencias : PaginaDeAlbum
 {

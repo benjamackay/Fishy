@@ -112,7 +112,7 @@ public static class AlbumUITheme
     {
         /// <summary>Rótulo de la sección de pines. Hoy se usa como subtítulo del
         /// detalle de un pin; el título de la pantalla lo pone el encabezado del
-        /// propio celular (ver <c>AccesoAlbumEnElCelular.TituloRecompensas</c>).</summary>
+        /// propio celular (ver <c>AccesoAlbumEnElCelular.TituloEvidencias</c>).</summary>
         public static string SeccionPines = "Tus pines";
 
         public static string PorCaso = "Por caso";

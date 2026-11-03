@@ -77,15 +77,27 @@ public class InventoryManagerUI : MonoBehaviour
         // inventario de verdad (InventoryManager.AddItem/GetQuantity los sigue
         // viendo, así que DetectiveCaseManager no repite el pin al rejugar un
         // caso), pero visualmente sólo aparecen dentro de su álbum
-        // (PaginaDeRecompensas), con su ícono y en mosaico. El ítem «Álbum» SÍ se
-        // sigue viendo acá: es la única puerta de entrada a esa pantalla, que no
-        // tiene botón en el inicio del celular.
-        List<Item> items = new List<Item>(InventoryManager.Instance.inventory.Count);
+        // (AlbumDePinesUI), pegados en su recuadro. El ítem «Álbum» SÍ se ve acá,
+        // y siempre: es la única puerta de entrada a esa pantalla, y un álbum vacío
+        // también enseña qué pines se pueden ganar.
+        List<Item> items = new List<Item>(InventoryManager.Instance.inventory.Count + 1);
+        bool hayAlbum = false;
         foreach (var item in InventoryManager.Instance.inventory)
         {
             bool esPin = item.itemData != null && !string.IsNullOrEmpty(item.itemData.itemId) &&
                          item.itemData.itemId.StartsWith(AlbumEvidenciasUI.PrefijoPin);
-            if (!esPin) items.Add(item);
+            if (esPin) continue;
+
+            if (EsAlbum(item)) { hayAlbum = true; items.Insert(0, item); }
+            else items.Add(item);
+        }
+
+        // Todavía no se ganó (llega con la primera evidencia): se dibuja igual, sin
+        // tocar la mochila de verdad, para no cambiar lo que se guarda en la partida.
+        if (!hayAlbum)
+        {
+            ItemData album = CatalogoItems.Buscar(AlbumEvidenciasUI.ItemIdAlbum);
+            if (album != null) items.Insert(0, new Item { itemData = album, itemQuantity = 1 });
         }
 
         // Las casillas se reciclan en vez de destruirse y volverse a crear:
@@ -171,16 +183,19 @@ public class InventoryManagerUI : MonoBehaviour
     }
 
     /// <summary>
-    /// HDU-11 — el único ítem interactivo hoy es el Álbum, que lleva a la pantalla
-    /// de recompensas del celular. No es un sistema genérico de "usar ítem": solo
+    /// HDU-11 — el único ítem interactivo hoy es el Álbum, que abre el álbum de
+    /// pines. No es un sistema genérico de "usar ítem": solo
     /// este caso puntual. Los slots se reciclan (<see cref="Refresh"/>), así que el
     /// listener se rehace en cada pintado en vez de engancharse una sola vez en
     /// <see cref="CrearSlot"/> -si no, un slot que fue el álbum seguiría
     /// abriéndolo aunque ahora tenga otro objeto.
     /// </summary>
+    private static bool EsAlbum(Item item)
+        => item.itemData != null && item.itemData.itemId == AlbumEvidenciasUI.ItemIdAlbum;
+
     private void ConfigurarInteraccion(GameObject slot, Item item)
     {
-        bool esAlbum = item.itemData != null && item.itemData.itemId == AlbumEvidenciasUI.ItemIdAlbum;
+        bool esAlbum = EsAlbum(item);
 
         Button boton = slot.GetComponent<Button>();
         if (!esAlbum)
