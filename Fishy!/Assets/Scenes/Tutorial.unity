@@ -1774,6 +1774,7 @@ MonoBehaviour:
   panelDeJugador: {fileID: 0}
   paginaDeMisiones: {fileID: 0}
   botonDelTab: {fileID: 971392368}
+  pantallaDeCarga: {fileID: 0}
   distanciaParaMoverse: 4
   textoMover: "Hola, yo ser\xE9 tu gu\xEDa.\n\nPrueba a moverte con *WASD/flechas*,
     tambi\xE9n puedes correr con *Shift*."
@@ -3553,7 +3554,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.size
-      value: 2
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3805292522285593014, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: objetivos.Array.data[1].tipo
