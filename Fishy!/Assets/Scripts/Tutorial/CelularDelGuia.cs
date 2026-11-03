@@ -4,24 +4,42 @@ using System.Text.RegularExpressions;
 using Fishy.UI;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
 /// El celular por el que habla el guía del tutorial: una pantalla de chat pegada
-/// al borde izquierdo, con las instrucciones cayendo como burbujas.
+/// al borde derecho, con las instrucciones cayendo como burbujas.
 ///
 /// <b>Es todo nuevo y no toca nada del juego.</b> Se construye en código, en un
-/// Canvas propio, y lo único que usa de fuera son herramientas de dibujo que no
-/// modifica: <see cref="FishyUIKit"/> para las esquinas redondeadas y la fuente.
-/// Se parece al celular del Modo Detective, pero no es el mismo: aquel se monta
-/// con <c>MarcoTelefono</c> en el centro de la pantalla, y este va al lado y con
-/// otros colores.
+/// Canvas propio, y lo único que usa de fuera son herramientas de dibujo y colores
+/// que no modifica: <see cref="FishyUIKit"/> para las esquinas redondeadas y la
+/// fuente, y <see cref="Paleta"/> para los tonos. Se parece al celular del Modo
+/// Detective, pero no es el mismo: aquel se monta con <c>MarcoTelefono</c> en el
+/// centro de la pantalla y este va al lado. Los colores sí son los mismos, los de
+/// la paleta café del juego.
 ///
-/// <b>Por qué a la izquierda y a esa altura.</b> Sale de medir REFE_TUTORIAL.png:
-/// el cartel de misiones activas ocupa la esquina de arriba a la izquierda (440 de
-/// ancho, 28 de margen) y Otto anda por el centro, así que el hueco libre es la
-/// banda izquierda por debajo del cartel. Las medidas de abajo son las de esa
-/// referencia llevadas a 1920×1080.
+/// <b>Por qué a la derecha y de ese tamaño.</b> La banda derecha es la única que no
+/// comparte con nada: todo el HUD del juego se amontona a la izquierda —el cartel
+/// de misiones activas arriba (440 de ancho, 28 de margen), el botón de pausa en
+/// esa misma esquina y el de interactuar abajo—, y Otto anda por el centro. Así que
+/// el celular la ocupa entera, y sus medidas no son de gusto: están atadas a los
+/// dos vecinos que tiene, en píxeles de 1920×1080.
+///
+/// El botón del TAB (<c>BotonCelular</c>) está anclado arriba a la derecha, mide
+/// 160×160 y tiene 28 de margen, así que ocupa de 28 a 188 por ambos lados. De ahí
+/// salen los dos números de <see cref="margen"/>: 28 a la derecha, el mismo que el
+/// botón, para que los dos aparatos compartan borde; y 204 arriba, que es donde
+/// acaba el botón (188) más el mismo aire que el celular usa por dentro (16). Hacia
+/// abajo y hacia la izquierda no hay nada, y el tamaño llena ese hueco dejando 48
+/// de suelo. El mockup REFE_TUTORIAL.png, donde el celular era más chico y estaba
+/// al otro lado, sigue valiendo para las proporciones de dentro.
+///
+/// <b>Ojo si mueves esos números:</b> el botón del TAB vive en otro Canvas, con el
+/// escalador en "match width" en vez del 0,5 de este. A 16:9 los dos miden igual y
+/// el borde compartido cuadra al píxel; en una pantalla muy distinta se separan un
+/// poco. Es una esquina, no una costura: se nota como más o menos aire, no como un
+/// desencaje.
 ///
 /// <b>Orden de dibujo.</b> 1250, que lo deja por encima de lo único que comparte
 /// pantalla con él: el cartel de misiones (710) y los avisos de zona (1000). Las
@@ -29,9 +47,9 @@ using UnityEngine.UI;
 /// la pausa (9500)— no compiten con el celular, porque con cualquiera de ellas
 /// abierta el tutorial ya lo apagó.
 ///
-/// Lo único que recibe el puntero es la zona de la conversación, para poder subir
-/// a releer un mensaje que ya se fue hacia arriba; el bisel y las barras lo dejan
-/// pasar.
+/// Lo único que recibe el puntero es la conversación y su barra de
+/// desplazamiento, para poder subir a releer un mensaje que ya se fue hacia
+/// arriba; el bisel y las barras del celular lo dejan pasar.
 ///
 /// <b>No se queda encima de todo.</b> Quien lo enciende y lo apaga es el tutorial
 /// (<see cref="Mostrar"/>): se va mientras hay un diálogo, un chat, un caso
@@ -46,12 +64,15 @@ public class CelularDelGuia : MonoBehaviour
     public static CelularDelGuia Instance { get; private set; }
 
     [Header("Dónde")]
-    [Tooltip("Distancia a la esquina de arriba a la izquierda, en píxeles de 1920×1080. " +
-             "El valor por defecto deja el celular justo debajo del cartel de misiones.")]
-    public Vector2 margen = new Vector2(105f, 227f);
+    [Tooltip("Distancia a la esquina de arriba a la derecha, en píxeles de 1920×1080. " +
+             "La x es la del botón del TAB, para que compartan borde; la y lo deja " +
+             "justo debajo de ese botón.")]
+    public Vector2 margen = new Vector2(28f, 204f);
 
-    [Tooltip("Tamaño de la pantalla (sin contar el bisel).")]
-    public Vector2 pantalla = new Vector2(396f, 630f);
+    [Tooltip("Tamaño de la pantalla (sin contar el bisel). Con el bisel de 20 el " +
+             "aparato mide 560×828, que es la banda derecha entera: desde debajo del " +
+             "botón del TAB hasta 48 del suelo.")]
+    public Vector2 pantalla = new Vector2(520f, 788f);
 
     [Tooltip("Grosor del bisel negro alrededor de la pantalla.")]
     public float borde = 20f;
@@ -60,27 +81,67 @@ public class CelularDelGuia : MonoBehaviour
              "los avisos de zona (1000), que es lo único que comparte pantalla con él.")]
     public int ordenDeDibujo = 1250;
 
-    [Header("Colores (los del mockup)")]
+    [Header("Colores (la paleta café del juego)")]
+    // Todos salen de Fishy.UI.Paleta, igual que el panel del Tab (MenuTabsTheme) y el
+    // chat del juego (ChatUITheme). El mockup azul está traducido pieza por pieza con
+    // la correspondencia que ya usa el chat, que es la misma pantalla: una ventana con
+    // burbujas cayendo. Hex a mano aquí no: serían una cuarta copia de la paleta que
+    // se queda atrás en cuanto alguien retoque las otras tres.
+
+    /// <summary>
+    /// El aparato visto desde fuera: negro, como el bisel del mockup y como un celular
+    /// de verdad.
+    ///
+    /// Es el único color que no sale de la paleta, y a propósito: el negro no es un
+    /// tono de Fishy, es la carcasa. Contra la pantalla se separa poco (1,4:1, porque
+    /// la pantalla también es oscura), así que la silueta del aparato la da el borde
+    /// contra el mundo del juego que hay detrás, no contra su propia pantalla.
+    /// </summary>
     public Color colorBisel = new Color32(0x00, 0x00, 0x00, 255);
-    public Color colorPantalla = new Color32(0x7C, 0xA7, 0xFF, 255);
-    public Color colorBarras = new Color32(0x0D, 0x16, 0x1C, 255);
-    public Color colorBurbuja = new Color32(0xB4, 0xCD, 0xFF, 255);
-    public Color colorTextoBurbuja = Color.white;
-    public Color colorBarraInferior = new Color32(0xCB, 0xDD, 0xFF, 255);
+
+    /// <summary>La pantalla sobre la que caen las burbujas. El mismo marrón oscuro con
+    /// el que el panel del Tab pinta sus páginas y el chat su historial.</summary>
+    public Color colorPantalla = Paleta.MarronOscuro;
+
+    /// <summary>Barra de estado de arriba. En el tono del header del chat.</summary>
+    public Color colorBarras = Paleta.MarronMedio;
+
+    /// <summary>Burbuja del guía. Es la del NPC en el chat del juego: quien habla aquí
+    /// es un personaje, así que le toca su mismo color.</summary>
+    public Color colorBurbuja = Paleta.MarronClaro;
+
+    /// <summary>Texto de las burbujas. En crema, como todo el texto del chat: sobre la
+    /// burbuja da 6,2:1, mientras que el blanco que tenía sobre el azul claro del
+    /// mockup se quedaba en 1,7:1 — por debajo del mínimo legible de 4,5:1.</summary>
+    public Color colorTextoBurbuja = Paleta.Crema;
+
+    /// <summary>La barra de abajo. Deliberadamente discreta: en la referencia está
+    /// vacía y solo sirve para que el aparato se lea como un celular.</summary>
+    public Color colorBarraInferior = Paleta.MarronMedio;
 
     [Header("Medidas finas")]
     public float altoBarras = 44f;
     public float margenInterior = 16f;
-    public float anchoMaximoBurbuja = 346f;
+    [Tooltip("Cuánto del ancho libre ocupa una burbuja, de 0 a 1. Es una porción y no " +
+             "un ancho en píxeles a propósito: así el celular se puede agrandar o " +
+             "estrechar sin que haya que recalcular esto a mano, que es justo lo que " +
+             "se olvida y deja las burbujas recortadas o nadando en un hueco. Menos de " +
+             "1 deja ver el fondo a su derecha, que es lo que las hace leerse como " +
+             "burbujas y no como bloques de texto.")]
+    [Range(0.5f, 1f)] public float porcionDeBurbuja = 0.95f;
     public float separacionBurbujas = 20f;
     public float tamanoTextoBurbuja = 30f;
     public float tamanoReloj = 26f;
 
     [Header("Separador de mensajes nuevos")]
     [Tooltip("La píldora centrada que anuncia un grupo nuevo, como en separador.png. " +
-             "Oscura sobre la pantalla clara, igual que las barras del celular.")]
-    public Color colorSeparador = new Color32(0x0D, 0x16, 0x1C, 220);
-    public Color colorTextoSeparador = Color.white;
+             "En arena, el único tono claro de la paleta que el panel del Tab también " +
+             "usa como acento (el tirador de sus barras): la píldora tiene que cantar " +
+             "sobre la pantalla —5,5:1— porque marca dónde te habías quedado.")]
+    public Color colorSeparador = Paleta.Arena;
+
+    [Tooltip("Sobre la arena el texto va oscuro, al revés que en las burbujas (4,9:1).")]
+    public Color colorTextoSeparador = Paleta.Marron;
 
     [Tooltip("Más chico que el de las burbujas: en el mockup la píldora no compite " +
              "con los mensajes, solo los ordena.")]
@@ -89,7 +150,9 @@ public class CelularDelGuia : MonoBehaviour
     [Header("Lo importante, destacado")]
     [Tooltip("Color de las palabras que hay que mirar o pulsar. El amarillo cálido del " +
              "juego: el mismo del aro del minimapa y del celular del TAB en " +
-             "botoninteractuar.png.")]
+             "botoninteractuar.png. Se queda tal cual al pasar el celular a café — " +
+             "sobre la burbuja da 4,6:1 y sigue siendo lo más brillante de la " +
+             "pantalla, que es justo su trabajo.")]
     public Color colorDestacado = new Color32(0xF4, 0xA7, 0x23, 255);
 
     // Qué se destaca lo marca el propio texto con *asteriscos*; ver Destacar().
@@ -101,8 +164,9 @@ public class CelularDelGuia : MonoBehaviour
     public ImagenDelGuia[] imagenes = new ImagenDelGuia[0];
 
     [Tooltip("Ancho de la imagen dentro de la burbuja. El alto sale solo, respetando " +
-             "la proporción del sprite.")]
-    public float anchoImagen = 140f;
+             "la proporción del sprite. Subió con la pantalla: en una burbuja de 448 " +
+             "los 140 de antes se veían como un sello.")]
+    public float anchoImagen = 184f;
 
     /// <summary>Una imagen con el nombre por el que la llaman los textos.</summary>
     [System.Serializable]
@@ -122,8 +186,32 @@ public class CelularDelGuia : MonoBehaviour
     [Tooltip("Cuánto sube la conversación por muesca de la rueda del ratón.")]
     [Min(0f)] public float sensibilidadScroll = 40f;
 
+    [Header("Barra de desplazamiento")]
+    [Tooltip("Grosor de lo que SE VE: el carril y su tirador, en píxeles de 1920×1080. " +
+             "Fina a propósito, que es como se lee una barra de chat.")]
+    [Min(2f)] public float anchoBarraScroll = 5f;
+
+    [Tooltip("Ancho de lo que SE PUEDE AGARRAR, que es mayor que lo que se ve. Una " +
+             "barra de 5 px es bonita y casi imposible de pinchar con el ratón, menos " +
+             "aún para un niño/a; esta franja invisible alrededor es la que recibe el " +
+             "clic y el arrastre. Es el espacio que se le quita a las burbujas, porque " +
+             "si no, pinchar sobre un mensaje pegado a la barra daría un salto de " +
+             "página en vez de seleccionar nada.")]
+    [Min(4f)] public float anchoAgarreScroll = 22f;
+
+    [Tooltip("Aire entre las burbujas y la barra, para que el texto no quede pegado a ella.")]
+    [Min(0f)] public float separacionBarraScroll = 8f;
+
+    [Tooltip("Carril de la barra. El mismo marrón medio que usa el panel del Tab en las " +
+             "suyas: queda discreto sobre la pantalla y es el tirador el que se ve.")]
+    public Color colorCarrilScroll = Paleta.MarronMedio;
+
+    [Tooltip("Tirador de la barra. En arena, el acento claro de la paleta: sobre el " +
+             "carril da 4,2:1, así que se ve de un vistazo que hay algo que arrastrar.")]
+    public Color colorTiradorScroll = Paleta.Arena;
+
     [Header("Entrada")]
-    [Tooltip("Segundos que tarda en entrar deslizándose desde el borde izquierdo.")]
+    [Tooltip("Segundos que tarda en entrar deslizándose desde el borde derecho.")]
     [Min(0.05f)] public float duracionEntrada = 0.45f;
 
     [Tooltip("Tamaño con el que empieza la entrada (1 = el tamaño final).")]
@@ -151,6 +239,18 @@ public class CelularDelGuia : MonoBehaviour
     private TextMeshProUGUI reloj;
     private TextMeshProUGUI titulo, tituloSombra;
     private float proximoRefrescoDelReloj;
+
+    /// <summary>
+    /// Dónde se queda quieto el celular: pegado al borde derecho, a <see cref="margen"/>
+    /// de él y de la parte de arriba.
+    ///
+    /// La x es negativa porque el marco está anclado a la derecha, así que restar lo
+    /// mete en pantalla. Vive en una sola propiedad porque este punto hace falta en
+    /// tres sitios —al construirlo, al animar la entrada y al rescatarlo si se apaga
+    /// a media animación—, y tenerlo escrito tres veces es justo lo que hace que
+    /// cambiar el lado deje el celular medio fuera de la pantalla.
+    /// </summary>
+    private Vector2 Reposo => new Vector2(-margen.x, -margen.y);
 
     /// <summary>Todo lo dibujado en la conversación: burbujas y separadores. Van
     /// juntos porque <see cref="Limpiar"/> los borra igual, y porque para decidir si
@@ -237,7 +337,7 @@ public class CelularDelGuia : MonoBehaviour
         // encogido para siempre. Se le da el sitio final a mano.
         if (entrada == null || marco == null) return;
         entrada = null;
-        marco.anchoredPosition = new Vector2(margen.x, -margen.y);
+        marco.anchoredPosition = Reposo;
         marco.localScale = Vector3.one;
     }
 
@@ -390,12 +490,12 @@ public class CelularDelGuia : MonoBehaviour
     }
 
     /// <summary>
-    /// Deja el celular fuera de pantalla por la izquierda y lo trae a su sitio.
+    /// Deja el celular fuera de pantalla por la derecha y lo trae a su sitio.
     ///
     /// Es la misma curva con la que sube el panel del Tab —entra rápido, se pasa un
     /// poco de largo y se asienta— y el mismo arranque en pequeño, para que los dos
     /// aparatos se sientan del mismo juego. Lo que cambia es de dónde viene: el
-    /// panel sube desde abajo y este entra desde el borde izquierdo, que es el suyo.
+    /// panel sube desde abajo y este entra desde el borde derecho, que es el suyo.
     ///
     /// En tiempo real, porque también tiene que animarse con el juego detenido.
     /// </summary>
@@ -410,8 +510,8 @@ public class CelularDelGuia : MonoBehaviour
 
     private IEnumerator RutinaDeEntrada()
     {
-        Vector2 reposo = new Vector2(margen.x, -margen.y);
-        Vector2 fuera = new Vector2(-(marco.rect.width + 40f), reposo.y);
+        Vector2 reposo = Reposo;
+        Vector2 fuera = new Vector2(marco.rect.width + 40f, reposo.y);
 
         // Fuera de pantalla YA, antes de ceder el frame: si esto esperara, el
         // primer dibujo pillaría el celular en su sitio y la animación empezaría
@@ -516,15 +616,16 @@ public class CelularDelGuia : MonoBehaviour
 
     private void ConstruirCelular(Transform padre)
     {
-        // Bisel: el aparato visto desde fuera. Anclado arriba a la izquierda, que es
-        // donde la referencia lo pone y donde no estorba al cartel de misiones.
+        // Bisel: el aparato visto desde fuera. Anclado arriba a la derecha, que es el
+        // lado libre: el cartel de misiones, el botón de pausa y el de interactuar
+        // están todos a la izquierda.
         celular = new GameObject("Celular", typeof(RectTransform), typeof(Image));
         celular.transform.SetParent(padre, false);
 
         marco = (RectTransform)celular.transform;
-        marco.anchorMin = marco.anchorMax = new Vector2(0f, 1f);
-        marco.pivot = new Vector2(0f, 1f);
-        marco.anchoredPosition = new Vector2(margen.x, -margen.y);
+        marco.anchorMin = marco.anchorMax = new Vector2(1f, 1f);
+        marco.pivot = new Vector2(1f, 1f);
+        marco.anchoredPosition = Reposo;
         marco.sizeDelta = pantalla + Vector2.one * (borde * 2f);
 
         var imgMarco = celular.GetComponent<Image>();
@@ -549,8 +650,10 @@ public class CelularDelGuia : MonoBehaviour
     {
         var barra = Barra(pant, "BarraEstado", colorBarras, arriba: true);
 
+        // El reloj en crema y no en blanco: es parte del aparato, así que va con el
+        // mismo texto que las burbujas. Sobre la barra da 7,9:1.
         reloj = FishyUIKit.Texto(barra, "Reloj", System.DateTime.Now.ToString("HH:mm"),
-            tamanoReloj, Color.white, TextAlignmentOptions.MidlineLeft);
+            tamanoReloj, Paleta.Crema, TextAlignmentOptions.MidlineLeft);
 
         var rt = (RectTransform)reloj.transform;
         rt.anchorMin = new Vector2(0f, 0f);
@@ -608,7 +711,8 @@ public class CelularDelGuia : MonoBehaviour
         visor.anchorMin = Vector2.zero;
         visor.anchorMax = Vector2.one;
         visor.offsetMin = new Vector2(margenInterior, hueco);
-        visor.offsetMax = new Vector2(-margenInterior, -hueco);
+        visor.offsetMax = new Vector2(-(margenInterior + anchoAgarreScroll + separacionBarraScroll),
+                                      -hueco);
 
         // Transparente, pero sí recibe el puntero: es lo único del celular que lo
         // recibe, y es lo que permite arrastrar o usar la rueda para subir a releer.
@@ -643,7 +747,163 @@ public class CelularDelGuia : MonoBehaviour
         scroll.vertical = true;
         scroll.movementType = ScrollRect.MovementType.Clamped;
         scroll.scrollSensitivity = sensibilidadScroll;
+
+        // La barra: sin ella, que la conversación se pueda subir era un secreto. Se
+        // podía arrastrar y usar la rueda desde el principio, pero nada en pantalla lo
+        // decía, así que un mensaje que se iba hacia arriba se daba por perdido.
+        scroll.verticalScrollbar = ConstruirBarraDeScroll(pant, hueco);
+
+        // AutoHide y no Permanent: la barra aparece en cuanto hay más mensajes de los
+        // que caben, que es exactamente cuando hay algo que subir. Un carril visible
+        // desde el primer mensaje, con el tirador ocupándolo entero, diría lo contrario
+        // de lo que queremos —"esto no se mueve"— justo cuando el niño/a lo mira por
+        // primera vez.
+        //
+        // Y no AutoHideAndExpandViewport, que además le devolvería el ancho al visor
+        // al esconderse: las burbujas cambiarían de tamaño al llegar el mensaje que
+        // llena la pantalla, y el texto se recolocaría solo delante de quien lo lee.
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
     }
+
+    /// <summary>
+    /// El carril con su tirador, pegado al borde derecho de la pantalla y a la altura
+    /// del visor.
+    ///
+    /// Va hermano del visor y no dentro, porque un hijo del visor lo recortaría su
+    /// <c>RectMask2D</c> y, con AutoHide, Unity además necesita poder apagarlo sin
+    /// apagar la conversación.
+    ///
+    /// La jerarquía es la que espera <see cref="Scrollbar"/>: el componente con su
+    /// zona deslizable estirada dentro y el tirador dentro de ella. Del tirador, el
+    /// Scrollbar maneja los ANCLAJES —cuánto ocupa y dónde va a lo largo del
+    /// recorrido—, pero no los márgenes, así que estrecharlo por los lados con
+    /// <c>offsetMin/offsetMax</c> es lo que aguanta: ahí es donde se separa lo que se
+    /// ve de lo que se puede agarrar.
+    /// </summary>
+    private Scrollbar ConstruirBarraDeScroll(Transform pant, float hueco)
+    {
+        var barraGO = new GameObject("BarraDeScroll",
+            typeof(RectTransform), typeof(Image), typeof(Scrollbar));
+        barraGO.transform.SetParent(pant, false);
+
+        var rt = (RectTransform)barraGO.transform;
+        rt.anchorMin = new Vector2(1f, 0f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(1f, 0.5f);
+        rt.sizeDelta = new Vector2(anchoAgarreScroll, -hueco * 2f);
+        rt.anchoredPosition = new Vector2(-margenInterior, 0f);
+
+        // La franja de agarre: invisible, pero es la que recibe el puntero. Un Image
+        // transparente sigue recibiendo raycasts, que es lo que la hace funcionar —el
+        // mismo truco que el fondo del visor para poder arrastrar la conversación.
+        var zonaDeAgarre = barraGO.GetComponent<Image>();
+        zonaDeAgarre.color = new Color(0f, 0f, 0f, 0f);
+        zonaDeAgarre.raycastTarget = true;
+
+        // Radio igual a la mitad del grosor: el carril y el tirador salen en cápsula,
+        // que es la forma con la que se leen como "barra" y no como dos rectángulos.
+        int radio = Mathf.Max(1, Mathf.RoundToInt(anchoBarraScroll * 0.5f));
+
+        // El carril visible, centrado en la franja. Va en su propio hijo y no en el
+        // Image de arriba porque ese tiene que quedarse transparente para hacer de
+        // zona de agarre: son dos cosas distintas, una que se ve y otra que se toca.
+        var carrilGO = new GameObject("Carril", typeof(RectTransform), typeof(Image));
+        carrilGO.transform.SetParent(barraGO.transform, false);
+
+        var carrilRT = (RectTransform)carrilGO.transform;
+        carrilRT.anchorMin = new Vector2(0.5f, 0f);
+        carrilRT.anchorMax = new Vector2(0.5f, 1f);
+        carrilRT.pivot = new Vector2(0.5f, 0.5f);
+        carrilRT.sizeDelta = new Vector2(anchoBarraScroll, 0f);
+        carrilRT.anchoredPosition = Vector2.zero;
+
+        var imgCarril = carrilGO.GetComponent<Image>();
+        FishyUIKit.FondoRedondeado(imgCarril, colorCarrilScroll, 64, radio);
+        imgCarril.raycastTarget = false;
+
+        var deslizable = new GameObject("ZonaDeslizable", typeof(RectTransform));
+        deslizable.transform.SetParent(barraGO.transform, false);
+        Estirar((RectTransform)deslizable.transform, Vector2.zero);
+
+        var tiradorGO = new GameObject("Tirador", typeof(RectTransform), typeof(Image));
+        tiradorGO.transform.SetParent(deslizable.transform, false);
+
+        // Estrechado a los lados hasta el grosor visible, y sin márgenes arriba ni
+        // abajo: esos dos se los deja al Scrollbar, que es quien mueve el tirador.
+        float sobra = Mathf.Max(0f, (anchoAgarreScroll - anchoBarraScroll) * 0.5f);
+        var tiradorRT = (RectTransform)tiradorGO.transform;
+        tiradorRT.offsetMin = new Vector2(sobra, 0f);
+        tiradorRT.offsetMax = new Vector2(-sobra, 0f);
+
+        var imgTirador = tiradorGO.GetComponent<Image>();
+        FishyUIKit.FondoRedondeado(imgTirador, colorTiradorScroll, 64, radio);
+
+        var barra = barraGO.GetComponent<Scrollbar>();
+        barra.direction = Scrollbar.Direction.BottomToTop;
+        barra.handleRect = tiradorRT;
+        barra.targetGraphic = imgTirador;
+
+        SoltarLaSeleccion(barraGO);
+        return barra;
+    }
+
+    /// <summary>
+    /// Deja la barra sin seleccionar en cuanto el jugador suelta el ratón.
+    ///
+    /// <b>Por qué.</b> Un <see cref="Scrollbar"/> es un <c>Selectable</c>, así que al
+    /// pincharlo queda seleccionado, y el EventSystem le manda a lo seleccionado los
+    /// eventos de navegación. Las teclas de esa navegación son, en el asset por
+    /// defecto del InputSystem, WASD y las cuatro flechas: las ocho con las que
+    /// camina Otto. Una barra seleccionada desplaza la conversación cada vez que el
+    /// jugador se mueve, y encima en el primer paso del tutorial, que es justo el que
+    /// enseña esas teclas. Como Otto lee su propia acción, la tecla no se consume: se
+    /// hacen las dos cosas a la vez.
+    ///
+    /// <b>Por qué al soltar y no al recibir la selección.</b> Desde el evento
+    /// <c>Select</c> no se puede: <c>EventSystem.SetSelectedGameObject</c> lleva un
+    /// cerrojo mientras reparte la selección (<c>alreadySelecting</c>), y llamarla
+    /// desde ahí solo saca un error en la consola y deja la barra igual de
+    /// seleccionada. Al soltar el botón ya estamos fuera de ese reparto. Quedan las
+    /// décimas que dure el arrastre con el botón apretado, que es tiempo en el que el
+    /// jugador no está caminando.
+    ///
+    /// <b>Qué no se rompe.</b> El arrastre y la rueda, que van por eventos de puntero
+    /// y no miran quién está seleccionado. Lo único que se pierde es desplazar la
+    /// conversación con el teclado; entre eso y que caminar mueva el chat, se pierde
+    /// esto.
+    /// </summary>
+    private static void SoltarLaSeleccion(GameObject barraGO)
+    {
+        var alSoltar = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+        alSoltar.callback.AddListener(_ =>
+        {
+            EventSystem sistema = EventSystem.current;
+            if (sistema != null && !sistema.alreadySelecting)
+                sistema.SetSelectedGameObject(null);
+        });
+
+        barraGO.AddComponent<EventTrigger>().triggers.Add(alSoltar);
+    }
+
+    /// <summary>
+    /// Ancho libre dentro de la pantalla, ya descontada la barra.
+    ///
+    /// Se descuenta la franja de agarre y no el grosor visible: lo que hay que
+    /// respetar es lo que se puede pinchar, no lo que se pinta.
+    /// </summary>
+    private float AnchoDelVisor =>
+        pantalla.x - margenInterior * 2f - anchoAgarreScroll - separacionBarraScroll;
+
+    /// <summary>
+    /// Ancho de una burbuja: su porción del espacio libre.
+    ///
+    /// Se calcula y no se escribe porque los dos números de los que depende —el ancho
+    /// de la pantalla y el de la barra— ya cambiaron una vez cada uno. Con un ancho
+    /// fijo, agrandar el celular dejaba las burbujas nadando en un hueco y meter la
+    /// barra las dejaba recortadas por el borde, que parece un fallo de texto y no de
+    /// medidas.
+    /// </summary>
+    private float AnchoDeBurbuja => AnchoDelVisor * porcionDeBurbuja;
 
     private void CrearBurbuja(string texto)
     {
@@ -671,7 +931,7 @@ public class CelularDelGuia : MonoBehaviour
         // Ancho fijo y sin estirarse: así todas las burbujas quedan alineadas y el
         // texto largo parte de línea en vez de salirse de la pantalla.
         var le = burbuja.GetComponent<LayoutElement>();
-        le.preferredWidth = anchoMaximoBurbuja;
+        le.preferredWidth = AnchoDeBurbuja;
         le.flexibleWidth = 0f;
 
         TextMeshProUGUI t = FishyUIKit.Texto(burbuja.transform, "Texto", Destacar(texto),
@@ -785,7 +1045,7 @@ public class CelularDelGuia : MonoBehaviour
         filaHlg.childForceExpandWidth = false; filaHlg.childForceExpandHeight = false;
 
         var filaLe = fila.GetComponent<LayoutElement>();
-        filaLe.preferredWidth = anchoMaximoBurbuja;
+        filaLe.preferredWidth = AnchoDeBurbuja;
         filaLe.flexibleWidth = 0f;
 
         var pildora = new GameObject("Pildora",
