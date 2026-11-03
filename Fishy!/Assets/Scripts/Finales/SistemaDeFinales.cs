@@ -353,7 +353,8 @@ namespace Fishy.Finales
             {
                 if (PidioAvanzar()) { destino.SetText(linea); yield return null; yield break; }
                 destino.SetText(linea.Substring(0, i + 1));
-                yield return new WaitForSeconds(velocidadTecleo);
+                yield return new WaitForSeconds(velocidadTecleo *
+                    Fishy.UI.ConfiguracionDelJuego.MultiplicadorEsperaTexto);
             }
         }
 

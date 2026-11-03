@@ -66,7 +66,7 @@ namespace Fishy.EditorTools
             ProbarReanudarLeDevuelveElControlAOtto(log);
             ProbarNoSeAbreSiAlgoLoVeta(log);
             ProbarLaConfiguracionTapaLaBotoneraYVuelve(log);
-            ProbarLaConfiguracionGuardaElVolumen(log);
+            ProbarLaConfiguracionGuardaLaVelocidadDelTexto(log);
             ProbarElBotonEnPantallaSeEscondeCuandoNoTocaPausar(log);
 
             // ── El camino real de salida ──
@@ -209,22 +209,29 @@ namespace Fishy.EditorTools
             Soltar(menu, otto);
         }
 
-        /// <summary>CA2 — El volumen elegido se queda guardado para la próxima vez.</summary>
-        private static void ProbarLaConfiguracionGuardaElVolumen(StringBuilder log)
+        /// <summary>CA2 — La velocidad del texto elegida se queda guardada, da la
+        /// vuelta en orden y cambia de verdad la espera entre letras.</summary>
+        private static void ProbarLaConfiguracionGuardaLaVelocidadDelTexto(StringBuilder log)
         {
-            float original = ConfiguracionDelJuego.Volumen;
+            var original = ConfiguracionDelJuego.VelocidadTexto;
 
-            ConfiguracionDelJuego.Volumen = 0.37f;
-            bool seGuardo = Mathf.Approximately(ConfiguracionDelJuego.Volumen, 0.37f) &&
-                            Mathf.Approximately(AudioListener.volume, 0.37f);
+            ConfiguracionDelJuego.VelocidadTexto = ConfiguracionDelJuego.VelocidadDelTexto.Lenta;
+            bool seGuardo = ConfiguracionDelJuego.VelocidadTexto ==
+                            ConfiguracionDelJuego.VelocidadDelTexto.Lenta;
+            float lenta = ConfiguracionDelJuego.MultiplicadorEsperaTexto;
 
-            ConfiguracionDelJuego.Volumen = 2f;
-            bool seAcota = Mathf.Approximately(ConfiguracionDelJuego.Volumen, 1f);
+            ConfiguracionDelJuego.VelocidadTexto = ConfiguracionDelJuego.VelocidadDelTexto.Rapida;
+            float rapida = ConfiguracionDelJuego.MultiplicadorEsperaTexto;
 
-            ConfiguracionDelJuego.Volumen = original;
+            bool daLaVuelta = ConfiguracionDelJuego.SiguienteVelocidad(
+                                  ConfiguracionDelJuego.VelocidadDelTexto.Rapida) ==
+                              ConfiguracionDelJuego.VelocidadDelTexto.Lenta;
 
-            Comprobar(log, "el volumen se guarda, se aplica y no se sale de 0..1",
-                seGuardo && seAcota, $"volumen restaurado a {original:0.00}");
+            ConfiguracionDelJuego.VelocidadTexto = original;
+
+            Comprobar(log, "la velocidad del texto se guarda, da la vuelta y cambia la espera",
+                seGuardo && daLaVuelta && lenta > 1f && rapida < 1f,
+                $"lenta x{lenta:0.00}, rápida x{rapida:0.00}");
         }
 
         /// <summary>

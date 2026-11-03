@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Fishy.UI
 {
     /// <summary>
-    /// Aspecto y textos del teclado de ayuda que enseña las teclas
+    /// Aspecto y textos de la tarjeta de controles del menú de pausa
     /// (<see cref="TecladoEnPantalla"/>).
     ///
     /// Es solo configuración, igual que MisionHudTheme, ChatUITheme y
@@ -17,19 +17,11 @@ namespace Fishy.UI
     /// </summary>
     public static class TecladoEnPantallaTheme
     {
-        /// <summary>
-        /// Por encima del cartel de misión (710) y por debajo del celular (1200), el
-        /// álbum (1300) y el menú de pausa (9500): es una ayuda del juego, así que
-        /// cualquier pantalla que se abra encima lo tapa, que es lo correcto.
-        /// </summary>
-        public static int OrdenDeDibujo = 800;
-
         public static class Colores
         {
-            /// <summary>Fondo de la tarjeta. El mismo tono y la misma transparencia
-            /// que el cartel de misión: son las dos ayudas permanentes de la pantalla
-            /// de juego y tienen que leerse como la misma cosa.</summary>
-            public static Color Panel = Paleta.Hex(0x33211A, 0.86f);
+            /// <summary>Fondo de la tarjeta: el mismo de las tarjetas de la pausa,
+            /// porque se abre en su lugar.</summary>
+            public static Color Panel = Paleta.Marron;
 
             /// <summary>Cara de una tecla en reposo.</summary>
             public static Color Tecla = Paleta.MarronClaro;
@@ -52,16 +44,15 @@ namespace Fishy.UI
         public static class Medidas
         {
             /// <summary>Ancho de la tarjeta, en píxeles de la resolución de referencia
-            /// (1920x1080). El alto lo pone el contenido.
-            ///
-            /// No se puede engordar sin mirar: la tarjeta vive abajo a la derecha y el
-            /// panel de diálogo ocupa el centro hasta x=1400. Con 480 y el margen de
-            /// aquí al lado quedan 20 px entre los dos, y hay una prueba del arnés que
-            /// avisa si alguien se come ese hueco.</summary>
+            /// (1920x1080), antes de <see cref="Escala"/>. El alto lo pone el contenido.</summary>
             public static float AnchoPanel = 480f;
 
-            /// <summary>Separación respecto a la esquina de abajo a la derecha.</summary>
-            public static Vector2 Margen = new Vector2(20f, 20f);
+            /// <summary>Cuánto se agranda la tarjeta entera en la pausa. Se diseñó para
+            /// una esquina de la pantalla; en el centro y sola, a tamaño 1 se ve chica.</summary>
+            public static float Escala = 1.3f;
+
+            /// <summary>Alto del botón «Volver».</summary>
+            public static float AltoBoton = 60f;
 
             /// <summary>Margen interior, separación entre filas y entre teclas.</summary>
             public static float Padding    = 20f;
@@ -104,10 +95,6 @@ namespace Fishy.UI
             /// que no se monte con la letra.</summary>
             public static float BajadaFlecha = 17f;
 
-            /// <summary>Transparencia de una fila cuyas teclas el niño/a ya usó. No se
-            /// borra: se apaga. Así se ve lo aprendido sin que la tarjeta cambie de
-            /// tamaño a mitad de partida.</summary>
-            public static float AlfaAprendida = 0.4f;
         }
 
         public static class Fuente
@@ -120,11 +107,13 @@ namespace Fishy.UI
             public static float Letra    = 28f;
             public static float Etiqueta = 24f;
             public static float Pista    = 20f;
+            public static float Boton    = 26f;
         }
 
         public static class Textos
         {
-            public static string Titulo = "Las teclas";
+            public static string Titulo = "Controles";
+            public static string Volver = "Volver";
 
             public static string Caminar = "Caminar";
 
@@ -140,7 +129,6 @@ namespace Fishy.UI
             public static string Hablar = "Hablar y seguir";
 
             public static string Correr  = "Correr";
-            public static string Saltar  = "Saltar";
             public static string Celular = "Celular";
             public static string Pausa   = "Pausa";
 

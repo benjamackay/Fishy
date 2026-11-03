@@ -245,7 +245,8 @@ public class DialogoNeutroNPC : MonoBehaviour, IInteractable
 
         foreach(char letter in dialogueData.dialogueLines[dialogueIndex]){
             dialogueText.text += letter;
-             yield return new WaitForSeconds(dialogueData.typingSpeed);
+             yield return new WaitForSeconds(dialogueData.typingSpeed *
+                 Fishy.UI.ConfiguracionDelJuego.MultiplicadorEsperaTexto);
         }
         isTyping = false;
 

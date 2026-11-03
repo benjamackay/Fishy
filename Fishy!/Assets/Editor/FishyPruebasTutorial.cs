@@ -28,8 +28,8 @@ namespace Fishy.EditorTools
     ///
     ///  A) que los textos se lean en el equipo escolar típico (1366x768), que es
     ///     donde el canvas de la escena los encogía a 17 px;
-    ///  B) que el teclado de ayuda (<see cref="TecladoEnPantalla"/>) enseñe las
-    ///     teclas que el juego escucha de verdad, y no unas escritas a mano.
+    ///  B) que la tarjeta de controles de la pausa (<see cref="TecladoEnPantalla"/>)
+    ///     enseñe las teclas que el juego escucha de verdad, y no unas escritas a mano.
     ///
     /// Como el resto de los arneses de este proyecto, esto vive en el editor y no en
     /// PlayMode: todo lo que se mide aquí está en Assembly-CSharp, y un .asmdef de
@@ -82,11 +82,6 @@ namespace Fishy.EditorTools
             log.AppendLine("PRUEBAS DE TEXTOS Y TECLAS DEL TUTORIAL (headless)");
             log.AppendLine(new string('=', 70));
 
-            // Lo que el teclado de ayuda tenga aprendido en ESTE equipo no es cosa de
-            // las pruebas: se guarda, se arranca de cero y se devuelve al final.
-            string aprendidasAntes = PlayerPrefs.GetString(TecladoEnPantalla.ClaveAprendidas, "");
-            TecladoEnPantalla.Olvidar();
-
             // ── A) Lo que se lee ──
             ProbarElCanvasDeLaEscenaEscalaComoLosDemas(log);
             ProbarElCuerpoDelDialogoSeLeeEnElEquipoDelColegio(log);
@@ -101,14 +96,10 @@ namespace Fishy.EditorTools
             ProbarEnsenaLasTeclasQueElJuegoEscucha(log);
             ProbarNingunaEtiquetaUsaUnGlifoQueFalta(log);
             ProbarLaTeclaSeEnciendeAlPulsarla(log);
-            ProbarLoAprendidoSeAtenuaYLaTarjetaSeVa(log);
-            ProbarNoSeVeCuandoNoToca(log);
-            ProbarLaTarjetaNoSePisaConElPanelDeDialogo(log);
+            ProbarLaTarjetaNoSeVaAunqueSePulsenTodas(log);
             ProbarNingunaFilaSeSaleDeLaTarjeta(log);
 
             EstadoDePausa.Restablecer();
-            PlayerPrefs.SetString(TecladoEnPantalla.ClaveAprendidas, aprendidasAntes);
-            PlayerPrefs.Save();
 
             log.AppendLine();
             log.AppendLine(new string('=', 70));
@@ -392,7 +383,6 @@ namespace Fishy.EditorTools
             try
             {
                 ayuda = NuevoTeclado();
-                Invocar(ayuda, "Revisar");
             }
             catch (Exception ex)
             {
@@ -404,7 +394,7 @@ namespace Fishy.EditorTools
                 Application.logMessageReceived -= escucha;
             }
 
-            Comprobar(log, "el teclado de ayuda se construye y se enciende sin una sola excepción",
+            Comprobar(log, "la tarjeta de controles se construye y se abre sin una sola excepción",
                 !exploto && ruidos.Count == 0 && Visible(ayuda),
                 ruidos.Count > 0 ? ruidos[0]
                                  : (Visible(ayuda) ? "" : "se construyó pero no se mostró"));
@@ -426,17 +416,15 @@ namespace Fishy.EditorTools
             OttoController otto = NuevoOtto();
             Keyboard teclado = AsegurarTeclado();
             TecladoEnPantalla ayuda = NuevoTeclado();
-            Invocar(ayuda, "Revisar");
 
             Dictionary<string, List<Key>> ensenadas = ayuda.LoQueEnsena();
 
             List<Key> deVerdadCaminar = TeclasDeTeclado(otto.AccionMover);
             List<Key> deVerdadCorrer  = TeclasDeTeclado(otto.AccionCorrer);
-            List<Key> deVerdadSaltar  = TeclasDeTeclado(otto.AccionSaltar);
 
             bool caminar = Coinciden(ensenadas, "Caminar", deVerdadCaminar);
             bool correr  = Coinciden(ensenadas, "Correr", deVerdadCorrer);
-            bool saltar  = Coinciden(ensenadas, "Saltar", deVerdadSaltar);
+            bool sinSaltar = !ensenadas.ContainsKey("Saltar");
             bool hablar  = Coinciden(ensenadas, "Hablar", new List<Key> { Key.E });
             bool celular = Coinciden(ensenadas, "Celular",
                 new List<Key> { MenuController.TeclaDelCelular });
@@ -444,7 +432,7 @@ namespace Fishy.EditorTools
                 new List<Key> { MenuPausa.TeclaDePausa });
 
             Comprobar(log, "las teclas de la tarjeta son las que el juego escucha de verdad",
-                caminar && correr && saltar && hablar && celular && pausa,
+                caminar && correr && sinSaltar && hablar && celular && pausa,
                 string.Join(" · ", ensenadas.Select(p =>
                     $"{p.Key}: {string.Join("/", p.Value)}")));
 
@@ -470,7 +458,6 @@ namespace Fishy.EditorTools
             OttoController otto = NuevoOtto();
             Keyboard teclado = AsegurarTeclado();
             TecladoEnPantalla ayuda = NuevoTeclado();
-            Invocar(ayuda, "Revisar");
 
             var sinGlifo = new List<string>();
             var conFlecha = new List<string>();
@@ -507,13 +494,9 @@ namespace Fishy.EditorTools
         /// </summary>
         private static void ProbarLaTeclaSeEnciendeAlPulsarla(StringBuilder log)
         {
-            string guardado = PlayerPrefs.GetString(TecladoEnPantalla.ClaveAprendidas, "");
-            TecladoEnPantalla.Olvidar();
-
             OttoController otto = NuevoOtto();
             Keyboard teclado = AsegurarTeclado();
             TecladoEnPantalla ayuda = NuevoTeclado();
-            Invocar(ayuda, "Revisar");
 
             Image w = CaraDe(ayuda, "Tecla_W");
             Image e = CaraDe(ayuda, "Tecla_E");
@@ -537,149 +520,35 @@ namespace Fishy.EditorTools
                 $"enciende={seEnciende}, apaga={seApaga}, flecha={laFlechaTambien}");
 
             Soltar(ayuda, otto, teclado);
-            PlayerPrefs.SetString(TecladoEnPantalla.ClaveAprendidas, guardado);
-            PlayerPrefs.Save();
         }
 
         /// <summary>
-        /// La tarjeta se enseña sola a callarse: cada fila se apaga en cuanto esa
-        /// tecla se usa, y cuando están todas usadas desaparece y no vuelve en la
-        /// próxima partida.
+        /// La tarjeta es una consulta y no una lección: pulsar todas las teclas no la
+        /// apaga ni la atenúa. Antes se iba sola y no había forma de volver a verla.
         /// </summary>
-        private static void ProbarLoAprendidoSeAtenuaYLaTarjetaSeVa(StringBuilder log)
+        private static void ProbarLaTarjetaNoSeVaAunqueSePulsenTodas(StringBuilder log)
         {
-            string guardado = PlayerPrefs.GetString(TecladoEnPantalla.ClaveAprendidas, "");
-            TecladoEnPantalla.Olvidar();
-
             OttoController otto = NuevoOtto();
             Keyboard teclado = AsegurarTeclado();
             TecladoEnPantalla ayuda = NuevoTeclado();
-            Invocar(ayuda, "Revisar");
 
-            CanvasGroup filaCaminar = ayuda.GetComponentsInChildren<CanvasGroup>(true)
-                .FirstOrDefault(g => g.name == "Fila_Caminar");
-
-            float antes = filaCaminar != null ? filaCaminar.alpha : -1f;
-
-            Repintar(ayuda, tecla => tecla == Key.W);
-            float despues = filaCaminar != null ? filaCaminar.alpha : -1f;
-
-            Comprobar(log, "la fila de una tecla ya usada se atenúa",
-                Mathf.Approximately(antes, 1f) &&
-                Mathf.Approximately(despues, TecladoEnPantallaTheme.Medidas.AlfaAprendida),
-                $"alfa {antes:0.00} → {despues:0.00}");
-
-            // Y ahora todas: la tarjeta se va, aunque con un respiro de por medio.
             Repintar(ayuda, tecla => true);
-            bool seguiaVisibleAlPrincipio = Visible(ayuda);
-
-            Adelantar(ayuda, 5f);
+            Repintar(ayuda, tecla => false);
             Repintar(ayuda, tecla => true);
 
-            bool seFue = !Visible(ayuda);
-            bool recordado = PlayerPrefs.GetString(TecladoEnPantalla.ClaveAprendidas, "")
-                .Split(',').Length >= 6;
+            bool sigue = Visible(ayuda) && ayuda.Abierto;
 
-            // Y en la próxima sesión ni se construye.
-            TecladoEnPantalla otra = NuevoTeclado();
-            Invocar(otra, "LeerLoAprendido");
-            Invocar(otra, "Revisar");
-            bool noVuelve = !Visible(otra);
+            ayuda.Cerrar();
+            bool cierra = !Visible(ayuda);
 
-            Comprobar(log, "con todas las teclas usadas la tarjeta se va y no vuelve en la próxima partida",
-                seguiaVisibleAlPrincipio && seFue && recordado && noVuelve,
-                $"se queda un momento={seguiaVisibleAlPrincipio}, se va={seFue}, " +
-                $"se recuerda={recordado}, no vuelve={noVuelve}");
+            ayuda.Abrir();
+            Image w = CaraDe(ayuda, "Tecla_W");
+            bool vuelveLimpia = Visible(ayuda) && w != null &&
+                                Iguales(w.color, TecladoEnPantallaTheme.Colores.Tecla);
 
-            Soltar(otra, null, null);
-            Soltar(ayuda, otto, teclado);
-            PlayerPrefs.SetString(TecladoEnPantalla.ClaveAprendidas, guardado);
-            PlayerPrefs.Save();
-        }
-
-        /// <summary>
-        /// Una ayuda visible cuando no se puede jugar estorba y confunde. Se esconde
-        /// en pausa, durante una cinemática o una carga, con el celular abierto
-        /// encima y cuando no hay teclado que enseñar.
-        /// </summary>
-        private static void ProbarNoSeVeCuandoNoToca(StringBuilder log)
-        {
-            string guardado = PlayerPrefs.GetString(TecladoEnPantalla.ClaveAprendidas, "");
-            TecladoEnPantalla.Olvidar();
-            EstadoDePausa.Restablecer();
-
-            const string Veto = "prueba: cinemática";
-
-            OttoController otto = NuevoOtto();
-            Keyboard teclado = AsegurarTeclado();
-            TecladoEnPantalla ayuda = NuevoTeclado();
-
-            Invocar(ayuda, "Revisar");
-            bool enPartida = Visible(ayuda);
-
-            EstadoDePausa.RegistrarBloqueo(Veto, () => true);
-            Invocar(ayuda, "Revisar");
-            bool enCinematica = !Visible(ayuda);
-            EstadoDePausa.SoltarBloqueo(Veto);
-
-            EstadoDePausa.Pausar();
-            Invocar(ayuda, "Revisar");
-            bool enPausa = !Visible(ayuda);
-            EstadoDePausa.Reanudar();
-
-            InputSystem.RemoveDevice(teclado);
-            Invocar(ayuda, "Revisar");
-            bool sinTeclado = !Visible(ayuda);
-            teclado = AsegurarTeclado();
-
-            Comprobar(log, "la tarjeta solo se ve mientras se juega con teclado",
-                enPartida && enCinematica && enPausa && sinTeclado,
-                $"en partida={enPartida}, en cinemática oculta={enCinematica}, " +
-                $"en pausa oculta={enPausa}, sin teclado oculta={sinTeclado}");
-
-            Soltar(ayuda, otto, teclado);
-            PlayerPrefs.SetString(TecladoEnPantalla.ClaveAprendidas, guardado);
-            PlayerPrefs.Save();
-        }
-
-        /// <summary>
-        /// Los dos viven abajo: el diálogo en el centro y la tarjeta en la esquina
-        /// derecha. Es el choque que más fácil se cuela al retocar anchos, y el peor
-        /// de los posibles: taparía justo la frase que hay que leer.
-        /// </summary>
-        private static void ProbarLaTarjetaNoSePisaConElPanelDeDialogo(StringBuilder log)
-        {
-            OttoController otto = NuevoOtto();
-            Keyboard teclado = AsegurarTeclado();
-            TecladoEnPantalla ayuda = NuevoTeclado();
-            Invocar(ayuda, "Revisar");
-
-            RectTransform tarjeta = Tarjeta(ayuda);
-            if (tarjeta == null)
-            {
-                Comprobar(log, "la tarjeta de teclas no se pisa con el panel de diálogo", false,
-                    "la tarjeta no llegó a construirse");
-                Soltar(ayuda, otto, teclado);
-                return;
-            }
-
-            float ancho = tarjeta.sizeDelta.x;
-            float alto  = tarjeta.sizeDelta.y;
-
-            // En coordenadas de pantalla de la resolución de referencia.
-            var rTarjeta = new Rect(Referencia.x - TecladoEnPantallaTheme.Medidas.Margen.x - ancho, TecladoEnPantallaTheme.Medidas.Margen.y, ancho, alto);
-
-            Vector2 panel = DialogoNeutroTheme.Medidas.TamanoPanel;
-            var rDialogo = new Rect((Referencia.x - panel.x) / 2f,
-                DialogoNeutroTheme.Medidas.MargenInferior, panel.x, panel.y);
-
-            bool enPantalla = rTarjeta.xMin >= 0f && rTarjeta.yMin >= 0f &&
-                              rTarjeta.yMax <= Referencia.y;
-
-            Comprobar(log, "la tarjeta de teclas cabe en pantalla y no se pisa con el panel de diálogo",
-                enPantalla && !rTarjeta.Overlaps(rDialogo),
-                $"tarjeta x={rTarjeta.xMin:0}..{rTarjeta.xMax:0} y={rTarjeta.yMin:0}..{rTarjeta.yMax:0} · " +
-                $"diálogo x={rDialogo.xMin:0}..{rDialogo.xMax:0}");
+            Comprobar(log, "la tarjeta de controles no se va aunque se pulsen todas, y se puede volver a abrir",
+                sigue && cierra && vuelveLimpia,
+                $"sigue={sigue}, cierra={cierra}, vuelve sin teclas encendidas={vuelveLimpia}");
 
             Soltar(ayuda, otto, teclado);
         }
@@ -695,7 +564,6 @@ namespace Fishy.EditorTools
             OttoController otto = NuevoOtto();
             Keyboard teclado = AsegurarTeclado();
             TecladoEnPantalla ayuda = NuevoTeclado();
-            Invocar(ayuda, "Revisar");
 
             float limite = TecladoEnPantallaTheme.Medidas.AnchoPanel -
                            TecladoEnPantallaTheme.Medidas.Padding;
@@ -826,17 +694,16 @@ namespace Fishy.EditorTools
             return otto;
         }
 
-        /// <summary>
-        /// La tarjeta, sin pasar por su Awake: ese Awake llama a DontDestroyOnLoad,
-        /// que fuera del modo Play no avisa sino que TIRA InvalidOperationException.
-        /// Lo que el Awake hace de útil —mirar si ya está todo aprendido— se repite
-        /// aquí a mano.
-        /// </summary>
+        /// <summary>La tarjeta de controles, montada en un padre de prueba como la
+        /// monta la pausa en su canvas, y ya abierta.</summary>
         private static TecladoEnPantalla NuevoTeclado()
         {
-            var go = new GameObject("TecladoDePrueba") { hideFlags = HideFlags.HideAndDontSave };
-            var ayuda = go.AddComponent<TecladoEnPantalla>();
-            Invocar(ayuda, "LeerLoAprendido");
+            var padre = new GameObject("PausaDePrueba", typeof(RectTransform))
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            TecladoEnPantalla ayuda = TecladoEnPantalla.CrearEn(padre.transform, null);
+            ayuda.Abrir();
             return ayuda;
         }
 
@@ -852,7 +719,7 @@ namespace Fishy.EditorTools
 
         private static void Soltar(TecladoEnPantalla ayuda, OttoController otto, Keyboard teclado)
         {
-            if (ayuda != null) UnityEngine.Object.DestroyImmediate(ayuda.gameObject);
+            if (ayuda != null) UnityEngine.Object.DestroyImmediate(ayuda.transform.root.gameObject);
 
             if (otto != null)
             {
@@ -882,14 +749,6 @@ namespace Fishy.EditorTools
         private static void Repintar(TecladoEnPantalla ayuda, Func<Key, bool> pulsada)
         {
             ayuda.GetType().GetMethod("Repintar", Privado).Invoke(ayuda, new object[] { pulsada });
-        }
-
-        /// <summary>Envejece el reloj interno de la despedida. El tiempo real no se
-        /// puede adelantar, así que se retrasa el momento que la tarjeta recuerda.</summary>
-        private static void Adelantar(TecladoEnPantalla ayuda, float segundos)
-        {
-            FieldInfo campo = ayuda.GetType().GetField("_momentoEnQueSeAprendioTodo", Privado);
-            campo.SetValue(ayuda, (float)campo.GetValue(ayuda) - segundos);
         }
 
         /// <summary>Las teclas de teclado de una acción, en el orden en que están
