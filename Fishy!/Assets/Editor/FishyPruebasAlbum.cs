@@ -54,20 +54,19 @@ namespace Fishy.EditorTools
 
             AsegurarApiLocal();
 
-            // ── La pantalla ──
-            ProbarElAlbumVacioSeAbreSinExcepciones(log);
-            ProbarElAlbumVacioExplicaComoSeLlena(log);
-            ProbarConPinesYSinEvidenciasElMensajeEsElOtro(log);
-            ProbarConEvidenciasYSinPinesElMosaicoAvisa(log);
-            ProbarElContenidoVaDentroDeUnScroll(log);
-            ProbarElContenidoNoSeSaleDelPanel(log);
+            // ── Las dos pantallas del celular ──
+            ProbarElCelularRecibeLasDosPaginasYUnBoton(log);
+            ProbarLaPaginaVaciaSeAbreSinExcepciones(log);
+            ProbarCadaPantallaVaciaDiceLoSuyo(log);
+            ProbarLasPaginasCalcanElAspectoDelCelular(log);
             ProbarAgrupadoPorCasoHayUnaTarjetaPorCaso(log);
             ProbarPorTematicaUnaEvidenciaDeDosEtiquetasSaleDosVeces(log);
             ProbarElDetalleTraeLaExplicacionYElContexto(log);
-            ProbarLaAspaEsDibujadaYNoUnaEquisDeTexto(log);
             ProbarReabrirNoDuplicaFilas(log);
+            ProbarLosPinesVanEnSuPropiaPantalla(log);
             ProbarUnPinSinIconoSigueDejandoLeerCualEs(log);
-
+            ProbarCadaPuertaAbreSuPaginaYNoOtra(log);
+            ProbarColocarDosVecesNoDuplica(log);
             // ── El camino real, desde el Modo Detective ──
             ProbarElManagerDejaUnaEvidenciaPorSenalBienMarcada(log);
             ProbarUnaSenalAmbiguaMarcadaNoEntraAlAlbum(log);
@@ -89,19 +88,62 @@ namespace Fishy.EditorTools
                 EditorApplication.Exit(_fallas.Count > 0 ? 1 : 0);
         }
 
-        // ── La pantalla ──────────────────────────────────────────────────────────
+        // ── Las dos pantallas del celular ────────────────────────────────────────
 
         /// <summary>
-        /// CA5 — El álbum vacío se construye y se abre sin una sola excepción.
+        /// HDU-12 CA2 — El celular gana DOS páginas pero UN SOLO botón.
         ///
-        /// Es la prueba que más veces se habría ganado el sueldo en esta pantalla: el
-        /// álbum se arma entero en código, y un álbum vacío recorre caminos que el
-        /// lleno no toca (ninguna tarjeta, ningún pin, el texto de "todavía no hay
-        /// nada" dentro del layout). Se escucha la consola además de capturar la
-        /// excepción, porque Unity se come las que pasan dentro de un callback de
-        /// layout y solo quedan ahí.
+        /// Evidencias lleva botón en el inicio; recompensas no, porque se entra desde
+        /// la mochila (ver <see cref="AlbumEvidenciasUI.Show"/>). Que su página exista
+        /// igual, con su índice y su título, es justo lo que hace falta comprobar: una
+        /// pantalla sin botón es fácil de dejar a medio montar y nadie se entera hasta
+        /// que alguien pulsa el ítem.
+        ///
+        /// Y las dos listas de <see cref="PhoneMenuNavigation"/> tienen que seguir
+        /// cuadrando: si se descuadran, un botón abre la pantalla del otro y el
+        /// encabezado miente.
         /// </summary>
-        private static void ProbarElAlbumVacioSeAbreSinExcepciones(StringBuilder log)
+        private static void ProbarElCelularRecibeLasDosPaginasYUnBoton(StringBuilder log)
+        {
+            Reiniciar();
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
+
+            Transform bEvi = celular.home.transform.Find(AccesoAlbumEnElCelular.NombreBotonEvidencias);
+
+            // Ningún botón del inicio puede llevar a la página de recompensas.
+            int iEvi = AccesoAlbumEnElCelular.IndiceEvidencias;
+            int iRec = AccesoAlbumEnElCelular.IndiceRecompensas;
+
+            bool indices = iEvi >= 0 && iRec >= 0 && iEvi != iRec
+                && iEvi < celular.pages.Length && iRec < celular.pages.Length
+                && celular.pages.Length == celular.pageTitles.Length;
+
+            bool emparejado = indices
+                && celular.pages[iEvi].GetComponent<PaginaDeEvidencias>() != null
+                && celular.pages[iRec].GetComponent<PaginaDeRecompensas>() != null
+                && celular.pageTitles[iEvi] == AccesoAlbumEnElCelular.TituloEvidencias
+                && celular.pageTitles[iRec] == AccesoAlbumEnElCelular.TituloRecompensas;
+
+            Comprobar(log, "el celular gana dos páginas y solo el botón de evidencias",
+                bEvi != null && emparejado,
+                $"botón evidencias={bEvi != null}, evidencias={iEvi}, recompensas={iRec}, " +
+                $"páginas={celular.pages.Length}, títulos={celular.pageTitles.Length}");
+
+            SoltarCelular(celular);
+        }
+
+        /// <summary>
+        /// CA4 — Las dos pantallas vacías se construyen y se abren sin una sola
+        /// excepción.
+        ///
+        /// Es la prueba que más veces se habría ganado el sueldo acá: las pantallas se
+        /// arman enteras en código, y una vacía recorre caminos que la llena no toca
+        /// (ninguna tarjeta, ningún pin, el texto de "todavía no hay nada" dentro del
+        /// layout). Se escucha la consola además de capturar la excepción, porque Unity
+        /// se come las que pasan dentro de un callback de layout y solo quedan ahí.
+        /// </summary>
+        private static void ProbarLaPaginaVaciaSeAbreSinExcepciones(StringBuilder log)
         {
             Reiniciar();
 
@@ -113,12 +155,16 @@ namespace Fishy.EditorTools
             };
 
             bool exploto = false;
-            AlbumEvidenciasUI ui = null;
+            PhoneMenuNavigation celular = null;
             Application.logMessageReceived += escucha;
             try
             {
-                ui = NuevoAlbum();
-                Abrir(ui);
+                celular = NuevoCelularConAlbumes(null);
+                if (celular != null)
+                {
+                    AbrirPagina(PaginaEvidencias(celular));
+                    AbrirPagina(PaginaRecompensas(celular));
+                }
             }
             catch (Exception ex)
             {
@@ -130,250 +176,326 @@ namespace Fishy.EditorTools
                 Application.logMessageReceived -= escucha;
             }
 
-            Comprobar(log, "el álbum vacío se construye y se abre sin una sola excepción",
-                !exploto && ruidos.Count == 0,
+            Comprobar(log, "las dos pantallas vacías se abren sin una sola excepción",
+                !exploto && celular != null && ruidos.Count == 0,
                 ruidos.Count == 0 ? "" : ruidos[0]);
 
-            Soltar(ui);
-        }
-
-        private static void ProbarElAlbumVacioExplicaComoSeLlena(StringBuilder log)
-        {
-            Reiniciar();
-
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
-
-            Comprobar(log, "el álbum vacío dice que las evidencias llegan al completar casos",
-                Dice(ui, AlbumUITheme.Textos.VacioTotal), "");
-
-            Soltar(ui);
-        }
-
-        /// <summary>CA4 — Quien cerró casos antes de que existiera el registro de
-        /// señales tiene los pines y no tiene evidencias. Decirle lo mismo que a quien
-        /// no ha jugado ("resuelve tu primer caso") sería mentirle.</summary>
-        private static void ProbarConPinesYSinEvidenciasElMensajeEsElOtro(StringBuilder log)
-        {
-            Reiniciar();
-            DarPin("PIN_VIGIA_SILENCIOSO");
-
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
-
-            Comprobar(log, "con pines pero sin evidencias, el mensaje es el otro",
-                Dice(ui, AlbumUITheme.Textos.VacioSoloPines) &&
-                !Dice(ui, AlbumUITheme.Textos.VacioTotal), "");
-
-            Soltar(ui);
-        }
-
-        /// <summary>Estado real: acertar una señal de cuatro deja evidencia y no
-        /// alcanza para el pin.</summary>
-        private static void ProbarConEvidenciasYSinPinesElMosaicoAvisa(StringBuilder log)
-        {
-            Reiniciar();
-            AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_01", "DC01_MSG03"));
-
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
-
-            Comprobar(log, "con evidencias pero sin pines, el mosaico avisa y la lista se pinta igual",
-                Dice(ui, AlbumUITheme.Textos.SinPines) && Tarjetas(ui).Count == 1,
-                $"{Tarjetas(ui).Count} tarjeta(s)");
-
-            Soltar(ui);
-        }
-
-        private static void ProbarElContenidoVaDentroDeUnScroll(StringBuilder log)
-        {
-            Reiniciar();
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
-
-            var scroll = (ScrollRect)Campo(ui, "_scroll");
-            var contenido = (RectTransform)Campo(ui, "_contenido");
-
-            Comprobar(log, "el contenido del álbum va dentro de un ScrollRect",
-                scroll != null && contenido != null && scroll.content == contenido &&
-                scroll.GetComponent<RectMask2D>() != null && scroll.vertical,
-                scroll == null ? "no hay ScrollRect" : "");
-
-            Soltar(ui);
+            SoltarCelular(celular);
         }
 
         /// <summary>
-        /// Con una evidencia por señal bien marcada —doce en los tres casos del
-        /// banco— la lista no cabe en el panel. Antes no había scroll y lo de abajo
-        /// quedaba fuera, sin ninguna forma de llegar.
+        /// CA4 — Cada pantalla vacía dice lo suyo, y no lo del otro álbum.
+        ///
+        /// Es la razón de ser de la separación: antes, con las dos cosas en una
+        /// pantalla, el mensaje de vacío tenía que hablar de pines y de evidencias a la
+        /// vez y disculparse por la mitad del contenido. Ahora cada uno explica cómo se
+        /// consigue lo que falta — y son reglas distintas: un pin pide más de la mitad
+        /// de las señales de un caso; una evidencia la deja UNA bien marcada.
         /// </summary>
-        private static void ProbarElContenidoNoSeSaleDelPanel(StringBuilder log)
+        private static void ProbarCadaPantallaVaciaDiceLoSuyo(StringBuilder log)
         {
             Reiniciar();
-            foreach (string caso in new[] { "DC_CASO_01", "DC_CASO_02", "DC_CASO_03" })
-                for (int i = 1; i <= 4; i++)
-                    AlbumDeEvidencias.Registrar(Evidencia(caso, $"{caso}_MSG{i}"));
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
 
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
-            Asentar(ui);
+            GameObject evi = PaginaEvidencias(celular);
+            GameObject rec = PaginaRecompensas(celular);
+            AbrirPagina(evi);
+            AbrirPagina(rec);
 
-            var scroll = (ScrollRect)Campo(ui, "_scroll");
-            var contenido = (RectTransform)Campo(ui, "_contenido");
-            var panel = (RectTransform)scroll.transform.parent;
+            bool evidenciasBien = Dice(evi, "Modo Detective") && !Dice(evi, "pines");
+            bool recompensasBien = Dice(rec, "pines") && !Dice(rec, "Modo Detective");
 
-            float altoPanel = panel.rect.height;
-            float altoVisible = ((RectTransform)scroll.transform).rect.height;
-            float altoTodo = LayoutUtility.GetPreferredHeight(contenido);
+            Comprobar(log, "cada pantalla vacía explica cómo se llena ELLA, no la otra",
+                evidenciasBien && recompensasBien,
+                $"evidencias={evidenciasBien}, recompensas={recompensasBien}");
 
-            Comprobar(log, "el contenido no se sale del panel y el scroll aprovecha lo libre",
-                altoPanel > 0f && altoVisible > 0f &&
-                altoVisible <= altoPanel && altoVisible > altoPanel * 0.5f &&
-                altoTodo > altoVisible,
-                $"panel {altoPanel:F0}, visible {altoVisible:F0}, contenido {altoTodo:F0}");
+            SoltarCelular(celular);
+        }
 
-            Soltar(ui);
+        /// <summary>
+        /// Las páginas nuevas copian el fondo y el marco de una que ya exista en el
+        /// prefab, en vez de traer su propio arte. Así el día que alguien cambie el
+        /// aspecto del teléfono, estas dos lo siguen sin que nadie se acuerde de venir
+        /// a tocarlas — que es justo lo que no pasaba cuando el álbum era una ventana
+        /// aparte con su propia paleta.
+        /// </summary>
+        private static void ProbarLasPaginasCalcanElAspectoDelCelular(StringBuilder log)
+        {
+            Reiniciar();
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
+
+            GameObject modelo = celular.pages[0];
+            GameObject evi = PaginaEvidencias(celular);
+            AbrirPagina(evi);
+
+            Sprite fondoModelo = modelo.GetComponent<Image>() != null
+                ? modelo.GetComponent<Image>().sprite : null;
+            Sprite fondoNuevo = evi.GetComponent<Image>() != null
+                ? evi.GetComponent<Image>().sprite : null;
+
+            Transform bordeModelo = modelo.transform.Find("Borde");
+            Transform bordeNuevo = evi.transform.Find("Borde");
+            Sprite spriteBordeModelo = bordeModelo != null
+                ? bordeModelo.GetComponent<Image>().sprite : null;
+            Sprite spriteBordeNuevo = bordeNuevo != null
+                ? bordeNuevo.GetComponent<Image>().sprite : null;
+
+            // El marco va el último para quedar por encima del contenido, igual que en
+            // las páginas del prefab, y no debe comerse los clics.
+            bool bordeArriba = bordeNuevo != null
+                && bordeNuevo.GetSiblingIndex() == evi.transform.childCount - 1
+                && !bordeNuevo.GetComponent<Image>().raycastTarget;
+
+            Comprobar(log, "las páginas nuevas calcan el fondo y el marco del celular",
+                fondoModelo != null && fondoNuevo == fondoModelo &&
+                spriteBordeModelo != null && spriteBordeNuevo == spriteBordeModelo && bordeArriba,
+                $"fondo={(fondoNuevo == fondoModelo)}, borde={(spriteBordeNuevo == spriteBordeModelo)}, " +
+                $"borde arriba y sin raycast={bordeArriba}");
+
+            SoltarCelular(celular);
         }
 
         private static void ProbarAgrupadoPorCasoHayUnaTarjetaPorCaso(StringBuilder log)
         {
             Reiniciar();
+
             AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_01", "DC01_MSG03"));
             AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_01", "DC01_MSG05"));
-            AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_02", "DC02_MSG03"));
+            AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_02", "DC02_MSG02"));
 
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
 
-            List<Transform> tarjetas = Tarjetas(ui);
-            int filas = Filas(ui).Count;
+            GameObject evi = PaginaEvidencias(celular);
+            AbrirPagina(evi);
+
+            List<Transform> tarjetas = Tarjetas(evi);
+            List<Transform> filas = Filas(evi);
 
             Comprobar(log, "agrupado por caso hay una tarjeta por caso, con su título y su zona",
-                tarjetas.Count == 2 && filas == 3 &&
-                Dice(ui, "Caso de prueba DC_CASO_01") && Dice(ui, "desconocidos · 2 evidencias"),
-                $"{tarjetas.Count} tarjeta(s), {filas} fila(s)");
+                tarjetas.Count == 2 && filas.Count == 3 &&
+                Dice(evi, "Caso de prueba DC_CASO_01") && Dice(evi, "desconocidos"),
+                $"{tarjetas.Count} tarjeta(s), {filas.Count} fila(s)");
 
-            Soltar(ui);
+            SoltarCelular(celular);
         }
 
-        /// <summary>CA2 — Una evidencia con dos etiquetas aparece bajo las dos
-        /// temáticas, con el nombre legible y no con la etiqueta cruda del banco.</summary>
         private static void ProbarPorTematicaUnaEvidenciaDeDosEtiquetasSaleDosVeces(StringBuilder log)
         {
             Reiniciar();
+
             AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_01", "DC01_MSG03"));
 
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
 
-            bool exploto = false;
-            try { Invocar(ui, "CambiarAgrupacion", true); }
-            catch { exploto = true; }
+            GameObject evi = PaginaEvidencias(celular);
+            AbrirPagina(evi);
+
+            // La misma evidencia lleva "grooming" y "privacidad": agrupando por
+            // temática tiene que aparecer en los dos grupos, con su nombre bonito.
+            Invocar(evi.GetComponent<PaginaDeEvidencias>(), "CambiarAgrupacion", true);
+            Asentar(evi);
+
+            List<Transform> tarjetas = Tarjetas(evi);
 
             Comprobar(log, "por temática la evidencia de dos etiquetas sale dos veces, con su nombre",
-                !exploto && Tarjetas(ui).Count == 2 && Filas(ui).Count == 2 &&
-                Dice(ui, "Contacto de desconocidos") && Dice(ui, "Datos privados") &&
-                !Dice(ui, "grooming"),
-                $"{Tarjetas(ui).Count} tarjeta(s), {Filas(ui).Count} fila(s)");
+                tarjetas.Count == 2 && Filas(evi).Count == 2 &&
+                Dice(evi, "Contacto de desconocidos") && Dice(evi, "Datos privados"),
+                $"{tarjetas.Count} tarjeta(s), {Filas(evi).Count} fila(s)");
 
-            Soltar(ui);
+            SoltarCelular(celular);
         }
 
-        /// <summary>CA3 — Al elegir una evidencia se ve su explicación y el contexto
-        /// del caso.</summary>
         private static void ProbarElDetalleTraeLaExplicacionYElContexto(StringBuilder log)
         {
             Reiniciar();
-            EvidenciaAlbum evidencia = Evidencia("DC_CASO_01", "DC01_MSG03");
-            AlbumDeEvidencias.Registrar(evidencia);
 
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
+            AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_01", "DC01_MSG03"));
 
-            var detalle = (GameObject)Campo(ui, "_detalle");
-            bool apagadoAlPrincipio = !detalle.activeSelf;
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
 
-            Invocar(ui, "MostrarEvidencia", evidencia);
+            GameObject evi = PaginaEvidencias(celular);
+            AbrirPagina(evi);
 
-            var chips = (RectTransform)Campo(ui, "_detalleChips");
+            Transform fila = Filas(evi).FirstOrDefault();
+            if (fila != null) fila.GetComponent<Button>().onClick.Invoke();
+            Asentar(evi);
+
+            GameObject detalle = Detalle(evi);
 
             Comprobar(log, "al elegir una evidencia, el detalle trae la explicación y el contexto",
-                apagadoAlPrincipio && detalle.activeSelf &&
-                Dice(ui, evidencia.explicacion) &&          // la explicación
-                Dice(ui, evidencia.texto) &&                // el mensaje citado
-                Dice(ui, evidencia.casoTitulo) &&           // de qué caso es
-                Dice(ui, evidencia.casoZona) &&             // dónde pasó
-                Dice(ui, evidencia.autor) &&                // quién lo escribió
-                chips.childCount == 2,                      // el tipo de señal
-                $"detalle activo={detalle.activeSelf}, chips={chips.childCount}");
+                detalle != null && detalle.activeSelf &&
+                Dice(evi, "Explicación de DC01_MSG03") &&   // por qué era una señal
+                Dice(evi, "Caso de prueba DC_CASO_01") &&   // de qué caso
+                Dice(evi, "Puma") &&                        // quién lo escribió
+                Dice(evi, "Contacto de desconocidos"),      // el tipo de señal
+                detalle == null ? "no hay tarjeta de detalle" : $"detalle activo={detalle.activeSelf}");
 
-            Soltar(ui);
-        }
-
-        /// <summary>El aspa va dibujada con dos barras: ✕ no tiene glifo en Mango ni en
-        /// la fuente de cuerpo, y salía un cuadrito. Ver FishyUIKit.Aspa.</summary>
-        private static void ProbarLaAspaEsDibujadaYNoUnaEquisDeTexto(StringBuilder log)
-        {
-            Reiniciar();
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
-
-            int barras = ui.GetComponentsInChildren<Transform>(true)
-                .Count(t => t.name == "Aspa0" || t.name == "Aspa1");
-            bool hayEquisDeTexto = ui.GetComponentsInChildren<TMP_Text>(true)
-                .Any(t => t.text != null && t.text.Trim() == "X");
-
-            Comprobar(log, "la aspa de cerrar es dibujada y no un glifo de texto",
-                barras == 2 && !hayEquisDeTexto, $"{barras} barra(s)");
-
-            Soltar(ui);
+            SoltarCelular(celular);
         }
 
         private static void ProbarReabrirNoDuplicaFilas(StringBuilder log)
         {
             Reiniciar();
+
             AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_01", "DC01_MSG03"));
 
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
-            Invocar(ui, "Cerrar");
-            Abrir(ui);
-            Asentar(ui);
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
 
-            Comprobar(log, "reabrir el álbum no duplica filas",
-                Tarjetas(ui).Count == 1 && Filas(ui).Count == 1,
-                $"{Tarjetas(ui).Count} tarjeta(s), {Filas(ui).Count} fila(s)");
+            GameObject evi = PaginaEvidencias(celular);
 
-            Soltar(ui);
+            // Entrar, salir y volver a entrar: el celular apaga y enciende las páginas
+            // al navegar, y cada encendido repuebla. Si no se limpiara antes, cada
+            // visita dejaría otra copia de la lista.
+            AbrirPagina(evi);
+            evi.SetActive(false);
+            AbrirPagina(evi);
+            AbrirPagina(evi);
+
+            Comprobar(log, "entrar y salir de la pantalla no duplica filas",
+                Tarjetas(evi).Count == 1 && Filas(evi).Count == 1,
+                $"{Tarjetas(evi).Count} tarjeta(s), {Filas(evi).Count} fila(s)");
+
+            SoltarCelular(celular);
         }
 
-        /// <summary>Un pin cuyo ItemData todavía no tiene ícono asignado se dibuja como
-        /// un cuadro tenue, y su nombre se sigue pudiendo leer: así se ve que el premio
-        /// está, aunque falte el dibujo.</summary>
+        private static void ProbarLosPinesVanEnSuPropiaPantalla(StringBuilder log)
+        {
+            Reiniciar();
+
+            DarPin("PIN_VIGIA_SILENCIOSO");
+            AlbumDeEvidencias.Registrar(Evidencia("DC_CASO_01", "DC01_MSG03"));
+
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
+
+            GameObject evi = PaginaEvidencias(celular);
+            GameObject rec = PaginaRecompensas(celular);
+            AbrirPagina(evi);
+            AbrirPagina(rec);
+
+            int pinesEnRecompensas = Pines(rec).Count;
+            int pinesEnEvidencias = Pines(evi).Count;
+
+            Comprobar(log, "los pines salen en recompensas y no se cuelan en evidencias",
+                pinesEnRecompensas == 1 && pinesEnEvidencias == 0 && Filas(evi).Count == 1,
+                $"pines en recompensas={pinesEnRecompensas}, en evidencias={pinesEnEvidencias}");
+
+            SoltarCelular(celular);
+        }
+
         private static void ProbarUnPinSinIconoSigueDejandoLeerCualEs(StringBuilder log)
         {
             Reiniciar();
 
-            var ficha = ScriptableObject.CreateInstance<ItemData>();
-            ficha.itemId = "PIN_SIN_ICONO_DE_PRUEBA";
-            ficha.itemName = "Pin sin dibujo";
-            ficha.itemDescription = "Un pin al que todavía no le pusieron el ícono.";
-            InventoryManager.Instance.AddItem(ficha, 1);
+            DarPin("PIN_VIGIA_SILENCIOSO");
 
-            AlbumEvidenciasUI ui = NuevoAlbum();
-            Abrir(ui);
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
 
-            string pista = TextoDelHover(ui);
-            Image icono = ui.GetComponentsInChildren<Image>(true)
-                .FirstOrDefault(i => i.transform.name == "Icono");
+            GameObject rec = PaginaRecompensas(celular);
+            AbrirPagina(rec);
 
-            Comprobar(log, "un pin sin ícono sigue dejando leer cuál es",
-                pista != null && pista.Contains("Pin sin dibujo") &&
-                icono != null && icono.sprite == null && icono.color.a < 0.5f,
-                pista ?? "no hay casilla de pin");
+            string hover = TextoDelHover(rec);
+            Transform pin = Pines(rec).FirstOrDefault();
+            if (pin != null) pin.GetComponent<Button>().onClick.Invoke();
+            Asentar(rec);
 
-            Soltar(ui);
-            UnityEngine.Object.DestroyImmediate(ficha);
+            GameObject detalle = Detalle(rec);
+
+            Comprobar(log, "un pin se puede identificar con el mouse y pulsándolo",
+                !string.IsNullOrEmpty(hover) && detalle != null && detalle.activeSelf,
+                hover ?? "(sin texto de hover)");
+
+            SoltarCelular(celular);
+        }
+
+        /// <summary>
+        /// Cada botón abre SU pantalla y ninguna otra.
+        ///
+        /// El botón se clona de un vecino, y el clonado trae su <c>onClick</c>
+        /// guardado en el prefab —abrir el inventario—. Esas llamadas son persistentes
+        /// y <c>RemoveAllListeners</c> no las quita: sin apagarlas una a una, pulsar
+        /// «Evidencias» abriría además el inventario. Se comprueba pulsando y mirando
+        /// qué queda encendido, no leyendo el estado de las llamadas: apagar una deja
+        /// su nombre escrito en el objeto.
+        /// </summary>
+        private static void ProbarCadaPuertaAbreSuPaginaYNoOtra(StringBuilder log)
+        {
+            Reiniciar();
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
+
+            // El botón del menú lleva a evidencias; el ítem de la mochila, a
+            // recompensas. Son las dos únicas puertas, y cada una abre la suya.
+            bool botonBien = AbreSolo(celular, AccesoAlbumEnElCelular.IndiceEvidencias, () =>
+            {
+                Transform b = celular.home.transform.Find(AccesoAlbumEnElCelular.NombreBotonEvidencias);
+                if (b != null) b.GetComponent<Button>().onClick.Invoke();
+            }, out string detalleBoton);
+
+            bool itemBien = AbreSolo(celular, AccesoAlbumEnElCelular.IndiceRecompensas,
+                AlbumEvidenciasUI.Show, out string detalleItem);
+
+            Comprobar(log, "el botón del menú abre evidencias y el ítem de la mochila, recompensas",
+                botonBien && itemBien,
+                string.Join(" | ", new[] { detalleBoton, detalleItem }
+                    .Where(s => !string.IsNullOrEmpty(s))));
+
+            SoltarCelular(celular);
+        }
+
+        /// <summary>
+        /// Hace algo y comprueba que de ahí queda abierta esa página y solo esa.
+        ///
+        /// Mirar TODAS las páginas y no solo la esperada es el punto: el botón se
+        /// clona de un vecino y trae su <c>onClick</c> guardado en el prefab —abrir el
+        /// inventario—, que es persistente y <c>RemoveAllListeners</c> no quita. Si no
+        /// se apagara una a una, quedarían DOS páginas abiertas y mirar solo la buena
+        /// no lo vería.
+        /// </summary>
+        private static bool AbreSolo(PhoneMenuNavigation celular, int indice,
+            Action abrir, out string detalle)
+        {
+            detalle = "";
+            celular.ShowHome();
+            abrir();
+
+            for (int i = 0; i < celular.pages.Length; i++)
+            {
+                bool deberia = i == indice;
+                if (celular.pages[i].activeSelf == deberia) continue;
+
+                detalle = $"esperando la página {indice}, la {i} quedó " +
+                          $"{(celular.pages[i].activeSelf ? "abierta" : "cerrada")} y no tocaba";
+                return false;
+            }
+            return true;
+        }
+
+        private static void ProbarColocarDosVecesNoDuplica(StringBuilder log)
+        {
+            Reiniciar();
+            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
+            if (celular == null) return;
+
+            int botones = celular.home.transform.childCount;
+            int paginas = celular.pages.Length;
+
+            AccesoAlbumEnElCelular.Colocar(celular);
+            AccesoAlbumEnElCelular.Colocar(celular);
+
+            Comprobar(log, "colocar los álbumes tres veces deja dos botones y dos páginas",
+                celular.home.transform.childCount == botones && celular.pages.Length == paginas,
+                $"botones {botones} → {celular.home.transform.childCount}, " +
+                $"páginas {paginas} → {celular.pages.Length}");
+
+            SoltarCelular(celular);
         }
 
         // ── El camino real, desde el Modo Detective ──────────────────────────────
@@ -535,89 +657,160 @@ namespace Fishy.EditorTools
             InventoryManager.Instance.Vaciar();
         }
 
-        private static AlbumEvidenciasUI NuevoAlbum()
+        /// <summary>
+        /// Un celular instanciado del prefab, ya con los dos álbumes puestos.
+        ///
+        /// Se instancia el prefab de verdad en vez de armar un doble: lo que hay que
+        /// comprobar es justamente el encaje con él —la cuadrícula del inicio, el
+        /// emparejamiento de páginas y títulos, el arte que se copia—, y un doble no
+        /// se equivoca nunca en eso.
+        /// </summary>
+        private static PhoneMenuNavigation NuevoCelularConAlbumes(StringBuilder log)
         {
-            var go = new GameObject("AlbumDePrueba") { hideFlags = HideFlags.HideAndDontSave };
-            var ui = go.AddComponent<AlbumEvidenciasUI>();
-            // En edición Awake no corre solo.
-            typeof(AlbumEvidenciasUI).GetMethod("Awake", Privado).Invoke(ui, null);
-            return ui;
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/PhoneMenu.prefab");
+            if (prefab == null)
+            {
+                if (log != null)
+                    Comprobar(log, "instanciar el prefab del celular", false,
+                        "no está Assets/Prefabs/PhoneMenu.prefab");
+                return null;
+            }
+
+            GameObject copia = UnityEngine.Object.Instantiate(prefab);
+            var celular = copia.GetComponentInChildren<PhoneMenuNavigation>(true);
+            if (celular == null)
+            {
+                UnityEngine.Object.DestroyImmediate(copia);
+                return null;
+            }
+
+            AccesoAlbumEnElCelular.Colocar(celular);
+            return celular;
         }
 
-        private static void Abrir(AlbumEvidenciasUI ui)
+        private static void SoltarCelular(PhoneMenuNavigation celular)
         {
-            Invocar(ui, "Abrir");
-            Asentar(ui);
+            if (celular != null)
+                UnityEngine.Object.DestroyImmediate(celular.transform.root.gameObject);
         }
 
-        /// <summary>Deja el canvas medido. En el juego lleva muchos frames vivo; en
-        /// edición el escalador todavía no actuó y los rects medirían el tamaño crudo.
-        /// Mismo truco que FishyPruebasDetectiveRecompensa.</summary>
-        private static void Asentar(AlbumEvidenciasUI ui)
-        {
-            if (ui == null) return;
+        private static GameObject PaginaEvidencias(PhoneMenuNavigation celular)
+            => celular.pages[AccesoAlbumEnElCelular.IndiceEvidencias];
 
-            foreach (CanvasScaler escalador in ui.GetComponentsInChildren<CanvasScaler>(true))
+        private static GameObject PaginaRecompensas(PhoneMenuNavigation celular)
+            => celular.pages[AccesoAlbumEnElCelular.IndiceRecompensas];
+
+        /// <summary>
+        /// Enciende una página y la deja medida.
+        ///
+        /// En el juego de esto se encarga Unity: la página se activa y corren su Awake
+        /// (que la construye) y su OnEnable (que la repuebla). En edición no corre
+        /// ninguno de los dos, así que se llaman a mano — y Awake solo la primera vez,
+        /// porque construir dos veces dejaría dos scrolls encima del otro.
+        /// </summary>
+        private static void AbrirPagina(GameObject pagina)
+        {
+            if (pagina == null) return;
+
+            var comp = pagina.GetComponent<PaginaDeAlbum>();
+            pagina.SetActive(true);
+
+            if (pagina.transform.Find("Scroll") == null) Invocar(comp, "Awake");
+            Invocar(comp, "OnEnable");
+
+            Asentar(pagina);
+        }
+
+        /// <summary>Deja la página medida. En el juego lleva muchos frames viva; en
+        /// edición el escalador todavía no actuó y los rects medirían el tamaño
+        /// crudo.</summary>
+        private static void Asentar(GameObject pagina)
+        {
+            if (pagina == null) return;
+
+            foreach (CanvasScaler escalador in
+                     pagina.GetComponentsInParent<CanvasScaler>(true))
                 typeof(CanvasScaler).GetMethod("Handle", Privado)?.Invoke(escalador, null);
 
             Canvas.ForceUpdateCanvases();
 
-            var contenido = (RectTransform)Campo(ui, "_contenido");
+            RectTransform contenido = Contenido(pagina);
             if (contenido != null) LayoutRebuilder.ForceRebuildLayoutImmediate(contenido);
         }
 
-        private static void Soltar(AlbumEvidenciasUI ui)
+        /// <summary>El contenido del scroll, que es donde cada página cuelga lo suyo.
+        /// Es una propiedad protegida de la base, así que se lee por reflexión.</summary>
+        private static RectTransform Contenido(GameObject pagina)
         {
-            if (ui == null) return;
+            var comp = pagina.GetComponent<PaginaDeAlbum>();
+            if (comp == null) return null;
 
-            // OnDestroy es el que suelta la suscripción a AlbumDeEvidencias.AlCambiar.
-            typeof(AlbumEvidenciasUI).GetMethod("OnDestroy", Privado)?.Invoke(ui, null);
-            UnityEngine.Object.DestroyImmediate(ui.gameObject);
-            typeof(AlbumEvidenciasUI).GetField("_instance", PrivadoEstatico)?.SetValue(null, null);
+            return typeof(PaginaDeAlbum)
+                .GetProperty("Contenido", Privado)
+                ?.GetValue(comp) as RectTransform;
         }
 
-        private static object Campo(AlbumEvidenciasUI ui, string nombre)
-            => typeof(AlbumEvidenciasUI).GetField(nombre, Privado)?.GetValue(ui);
+        /// <summary>La tarjeta de detalle de esa página (campo privado de la base).</summary>
+        private static GameObject Detalle(GameObject pagina)
+        {
+            var comp = pagina.GetComponent<PaginaDeAlbum>();
+            if (comp == null) return null;
 
-        private static void Invocar(AlbumEvidenciasUI ui, string metodo, params object[] args)
-            => typeof(AlbumEvidenciasUI).GetMethod(metodo, Privado).Invoke(ui, args);
+            return typeof(PaginaDeAlbum).GetField("_detalle", Privado)?.GetValue(comp) as GameObject;
+        }
+
+        private static void Invocar(MonoBehaviour comp, string metodo, params object[] args)
+        {
+            if (comp == null) return;
+            comp.GetType().GetMethod(metodo, Privado)?.Invoke(comp, args);
+        }
 
         /// <summary>Si en la pantalla se lee ese texto, en cualquier TMP.</summary>
-        private static bool Dice(AlbumEvidenciasUI ui, string fragmento)
+        private static bool Dice(GameObject pagina, string fragmento)
         {
-            if (string.IsNullOrEmpty(fragmento)) return false;
+            if (pagina == null || string.IsNullOrEmpty(fragmento)) return false;
 
-            return ui.GetComponentsInChildren<TMP_Text>(true)
+            return pagina.GetComponentsInChildren<TMP_Text>(true)
                 .Any(t => t.text != null && t.text.Contains(fragmento));
         }
 
-        private static List<Transform> Tarjetas(AlbumEvidenciasUI ui)
-            => Hijos(ui, "_contenido", "Grupo_");
+        private static List<Transform> Tarjetas(GameObject pagina)
+            => HijosDelContenido(pagina, "Grupo_");
 
-        private static List<Transform> Filas(AlbumEvidenciasUI ui)
-            => ui.GetComponentsInChildren<Transform>(true)
-                .Where(t => t.name.StartsWith("Evidencia_"))
-                .ToList();
+        private static List<Transform> Filas(GameObject pagina)
+            => PorPrefijo(pagina, "Evidencia_");
 
-        private static List<Transform> Hijos(AlbumEvidenciasUI ui, string campo, string prefijo)
+        private static List<Transform> Pines(GameObject pagina)
+            => PorPrefijo(pagina, "Pin");
+
+        private static List<Transform> HijosDelContenido(GameObject pagina, string prefijo)
         {
-            var padre = (RectTransform)Campo(ui, campo);
             var hijos = new List<Transform>();
-            if (padre == null) return hijos;
+            RectTransform contenido = Contenido(pagina);
+            if (contenido == null) return hijos;
 
-            for (int i = 0; i < padre.childCount; i++)
+            for (int i = 0; i < contenido.childCount; i++)
             {
-                Transform hijo = padre.GetChild(i);
+                Transform hijo = contenido.GetChild(i);
                 if (hijo.name.StartsWith(prefijo)) hijos.Add(hijo);
             }
             return hijos;
         }
 
-        /// <summary>El texto que la casilla de pin enseña al pasarle el mouse. PinHover
-        /// es una clase anidada privada de la UI, así que se la busca por nombre.</summary>
-        private static string TextoDelHover(AlbumEvidenciasUI ui)
+        private static List<Transform> PorPrefijo(GameObject pagina, string prefijo)
         {
-            foreach (MonoBehaviour comp in ui.GetComponentsInChildren<MonoBehaviour>(true))
+            if (pagina == null) return new List<Transform>();
+
+            return pagina.GetComponentsInChildren<Transform>(true)
+                .Where(t => t.name.StartsWith(prefijo) && t.gameObject != pagina)
+                .ToList();
+        }
+
+        /// <summary>El texto que la casilla de pin enseña al pasarle el mouse. PinHover
+        /// es una clase anidada privada de la página, así que se la busca por nombre.</summary>
+        private static string TextoDelHover(GameObject pagina)
+        {
+            foreach (MonoBehaviour comp in pagina.GetComponentsInChildren<MonoBehaviour>(true))
             {
                 if (comp == null || comp.GetType().Name != "PinHover") continue;
 
