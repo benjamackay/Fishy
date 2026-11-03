@@ -76,9 +76,10 @@ public class InventoryManagerUI : MonoBehaviour
         // Los pines de recompensa (HDU-11) no se dibujan acá: siguen en el
         // inventario de verdad (InventoryManager.AddItem/GetQuantity los sigue
         // viendo, así que DetectiveCaseManager no repite el pin al rejugar un
-        // caso), pero visualmente sólo aparecen dentro del álbum
-        // (AlbumEvidenciasUI), con su ícono. El álbum en sí SÍ se sigue viendo acá:
-        // es la puerta de entrada para abrirlo.
+        // caso), pero visualmente sólo aparecen dentro de su álbum
+        // (PaginaDeRecompensas), con su ícono y en mosaico. El ítem «Álbum» SÍ se
+        // sigue viendo acá: es la única puerta de entrada a esa pantalla, que no
+        // tiene botón en el inicio del celular.
         List<Item> items = new List<Item>(InventoryManager.Instance.inventory.Count);
         foreach (var item in InventoryManager.Instance.inventory)
         {
@@ -170,9 +171,9 @@ public class InventoryManagerUI : MonoBehaviour
     }
 
     /// <summary>
-    /// HDU-11 (adelanto mínimo de HDU-12) — el único ítem interactivo hoy es el
-    /// Álbum de Evidencias. No es un sistema genérico de "usar ítem": solo este
-    /// caso puntual. Los slots se reciclan (<see cref="Refresh"/>), así que el
+    /// HDU-11 — el único ítem interactivo hoy es el Álbum, que lleva a la pantalla
+    /// de recompensas del celular. No es un sistema genérico de "usar ítem": solo
+    /// este caso puntual. Los slots se reciclan (<see cref="Refresh"/>), así que el
     /// listener se rehace en cada pintado en vez de engancharse una sola vez en
     /// <see cref="CrearSlot"/> -si no, un slot que fue el álbum seguiría
     /// abriéndolo aunque ahora tenga otro objeto.

@@ -18,16 +18,17 @@ using UnityEngine.UI;
 namespace Fishy.EditorTools
 {
     /// <summary>
-    /// Pruebas headless del menú de pausa (HDU-17) y del acceso al álbum desde el
-    /// menú del celular (HDU-12 CA2).
+    /// Pruebas headless del menú de pausa (HDU-17).
     ///
     /// Lo que se puede probar con NUnit en PlayMode está en Fishy.Pausa.Tests, al
     /// lado del núcleo: congelar, callar la entrada, los vetos y el orden
     /// guardar-antes-de-cargar, todo contra dobles. Acá está lo que esas pruebas no
     /// alcanzan a ver, porque vive en Assembly-CSharp y un .asmdef de pruebas no
     /// puede referenciarlo: el <see cref="MenuPausa"/> de verdad, el
-    /// <see cref="SaveManager"/> de verdad, un caso del Modo Detective a medio
-    /// resolver y el prefab del celular.
+    /// <see cref="SaveManager"/> de verdad y un caso del Modo Detective a medio
+    /// resolver.
+    ///
+    /// Lo del álbum en el celular vive en <c>FishyPruebasAlbum</c>, que es su sitio.
     ///
     /// Se corren desde el menú  Fishy ▸ Probar menú de pausa,
     /// o sin abrir el editor:
@@ -75,10 +76,6 @@ namespace Fishy.EditorTools
             // ── Lo que no se puede perder al pausar ──
             ProbarUnCasoDetectiveAMedioResolverSobreviveALaPausa(log);
 
-            // ── HDU-12 CA2: el álbum en el menú del celular ──
-            ProbarElCelularRecibeElBotonDelAlbum(log);
-            ProbarElBotonDelAlbumNoAbreLaPaginaDelInventario(log);
-            ProbarElBotonDelAlbumNoSeDuplica(log);
 
             EstadoDePausa.Restablecer();
 
@@ -461,96 +458,6 @@ namespace Fishy.EditorTools
             Soltar(menu, otto);
         }
 
-        // ── HDU-12 CA2: el álbum desde el menú del celular ───────────────────────
-
-        private static void ProbarElCelularRecibeElBotonDelAlbum(StringBuilder log)
-        {
-            PhoneMenuNavigation celular = NuevoCelular();
-            if (celular == null)
-            {
-                Comprobar(log, "el celular recibe el botón del álbum", false,
-                    "no se pudo instanciar Assets/Prefabs/PhoneMenu.prefab");
-                return;
-            }
-
-            bool puesto = AccesoAlbumEnElCelular.Colocar(celular);
-            Transform boton = celular.home.transform.Find(AccesoAlbumEnElCelular.NombreBoton);
-
-            string etiqueta = boton == null
-                ? ""
-                : boton.GetComponentInChildren<TMP_Text>(true)?.text ?? "";
-
-            Comprobar(log, "el menú del celular gana un botón «Álbum» junto a los demás",
-                puesto && boton != null && etiqueta == "Álbum" &&
-                boton.GetComponent<Button>() != null,
-                boton == null ? "no apareció" : $"etiqueta «{etiqueta}», " +
-                    $"posición {boton.GetSiblingIndex() + 1} de {celular.home.transform.childCount}");
-
-            SoltarCelular(celular);
-        }
-
-        /// <summary>
-        /// El botón clonado trae el <c>onClick</c> del prefab —abrir la página del
-        /// inventario— guardado como llamada persistente, y <c>RemoveAllListeners</c>
-        /// no las quita. Sin apagarlas, «Álbum» abriría también el inventario.
-        /// </summary>
-        private static void ProbarElBotonDelAlbumNoAbreLaPaginaDelInventario(StringBuilder log)
-        {
-            PhoneMenuNavigation celular = NuevoCelular();
-            if (celular == null) return;
-
-            AccesoAlbumEnElCelular.Colocar(celular);
-            Transform boton = celular.home.transform.Find(AccesoAlbumEnElCelular.NombreBoton);
-            var btn = boton == null ? null : boton.GetComponent<Button>();
-
-            // Se comprueba pulsándolo y mirando qué pasa, y no leyendo el estado de
-            // las llamadas persistentes: apagar una deja su nombre escrito en el
-            // objeto —solo cambia si se ejecuta—, así que leer el nombre diría que
-            // sigue ahí aunque esté muerta. Lo que importa es que no abra la página.
-            celular.ShowHome();
-            try
-            {
-                if (btn != null) btn.onClick.Invoke();
-            }
-            catch (Exception ex)
-            {
-                // Abrir el álbum de verdad en edición revienta: su UI se arma en
-                // Awake y en edición Awake no corre. Da igual para lo que se mira
-                // acá — las llamadas persistentes se ejecutan ANTES que las añadidas
-                // por código, así que si «abrir el inventario» siguiera viva ya
-                // habría abierto su página antes de llegar a esta excepción.
-                Debug.Log($"[PruebasPausa] El álbum no se puede abrir en edición: {ex.GetType().Name}");
-            }
-
-            bool algunaPaginaAbierta = celular.pages != null &&
-                celular.pages.Any(p => p != null && p.activeSelf);
-
-            Comprobar(log, "pulsar «Álbum» no abre además la página del botón que copió",
-                btn != null && !algunaPaginaAbierta,
-                btn == null ? "no hay botón"
-                            : (algunaPaginaAbierta ? "se abrió una página del celular" : ""));
-
-            SoltarAlbumAbierto();
-            SoltarCelular(celular);
-        }
-
-        private static void ProbarElBotonDelAlbumNoSeDuplica(StringBuilder log)
-        {
-            PhoneMenuNavigation celular = NuevoCelular();
-            if (celular == null) return;
-
-            int antes = celular.home.transform.childCount;
-            AccesoAlbumEnElCelular.Colocar(celular);
-            AccesoAlbumEnElCelular.Colocar(celular);
-            AccesoAlbumEnElCelular.Colocar(celular);
-
-            Comprobar(log, "colocarlo tres veces deja un solo botón",
-                celular.home.transform.childCount == antes + 1,
-                $"{antes} → {celular.home.transform.childCount}");
-
-            SoltarCelular(celular);
-        }
-
         // ── Andamios ─────────────────────────────────────────────────────────────
 
         /// <summary>Cada prueba arranca sin pausa y con el tiempo corriendo: el estado
@@ -645,38 +552,6 @@ namespace Fishy.EditorTools
                 hideFlags = HideFlags.HideAndDontSave,
             };
             return go.AddComponent<DetectiveCaseManager>();
-        }
-
-        private static PhoneMenuNavigation NuevoCelular()
-        {
-            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/PhoneMenu.prefab");
-            if (prefab == null) return null;
-
-            GameObject copia = UnityEngine.Object.Instantiate(prefab);
-            copia.hideFlags = HideFlags.HideAndDontSave;
-            return copia.GetComponentInChildren<PhoneMenuNavigation>(true);
-        }
-
-        private static void SoltarCelular(PhoneMenuNavigation celular)
-        {
-            if (celular != null) UnityEngine.Object.DestroyImmediate(celular.transform.root.gameObject);
-        }
-
-        /// <summary>Tira el álbum que haya dejado abierto una pulsación, y suelta su
-        /// singleton: es estático y sobreviviría apuntando a un objeto destruido, con
-        /// lo que la siguiente pulsación no crearía otro y no abriría nada.</summary>
-        private static void SoltarAlbumAbierto()
-        {
-            foreach (AlbumEvidenciasUI ui in
-                     UnityEngine.Object.FindObjectsByType<AlbumEvidenciasUI>(
-                         FindObjectsInactive.Include, FindObjectsSortMode.None))
-            {
-                UnityEngine.Object.DestroyImmediate(ui.gameObject);
-            }
-
-            typeof(AlbumEvidenciasUI)
-                .GetField("_instance", BindingFlags.Static | BindingFlags.NonPublic)
-                ?.SetValue(null, null);
         }
 
         private static void Soltar(MenuPausa menu, OttoController otto)
