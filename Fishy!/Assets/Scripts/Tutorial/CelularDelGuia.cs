@@ -47,9 +47,13 @@ using UnityEngine.UI;
 /// la pausa (9500)— no compiten con el celular, porque con cualquiera de ellas
 /// abierta el tutorial ya lo apagó.
 ///
-/// Lo único que recibe el puntero es la conversación y su barra de
-/// desplazamiento, para poder subir a releer un mensaje que ya se fue hacia
-/// arriba; el bisel y las barras del celular lo dejan pasar.
+/// Lo único que recibe el puntero es la conversación, su barra de desplazamiento
+/// y el botón de saltar el tutorial; el bisel y las barras lo dejan pasar.
+///
+/// <b>Un grupo de mensajes a la vez.</b> En el piloto los niños/as se perdían
+/// subiendo y bajando por una conversación acumulada. Ahora cada grupo limpia la
+/// pantalla, sale con su aviso arriba y la vista se queda ahí mientras llegan los
+/// mensajes: el que no cabe asoma cortado, que es lo que invita a bajar a leerlo.
 ///
 /// <b>No se queda encima de todo.</b> Quien lo enciende y lo apaga es el tutorial
 /// (<see cref="Mostrar"/>): se va mientras hay un diálogo, un chat, un caso
@@ -119,8 +123,19 @@ public class CelularDelGuia : MonoBehaviour
     /// vacía y solo sirve para que el aparato se lea como un celular.</summary>
     public Color colorBarraInferior = Paleta.MarronMedio;
 
+    [Header("Saltar tutorial")]
+    public string textoSaltar = "Saltar tutorial";
+    public float tamanoTextoSaltar = 24f;
+
+    /// <summary>Lo que pasa al pulsar el botón de saltar. Lo pone el tutorial.</summary>
+    public System.Action AlSaltar;
+
     [Header("Medidas finas")]
     public float altoBarras = 44f;
+    [Tooltip("Hasta dónde sube la barra de abajo, medido desde el borde de la pantalla. " +
+             "Es más alta que la de arriba porque lleva un botón que un niño/a tiene " +
+             "que poder pinchar sin apuntar.")]
+    public float altoBarraInferior = 76f;
     public float margenInterior = 16f;
     [Tooltip("Cuánto del ancho libre ocupa una burbuja, de 0 a 1. Es una porción y no " +
              "un ancho en píxeles a propósito: así el celular se puede agrandar o " +
@@ -137,7 +152,7 @@ public class CelularDelGuia : MonoBehaviour
     [Tooltip("La píldora centrada que anuncia un grupo nuevo, como en separador.png. " +
              "En arena, el único tono claro de la paleta que el panel del Tab también " +
              "usa como acento (el tirador de sus barras): la píldora tiene que cantar " +
-             "sobre la pantalla —5,5:1— porque marca dónde te habías quedado.")]
+             "sobre la pantalla —5,5:1— porque es la alerta de que llegó algo.")]
     public Color colorSeparador = Paleta.Arena;
 
     [Tooltip("Sobre la arena el texto va oscuro, al revés que en las burbujas (4,9:1).")]
@@ -234,8 +249,8 @@ public class CelularDelGuia : MonoBehaviour
     private Coroutine entrada;
     private bool yaEntroUnaVez;
     private RectTransform contenido;
-    private RectTransform visor;
     private ScrollRect scroll;
+    private Button botonSaltar;
     private TextMeshProUGUI reloj;
     private TextMeshProUGUI titulo, tituloSombra;
     private float proximoRefrescoDelReloj;
@@ -253,9 +268,7 @@ public class CelularDelGuia : MonoBehaviour
     private Vector2 Reposo => new Vector2(-margen.x, -margen.y);
 
     /// <summary>Todo lo dibujado en la conversación: burbujas y separadores. Van
-    /// juntos porque <see cref="Limpiar"/> los borra igual, y porque para decidir si
-    /// un grupo lleva separador hace falta saber si hay algo encima, sea lo que
-    /// sea.</summary>
+    /// juntos porque al llegar un grupo nuevo se borran todos por igual.</summary>
     private readonly List<GameObject> dibujados = new List<GameObject>();
 
     /// <summary>
@@ -383,12 +396,9 @@ public class CelularDelGuia : MonoBehaviour
 
         if (partes.Count == 0) return;
 
-        // El primer grupo no lleva separador: no habría nada encima de lo que
-        // separarlo y la píldora anunciaría el vacío. Se mira también la cola, no
-        // solo lo dibujado: si el guía habla dos veces seguidas, el segundo grupo sí
-        // tiene algo delante aunque todavía no se vea en pantalla.
-        if (dibujados.Count > 0 || pendientes.Count > 0)
-            pendientes.Enqueue(Pendiente.Separador(partes.Count));
+        // Todos los grupos llevan su aviso, el primero también: no separa nada, es
+        // la alerta de que llegaron mensajes y el punto desde el que se lee.
+        pendientes.Enqueue(Pendiente.Separador(partes.Count));
 
         foreach (Pendiente parte in partes) pendientes.Enqueue(parte);
 
@@ -436,9 +446,8 @@ public class CelularDelGuia : MonoBehaviour
     /// jugador está en un diálogo o en el panel, sus mensajes aparecerían ya dichos
     /// al volver, sin que nadie los haya visto llegar.
     ///
-    /// El separador gasta su turno como uno más: sale solo y, tras la misma pausa,
-    /// su grupo empieza a caer debajo. Es el gesto del celular de verdad, donde la
-    /// raya queda marcando dónde te habías quedado.
+    /// El separador gasta su turno como uno más: borra lo anterior, sale solo y, tras
+    /// la misma pausa, su grupo empieza a caer debajo.
     /// </summary>
     private IEnumerator SoltarPendientes()
     {
@@ -447,13 +456,49 @@ public class CelularDelGuia : MonoBehaviour
             while (!EstaVisible) yield return null;
 
             Pendiente siguiente = pendientes.Dequeue();
-            if      (siguiente.EsSeparador) CrearSeparador(siguiente.Cuantos);
+            if      (siguiente.EsSeparador) EmpezarGrupo(siguiente.Cuantos);
             else if (siguiente.EsImagen)    CrearImagen(siguiente.Imagen);
             else                            CrearBurbuja(siguiente.Texto);
 
             if (pendientes.Count > 0) yield return new WaitForSecondsRealtime(segundosEntreMensajes);
         }
         rutina = null;
+    }
+
+    /// <summary>
+    /// Deja la pantalla limpia con el aviso arriba y la vista en él. Los mensajes del
+    /// grupo se añaden debajo sin mover nada: el contenido crece hacia abajo desde su
+    /// borde superior, así que el que no quepa queda cortado por el borde del visor.
+    /// </summary>
+    private void EmpezarGrupo(int cuantos)
+    {
+        BorrarDibujados();
+        CrearSeparador(cuantos);
+
+        if (scroll != null) scroll.StopMovement();
+        if (contenido != null) contenido.anchoredPosition = Vector2.zero;
+    }
+
+    /// <summary>
+    /// Saca de la pantalla lo dibujado. Se apaga además de destruirse porque Destroy
+    /// espera al final del frame, y hasta entonces lo viejo seguiría ocupando sitio
+    /// en la lista cuando se mida el aviso nuevo.
+    /// </summary>
+    private void BorrarDibujados()
+    {
+        foreach (GameObject go in dibujados)
+        {
+            if (go == null) continue;
+            go.SetActive(false);
+            Destroy(go);
+        }
+        dibujados.Clear();
+    }
+
+    /// <summary>Quita el botón de saltar: ya no queda nada que saltarse.</summary>
+    public void OcultarSaltar()
+    {
+        if (botonSaltar != null) botonSaltar.gameObject.SetActive(false);
     }
 
     /// <summary>El rótulo de arriba. Vacío lo esconde.</summary>
@@ -560,10 +605,7 @@ public class CelularDelGuia : MonoBehaviour
     {
         if (rutina != null) { StopCoroutine(rutina); rutina = null; }
         pendientes.Clear();
-
-        foreach (GameObject go in dibujados)
-            if (go != null) Destroy(go);
-        dibujados.Clear();
+        BorrarDibujados();
     }
 
     // ── Construcción ─────────────────────────────────────────────────────────
@@ -665,17 +707,28 @@ public class CelularDelGuia : MonoBehaviour
     }
 
     /// <summary>
-    /// La barra clara de abajo. En la referencia está vacía: es el sitio donde se
-    /// escribiría en un chat de verdad, y aquí solo sirve para que el celular se
-    /// lea como un celular. Por eso no tiene texto ni recibe clics.
+    /// La barra de abajo, con el botón de saltar el tutorial. Va aquí porque es lo
+    /// único del celular que no se mueve con los mensajes y queda a mano en todos los
+    /// pasos.
+    ///
+    /// Sin navegación: un botón seleccionable recibiría WASD y las flechas, las
+    /// mismas teclas con las que camina Otto (ver <see cref="SoltarLaSeleccion"/>).
     /// </summary>
     private void ConstruirBarraInferior(Transform pant)
     {
-        Barra(pant, "BarraInferior", colorBarraInferior, arriba: false);
+        Transform barra = Barra(pant, "BarraInferior", colorBarraInferior, arriba: false,
+            alto: altoBarraInferior);
+
+        botonSaltar = FishyUIKit.Boton(barra, textoSaltar, Paleta.Madera, tamanoTextoSaltar, 0f,
+            () => AlSaltar?.Invoke());
+        Estirar((RectTransform)botonSaltar.transform, Vector2.zero, 6f);
+        botonSaltar.navigation = new Navigation { mode = Navigation.Mode.None };
     }
 
-    private Transform Barra(Transform pant, string nombre, Color color, bool arriba)
+    private Transform Barra(Transform pant, string nombre, Color color, bool arriba, float alto = -1f)
     {
+        if (alto < 0f) alto = altoBarras;
+
         var go = new GameObject(nombre, typeof(RectTransform), typeof(Image));
         go.transform.SetParent(pant, false);
 
@@ -683,8 +736,8 @@ public class CelularDelGuia : MonoBehaviour
         rt.anchorMin = new Vector2(0f, arriba ? 1f : 0f);
         rt.anchorMax = new Vector2(1f, arriba ? 1f : 0f);
         rt.pivot = new Vector2(0.5f, arriba ? 1f : 0f);
-        rt.offsetMin = new Vector2(margenInterior, arriba ? -altoBarras : margenInterior);
-        rt.offsetMax = new Vector2(-margenInterior, arriba ? -margenInterior : altoBarras);
+        rt.offsetMin = new Vector2(margenInterior, arriba ? -alto : margenInterior);
+        rt.offsetMax = new Vector2(-margenInterior, arriba ? -margenInterior : alto);
 
         var img = go.GetComponent<Image>();
         FishyUIKit.FondoRedondeado(img, color, 64, 12);
@@ -695,27 +748,27 @@ public class CelularDelGuia : MonoBehaviour
 
     /// <summary>
     /// La zona de las burbujas: una lista que crece hacia abajo dentro de un
-    /// ScrollRect. Hace falta el scroll porque en una pantalla de este tamaño caben
-    /// dos o tres instrucciones, y el tutorial suelta más: lo viejo sube y se va,
-    /// como en un chat.
+    /// ScrollRect. Hace falta el scroll porque un grupo largo no cabe entero: el
+    /// último mensaje asoma cortado y se baja para terminar de leerlo.
     /// </summary>
     private void ConstruirConversacion(Transform pant)
     {
-        float hueco = altoBarras + margenInterior * 2f;
+        float huecoArriba = altoBarras + margenInterior * 2f;
+        float huecoAbajo = altoBarraInferior + margenInterior;
 
         var visorGO = new GameObject("Conversacion",
             typeof(RectTransform), typeof(Image), typeof(ScrollRect), typeof(RectMask2D));
         visorGO.transform.SetParent(pant, false);
 
-        visor = (RectTransform)visorGO.transform;
+        var visor = (RectTransform)visorGO.transform;
         visor.anchorMin = Vector2.zero;
         visor.anchorMax = Vector2.one;
-        visor.offsetMin = new Vector2(margenInterior, hueco);
+        visor.offsetMin = new Vector2(margenInterior, huecoAbajo);
         visor.offsetMax = new Vector2(-(margenInterior + anchoAgarreScroll + separacionBarraScroll),
-                                      -hueco);
+                                      -huecoArriba);
 
-        // Transparente, pero sí recibe el puntero: es lo único del celular que lo
-        // recibe, y es lo que permite arrastrar o usar la rueda para subir a releer.
+        // Transparente, pero sí recibe el puntero: es lo que permite arrastrar o usar
+        // la rueda para bajar a leer el mensaje cortado.
         // Un ScrollRect sin ningún Graphic debajo no se entera de nada.
         var fondoVisor = visorGO.GetComponent<Image>();
         fondoVisor.color = new Color(0f, 0f, 0f, 0f);
@@ -748,13 +801,11 @@ public class CelularDelGuia : MonoBehaviour
         scroll.movementType = ScrollRect.MovementType.Clamped;
         scroll.scrollSensitivity = sensibilidadScroll;
 
-        // La barra: sin ella, que la conversación se pueda subir era un secreto. Se
-        // podía arrastrar y usar la rueda desde el principio, pero nada en pantalla lo
-        // decía, así que un mensaje que se iba hacia arriba se daba por perdido.
-        scroll.verticalScrollbar = ConstruirBarraDeScroll(pant, hueco);
+        // La barra: refuerza lo que ya insinúa el mensaje cortado, que hay más abajo.
+        scroll.verticalScrollbar = ConstruirBarraDeScroll(pant, huecoArriba, huecoAbajo);
 
         // AutoHide y no Permanent: la barra aparece en cuanto hay más mensajes de los
-        // que caben, que es exactamente cuando hay algo que subir. Un carril visible
+        // que caben, que es exactamente cuando hay algo que bajar. Un carril visible
         // desde el primer mensaje, con el tirador ocupándolo entero, diría lo contrario
         // de lo que queremos —"esto no se mueve"— justo cuando el niño/a lo mira por
         // primera vez.
@@ -780,7 +831,7 @@ public class CelularDelGuia : MonoBehaviour
     /// <c>offsetMin/offsetMax</c> es lo que aguanta: ahí es donde se separa lo que se
     /// ve de lo que se puede agarrar.
     /// </summary>
-    private Scrollbar ConstruirBarraDeScroll(Transform pant, float hueco)
+    private Scrollbar ConstruirBarraDeScroll(Transform pant, float huecoArriba, float huecoAbajo)
     {
         var barraGO = new GameObject("BarraDeScroll",
             typeof(RectTransform), typeof(Image), typeof(Scrollbar));
@@ -790,8 +841,8 @@ public class CelularDelGuia : MonoBehaviour
         rt.anchorMin = new Vector2(1f, 0f);
         rt.anchorMax = new Vector2(1f, 1f);
         rt.pivot = new Vector2(1f, 0.5f);
-        rt.sizeDelta = new Vector2(anchoAgarreScroll, -hueco * 2f);
-        rt.anchoredPosition = new Vector2(-margenInterior, 0f);
+        rt.sizeDelta = new Vector2(anchoAgarreScroll, -(huecoArriba + huecoAbajo));
+        rt.anchoredPosition = new Vector2(-margenInterior, (huecoAbajo - huecoArriba) * 0.5f);
 
         // La franja de agarre: invisible, pero es la que recibe el puntero. Un Image
         // transparente sigue recibiendo raycasts, que es lo que la hace funcionar —el
@@ -907,9 +958,6 @@ public class CelularDelGuia : MonoBehaviour
 
     private void CrearBurbuja(string texto)
     {
-        // Se mira ANTES de añadir nada: después, el contenido ya habrá crecido.
-        bool arrastrarLaVista = EstaAlFinal();
-
         var burbuja = new GameObject("Burbuja",
             typeof(RectTransform), typeof(Image),
             typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
@@ -939,11 +987,6 @@ public class CelularDelGuia : MonoBehaviour
         t.raycastTarget = false;
 
         dibujados.Add(burbuja);
-
-        // Medir antes de mover el scroll: el contenido acaba de crecer y sin esto
-        // el salto iría al final de la lista vieja.
-        Canvas.ForceUpdateCanvases();
-        if (arrastrarLaVista && scroll != null) scroll.verticalNormalizedPosition = 0f;
     }
 
     /// <summary>
@@ -957,8 +1000,6 @@ public class CelularDelGuia : MonoBehaviour
     /// </summary>
     private void CrearImagen(Sprite imagen)
     {
-        bool arrastrarLaVista = EstaAlFinal();
-
         var burbuja = new GameObject("BurbujaImagen",
             typeof(RectTransform), typeof(Image),
             typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
@@ -994,9 +1035,6 @@ public class CelularDelGuia : MonoBehaviour
         fotoLe.preferredHeight = anchoImagen * (imagen.rect.height / Mathf.Max(1f, imagen.rect.width));
 
         dibujados.Add(burbuja);
-
-        Canvas.ForceUpdateCanvases();
-        if (arrastrarLaVista && scroll != null) scroll.verticalNormalizedPosition = 0f;
     }
 
     /// <summary>
@@ -1020,7 +1058,7 @@ public class CelularDelGuia : MonoBehaviour
     }
 
     /// <summary>
-    /// La píldora centrada que anuncia un grupo nuevo: «2 mensajes no leídos».
+    /// La píldora centrada que anuncia un grupo nuevo: «Tienes 2 mensajes nuevos».
     ///
     /// <b>Por qué va dentro de una fila</b> y no suelta en la conversación: el
     /// contenedor alinea a la izquierda, que es lo que mantiene las burbujas pegadas
@@ -1033,8 +1071,6 @@ public class CelularDelGuia : MonoBehaviour
     /// </summary>
     private void CrearSeparador(int cuantos)
     {
-        bool arrastrarLaVista = EstaAlFinal();
-
         var fila = new GameObject("Separador",
             typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
         fila.transform.SetParent(contenido, false);
@@ -1069,34 +1105,17 @@ public class CelularDelGuia : MonoBehaviour
         fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         fitter.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
 
-        // El singular importa: «1 mensajes no leídos» en un juego que además enseña
-        // a leer se nota, y mucho.
+        // El singular importa: «1 mensajes nuevos» en un juego que además enseña a
+        // leer se nota, y mucho.
         string texto = cuantos == 1
-            ? "1 mensaje no leído"
-            : $"{cuantos} mensajes no leídos";
+            ? "Tienes 1 mensaje nuevo"
+            : $"Tienes {cuantos} mensajes nuevos";
 
         TextMeshProUGUI t = FishyUIKit.Texto(pildora.transform, "Texto", texto,
             tamanoTextoSeparador, colorTextoSeparador, TextAlignmentOptions.Center);
         t.raycastTarget = false;
 
         dibujados.Add(fila);
-
-        Canvas.ForceUpdateCanvases();
-        if (arrastrarLaVista && scroll != null) scroll.verticalNormalizedPosition = 0f;
-    }
-
-    /// <summary>
-    /// True si la conversación está abajo del todo, o si cabe entera.
-    ///
-    /// Decide si un mensaje nuevo arrastra la vista. Si el jugador subió a releer
-    /// algo, el celular no debe tirarle de la pantalla justo entonces: se queda
-    /// donde estaba y el mensaje nuevo lo espera abajo.
-    /// </summary>
-    private bool EstaAlFinal()
-    {
-        if (scroll == null || visor == null || contenido == null) return true;
-        if (contenido.rect.height <= visor.rect.height) return true;
-        return scroll.verticalNormalizedPosition <= 0.05f;
     }
 
     private static void Estirar(RectTransform rt, Vector2 desplazamiento, float padding = 0f)

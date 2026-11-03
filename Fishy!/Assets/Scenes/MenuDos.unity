@@ -4328,7 +4328,6 @@ MonoBehaviour:
   menu: {fileID: 0}
   escenaTutorial: Tutorial
   escenaDelJuego: MainScene
-  cadaCuantoRevisa: 0.5
 --- !u!1 &2076473002
 GameObject:
   m_ObjectHideFlags: 0

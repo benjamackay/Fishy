@@ -234,6 +234,7 @@ public class Segundomenu : MonoBehaviour
             return;
         }
 
+        TutorialPasos.HeredarLoVistoPorElJugador();
         EntrarConPartida(partida, "retomada");
     }
 
@@ -289,6 +290,10 @@ public class Segundomenu : MonoBehaviour
 
     private void CargarJuego()
     {
+        // El tutorial se decide por partida, y aqui ya se sabe cual es.
+        DesvioAlTutorial desvio = FindAnyObjectByType<DesvioAlTutorial>();
+        if (desvio != null) desvio.Decidir();
+
         // Con pantalla de carga la escena se prepara pero NO se activa hasta que la
         // posicion de Otto esta en mano: asi aparece ya colocado. Sin ella se entra
         // de golpe, que es lo que hacia esto antes y sigue sirviendo si alguien abre

@@ -1772,7 +1772,6 @@ MonoBehaviour:
   npcOpciones: {fileID: 0}
   npcDetective: {fileID: 0}
   panelDeJugador: {fileID: 0}
-  paginaDeMisiones: {fileID: 0}
   botonDelTab: {fileID: 971392368}
   pantallaDeCarga: {fileID: 0}
   distanciaParaMoverse: 4
@@ -1786,12 +1785,7 @@ MonoBehaviour:
     podr\xE1s ver qu\xE9 te pidi\xF3.\n\nLo primero que te pide es *recuperar tu
     lupa*. Y vaya casualidad, \xA1est\xE1 justo ah\xED! Ac\xE9rcate y *pulsa la tecla
     E* para recogerla."
-  textoPanel: "\xBFQuieres saber qu\xE9 misiones ya has completado o te faltan por
-    completar? \xA1Otto tiene la tecnolog\xEDa para ayudarte!\n\nCon la tecla *TAB*
-    podr\xE1s ver las aplicaciones que tiene Otto en su celular, y casualmente tiene
-    una para ver las *Misiones*, con todo lo que llevas.\n\n[img:misiones]\n\n\xC9chale
-    un vistazo y *deja el celular a un lado* para continuar."
-  textoOpciones: "\xA1Buen trabajo! Ese celular lo puedes abrir cuando quieras.\n\nAhora
+  textoOpciones: "\xA1Buen trabajo!\n\nAhora
     ac\xE9rcate a *Rosita*, la flamenca, y habla con ella *pulsando la tecla E*.\n\nAl
     hablar con ella vas a *elegir una respuesta* entre varias. Toca la que t\xFA
     quieras: *aqu\xED ninguna est\xE1 mal*."

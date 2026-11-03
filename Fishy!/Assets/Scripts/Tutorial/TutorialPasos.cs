@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Fishy.Chat;
 using Fishy.Detective;
+using Fishy.Mision;
 using Fishy.Net;
 using Fishy.World;
 using UnityEngine;
@@ -14,16 +15,20 @@ using UnityEngine.SceneManagement;
 /// (<see cref="CelularDelGuia"/>) lo que hay que hacer, y pasa al paso siguiente
 /// cuando el jugador lo ha hecho de verdad.
 ///
+/// <b>Nada empieza sin elegir.</b> Al cargar la escena sale la oferta
+/// (<see cref="OfertaDelTutorial"/>) con Otto quieto; la guía arranca solo con Ver
+/// tutorial. Saltar tutorial, ahí o desde el botón del celular en cualquier paso,
+/// lo registra como omitido y entra al juego (ver <see cref="Saltar"/>).
+///
 /// <b>Cada paso se cierra con un hecho, no con un clic.</b> Moverse se comprueba
-/// con la distancia recorrida; hablar, chatear y el caso detective, con el mismo
-/// evento que usa el sistema de misiones para dar un objetivo por cumplido; y el
-/// paso del panel de jugador, mirando si su página de misiones está a la vista.
+/// con la distancia recorrida; recoger la lupa, con que ya no esté en el suelo; y
+/// hablar, chatear y el caso detective, con el mismo evento que usa el sistema de
+/// misiones para dar un objetivo por cumplido.
 /// Así el tutorial no se puede pasar pulsando una tecla sin haber aprendido nada.
 ///
-/// <b>No modifica nada del juego.</b> De lo que ya existía solo lee
-/// (<c>MenuController.EstaAbierto</c>, si la página de misiones está activa) y
-/// enciende o apaga el botón del Tab de ESTA escena, que es una copia propia del
-/// tutorial. Ningún script ni escena del juego cambia por esto.
+/// <b>No modifica nada del juego.</b> Solo mantiene apagados el panel del Tab y su
+/// botón en ESTA escena, que son una copia propia del tutorial: el tutorial ya no
+/// los enseña. Ningún script ni escena del juego cambia por esto.
 ///
 /// Las piezas se buscan solas si se dejan vacías: en esta escena hay una de cada.
 /// Un paso cuya pieza no esté se salta avisando, para que quitar un NPC no deje el
@@ -43,16 +48,11 @@ public class TutorialPasos : MonoBehaviour
     public DetectiveLauncher npcDetective;
 
     [Header("Panel de jugador (el del Tab)")]
-    [Tooltip("El controlador del panel. Solo se le consulta si está abierto.")]
+    [Tooltip("El controlador del panel. Se deja apagado: el tutorial no lo enseña.")]
     public MenuController panelDeJugador;
 
-    [Tooltip("La página de misiones del panel (QuestPage). El paso se da por hecho " +
-             "cuando esta página está a la vista.")]
-    public GameObject paginaDeMisiones;
-
-    [Tooltip("El botón que anuncia el Tab (BotonCelular). Arranca apagado y se " +
-             "enciende cuando el guía habla del panel: antes no se ha explicado " +
-             "para qué sirve, y un botón sin explicar es ruido.")]
+    [Tooltip("El botón que anuncia el Tab (BotonCelular). Se deja apagado: un botón " +
+             "sin explicar es ruido.")]
     public GameObject botonDelTab;
 
     [Tooltip("La pantalla de carga de ESTA escena: la copia pegada del menú, apagada. " +
@@ -74,11 +74,8 @@ public class TutorialPasos : MonoBehaviour
     [TextArea(2, 5)] public string textoLupa =
         "El huemul te dejó una misión: arriba a la izquierda sale el cartel con lo que falta.\n\n" +
         "Lo primero es la lupa del suelo, recógela con la E.";
-    [TextArea(2, 5)] public string textoPanel =
-        "Con TAB se abre tu panel de jugador: ahí está la sección Misiones, con todo lo que llevas.\n\n" +
-        "Échale un vistazo y cierra el panel para seguir.";
     [TextArea(2, 5)] public string textoOpciones =
-        "¡Buen trabajo! Ese panel lo puedes abrir cuando quieras.\n\n" +
+        "¡Buen trabajo!\n\n" +
         "Ahora Rosita, la flamenca. Al hablar con ella vas a elegir una respuesta entre " +
         "varias: toca la que quieras, aquí ninguna está mal.";
     [TextArea(2, 5)] public string textoDetective =
@@ -136,7 +133,6 @@ public class TutorialPasos : MonoBehaviour
     private bool habloConElNpc;
     private bool cerroElChat;
     private bool cerroElCaso;
-    private bool vioLasMisiones;
 
     private float distanciaRecorrida;
     private Vector2? ultimaPosicion;
@@ -146,50 +142,81 @@ public class TutorialPasos : MonoBehaviour
     private string idDeLaLupa;
 
     private bool movimientoQuitadoPorElChat;
+    private bool eligiendo;           // la oferta está en pantalla
     private bool despedido;
     private bool celebrando;
     private bool entrando;
 
     // ── El "solo la primera vez" ─────────────────────────────────────────────
 
+    /// <summary>Qué pasó con el tutorial en una partida. Se guarda como entero, así
+    /// que los valores no se renumeran.</summary>
+    public enum EstadoTutorial { SinRegistrar = 0, Completado = 1, Omitido = 2 }
+
     /// <summary>
-    /// Marca local de tutorial visto, SIEMPRE bajo el jugador que lo vio.
+    /// Estado local del tutorial, SIEMPRE bajo la partida en la que pasó: cada partida
+    /// nueva tiene su propia oferta, y una partida ya resuelta no vuelve a ofrecerlo.
     ///
-    /// Sin jugador identificado no se guarda nada, y es a propósito: una clave
-    /// compartida le daría el tutorial por visto al siguiente niño/a que entrara en
-    /// el mismo equipo. Es la misma lección que dejó <c>DetectiveLauncher</c> con su
-    /// clave "local". Jugando la escena suelta en el editor tampoco hay jugador, así
-    /// que ahí el tutorial sale siempre: para probarlo es justo lo que se quiere.
+    /// Sin partida no se guarda nada, y es a propósito: una clave compartida le daría
+    /// el tutorial por resuelto al siguiente niño/a que entrara en el mismo equipo. Es
+    /// la misma lección que dejó <c>DetectiveLauncher</c> con su clave "local". Jugando
+    /// la escena suelta en el editor tampoco hay partida, así que ahí la oferta sale
+    /// siempre: para probarlo es justo lo que se quiere.
+    ///
+    /// Vive en PlayerPrefs porque el backend no tiene dónde guardarlo: en otro equipo
+    /// la partida vuelve a ofrecer el tutorial, sin más consecuencia que esa.
     /// </summary>
-    private const string PrefijoClave = "Fishy.Tutorial.Visto.";
+    private const string PrefijoPartida = "Fishy.Tutorial.Partida.";
 
-    private static string ClaveDelJugador()
+    /// <summary>La marca de antes, que iba por jugador. Solo se lee, para no volver a
+    /// ofrecerles el tutorial a las partidas que ya existían (ver
+    /// <see cref="HeredarLoVistoPorElJugador"/>).</summary>
+    private const string PrefijoJugador = "Fishy.Tutorial.Visto.";
+
+    private static string ClaveDeLaPartida()
     {
-        int? jugador = ApiManager.Instance?.JugadorId;
-        return jugador.HasValue ? PrefijoClave + jugador.Value : null;
+        int? partida = ApiManager.Instance?.PartidaId;
+        return partida.HasValue ? PrefijoPartida + partida.Value : null;
     }
 
-    /// <summary>True si este jugador ya vio el tutorial. Lo consulta quien decide a
-    /// qué escena entrar al pulsar Jugar.</summary>
-    public static bool YaSeVio()
+    /// <summary>Lo registrado para la partida en curso.</summary>
+    public static EstadoTutorial EstadoDeLaPartida()
     {
-        string clave = ClaveDelJugador();
-        return clave != null && PlayerPrefs.GetInt(clave, 0) == 1;
+        string clave = ClaveDeLaPartida();
+        return clave != null
+            ? (EstadoTutorial)PlayerPrefs.GetInt(clave, (int)EstadoTutorial.SinRegistrar)
+            : EstadoTutorial.SinRegistrar;
     }
 
-    /// <summary>Deja el tutorial por visto. Idempotente.</summary>
-    public static void MarcarVisto()
+    /// <summary>True si esta partida ya completó u omitió el tutorial. Lo consulta
+    /// quien decide a qué escena entrar.</summary>
+    public static bool YaSeVio() => EstadoDeLaPartida() != EstadoTutorial.SinRegistrar;
+
+    /// <summary>Anota cómo terminó el tutorial en la partida en curso.</summary>
+    public static void Registrar(EstadoTutorial estado)
     {
-        string clave = ClaveDelJugador();
+        string clave = ClaveDeLaPartida();
         if (clave == null)
         {
-            Debug.Log("[Tutorial] Terminado sin jugador identificado: no se marca como " +
-                      "visto y volverá a salir.");
+            Debug.Log($"[Tutorial] {estado} sin partida: no se registra y volverá a salir.");
             return;
         }
 
-        PlayerPrefs.SetInt(clave, 1);
+        PlayerPrefs.SetInt(clave, (int)estado);
         PlayerPrefs.Save();
+    }
+
+    /// <summary>
+    /// Pasa a la partida que se retoma la marca que el jugador tenía de antes, cuando
+    /// el tutorial se contaba por jugador. Solo es para retomar: una partida nueva
+    /// tiene que recibir su oferta aunque el jugador ya haya visto el tutorial.
+    /// </summary>
+    public static void HeredarLoVistoPorElJugador()
+    {
+        int? jugador = ApiManager.Instance?.JugadorId;
+        if (jugador.HasValue && !YaSeVio() &&
+            PlayerPrefs.GetInt(PrefijoJugador + jugador.Value, 0) == 1)
+            Registrar(EstadoTutorial.Completado);
     }
 
     // ── Arranque ─────────────────────────────────────────────────────────────
@@ -212,14 +239,6 @@ public class TutorialPasos : MonoBehaviour
         Candado(npcDetective, false);
         StartCoroutine(CerrarElPanelTrasUnFrame());
 
-        celular = CelularDelGuia.GetOrCreate();
-
-        // El celular se crea en código y no vive en la escena, así que no tiene
-        // Inspector donde arrastrarle nada: las imágenes se le pasan desde aquí, que
-        // es donde ya están los textos que las nombran.
-        if (imagenesDelGuia != null && imagenesDelGuia.Length > 0)
-            celular.imagenes = imagenesDelGuia;
-
         ArmarPasos();
         Suscribir();
 
@@ -231,8 +250,70 @@ public class TutorialPasos : MonoBehaviour
             return;
         }
 
+        eligiendo = true;
+        OfertaDelTutorial.Mostrar(EmpezarLaGuia, Saltar);
+    }
+
+    /// <summary>
+    /// Ver tutorial. El celular nace aquí y no en <see cref="Start"/>: al crearse
+    /// entra a la pantalla con su animación, y durante la oferta la guía no existe.
+    /// </summary>
+    private void EmpezarLaGuia()
+    {
+        eligiendo = false;
+        if (otto != null) otto.EnableMovement();
+
+        celular = CelularDelGuia.GetOrCreate();
+        celular.AlSaltar = Saltar;
+
+        // El celular se crea en código y no vive en la escena, así que no tiene
+        // Inspector donde arrastrarle nada: las imágenes se le pasan desde aquí, que
+        // es donde ya están los textos que las nombran.
+        if (imagenesDelGuia != null && imagenesDelGuia.Length > 0)
+            celular.imagenes = imagenesDelGuia;
+
         EntrarEnPaso(0);
     }
+
+    /// <summary>
+    /// Saltar tutorial, desde la oferta o desde cualquier paso. La partida queda como
+    /// omitida y se entra al juego por el mismo camino que al terminar, así que no se
+    /// toca nada de lo que ya llevara.
+    ///
+    /// Si el huemul ya había entregado su misión, se cierra aquí: viaja con la partida
+    /// y, con la lupa fuera del juego, se quedaría en el cartel para siempre.
+    /// </summary>
+    private void Saltar()
+    {
+        if (entrando || despedido) return;
+
+        eligiendo = false;
+        CerrarLaMision();
+        Entrar(EstadoTutorial.Omitido);
+
+        if (entrando)
+        {
+            if (otto != null) otto.DisableMovement();
+            return;
+        }
+
+        // No se pudo entrar al juego. Saltando desde la oferta no habría nada en
+        // pantalla, y es mejor seguir con la guía que dejar a Otto quieto sin salida.
+        if (celular == null) EmpezarLaGuia();
+    }
+
+    private void CerrarLaMision()
+    {
+        MissionManager misiones = MissionManager.Instance;
+        MissionGiver dador = MisionDelHuemul();
+        string mision = dador != null && dador.desafio != null ? dador.desafio.desafioId : null;
+
+        if (misiones != null && !string.IsNullOrEmpty(mision) && misiones.EstaDisponible(mision))
+            misiones.CompletarDesafio(mision, "se saltó el tutorial");
+    }
+
+    private MissionGiver MisionDelHuemul() =>
+        npcInteractuar != null ? npcInteractuar.GetComponent<MissionGiver>() : null;
 
     private void ResolverReferencias()
     {
@@ -247,14 +328,6 @@ public class TutorialPasos : MonoBehaviour
         // empezar a cargar—, así que va con la misma búsqueda que incluye inactivos.
         if (pantallaDeCarga == null)
             pantallaDeCarga = FindAnyObjectByType<Fishy.UI.PantallaDeCarga>(FindObjectsInactive.Include);
-
-        // La página de misiones vive apagada dentro del panel, así que hay que
-        // pedirla incluyendo los objetos inactivos o no aparece.
-        if (paginaDeMisiones == null)
-        {
-            QuestPageUI pagina = FindAnyObjectByType<QuestPageUI>(FindObjectsInactive.Include);
-            if (pagina != null) paginaDeMisiones = pagina.gameObject;
-        }
     }
 
     /// <summary>
@@ -279,29 +352,6 @@ public class TutorialPasos : MonoBehaviour
         if (lupa != null)
             Agregar(textoLupa, () => lupa == null || !lupa.CanInteract(),
                 alEmpezar: () => Candado(lupa, true));
-
-        // El panel de jugador: se da por aprendido cuando el jugador pasó por la
-        // sección Misiones Y volvió al mundo. Las dos condiciones, y en un solo paso,
-        // porque el celular no se ve con el panel abierto: no hay forma de darle las
-        // gracias ahí dentro, así que la felicitación va en el paso siguiente.
-        //
-        // Si cierra el panel sin haber entrado en Misiones no pasa nada malo: al
-        // cerrarlo reaparece el celular con la instrucción todavía puesta.
-        if (paginaDeMisiones != null)
-        {
-            Agregar(textoPanel,
-                () => vioLasMisiones && (panelDeJugador == null || !panelDeJugador.EstaAbierto),
-                alEmpezar: () =>
-                {
-                    if (botonDelTab != null) botonDelTab.SetActive(true);
-                    if (panelDeJugador != null) panelDeJugador.enabled = true;
-                });
-        }
-        else
-        {
-            Debug.LogWarning("[Tutorial] No encuentro la página de misiones del panel " +
-                             "(QuestPage): me salto el paso del Tab.", this);
-        }
 
         if (npcOpciones != null)
             Agregar(textoOpciones, () => cerroElChat,
@@ -339,13 +389,12 @@ public class TutorialPasos : MonoBehaviour
     }
 
     /// <summary>
-    /// Apaga el panel de jugador hasta el paso que lo enseña. <c>MenuController.Update</c>
+    /// Apaga el panel de jugador, que el tutorial no enseña. <c>MenuController.Update</c>
     /// hace una sola cosa —mirar si se pulsó Tab—, así que apagar el componente deja la
     /// tecla muda sin tocar nada más.
     ///
     /// Espera un frame a propósito: apagarlo dentro de nuestro <c>Start</c> podría
-    /// adelantarse al suyo, y un componente apagado antes de arrancar no ejecuta su
-    /// Start hasta que se encienda. Un frame después ya se montó solo.
+    /// adelantarse al suyo, y así el panel termina de montarse como en cualquier escena.
     /// </summary>
     private IEnumerator CerrarElPanelTrasUnFrame()
     {
@@ -387,10 +436,19 @@ public class TutorialPasos : MonoBehaviour
 
     private void Update()
     {
+        // En cada frame y no una vez: Otto se da el control a sí mismo en su Start, y
+        // no hay garantía de que ese Start corra antes que el nuestro.
+        if (eligiendo)
+        {
+            if (otto != null && otto.movementEnabled) otto.DisableMovement();
+            return;
+        }
+
         MedirElCamino();
         VigilarElChat();
-        MirarSiVioLasMisiones();
         VigilarElCelular();
+
+        if (entrando) return;
 
         if (indice >= pasos.Count)
         {
@@ -456,16 +514,10 @@ public class TutorialPasos : MonoBehaviour
         else otto.EnableMovement();
     }
 
-    /// <summary>Anota que el jugador llegó a ver la sección Misiones del panel.</summary>
-    private void MirarSiVioLasMisiones()
-    {
-        if (!vioLasMisiones && paginaDeMisiones != null && paginaDeMisiones.activeInHierarchy)
-            vioLasMisiones = true;
-    }
-
     /// <summary>
     /// Esconde el celular del guía cuando hay algo que mirar por delante: un
-    /// diálogo, el chat, el Modo Detective, el panel del Tab o una cinemática.
+    /// diálogo, el chat, el Modo Detective o una cinemática. También al entrar al
+    /// juego, que es lo que cierra la guía al saltarla.
     ///
     /// <b>La señal es que Otto no se puede mover.</b> Todas esas pantallas le quitan
     /// el control con <c>DisableMovement</c>, así que "Otto camina" significa "no
@@ -481,9 +533,7 @@ public class TutorialPasos : MonoBehaviour
     {
         if (celular == null) return;
 
-        bool algoPorDelante =
-            (otto != null && !otto.movementEnabled && !despedido) ||
-            (panelDeJugador != null && panelDeJugador.EstaAbierto);
+        bool algoPorDelante = entrando || (otto != null && !otto.movementEnabled && !despedido);
 
         celular.Mostrar(!algoPorDelante);
     }
@@ -502,11 +552,10 @@ public class TutorialPasos : MonoBehaviour
     /// </summary>
     private void Despedida()
     {
-        if (entrando) return;
-
         if (!despedido)
         {
             despedido = true;
+            celular.OcultarSaltar();
             if (otto != null && !movimientoQuitadoPorElChat) otto.DisableMovement();
 
             celebrando = true;
@@ -522,7 +571,7 @@ public class TutorialPasos : MonoBehaviour
         Keyboard teclado = Keyboard.current;
         if (teclado == null || !teclado[teclaParaEmpezar].wasPressedThisFrame) return;
 
-        Entrar();
+        Entrar(EstadoTutorial.Completado);
     }
 
     /// <summary>
@@ -534,10 +583,9 @@ public class TutorialPasos : MonoBehaviour
     /// que se pega a mano, y un tutorial que no sepa terminar porque falta un objeto
     /// de adorno sería mucho peor que un salto feo.
     /// </summary>
-    private void Entrar()
+    private void Entrar(EstadoTutorial estado)
     {
         entrando = true;
-        MarcarVisto();
 
         if (!Application.CanStreamedLevelBeLoaded(escenaDelJuego))
         {
@@ -546,6 +594,8 @@ public class TutorialPasos : MonoBehaviour
             entrando = false;
             return;
         }
+
+        Registrar(estado);
 
         // Antes de arrancar la carga, no después: lo que se saca de la cola tiene que
         // estar fuera ya, y la escena nueva puede activarse en cualquier frame.
@@ -608,9 +658,7 @@ public class TutorialPasos : MonoBehaviour
         if (!string.IsNullOrEmpty(idDeLaLupa))
             claves.Add($"objeto:{idDeLaLupa}");
 
-        MissionGiver dador = npcInteractuar != null
-            ? npcInteractuar.GetComponent<MissionGiver>()
-            : null;
+        MissionGiver dador = MisionDelHuemul();
         string mision = dador != null && dador.desafio != null ? dador.desafio.desafioId : null;
 
         if (!string.IsNullOrEmpty(mision))

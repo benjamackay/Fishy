@@ -1,24 +1,22 @@
 using UnityEngine;
 
 /// <summary>
-/// Manda al tutorial en vez de al juego mientras este jugador no lo haya visto.
+/// Manda a la escena del tutorial, donde sale la oferta, mientras la partida no lo
+/// haya completado u omitido.
 ///
 /// <b>Cómo, sin tocar el menú.</b> <see cref="Segundomenu"/> entra a la escena que
 /// diga su campo público <c>escenaJuego</c>, y lo lee en el momento de pulsar
-/// Jugar. Así que no hace falta modificar ese script: basta con dejar ahí escrito
-/// el destino correcto. Este componente solo mantiene ese campo al día.
+/// Jugar. Este componente solo deja ahí escrito el destino correcto.
 ///
-/// <b>Por qué se revisa cada tanto y no una sola vez.</b> La respuesta depende del
-/// jugador que haya iniciado sesión (<see cref="TutorialPasos.YaSeVio"/> va por su
-/// id), y en este menú se puede cambiar de perfil sin recargar la escena. Decidir
-/// una vez en Start dejaría el destino del primer jugador puesto para el
-/// siguiente. Es una consulta a PlayerPrefs ya cargado, así que mirarla dos veces
-/// por segundo no cuesta nada.
+/// <b>Por qué se decide justo al entrar.</b> La respuesta depende de la partida
+/// (<see cref="TutorialPasos.YaSeVio"/> va por su id), y la partida no se conoce
+/// hasta que se crea o se elige. Por eso lo llama <see cref="Segundomenu"/> en el
+/// último momento, con la partida ya puesta.
 ///
-/// <b>Si el tutorial se abandona a medias no cuenta</b>: la marca se escribe al
-/// terminarlo (<see cref="TutorialPasos.MarcarVisto"/>), así que quien cierre el
-/// juego en mitad se lo encontrará otra vez. Es lo que se quiere: a medias no se
-/// enseñó.
+/// <b>Si el tutorial se abandona a medias no cuenta</b>: el estado se escribe al
+/// terminarlo o saltarlo (<see cref="TutorialPasos.Registrar"/>), así que quien
+/// cierre el juego en mitad recibe la oferta otra vez. Es lo que se quiere: a medias
+/// no se enseñó.
 /// </summary>
 [DisallowMultipleComponent]
 public class DesvioAlTutorial : MonoBehaviour
@@ -29,25 +27,11 @@ public class DesvioAlTutorial : MonoBehaviour
     [Tooltip("Escena del tutorial. Tiene que estar en Build Settings o no se desvía nada.")]
     public string escenaTutorial = "Tutorial";
 
-    [Tooltip("Escena del juego: el destino de siempre, para quien ya vio el tutorial.")]
+    [Tooltip("Escena del juego: el destino de siempre, para quien ya resolvió el tutorial.")]
     public string escenaDelJuego = "MainScene";
 
-    [Tooltip("Cada cuántos segundos se vuelve a mirar quién tiene la sesión abierta.")]
-    [Min(0.1f)] public float cadaCuantoRevisa = 0.5f;
-
-    private float proximaRevision;
-    private bool avisadoDeQueFalta;
-
-    private void Start() => Revisar();
-
-    private void Update()
-    {
-        if (Time.unscaledTime < proximaRevision) return;
-        proximaRevision = Time.unscaledTime + cadaCuantoRevisa;
-        Revisar();
-    }
-
-    private void Revisar()
+    /// <summary>Deja en el menú la escena que le toca a la partida en curso.</summary>
+    public void Decidir()
     {
         if (menu == null) menu = FindAnyObjectByType<Segundomenu>();
         if (menu == null) return;
@@ -59,25 +43,18 @@ public class DesvioAlTutorial : MonoBehaviour
         // error. Antes que eso, se entra al juego como siempre.
         if (destino != escenaDelJuego && !Application.CanStreamedLevelBeLoaded(destino))
         {
-            if (!avisadoDeQueFalta)
-            {
-                avisadoDeQueFalta = true;
-                Debug.LogWarning($"[Tutorial] La escena '{destino}' no está en Build Settings: " +
-                                  "se entra directo al juego y el tutorial no se muestra.", this);
-            }
+            Debug.LogWarning($"[Tutorial] La escena '{destino}' no está en Build Settings: " +
+                              "se entra directo al juego y el tutorial no se muestra.", this);
             destino = escenaDelJuego;
         }
-
-        if (menu.escenaJuego == destino) return;
 
         menu.escenaJuego = destino;
 
         // Este componente trabaja en silencio sobre un campo de otro, así que sin
-        // esto no hay forma de saber si llegó a decidir nada: no se ve en pantalla
-        // hasta que el botón Jugar lleva a un sitio o a otro.
-        int? jugador = Fishy.Net.ApiManager.Instance?.JugadorId;
-        Debug.Log($"[Tutorial] El botón Jugar entrará a '{destino}' " +
-                  $"(jugador {(jugador.HasValue ? jugador.Value.ToString() : "sin identificar")}, " +
-                  $"tutorial visto: {TutorialPasos.YaSeVio()}).", this);
+        // esto no hay forma de saber qué decidió.
+        int? partida = Fishy.Net.ApiManager.Instance?.PartidaId;
+        Debug.Log($"[Tutorial] Se entra a '{destino}' " +
+                  $"(partida {(partida.HasValue ? partida.Value.ToString() : "sin identificar")}, " +
+                  $"tutorial: {TutorialPasos.EstadoDeLaPartida()}).", this);
     }
 }
