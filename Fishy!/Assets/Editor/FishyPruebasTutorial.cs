@@ -103,8 +103,10 @@ namespace Fishy.EditorTools
             ProbarLaTeclaSeEnciendeAlPulsarla(log);
             ProbarLoAprendidoSeAtenuaYLaTarjetaSeVa(log);
             ProbarNoSeVeCuandoNoToca(log);
-            ProbarLaTarjetaNoSePisaConElPanelDeDialogo(log);
-            ProbarNingunaFilaSeSaleDeLaTarjeta(log);
+            ProbarElDibujoCabeEnPantalla(log);
+            ProbarLasFilasDelTecladoCuadran(log);
+            ProbarLasFlechasVanEnCruz(log);
+            ProbarNadaSeSaleDeLaTarjeta(log);
 
             EstadoDePausa.Restablecer();
             PlayerPrefs.SetString(TecladoEnPantalla.ClaveAprendidas, aprendidasAntes);
@@ -520,19 +522,23 @@ namespace Fishy.EditorTools
 
             Repintar(ayuda, tecla => tecla == Key.W);
             bool seEnciende = w != null &&
-                              Iguales(w.color, TecladoEnPantallaTheme.Colores.TeclaPulsada) &&
-                              e != null && Iguales(e.color, TecladoEnPantallaTheme.Colores.Tecla);
+                              Iguales(w.color, TecladoEnPantallaTheme.Colores.Pulsada) &&
+                              e != null && Iguales(e.color, TecladoEnPantallaTheme.Colores.Marcada);
 
             Repintar(ayuda, tecla => false);
-            bool seApaga = w != null && Iguales(w.color, TecladoEnPantallaTheme.Colores.Tecla);
+            bool seApaga = w != null && Iguales(w.color, TecladoEnPantallaTheme.Colores.Marcada);
 
-            // La flecha de arriba enciende la MISMA tecla que la W: para el niño/a
-            // son la misma cosa, y así se enseña la equivalencia sin decirla.
+            // La flecha de arriba enciende SU tecla, la del bloque de flechas, y no
+            // la W. En el dibujo cada una está en su sitio —que es de lo que va
+            // esto—, y las dos valen para caminar: lo dice el renglón de abajo.
+            Image arriba = CaraDe(ayuda, "Tecla_UpArrow");
             Repintar(ayuda, tecla => tecla == Key.UpArrow);
-            bool laFlechaTambien = w != null &&
-                                   Iguales(w.color, TecladoEnPantallaTheme.Colores.TeclaPulsada);
 
-            Comprobar(log, "la tecla se enciende al pulsarla, se apaga al soltarla, y la flecha vale igual",
+            bool laFlechaTambien = arriba != null &&
+                Iguales(arriba.color, TecladoEnPantallaTheme.Colores.Pulsada) &&
+                w != null && !Iguales(w.color, TecladoEnPantallaTheme.Colores.Pulsada);
+
+            Comprobar(log, "la tecla se enciende al pulsarla, se apaga al soltarla, y la flecha enciende la suya",
                 seEnciende && seApaga && laFlechaTambien,
                 $"enciende={seEnciende}, apaga={seApaga}, flecha={laFlechaTambien}");
 
@@ -542,9 +548,9 @@ namespace Fishy.EditorTools
         }
 
         /// <summary>
-        /// La tarjeta se enseña sola a callarse: cada fila se apaga en cuanto esa
-        /// tecla se usa, y cuando están todas usadas desaparece y no vuelve en la
-        /// próxima partida.
+        /// La tarjeta se enseña sola a callarse: cada tecla —y su renglón de la
+        /// lista— se apaga en cuanto se usa, y cuando están todas usadas el dibujo
+        /// desaparece y no vuelve en la próxima partida.
         /// </summary>
         private static void ProbarLoAprendidoSeAtenuaYLaTarjetaSeVa(StringBuilder log)
         {
@@ -556,18 +562,23 @@ namespace Fishy.EditorTools
             TecladoEnPantalla ayuda = NuevoTeclado();
             Invocar(ayuda, "Revisar");
 
-            CanvasGroup filaCaminar = ayuda.GetComponentsInChildren<CanvasGroup>(true)
-                .FirstOrDefault(g => g.name == "Fila_Caminar");
+            TMP_Text renglon = ayuda.GetComponentsInChildren<TMP_Text>(true)
+                .FirstOrDefault(t => t.name == "Leyenda_Caminar");
+            Image w = CaraDe(ayuda, "Tecla_W");
 
-            float antes = filaCaminar != null ? filaCaminar.alpha : -1f;
+            float antes = renglon != null ? renglon.alpha : -1f;
 
             Repintar(ayuda, tecla => tecla == Key.W);
-            float despues = filaCaminar != null ? filaCaminar.alpha : -1f;
+            Repintar(ayuda, tecla => false);
 
-            Comprobar(log, "la fila de una tecla ya usada se atenúa",
+            float despues = renglon != null ? renglon.alpha : -1f;
+            float alfaTecla = w != null ? w.color.a : -1f;
+
+            Comprobar(log, "la tecla ya usada y su renglón se apagan, pero siguen ahí",
                 Mathf.Approximately(antes, 1f) &&
-                Mathf.Approximately(despues, TecladoEnPantallaTheme.Medidas.AlfaAprendida),
-                $"alfa {antes:0.00} → {despues:0.00}");
+                Mathf.Approximately(despues, TecladoEnPantallaTheme.Medidas.AlfaAprendida) &&
+                Mathf.Approximately(alfaTecla, TecladoEnPantallaTheme.Medidas.AlfaAprendida),
+                $"renglón {antes:0.00} → {despues:0.00}, tecla {alfaTecla:0.00}");
 
             // Y ahora todas: la tarjeta se va, aunque con un respiro de por medio.
             Repintar(ayuda, tecla => true);
@@ -627,15 +638,24 @@ namespace Fishy.EditorTools
             bool enPausa = !Visible(ayuda);
             EstadoDePausa.Reanudar();
 
+            // Con un diálogo abierto Otto no se puede mover, y es la señal que usa
+            // todo el juego para decir "hay algo en medio". El dibujo es grande y el
+            // panel de diálogo le cae encima, así que se aparta.
+            otto.DisableMovement();
+            Invocar(ayuda, "Revisar");
+            bool enDialogo = !Visible(ayuda);
+            otto.EnableMovement();
+
             InputSystem.RemoveDevice(teclado);
             Invocar(ayuda, "Revisar");
             bool sinTeclado = !Visible(ayuda);
             teclado = AsegurarTeclado();
 
-            Comprobar(log, "la tarjeta solo se ve mientras se juega con teclado",
-                enPartida && enCinematica && enPausa && sinTeclado,
-                $"en partida={enPartida}, en cinemática oculta={enCinematica}, " +
-                $"en pausa oculta={enPausa}, sin teclado oculta={sinTeclado}");
+            Comprobar(log, "el dibujo solo se ve mientras se camina, y con teclado delante",
+                enPartida && enCinematica && enPausa && enDialogo && sinTeclado,
+                $"caminando={enPartida}, en cinemática oculto={enCinematica}, " +
+                $"en pausa oculto={enPausa}, en diálogo oculto={enDialogo}, " +
+                $"sin teclado oculto={sinTeclado}");
 
             Soltar(ayuda, otto, teclado);
             PlayerPrefs.SetString(TecladoEnPantalla.ClaveAprendidas, guardado);
@@ -643,11 +663,12 @@ namespace Fishy.EditorTools
         }
 
         /// <summary>
-        /// Los dos viven abajo: el diálogo en el centro y la tarjeta en la esquina
-        /// derecha. Es el choque que más fácil se cuela al retocar anchos, y el peor
-        /// de los posibles: taparía justo la frase que hay que leer.
+        /// El dibujo es la pieza más grande que el juego pone en pantalla sin ser
+        /// una ventana, y vive pegado a una esquina: lo que hay que vigilar es que
+        /// quepa entero, porque un teclado con el borde cortado deja de parecer un
+        /// teclado y deja de servir para ubicarse.
         /// </summary>
-        private static void ProbarLaTarjetaNoSePisaConElPanelDeDialogo(StringBuilder log)
+        private static void ProbarElDibujoCabeEnPantalla(StringBuilder log)
         {
             OttoController otto = NuevoOtto();
             Keyboard teclado = AsegurarTeclado();
@@ -657,70 +678,167 @@ namespace Fishy.EditorTools
             RectTransform tarjeta = Tarjeta(ayuda);
             if (tarjeta == null)
             {
-                Comprobar(log, "la tarjeta de teclas no se pisa con el panel de diálogo", false,
+                Comprobar(log, "el dibujo del teclado cabe en pantalla", false,
                     "la tarjeta no llegó a construirse");
                 Soltar(ayuda, otto, teclado);
                 return;
             }
 
+            Vector2 margen = TecladoEnPantallaTheme.Medidas.Margen;
             float ancho = tarjeta.sizeDelta.x;
             float alto  = tarjeta.sizeDelta.y;
 
             // En coordenadas de pantalla de la resolución de referencia.
-            var rTarjeta = new Rect(Referencia.x - TecladoEnPantallaTheme.Medidas.Margen.x - ancho, TecladoEnPantallaTheme.Medidas.Margen.y, ancho, alto);
+            var rTarjeta = new Rect(Referencia.x - margen.x - ancho, margen.y, ancho, alto);
 
-            Vector2 panel = DialogoNeutroTheme.Medidas.TamanoPanel;
-            var rDialogo = new Rect((Referencia.x - panel.x) / 2f,
-                DialogoNeutroTheme.Medidas.MargenInferior, panel.x, panel.y);
+            // Y no puede comerse media pantalla: es una ayuda, no la pantalla de
+            // ayuda. La mitad del alto es el techo a partir del cual estorba más de
+            // lo que enseña.
+            bool mesurado = alto <= Referencia.y / 2f;
 
-            bool enPantalla = rTarjeta.xMin >= 0f && rTarjeta.yMin >= 0f &&
-                              rTarjeta.yMax <= Referencia.y;
-
-            Comprobar(log, "la tarjeta de teclas cabe en pantalla y no se pisa con el panel de diálogo",
-                enPantalla && !rTarjeta.Overlaps(rDialogo),
-                $"tarjeta x={rTarjeta.xMin:0}..{rTarjeta.xMax:0} y={rTarjeta.yMin:0}..{rTarjeta.yMax:0} · " +
-                $"diálogo x={rDialogo.xMin:0}..{rDialogo.xMax:0}");
+            Comprobar(log, "el dibujo del teclado cabe en pantalla y no se come media",
+                rTarjeta.xMin >= 0f && rTarjeta.yMin >= 0f && rTarjeta.yMax <= Referencia.y &&
+                mesurado,
+                $"{ancho:0}x{alto:0} en x={rTarjeta.xMin:0}..{rTarjeta.xMax:0} " +
+                $"y={rTarjeta.yMin:0}..{rTarjeta.yMax:0}");
 
             Soltar(ayuda, otto, teclado);
         }
 
         /// <summary>
-        /// El ancho de cada tecla se calcula a ojo de buen cubero (tantos píxeles por
-        /// carácter). Esto mide con TMP lo que de verdad ocupa cada fila y comprueba
-        /// que no se derrama fuera de la tarjeta, que es lo que esa aproximación
-        /// puede romper al cambiar un texto.
+        /// El bloque principal tiene que salir rectangular: sus seis filas miden
+        /// quince unidades cada una. Una fila que sume de más o de menos sale
+        /// escalonada, y un teclado escalonado deja de parecerse al que el niño/a
+        /// tiene delante —que es lo único que este dibujo tiene que conseguir—.
+        ///
+        /// Se mide sobre el dibujo ya construido y no sobre la tabla de posiciones,
+        /// porque lo que importa es dónde acaban las teclas, no lo que diga la tabla.
         /// </summary>
-        private static void ProbarNingunaFilaSeSaleDeLaTarjeta(StringBuilder log)
+        private static void ProbarLasFilasDelTecladoCuadran(StringBuilder log)
         {
             OttoController otto = NuevoOtto();
             Keyboard teclado = AsegurarTeclado();
             TecladoEnPantalla ayuda = NuevoTeclado();
             Invocar(ayuda, "Revisar");
 
-            float limite = TecladoEnPantallaTheme.Medidas.AnchoPanel -
-                           TecladoEnPantallaTheme.Medidas.Padding;
+            float unidad = TecladoEnPantallaTheme.Medidas.Unidad;
+            float padding = TecladoEnPantallaTheme.Medidas.Padding;
+            float hueco = TecladoEnPantallaTheme.Medidas.Hueco;
 
-            string peor = "";
-            float peorBorde = 0f;
+            float finDelBloque = padding + 15f * unidad - hueco;
 
-            foreach (TMP_Text texto in ayuda.GetComponentsInChildren<TMP_Text>(true))
+            // Agrupadas por el alto al que está cada una: eso es una fila. Las
+            // flechas se dejan fuera —viven a la derecha del bloque y no tienen por
+            // qué llegar tan lejos como él—; de ésas se ocupa la prueba de al lado.
+            var porFila = new Dictionary<float, float>();
+
+            foreach (RectTransform tapa in Tapas(ayuda))
             {
-                // Las letras de las teclas van estiradas dentro de su cara, así que
-                // su posición no dice nada: la que cuenta es la de los nombres.
-                if (texto.name != "Etiqueta" && texto.name != "Pista" && texto.name != "Titulo")
-                    continue;
+                if (tapa.anchoredPosition.x >= finDelBloque) continue;
 
-                float borde = texto.rectTransform.anchoredPosition.x +
-                              texto.GetPreferredValues().x;
+                float fila = Mathf.Round(tapa.anchoredPosition.y);
+                float borde = tapa.anchoredPosition.x + tapa.sizeDelta.x;
 
-                if (borde <= peorBorde) continue;
-                peorBorde = borde;
-                peor = $"«{texto.text}»";
+                if (!porFila.TryGetValue(fila, out float peor) || borde > peor)
+                    porFila[fila] = borde;
             }
 
-            Comprobar(log, "ningún nombre de la tarjeta se derrama fuera de ella",
-                peorBorde > 0f && peorBorde <= limite,
-                $"el más largo llega a x={peorBorde:0} de {limite:0} · {peor}");
+            var raras = new List<string>();
+            foreach (KeyValuePair<float, float> fila in porFila)
+                if (Mathf.Abs(fila.Value - finDelBloque) > 0.5f)
+                    raras.Add($"y={fila.Key:0} acaba en x={fila.Value:0}");
+
+            Comprobar(log, "las seis filas del teclado miden lo mismo y acaban a la par",
+                porFila.Count == 6 && raras.Count == 0,
+                raras.Count > 0 ? string.Join(" · ", raras)
+                                : $"{porFila.Count} filas, todas hasta x={finDelBloque:0}");
+
+            Soltar(ayuda, otto, teclado);
+        }
+
+        /// <summary>
+        /// Y las flechas, en cruz y a la derecha del bloque, como en un teclado de
+        /// verdad: la de arriba sola, encima de la de abajo, con la izquierda y la
+        /// derecha a los lados. Puestas en fila —o en el orden equivocado— el dibujo
+        /// enseñaría a buscarlas donde no están.
+        /// </summary>
+        private static void ProbarLasFlechasVanEnCruz(StringBuilder log)
+        {
+            OttoController otto = NuevoOtto();
+            Keyboard teclado = AsegurarTeclado();
+            TecladoEnPantalla ayuda = NuevoTeclado();
+            Invocar(ayuda, "Revisar");
+
+            RectTransform arriba  = TapaDe(ayuda, "Tecla_UpArrow");
+            RectTransform abajo   = TapaDe(ayuda, "Tecla_DownArrow");
+            RectTransform izq     = TapaDe(ayuda, "Tecla_LeftArrow");
+            RectTransform der     = TapaDe(ayuda, "Tecla_RightArrow");
+
+            bool estanTodas = arriba != null && abajo != null && izq != null && der != null;
+
+            bool enCruz = estanTodas &&
+                // la de arriba, justo encima de la de abajo
+                Mathf.Approximately(arriba.anchoredPosition.x, abajo.anchoredPosition.x) &&
+                arriba.anchoredPosition.y > abajo.anchoredPosition.y &&
+                // y las otras dos a sus lados, en la misma fila
+                Mathf.Approximately(izq.anchoredPosition.y, abajo.anchoredPosition.y) &&
+                Mathf.Approximately(der.anchoredPosition.y, abajo.anchoredPosition.y) &&
+                izq.anchoredPosition.x < abajo.anchoredPosition.x &&
+                der.anchoredPosition.x > abajo.anchoredPosition.x;
+
+            float finDelBloque = TecladoEnPantallaTheme.Medidas.Padding +
+                                 15f * TecladoEnPantallaTheme.Medidas.Unidad;
+            bool aLaDerecha = estanTodas && izq.anchoredPosition.x >= finDelBloque;
+
+            Comprobar(log, "las cuatro flechas van en cruz, a la derecha del teclado",
+                enCruz && aLaDerecha,
+                !estanTodas ? "faltan flechas en el dibujo"
+                            : $"arriba x={arriba.anchoredPosition.x:0} y={arriba.anchoredPosition.y:0}, " +
+                              $"abajo x={abajo.anchoredPosition.x:0} y={abajo.anchoredPosition.y:0}");
+
+            Soltar(ayuda, otto, teclado);
+        }
+
+        /// <summary>
+        /// Nada se derrama fuera de la tarjeta. Lo que más fácil se sale son los
+        /// renglones de la lista: son frases en castellano, de largo distinto, y se
+        /// colocan midiéndolas con TMP y saltando de línea cuando no caben. Si esa
+        /// cuenta se tuerce, el texto se va por el borde y no se ve.
+        /// </summary>
+        private static void ProbarNadaSeSaleDeLaTarjeta(StringBuilder log)
+        {
+            OttoController otto = NuevoOtto();
+            Keyboard teclado = AsegurarTeclado();
+            TecladoEnPantalla ayuda = NuevoTeclado();
+            Invocar(ayuda, "Revisar");
+
+            RectTransform tarjeta = Tarjeta(ayuda);
+            float padding = TecladoEnPantallaTheme.Medidas.Padding;
+            float ancho = tarjeta.sizeDelta.x;
+            float alto  = tarjeta.sizeDelta.y;
+
+            var fuera = new List<string>();
+
+            foreach (RectTransform hijo in tarjeta)
+            {
+                // Cada hijo está colocado por su esquina de arriba a la izquierda, y
+                // los textos llevan el ancho que midió TMP.
+                float x = hijo.anchoredPosition.x;
+                float y = hijo.anchoredPosition.y;
+                float derecha = x + hijo.sizeDelta.x;
+                float abajo   = y - hijo.sizeDelta.y;
+
+                bool dentro = x >= padding - 0.5f && derecha <= ancho - padding + 0.5f &&
+                              y <= -padding + 0.5f && abajo >= -(alto - padding) - 0.5f;
+
+                if (!dentro)
+                    fuera.Add($"{hijo.name} en x={x:0}..{derecha:0} y={y:0}..{abajo:0}");
+            }
+
+            Comprobar(log, "ni una tecla ni un renglón se sale de la tarjeta",
+                fuera.Count == 0,
+                fuera.Count == 0 ? $"tarjeta de {ancho:0}x{alto:0}"
+                                 : string.Join(" · ", fuera.Take(3)));
 
             Soltar(ayuda, otto, teclado);
         }
@@ -874,6 +992,26 @@ namespace Fishy.EditorTools
         private static RectTransform Tarjeta(TecladoEnPantalla ayuda)
             => ayuda.GetType().GetField("_tarjeta", Privado).GetValue(ayuda) as RectTransform;
 
+        /// <summary>Las tapas del dibujo del teclado: las del juego se llaman
+        /// «Tecla_X» y las de relleno «Tapa».</summary>
+        private static List<RectTransform> Tapas(TecladoEnPantalla ayuda)
+        {
+            var tapas = new List<RectTransform>();
+
+            foreach (RectTransform hijo in Tarjeta(ayuda))
+                if (hijo.name == "Tapa" || hijo.name.StartsWith("Tecla_")) tapas.Add(hijo);
+
+            return tapas;
+        }
+
+        private static RectTransform TapaDe(TecladoEnPantalla ayuda, string nombre)
+        {
+            foreach (RectTransform tapa in Tapas(ayuda))
+                if (tapa.name == nombre) return tapa;
+
+            return null;
+        }
+
         private static Image CaraDe(TecladoEnPantalla ayuda, string nombre)
             => ayuda.GetComponentsInChildren<Image>(true).FirstOrDefault(i => i.name == nombre);
 
@@ -920,14 +1058,7 @@ namespace Fishy.EditorTools
             MethodInfo metodo = typeof(TecladoEnPantalla)
                 .GetMethod("TeclasDeCaminar", PrivadoEstatico);
 
-            var porDireccion = (IEnumerable<List<Key>>)metodo.Invoke(null, new object[] { null });
-
-            var todas = new List<Key>();
-            foreach (List<Key> direccion in porDireccion)
-                foreach (Key tecla in direccion)
-                    if (!todas.Contains(tecla)) todas.Add(tecla);
-
-            return todas;
+            return (List<Key>)metodo.Invoke(null, new object[] { null });
         }
 
         private static bool Coinciden(Dictionary<string, List<Key>> ensenadas, string accion,

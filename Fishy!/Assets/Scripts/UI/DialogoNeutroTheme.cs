@@ -59,10 +59,9 @@ namespace Fishy.UI
 
             /// <summary>Tamaño del panel, en píxeles de la resolución de referencia
             /// (1920x1080). Antes era 800x200, donde no caben cuatro líneas a 32 pt.
-            /// No crece más de 880 a propósito: a partir de ahí choca con el teclado
-            /// de ayuda, que vive abajo a la derecha (ver
-            /// <see cref="TecladoEnPantallaTheme"/>). Hay una prueba del arnés que
-            /// vigila ese hueco.</summary>
+            /// Tampoco conviene estirarlo mucho más: a 880 entran unos cuarenta
+            /// caracteres por línea, que es el largo en el que un párrafo se sigue
+            /// leyendo sin perder el renglón al volver.</summary>
             public static Vector2 TamanoPanel = new Vector2(880f, 280f);
 
             /// <summary>Cuánto se levanta el panel del borde de abajo.</summary>

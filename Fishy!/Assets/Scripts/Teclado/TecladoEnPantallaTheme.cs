@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Fishy.UI
 {
     /// <summary>
-    /// Aspecto y textos del teclado de ayuda que enseña las teclas
+    /// Aspecto y textos del dibujo del teclado que enseña dónde está cada tecla
     /// (<see cref="TecladoEnPantalla"/>).
     ///
     /// Es solo configuración, igual que MisionHudTheme, ChatUITheme y
@@ -11,9 +11,13 @@ namespace Fishy.UI
     ///
     /// <b>Lo que NO está aquí son las teclas.</b> Ni una. Las teclas se le preguntan
     /// a quien las escucha —el <c>OttoController</c>, el <c>InteractionDetector</c>,
-    /// el menú de pausa y el del celular—, porque un cartel que enseña teclas y
-    /// miente es peor que no tener cartel. Aquí solo está cómo se ven y cómo se
-    /// llaman en castellano.
+    /// el menú de pausa y el del celular—, porque un dibujo que enseña teclas y
+    /// miente es peor que no tener dibujo. Aquí solo está cómo se ve y cómo se
+    /// llaman las cosas en castellano.
+    ///
+    /// La FORMA del teclado —qué tecla va en qué fila y cuánto mide cada una— sí es
+    /// cosa del dibujo y vive en <see cref="TecladoEnPantalla"/>, porque es una tabla
+    /// de posiciones y no un ajuste que nadie vaya a querer tocar a ojo.
     /// </summary>
     public static class TecladoEnPantallaTheme
     {
@@ -31,108 +35,126 @@ namespace Fishy.UI
             /// de juego y tienen que leerse como la misma cosa.</summary>
             public static Color Panel = Paleta.Hex(0x33211A, 0.86f);
 
-            /// <summary>Cara de una tecla en reposo.</summary>
-            public static Color Tecla = Paleta.MarronClaro;
+            /// <summary>Las teclas que el juego no usa. Están para orientarse —el
+            /// teclado se reconoce por su forma entera, no por seis teclas sueltas—
+            /// así que se dibujan apagadas, sin competir con las que importan.</summary>
+            public static Color Tapa      = Paleta.Hex(0x4A3226);
+            public static Color TapaLetra = Paleta.Hex(0x7A5A42);
 
-            /// <summary>Cara de una tecla mientras se la está pulsando. Es el verde de
-            /// "esto va bien" del resto del juego: el niño/a pulsa y ve responder, que
-            /// es justo lo que enseña cuál es cuál.</summary>
-            public static Color TeclaPulsada = Paleta.Verde;
+            /// <summary>Las teclas que sí hacen algo. Claras, como una tecla de
+            /// verdad iluminada, y con la letra oscura encima.</summary>
+            public static Color Marcada      = Paleta.Crema;
+            public static Color MarcadaLetra = Paleta.MarronOscuro;
 
-            /// <summary>Letra de la tecla y nombre de lo que hace.</summary>
-            public static Color Letra    = Paleta.Crema;
-            public static Color Etiqueta = Paleta.Crema;
-
-            /// <summary>El "o las flechas" y demás letra pequeña.</summary>
-            public static Color Pista = Paleta.Arena;
+            /// <summary>Mientras se la está pulsando. Es el verde de "esto va bien"
+            /// del resto del juego: el niño/a pulsa y ve responder, que es lo que
+            /// enseña cuál es cuál.</summary>
+            public static Color Pulsada      = Paleta.Verde;
+            public static Color PulsadaLetra = Paleta.Crema;
 
             public static Color Titulo = Paleta.Crema;
+
+            /// <summary>La lista de abajo: el nombre de lo que hace cada tecla.</summary>
+            public static Color Leyenda = Paleta.Arena;
+
+            /// <summary>Dentro de esa lista, el nombre de la tecla va del mismo color
+            /// que las teclas iluminadas del dibujo. Ese color es todo el vínculo
+            /// entre la lista y el teclado, así que los dos tienen que ir juntos si
+            /// alguien cambia uno.</summary>
+            public static Color LeyendaTecla = Paleta.Crema;
         }
 
         public static class Medidas
         {
-            /// <summary>Ancho de la tarjeta, en píxeles de la resolución de referencia
-            /// (1920x1080). El alto lo pone el contenido.
+            /// <summary>
+            /// Lado de una tecla de una unidad, en píxeles de la resolución de
+            /// referencia (1920x1080). Es la medida que manda: el ancho de la tarjeta
+            /// sale del dibujo, que ocupa 18,5 unidades de ancho (15 del bloque
+            /// principal más el hueco y el bloque de flechas).
             ///
-            /// No se puede engordar sin mirar: la tarjeta vive abajo a la derecha y el
-            /// panel de diálogo ocupa el centro hasta x=1400. Con 480 y el margen de
-            /// aquí al lado quedan 20 px entre los dos, y hay una prueba del arnés que
-            /// avisa si alguien se come ese hueco.</summary>
-            public static float AnchoPanel = 480f;
+            /// Con 36 cada tecla se ve a 26 px reales en el equipo del colegio, que
+            /// es el tamaño en el que una tecla todavía se reconoce de un vistazo.
+            /// Subirlo engorda la tarjeta a lo ancho y a lo alto a la vez, y abajo a
+            /// la derecha no sobra sitio.
+            /// </summary>
+            public static float Unidad = 36f;
+
+            /// <summary>Separación entre teclas. Se descuenta del tamaño de cada una,
+            /// así que las cuentas de posición siguen siendo múltiplos limpios de la
+            /// unidad.</summary>
+            public static float Hueco = 4f;
 
             /// <summary>Separación respecto a la esquina de abajo a la derecha.</summary>
             public static Vector2 Margen = new Vector2(20f, 20f);
 
-            /// <summary>Margen interior, separación entre filas y entre teclas.</summary>
+            /// <summary>Margen interior de la tarjeta y separación entre sus tres
+            /// partes (título, dibujo y lista).</summary>
             public static float Padding    = 20f;
-            public static float Separacion = 12f;
-            public static float Hueco      = 8f;
+            public static float Separacion = 14f;
 
-            /// <summary>
-            /// Qué parte del ancho se lleva la acción de la izquierda en las filas
-            /// que llevan dos. Menos de la mitad a propósito: a la izquierda van
-            /// Shift y Tab, que son teclas cortas, y a la derecha Espacio, que es la
-            /// más larga de todas y es la que se queda sin sitio.
-            /// </summary>
-            public static float RepartoFilaDoble = 0.45f;
-
-            /// <summary>Lado de una tecla cuadrada (las letras) y alto de todas.</summary>
-            public static float LadoTecla = 56f;
-
-            /// <summary>
-            /// De qué ancho se hace una tecla que no es una letra: tantos píxeles por
-            /// carácter más un margen a los lados. Es una cuenta aproximada y a
-            /// propósito —medir el texto de verdad obliga a montar el canvas— y se
-            /// queda corta antes que larga: una tecla un pelo ancha no se nota, una
-            /// estrecha corta la palabra. Hay una prueba del arnés que comprueba que
-            /// ninguna fila se sale de la tarjeta.
-            /// </summary>
-            public static float AnchoPorLetra = 0.55f;
-            public static float PaddingTecla  = 24f;
-
-            /// <summary>Redondeo de la tarjeta y de las teclas. El de la tarjeta es el
-            /// mismo de siempre; el de las teclas es menor porque son pequeñas y con
-            /// 22 se quedarían casi redondas.</summary>
+            /// <summary>Redondeo de la tarjeta y de las teclas. El de las teclas es
+            /// pequeño porque son pequeñas: con el radio de panel saldrían
+            /// pastillas.</summary>
             public static int RadioPanel = 22;
-            public static int RadioTecla = 10;
+            public static int RadioTecla = 6;
 
-            /// <summary>Lado del triangulito que indica la dirección dentro de cada
-            /// tecla de caminar.</summary>
-            public static float LadoFlecha = 16f;
+            /// <summary>Lado del triángulo que hace de flecha dentro de las cuatro
+            /// teclas de dirección.</summary>
+            public static float LadoFlecha = 14f;
 
-            /// <summary>Cuánto se baja la flecha respecto al centro de la tecla, para
-            /// que no se monte con la letra.</summary>
-            public static float BajadaFlecha = 17f;
+            /// <summary>Aire entre la letra y el borde de su tapa, y suelo al que
+            /// puede encoger esa letra si la palabra no cabe de otra forma. Por
+            /// debajo de 9 ya no se lee, y vale más que una tapa diga «Shift» un poco
+            /// apretado a que lo diga saliéndose por los lados.</summary>
+            public static float MargenLetra = 3f;
+            public static float LetraMinima = 9f;
 
-            /// <summary>Transparencia de una fila cuyas teclas el niño/a ya usó. No se
-            /// borra: se apaga. Así se ve lo aprendido sin que la tarjeta cambie de
-            /// tamaño a mitad de partida.</summary>
-            public static float AlfaAprendida = 0.4f;
+            /// <summary>Alto de cada renglón de la lista de abajo, y separación entre
+            /// las entradas de un mismo renglón.</summary>
+            public static float AltoLeyenda   = 30f;
+            public static float HuecoLeyenda  = 26f;
+
+            /// <summary>Transparencia de lo que el niño/a ya usó: la tecla en el
+            /// dibujo y su renglón en la lista. No se borra, se apaga; así se ve lo
+            /// aprendido sin que la tarjeta cambie de tamaño a mitad de partida.</summary>
+            public static float AlfaAprendida = 0.45f;
         }
 
         public static class Fuente
         {
-            /// <summary>Tamaños en píxeles de la resolución de referencia. En el equipo
-            /// escolar (1366x768) hay que multiplicarlos por 0,71: la etiqueta de 26
-            /// son 18 px de verdad, y la pista de 20 son 14, que es el suelo de lo que
-            /// se lee cómodamente a esa edad.</summary>
-            public static float Titulo   = 30f;
-            public static float Letra    = 28f;
-            public static float Etiqueta = 24f;
-            public static float Pista    = 20f;
+            /// <summary>Tamaños en píxeles de la resolución de referencia; en el
+            /// equipo escolar van multiplicados por 0,71.</summary>
+            public static float Titulo = 30f;
+
+            /// <summary>La letra de una tecla del juego, y la de una que solo está de
+            /// relleno (más pequeña: es textura, no información).</summary>
+            public static float Letra  = 22f;
+            public static float Relleno = 17f;
+
+            /// <summary>Para las teclas que llevan palabra en vez de letra: Esc, Tab,
+            /// Shift, Ctrl… Tienen que caber en su tapa.</summary>
+            public static float Nombre = 15f;
+
+            public static float Leyenda = 22f;
         }
 
         public static class Textos
         {
             public static string Titulo = "Las teclas";
 
+            /// <summary>
+            /// Cómo se llama cada acción en la lista de abajo. El nombre de la tecla
+            /// no se escribe aquí: lo pone el propio teclado a partir de la atadura
+            /// de verdad.
+            /// </summary>
             public static string Caminar = "Caminar";
 
-            /// <summary>Se dice con palabras y no con ↑↓←→: la fuente de cuerpo es
-            /// estática y trae Latin-1 y poco más, así que las flechas saldrían como
-            /// cuadros huecos. Las que sí se ven son dibujadas (ver
-            /// <see cref="FishyUIKit.SpriteTriangulo"/>).</summary>
-            public static string CaminarPista = "o las flechas";
+            /// <summary>Se añade detrás de las teclas de caminar. Las flechas se
+            /// nombran con palabras y no con ↑↓←→ porque la fuente de cuerpo es
+            /// estática y trae Latin-1 y poco más: esos cuatro caracteres saldrían
+            /// como cuadros huecos. Las que se ven en el dibujo son triángulos
+            /// dibujados.</summary>
+            public static string OLasFlechas = " o las flechas";
 
             /// <summary>Dice las dos cosas porque la misma tecla hace las dos: se
             /// empieza a hablar y se pasa de línea. Un niño/a que no sabe lo segundo
@@ -143,6 +165,11 @@ namespace Fishy.UI
             public static string Saltar  = "Saltar";
             public static string Celular = "Celular";
             public static string Pausa   = "Pausa";
+
+            /// <summary>Separador entre la tecla y lo que hace, en la lista. Es el
+            /// punto medio de Latin-1 (U+00B7), el mismo que usa el cartel de misión
+            /// y por la misma razón: la viñeta redonda no está en la fuente.</summary>
+            public static string Separador = " · ";
 
             /// <summary>Nombres de las teclas que no son una letra. Lo que no esté
             /// aquí se dibuja con el nombre que le da el Input System.</summary>

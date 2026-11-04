@@ -14,14 +14,23 @@ using Txt = Fishy.UI.TecladoEnPantallaTheme.Textos;
 namespace Fishy.UI
 {
     /// <summary>
-    /// El teclado de ayuda: una tarjeta abajo a la derecha que enseña qué tecla hace
-    /// qué, pensada para la primera partida de un niño/a de 9 a 13 años.
+    /// El dibujo de un teclado, abajo a la derecha, con las teclas del juego
+    /// iluminadas en el sitio exacto en el que están en el teclado de verdad.
     ///
     /// <b>Por qué hace falta.</b> La primera misión dice «habla con Huemul» y nada
     /// más. Para cumplirla hay que descubrir solo tres cosas: que se camina con WASD
     /// o las flechas, que hay que llegar hasta él y que se interactúa con E. La única
     /// pista que existía era el cartel de «E para interactuar», que aparece cuando ya
     /// estás pegado al NPC: las teclas de caminar no se enseñaban en ninguna parte.
+    ///
+    /// <b>Por qué el teclado entero y no una lista de teclas sueltas.</b> Un niño/a
+    /// de 9 años que no sabe escribir a máquina no busca «la tecla W»: busca un sitio
+    /// en un objeto que tiene delante. Una ficha con una W no le dice dónde mirar; el
+    /// teclado dibujado entero sí, porque reconoce la forma —la barra larga de abajo,
+    /// la esquina de arriba a la izquierda, el bloque de flechas— y desde ahí ubica
+    /// lo demás. Por eso se dibujan también las teclas que el juego no usa: apagadas,
+    /// sin competir, pero ahí, que son las que dan el mapa. Debajo del dibujo va la
+    /// lista de qué hace cada una.
     ///
     /// <b>Enseña, no juega.</b> Las teclas se iluminan cuando se las pulsa, pero no
     /// se pueden pulsar con el ratón ni con el dedo. Es a propósito: el público son
@@ -31,17 +40,17 @@ namespace Fishy.UI
     /// <see cref="OttoOnScreenButton"/>, que sigue sin cablearse en ninguna escena;
     /// encenderla es otra decisión y merece su propia historia de usuario.
     ///
-    /// <b>Se va sola.</b> Cada fila se apaga en cuanto el niño/a usa esa tecla, y
-    /// cuando las ha usado todas la tarjeta desaparece y no vuelve: lo aprendido
-    /// queda en PlayerPrefs, del aparato y no de la cuenta, igual que
+    /// <b>Se va solo.</b> Cada tecla se apaga en cuanto el niño/a la usa, y cuando
+    /// las ha usado todas el dibujo desaparece y no vuelve: lo aprendido queda en
+    /// PlayerPrefs, del aparato y no de la cuenta, igual que
     /// <see cref="ConfiguracionDelJuego"/>. Una ayuda que no se sabe cuándo callarse
     /// termina siendo adorno que se tapa con la mano.
     ///
     /// <b>Las teclas no están escritas aquí.</b> Se le preguntan a quien las escucha
     /// —<see cref="OttoController"/>, <see cref="InteractionDetector"/>,
     /// <see cref="MenuPausa"/> y <see cref="MenuController"/>—, que es el criterio
-    /// que ya seguía el cartel de la E. Un cartel que enseña teclas equivocadas es
-    /// peor que no tener cartel.
+    /// que ya seguía el cartel de la E. Un dibujo que enseña teclas equivocadas es
+    /// peor que no tener dibujo.
     /// </summary>
     [DisallowMultipleComponent]
     public class TecladoEnPantalla : MonoBehaviour
@@ -57,37 +66,53 @@ namespace Fishy.UI
         private const float CadaCuanto = 0.5f;
 
         /// <summary>Lo que se espera, en segundos reales, desde que se apaga la última
-        /// fila hasta que la tarjeta se va. Sin esta pausa el niño/a nunca ve
-        /// apagarse la que acaba de aprender: la tarjeta desaparecería en el mismo
-        /// frame y parecería que se rompió algo.</summary>
+        /// tecla hasta que el dibujo se va. Sin esta pausa el niño/a nunca ve
+        /// apagarse la que acaba de aprender: desaparecería todo en el mismo frame y
+        /// parecería que se rompió algo.</summary>
         private const float Despedida = 1.5f;
 
         // ── Lo que se enseña ──────────────────────────────────────────────────
 
-        /// <summary>Las acciones que la tarjeta explica. El orden es el de la tarjeta
-        /// y el id es lo que se guarda en PlayerPrefs, así que no se renombran a la
-        /// ligera: un id que cambia hace que quien ya aprendió vuelva a ver la fila.</summary>
+        /// <summary>Las acciones que el dibujo explica. El orden es el de la lista de
+        /// abajo y el id es lo que se guarda en PlayerPrefs, así que no se renombran
+        /// a la ligera: un id que cambia hace que quien ya aprendió vuelva a verlo.</summary>
         private enum Accion { Caminar, Hablar, Correr, Saltar, Celular, Pausa }
 
-        /// <summary>Una tecla dibujada. Puede representar más de una —la W también es
-        /// la flecha de arriba— porque para el niño/a son la misma cosa.</summary>
+        /// <summary>Cómo está pintada una tecla ahora mismo. Se guarda para no
+        /// reescribir los colores en cada frame.</summary>
+        private enum Pinta { Sin, Encendida, Aprendida, Pulsada }
+
+        /// <summary>Una tecla iluminada del dibujo: su tapa, lo que lleva escrito o
+        /// dibujado encima, y qué tecla de verdad es.</summary>
         private class Cara
         {
-            public readonly List<Key> Teclas = new List<Key>();
+            public Key Tecla;
             public Image Fondo;
-            public bool Encendida;
+            public Graphic Simbolo;      // la letra, o el triángulo de las flechas
+            public Pinta Pinta = Pinta.Sin;
         }
 
-        /// <summary>Una fila: lo que hace, con qué teclas, y si ya se aprendió.</summary>
+        /// <summary>Una acción: lo que hace, con qué teclas, su renglón en la lista y
+        /// si ya se aprendió.</summary>
         private class Bloque
         {
             public Accion Accion;
+            public readonly List<Key> Teclas = new List<Key>();
             public readonly List<Cara> Caras = new List<Cara>();
-            public CanvasGroup Grupo;
+            public TMP_Text Leyenda;
             public bool Aprendida;
         }
 
         private readonly List<Bloque> _bloques = new List<Bloque>();
+
+        /// <summary>De tecla a la acción que la usa, para saber al dibujar el teclado
+        /// cuáles hay que encender.</summary>
+        private readonly Dictionary<Key, Bloque> _porTecla = new Dictionary<Key, Bloque>();
+
+        /// <summary>Dónde quedó cada tecla en el dibujo: fila y columna. Sirve para
+        /// nombrarlas en la lista de abajo en el orden en que se ven, que es el único
+        /// que un niño/a puede seguir con el dedo.</summary>
+        private readonly Dictionary<Key, Vector2> _sitio = new Dictionary<Key, Vector2>();
 
         private GameObject _raiz;
         private RectTransform _tarjeta;
@@ -115,7 +140,7 @@ namespace Fishy.UI
 
         /// <summary>
         /// Mira si en este aparato ya se aprendieron todas: entonces no hay nada que
-        /// enseñar y la tarjeta no llega ni a construirse.
+        /// enseñar y el dibujo no llega ni a construirse.
         ///
         /// Está fuera del Awake para que el arnés de pruebas pueda llamarlo: el Awake
         /// hace además <c>DontDestroyOnLoad</c>, que fuera del modo Play no avisa
@@ -124,26 +149,18 @@ namespace Fishy.UI
         private void LeerLoAprendido() => _yaNoHaceFalta = TodoAprendido(Leer());
 
         /// <summary>
-        /// Lo que la tarjeta está enseñando ahora mismo: para cada acción, todas las
+        /// Lo que el dibujo está enseñando ahora mismo: para cada acción, todas las
         /// teclas que acepta.
         ///
         /// Existe para el arnés de pruebas, que compara esto con lo que el juego
-        /// escucha de verdad. Es la forma de que «el cartel no miente» sea algo que
+        /// escucha de verdad. Es la forma de que «el dibujo no miente» sea algo que
         /// se comprueba y no algo que se promete en un comentario.
         /// </summary>
         public Dictionary<string, List<Key>> LoQueEnsena()
         {
             var porAccion = new Dictionary<string, List<Key>>();
-
             foreach (Bloque bloque in _bloques)
-            {
-                var teclas = new List<Key>();
-                foreach (Cara cara in bloque.Caras)
-                    foreach (Key tecla in cara.Teclas)
-                        if (!teclas.Contains(tecla)) teclas.Add(tecla);
-
-                porAccion[bloque.Accion.ToString()] = teclas;
-            }
+                porAccion[bloque.Accion.ToString()] = new List<Key>(bloque.Teclas);
 
             return porAccion;
         }
@@ -172,16 +189,19 @@ namespace Fishy.UI
         }
 
         /// <summary>
-        /// Enciende o apaga la tarjeta según si ahora toca enseñar algo.
+        /// Enciende o apaga el dibujo según si ahora toca enseñar algo.
         ///
-        /// Se esconde cuando ya no aporta —durante una cinemática o una carga, con el
-        /// juego en pausa, con el celular abierto encima— y cuando no hay teclado que
-        /// enseñar: en una tablet, <c>Keyboard.current</c> es null y una tarjeta de
-        /// teclas sería un chiste malo.
+        /// Se esconde cuando no aporta —en pausa, durante una cinemática o una carga,
+        /// con el celular abierto encima— y cuando no hay teclado que enseñar: en una
+        /// tablet, <c>Keyboard.current</c> es null y un dibujo de teclas sería un
+        /// chiste malo.
         ///
-        /// <b>Sí se queda durante los diálogos</b>, aunque Otto no pueda moverse: es
-        /// justo cuando el niño/a necesita saber que la misma tecla que empezó la
-        /// conversación es la que la hace avanzar.
+        /// <b>Y se esconde mientras Otto no puede caminar</b>, que es como el resto
+        /// del código pregunta «¿hay un diálogo, un chat o el Modo Detective en
+        /// medio?» (ver <c>MenuController.PuedeAbrir</c>). Aquí no es por elegancia:
+        /// el dibujo es grande y el panel de diálogo le queda encima. Se pierde poco,
+        /// porque para cuando hay un diálogo abierto la E ya se pulsó —es la que lo
+        /// empezó— y su renglón ya está apagado.
         /// </summary>
         private void Revisar()
         {
@@ -195,17 +215,33 @@ namespace Fishy.UI
 
             bool mostrar = !_yaNoHaceFalta &&
                            _otto != null &&
+                           _otto.movementEnabled &&
                            Keyboard.current != null &&
                            !EstadoDePausa.Pausado &&
                            EstadoDePausa.SePuedePausar() &&
-                           (_celular == null || !_celular.EstaAbierto);
+                           (_celular == null || !_celular.EstaAbierto) &&
+                           !GuiaALaVista();
 
             if (_raiz != null && _raiz.activeSelf != mostrar) _raiz.SetActive(mostrar);
         }
 
         /// <summary>
-        /// Pinta el estado de cada tecla: encendida mientras se la pulsa, y la fila
-        /// entera atenuada en cuanto esa tecla se usó por primera vez.
+        /// Si el celular del guía del tutorial está asomado.
+        ///
+        /// Ocupa el lado derecho de la pantalla y le cae justo encima a este dibujo
+        /// —se dibuja además por encima (1250 contra 800)—, así que mientras el guía
+        /// habla, esto se aparta. No se pierde nada: el guía está explicando
+        /// precisamente eso, y el dibujo vuelve en cuanto se va.
+        ///
+        /// Se pregunta por el singleton y no se guarda la referencia porque el guía
+        /// solo existe en la escena del tutorial; en el resto esto es un null rápido.
+        /// </summary>
+        private static bool GuiaALaVista()
+            => CelularDelGuia.Instance != null && CelularDelGuia.Instance.EstaVisible;
+
+        /// <summary>
+        /// Pinta el estado de cada tecla: encendida mientras se la pulsa, y apagada
+        /// —ella y su renglón de la lista— en cuanto se usó por primera vez.
         ///
         /// Recibe de quién preguntar para poder probarse sin teclado.
         /// </summary>
@@ -218,21 +254,21 @@ namespace Fishy.UI
                 bool algunaPulsada = false;
 
                 foreach (Cara cara in bloque.Caras)
-                {
-                    bool ahora = false;
-                    foreach (Key tecla in cara.Teclas)
-                        if (pulsada(tecla)) { ahora = true; break; }
-
-                    algunaPulsada |= ahora;
-
-                    if (cara.Encendida == ahora || cara.Fondo == null) continue;
-                    cara.Encendida = ahora;
-                    cara.Fondo.color = ahora
-                        ? Col.TeclaPulsada
-                        : Col.Tecla;
-                }
+                    if (pulsada(cara.Tecla)) { algunaPulsada = true; break; }
 
                 if (algunaPulsada && !bloque.Aprendida) Aprender(bloque);
+
+                foreach (Cara cara in bloque.Caras)
+                {
+                    Pinta pinta = pulsada(cara.Tecla) ? Pinta.Pulsada
+                                : bloque.Aprendida    ? Pinta.Aprendida
+                                                      : Pinta.Encendida;
+
+                    if (cara.Pinta == pinta) continue;
+                    cara.Pinta = pinta;
+                    Pintar(cara, pinta);
+                }
+
                 todas &= bloque.Aprendida;
             }
 
@@ -255,11 +291,25 @@ namespace Fishy.UI
             if (_raiz != null) _raiz.SetActive(false);
         }
 
+        private static void Pintar(Cara cara, Pinta pinta)
+        {
+            Color tapa    = pinta == Pinta.Pulsada ? Col.Pulsada      : Col.Marcada;
+            Color simbolo = pinta == Pinta.Pulsada ? Col.PulsadaLetra : Col.MarcadaLetra;
+
+            if (pinta == Pinta.Aprendida)
+            {
+                tapa.a    *= Med.AlfaAprendida;
+                simbolo.a *= Med.AlfaAprendida;
+            }
+
+            if (cara.Fondo != null)   cara.Fondo.color = tapa;
+            if (cara.Simbolo != null) cara.Simbolo.color = simbolo;
+        }
+
         private void Aprender(Bloque bloque)
         {
             bloque.Aprendida = true;
-            if (bloque.Grupo != null)
-                bloque.Grupo.alpha = Med.AlfaAprendida;
+            if (bloque.Leyenda != null) bloque.Leyenda.alpha = Med.AlfaAprendida;
 
             HashSet<string> sabidas = Leer();
             sabidas.Add(bloque.Accion.ToString());
@@ -294,7 +344,7 @@ namespace Fishy.UI
         }
 
         /// <summary>Vuelve a enseñarlo todo desde cero. Para el arnés de pruebas y
-        /// para poder mirar la tarjeta otra vez sin borrar los PlayerPrefs enteros,
+        /// para poder mirar el dibujo otra vez sin borrar los PlayerPrefs enteros,
         /// que se llevarían por delante el volumen y la pantalla completa.</summary>
         public static void Olvidar()
         {
@@ -308,77 +358,31 @@ namespace Fishy.UI
         /// Las teclas de caminar, sacadas de la acción que Otto escucha de verdad.
         ///
         /// La acción lleva dos composites de cuatro partes —WASD primero, flechas
-        /// después— más el stick y la cruceta del mando. Se recorren las partes de
-        /// teclado y se agrupan por dirección, así que cada cara acaba sabiendo que
-        /// "arriba" son la W <i>y</i> la flecha. Las del mando se saltan solas: su
-        /// ruta no empieza por &lt;Keyboard&gt;.
+        /// después— más el stick y la cruceta del mando. Las del mando se saltan
+        /// solas: su ruta no empieza por &lt;Keyboard&gt;.
         ///
         /// El respaldo es para cuando no hay Otto todavía (o alguien le quitó los
         /// atajos): WASD y flechas, que es lo que el controlador ata hoy. Hay una
         /// prueba del arnés que avisa si ese respaldo y los atajos de verdad dejan de
         /// coincidir.
         /// </summary>
-        private static List<List<Key>> TeclasDeCaminar(OttoController otto)
+        private static List<Key> TeclasDeCaminar(OttoController otto)
         {
-            var porDireccion = new List<List<Key>>
-            {
-                new List<Key>(), new List<Key>(), new List<Key>(), new List<Key>(),
-            };
-
-            InputAction accion = otto != null ? otto.AccionMover : null;
-            if (accion != null)
-            {
-                foreach (InputBinding atadura in accion.bindings)
-                {
-                    int direccion = IndiceDeDireccion(atadura.name);
-                    if (direccion < 0) continue;
-
-                    if (TeclaDeRuta(atadura.path, out Key tecla))
-                        porDireccion[direccion].Add(tecla);
-                }
-            }
-
-            // Respaldo, dirección a dirección: si una se quedó sin teclas de teclado
-            // se le pone la de siempre, y las que sí tienen no se tocan.
-            Key[] respaldo = { Key.W, Key.A, Key.S, Key.D };
-            Key[] flechas  = { Key.UpArrow, Key.LeftArrow, Key.DownArrow, Key.RightArrow };
-
-            for (int i = 0; i < porDireccion.Count; i++)
-            {
-                if (porDireccion[i].Count > 0) continue;
-                porDireccion[i].Add(respaldo[i]);
-                porDireccion[i].Add(flechas[i]);
-            }
-
-            return porDireccion;
+            return TeclasDe(otto != null ? otto.AccionMover : null,
+                Key.W, Key.A, Key.S, Key.D,
+                Key.UpArrow, Key.LeftArrow, Key.DownArrow, Key.RightArrow);
         }
 
-        /// <summary>El orden en el que se dibujan: arriba, izquierda, abajo, derecha.
-        /// Los nombres son los que el Input System le da a cada parte del composite
-        /// 2DVector.</summary>
-        private static int IndiceDeDireccion(string nombreDeLaParte)
-        {
-            if (string.IsNullOrEmpty(nombreDeLaParte)) return -1;
-
-            switch (nombreDeLaParte.ToLowerInvariant())
-            {
-                case "up":    return 0;
-                case "left":  return 1;
-                case "down":  return 2;
-                case "right": return 3;
-                default:      return -1;
-            }
-        }
-
-        /// <summary>Las teclas de una acción de un solo botón (correr, saltar), sin
-        /// las del mando.</summary>
+        /// <summary>Las teclas de teclado de una acción, sin repetir y sin las del
+        /// mando. Si no hay ninguna —porque no hay Otto— se usa el respaldo.</summary>
         private static List<Key> TeclasDe(InputAction accion, params Key[] respaldo)
         {
             var teclas = new List<Key>();
 
             if (accion != null)
                 foreach (InputBinding atadura in accion.bindings)
-                    if (TeclaDeRuta(atadura.path, out Key tecla)) teclas.Add(tecla);
+                    if (TeclaDeRuta(atadura.path, out Key tecla) && !teclas.Contains(tecla))
+                        teclas.Add(tecla);
 
             if (teclas.Count == 0) teclas.AddRange(respaldo);
             return teclas;
@@ -415,10 +419,10 @@ namespace Fishy.UI
             return detector != null ? detector.interactKey : Key.E;
         }
 
-        /// <summary>Cómo se llama una tecla en la tarjeta. Las letras van solas; las
-        /// demás llevan nombre en castellano y corto, que es lo que cabe en una
-        /// tecla.</summary>
-        private static string EtiquetaDe(Key tecla)
+        /// <summary>Cómo se llama una tecla cuando hay que escribir su nombre. Las
+        /// letras van solas; las demás llevan nombre corto, que es lo que cabe en una
+        /// tapa.</summary>
+        private static string NombreDe(Key tecla)
         {
             switch (tecla)
             {
@@ -431,19 +435,138 @@ namespace Fishy.UI
             }
         }
 
+        private static bool EsFlecha(Key tecla)
+            => tecla == Key.UpArrow || tecla == Key.DownArrow ||
+               tecla == Key.LeftArrow || tecla == Key.RightArrow;
+
+        // ── La forma del teclado ──────────────────────────────────────────────
+
+        /// <summary>
+        /// Una tapa del dibujo: lo que lleva escrito, cuánto mide en unidades de
+        /// tecla y, si es una de las del juego, qué tecla es.
+        ///
+        /// Con <see cref="Texto"/> en null es un hueco y no se dibuja nada: así se
+        /// separan el bloque de las F y el de las flechas sin inventar otra tabla.
+        /// </summary>
+        private readonly struct Tapa
+        {
+            public readonly string Texto;
+            public readonly float Ancho;
+            public readonly Key Tecla;
+
+            public Tapa(string texto, float ancho = 1f, Key tecla = Key.None)
+            {
+                Texto = texto; Ancho = ancho; Tecla = tecla;
+            }
+
+            public bool EsHueco => Texto == null;
+        }
+
+        private static Tapa Hueco(float ancho) => new Tapa(null, ancho);
+        private static Tapa Vacia(float ancho = 1f) => new Tapa("", ancho);
+
+        /// <summary>
+        /// El teclado, fila por fila, en unidades de tecla. Es un teclado español de
+        /// los que hay en las salas de computación: la Ñ está donde tiene que estar y
+        /// el Shift de la izquierda es corto porque a su lado va la tecla del menor
+        /// que. Las medidas (1,5 para el tabulador, 6,25 para la barra espaciadora…)
+        /// son las de un teclado de verdad, que es de lo que va todo esto.
+        ///
+        /// Lo que no se dibuja: el bloque de teclas de edición y el numérico. No hay
+        /// ninguna tecla del juego ahí, y se llevarían la mitad del ancho.
+        ///
+        /// Las quince unidades de cada fila tienen que cuadrar entre sí o el teclado
+        /// sale escalonado; hay una prueba del arnés que lo comprueba.
+        /// </summary>
+        private static readonly Tapa[][] Filas =
+        {
+            new[]
+            {
+                new Tapa(Txt.Escape, 1f, Key.Escape), Hueco(1f),
+                Vacia(), Vacia(), Vacia(), Vacia(), Hueco(0.5f),
+                Vacia(), Vacia(), Vacia(), Vacia(), Hueco(0.5f),
+                Vacia(), Vacia(), Vacia(), Vacia(),
+            },
+            new[]
+            {
+                new Tapa("º"),
+                new Tapa("1", 1f, Key.Digit1), new Tapa("2", 1f, Key.Digit2),
+                new Tapa("3", 1f, Key.Digit3), new Tapa("4", 1f, Key.Digit4),
+                new Tapa("5", 1f, Key.Digit5), new Tapa("6", 1f, Key.Digit6),
+                new Tapa("7", 1f, Key.Digit7), new Tapa("8", 1f, Key.Digit8),
+                new Tapa("9", 1f, Key.Digit9), new Tapa("0", 1f, Key.Digit0),
+                new Tapa("'"), new Tapa("¡"), Vacia(2f),
+            },
+            new[]
+            {
+                new Tapa(Txt.Tab, 1.5f, Key.Tab),
+                new Tapa("Q", 1f, Key.Q), new Tapa("W", 1f, Key.W), new Tapa("E", 1f, Key.E),
+                new Tapa("R", 1f, Key.R), new Tapa("T", 1f, Key.T), new Tapa("Y", 1f, Key.Y),
+                new Tapa("U", 1f, Key.U), new Tapa("I", 1f, Key.I), new Tapa("O", 1f, Key.O),
+                new Tapa("P", 1f, Key.P), new Tapa("`"), new Tapa("+"),
+                Vacia(1.5f),
+            },
+            new[]
+            {
+                Vacia(1.75f),
+                new Tapa("A", 1f, Key.A), new Tapa("S", 1f, Key.S), new Tapa("D", 1f, Key.D),
+                new Tapa("F", 1f, Key.F), new Tapa("G", 1f, Key.G), new Tapa("H", 1f, Key.H),
+                new Tapa("J", 1f, Key.J), new Tapa("K", 1f, Key.K), new Tapa("L", 1f, Key.L),
+                new Tapa("Ñ"), new Tapa("´"),
+                Vacia(2.25f),
+            },
+            new[]
+            {
+                new Tapa(Txt.Shift, 1.25f, Key.LeftShift), new Tapa("<"),
+                new Tapa("Z", 1f, Key.Z), new Tapa("X", 1f, Key.X), new Tapa("C", 1f, Key.C),
+                new Tapa("V", 1f, Key.V), new Tapa("B", 1f, Key.B), new Tapa("N", 1f, Key.N),
+                new Tapa("M", 1f, Key.M), new Tapa(","), new Tapa("."), new Tapa("-"),
+                new Tapa(Txt.Shift, 2.75f, Key.RightShift),
+            },
+            new[]
+            {
+                new Tapa("Ctrl", 1.25f, Key.LeftCtrl), Vacia(1.25f),
+                new Tapa("Alt", 1.25f, Key.LeftAlt),
+                new Tapa(Txt.Espacio, 6.25f, Key.Space),
+                new Tapa("Alt", 1.25f, Key.RightAlt), Vacia(1.25f), Vacia(1.25f),
+                new Tapa("Ctrl", 1.25f, Key.RightCtrl),
+            },
+        };
+
+        /// <summary>Ancho del bloque principal, en unidades. Todas las filas de arriba
+        /// suman esto.</summary>
+        private const float AnchoBloque = 15f;
+
+        /// <summary>Hueco entre el bloque principal y el de flechas, en unidades.</summary>
+        private const float SeparacionFlechas = 0.5f;
+
+        /// <summary>Las cuatro flechas, con su sitio: columna (en unidades, contando
+        /// desde el borde del bloque de flechas) y fila del teclado. Van donde van en
+        /// un teclado de verdad: la de arriba sola, encima de las otras tres.</summary>
+        private static readonly (Key tecla, float columna, int fila, float giro)[] Flechas =
+        {
+            (Key.UpArrow,    1f, 4,  90f),
+            (Key.LeftArrow,  0f, 5, 180f),
+            (Key.DownArrow,  1f, 5, 270f),
+            (Key.RightArrow, 2f, 5,   0f),
+        };
+
         // ── La tarjeta ────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Arma la tarjeta entera. Todo a mano y en código, como el resto de la UI de
-        /// este proyecto: nada de prefabs ni de tocar la escena.
+        /// Arma la tarjeta entera: título, dibujo del teclado y lista de abajo. Todo
+        /// a mano y en código, como el resto de la UI de este proyecto: nada de
+        /// prefabs ni de tocar la escena.
         ///
-        /// Se coloca por coordenadas y no con grupos de layout porque cada fila tiene
-        /// su propia forma —la cruz de caminar ocupa dos pisos y las demás uno— y
-        /// porque así el arnés puede medir dónde queda cada cosa sin montar el canvas.
+        /// Se coloca por coordenadas y no con grupos de layout porque un teclado es
+        /// una tabla de posiciones, no una pila de cosas; y porque así el arnés puede
+        /// medir dónde queda cada tecla sin montar el canvas.
         /// </summary>
         private void Construir()
         {
             UiBootstrap.EnsureEventSystem();
+
+            PrepararBloques();
 
             var canvasGO = new GameObject("TecladoEnPantallaCanvas",
                 typeof(Canvas), typeof(CanvasScaler));
@@ -471,29 +594,24 @@ namespace Fishy.UI
             // Es un cartel, no un botón: no debe robarle el clic a nada del mundo.
             fondo.raycastTarget = false;
 
-            float ancho = Med.AnchoPanel - 2f * Med.Padding;
+            // El ancho lo manda el dibujo: el teclado mide lo que mide.
+            float anchoTeclado = (AnchoBloque + SeparacionFlechas + 3f) * Med.Unidad;
+            float ancho = anchoTeclado + 2f * Med.Padding;
+
             float y = -Med.Padding;
 
-            Texto(_tarjeta, "Titulo", Txt.Titulo, Fnt.Titulo, Col.Titulo,
-                FishyUIKit.Titulos, Med.Padding, y, ancho, Fnt.Titulo * 1.2f);
+            Texto(_tarjeta, "Titulo", Txt.Titulo, Fnt.Titulo, Col.Titulo, FishyUIKit.Titulos,
+                Med.Padding, y, anchoTeclado, Fnt.Titulo * 1.2f);
 
             y -= Fnt.Titulo * 1.2f + Med.Separacion;
 
-            y = FilaDeCaminar(y);
-            y = Fila(y, Accion.Hablar, new List<List<Key>> { new List<Key> { TeclaDeInteractuar() } });
+            y = DibujarTeclado(y);
+            y -= Med.Separacion;
+            y = DibujarLeyenda(y, anchoTeclado);
 
-            y = FilaDoble(y,
-                Accion.Correr, TeclasDe(_otto != null ? _otto.AccionCorrer : null,
-                    Key.LeftShift, Key.RightShift),
-                Accion.Saltar, TeclasDe(_otto != null ? _otto.AccionSaltar : null, Key.Space));
+            _tarjeta.sizeDelta = new Vector2(ancho, -y + Med.Padding);
 
-            y = FilaDoble(y,
-                Accion.Celular, new List<Key> { MenuController.TeclaDelCelular },
-                Accion.Pausa,   new List<Key> { MenuPausa.TeclaDePausa });
-
-            _tarjeta.sizeDelta = new Vector2(Med.AnchoPanel, -y + Med.Padding);
-
-            // Lo ya sabido de otras partidas entra apagado: la tarjeta se abre
+            // Lo ya sabido de otras partidas entra apagado: el dibujo se abre
             // enseñando solo lo que falta.
             HashSet<string> sabidas = Leer();
             foreach (Bloque bloque in _bloques)
@@ -501,199 +619,276 @@ namespace Fishy.UI
                 if (!sabidas.Contains(bloque.Accion.ToString())) continue;
 
                 bloque.Aprendida = true;
-                if (bloque.Grupo != null) bloque.Grupo.alpha = Med.AlfaAprendida;
+                if (bloque.Leyenda != null) bloque.Leyenda.alpha = Med.AlfaAprendida;
+
+                foreach (Cara cara in bloque.Caras)
+                {
+                    cara.Pinta = Pinta.Aprendida;
+                    Pintar(cara, Pinta.Aprendida);
+                }
             }
 
             _raiz.SetActive(false);   // lo enciende Revisar si toca
         }
 
-        /// <summary>
-        /// La cruz de caminar: la W arriba y A S D debajo, cada una con su
-        /// triangulito. Es la única fila con forma propia, y se la gana: la cruz
-        /// <i>es</i> la explicación, un niño/a que no lee rápido la entiende de un
-        /// vistazo.
-        /// </summary>
-        private float FilaDeCaminar(float y)
+        /// <summary>Pregunta las teclas de cada acción y arma el índice que el dibujo
+        /// consulta tecla por tecla.</summary>
+        private void PrepararBloques()
         {
-            var bloque = new Bloque { Accion = Accion.Caminar };
-            RectTransform grupo = Grupo(bloque, "Caminar", y);
+            _bloques.Clear();
+            _porTecla.Clear();
 
-            List<List<Key>> teclas = TeclasDeCaminar(_otto);
-
-            float paso = Med.LadoTecla + Med.Hueco;
-            float anchoCruz = 3f * Med.LadoTecla + 2f * Med.Hueco;
-            float altoCruz = 2f * Med.LadoTecla + Med.Hueco;
-
-            // Columna y piso de cada dirección dentro de la cruz, en el orden en que
-            // las devuelve TeclasDeCaminar: arriba, izquierda, abajo, derecha.
-            int[] columnas = { 1, 0, 1, 2 };
-            int[] pisos    = { 0, 1, 1, 1 };
-            float[] giros  = { 90f, 180f, 270f, 0f };   // el triángulo nace mirando a la derecha
-
-            for (int i = 0; i < teclas.Count; i++)
-            {
-                Cara cara = Tecla(grupo, teclas[i], EtiquetaDe(teclas[i][0]),
-                    Med.Padding + columnas[i] * paso, -pisos[i] * paso, giros[i]);
-                bloque.Caras.Add(cara);
-            }
-
-            float x = Med.Padding + anchoCruz + Med.Hueco * 2f;
-            float ancho = Med.AnchoPanel - Med.Padding - x;
-
-            Texto(grupo, "Etiqueta", Txt.Caminar, Fnt.Etiqueta, Col.Etiqueta,
-                FishyUIKit.Cuerpo, x, -altoCruz / 2f + 34f, ancho, 34f);
-
-            Texto(grupo, "Pista", Txt.CaminarPista, Fnt.Pista, Col.Pista,
-                FishyUIKit.Cuerpo, x, -altoCruz / 2f, ancho, 28f);
-
-            _bloques.Add(bloque);
-            return y - altoCruz - Med.Separacion;
+            Apuntar(Accion.Caminar, TeclasDeCaminar(_otto));
+            Apuntar(Accion.Hablar, new List<Key> { TeclaDeInteractuar() });
+            Apuntar(Accion.Correr, TeclasDe(_otto != null ? _otto.AccionCorrer : null,
+                Key.LeftShift, Key.RightShift));
+            Apuntar(Accion.Saltar, TeclasDe(_otto != null ? _otto.AccionSaltar : null, Key.Space));
+            Apuntar(Accion.Celular, new List<Key> { MenuController.TeclaDelCelular });
+            Apuntar(Accion.Pausa, new List<Key> { MenuPausa.TeclaDePausa });
         }
 
-        /// <summary>Una fila corriente: sus teclas a la izquierda y lo que hacen a la
-        /// derecha.</summary>
-        private float Fila(float y, Accion accion, List<List<Key>> teclas)
+        private void Apuntar(Accion accion, List<Key> teclas)
         {
             var bloque = new Bloque { Accion = accion };
-            RectTransform grupo = Grupo(bloque, accion.ToString(), y);
-
-            float x = Dibujar(grupo, bloque, teclas, Med.Padding);
-            Texto(grupo, "Etiqueta", TextoDe(accion), Fnt.Etiqueta, Col.Etiqueta,
-                FishyUIKit.Cuerpo, x, -Med.LadoTecla / 2f + 17f,
-                Med.AnchoPanel - Med.Padding - x, 34f);
-
+            bloque.Teclas.AddRange(teclas);
             _bloques.Add(bloque);
-            return y - Med.LadoTecla - Med.Separacion;
+
+            // Si dos acciones compartieran tecla mandaría la primera, pero no pasa:
+            // sería un conflicto de controles y se vería aquí antes que en el juego.
+            foreach (Key tecla in teclas)
+                if (!_porTecla.ContainsKey(tecla)) _porTecla[tecla] = bloque;
+        }
+
+        /// <summary>Dibuja el teclado entero y devuelve por dónde queda el borde de
+        /// abajo.</summary>
+        private float DibujarTeclado(float y)
+        {
+            for (int fila = 0; fila < Filas.Length; fila++)
+            {
+                float columna = 0f;
+
+                foreach (Tapa tapa in Filas[fila])
+                {
+                    if (!tapa.EsHueco)
+                    {
+                        if (tapa.Tecla != Key.None) _sitio[tapa.Tecla] = new Vector2(columna, fila);
+                        DibujarTapa(tapa, columna, fila, y);
+                    }
+
+                    columna += tapa.Ancho;
+                }
+            }
+
+            float izquierdaFlechas = AnchoBloque + SeparacionFlechas;
+            foreach ((Key tecla, float columna, int fila, float giro) in Flechas)
+            {
+                _sitio[tecla] = new Vector2(izquierdaFlechas + columna, fila);
+                DibujarFlecha(tecla, izquierdaFlechas + columna, fila, y, giro);
+            }
+
+            return y - Filas.Length * Med.Unidad;
         }
 
         /// <summary>
-        /// Dos acciones en la misma fila. Las cuatro que quedan son de una tecla y un
-        /// nombre corto, y apiladas de una en una la tarjeta se comía media pantalla
-        /// de un equipo de 768 px de alto.
+        /// Una tecla del dibujo. Las que el juego usa salen claras y con su letra
+        /// grande; las demás, apagadas y con la letra pequeña: están para reconocer
+        /// la forma del teclado, no para leerlas.
         /// </summary>
-        private float FilaDoble(float y, Accion izquierda, List<Key> teclasIzquierda,
-            Accion derecha, List<Key> teclasDerecha)
+        private void DibujarTapa(Tapa tapa, float columna, int fila, float arriba)
         {
-            float ancho = Med.AnchoPanel - 2f * Med.Padding;
-            float primera = ancho * Med.RepartoFilaDoble;
+            bool marcada = tapa.Tecla != Key.None && _porTecla.ContainsKey(tapa.Tecla);
 
-            MedioBloque(y, izquierda, teclasIzquierda, Med.Padding, primera);
-            MedioBloque(y, derecha, teclasDerecha, Med.Padding + primera, ancho - primera);
+            // Las del juego se llaman por su tecla —"Tecla_W"— para poder buscarlas
+            // desde el arnés de pruebas; las de relleno, todas igual.
+            RectTransform rt = Rectangulo(marcada ? "Tecla_" + tapa.Tecla : "Tapa",
+                columna, fila, arriba, tapa.Ancho);
 
-            return y - Med.LadoTecla - Med.Separacion;
+            var fondo = rt.gameObject.AddComponent<Image>();
+            FishyUIKit.FondoRedondeado(fondo, marcada ? Col.Marcada : Col.Tapa,
+                radio: Med.RadioTecla);
+            fondo.raycastTarget = false;
+
+            if (string.IsNullOrEmpty(tapa.Texto)) return;
+
+            float tamano = marcada ? Fnt.Letra
+                         : tapa.Texto.Length > 1 ? Fnt.Nombre
+                                                 : Fnt.Relleno;
+
+            TextMeshProUGUI letra = FishyUIKit.Texto(rt, "Letra", tapa.Texto, tamano,
+                marcada ? Col.MarcadaLetra : Col.TapaLetra, TextAlignmentOptions.Center);
+            letra.font = FishyUIKit.Cuerpo;   // "Espacio" en Mango no cabe ni se lee
+            letra.textWrappingMode = TextWrappingModes.NoWrap;
+            letra.raycastTarget = false;
+            FishyUIKit.Estirar(letra.rectTransform, Med.MargenLetra, Med.MargenLetra);
+
+            // Que encoja si no cabe, nunca que crezca: "Shift" en una tapa de 1,25
+            // unidades y "Esc" en una de 1 se salían por los dos lados y el dibujo
+            // parecía roto. Es el mismo arreglo que el nombre del NPC en el panel de
+            // diálogo, y por el mismo motivo: el texto es variable y la caja no.
+            letra.enableAutoSizing = true;
+            letra.fontSizeMax = tamano;
+            letra.fontSizeMin = Med.LetraMinima;
+
+            if (marcada) Apuntar(tapa.Tecla, fondo, letra);
         }
 
-        private void MedioBloque(float y, Accion accion, List<Key> teclas, float x, float ancho)
+        /// <summary>
+        /// Una tecla de dirección. La flecha va dibujada y no escrita por lo mismo
+        /// que el aspa de cerrar y el símbolo de pausa: ↑↓←→ no están en ninguna de
+        /// las dos fuentes del juego y saldrían como cuadros huecos. El triángulo ya
+        /// existe en el kit (<see cref="FishyUIKit.SpriteTriangulo"/>), nace mirando
+        /// a la derecha y se gira.
+        /// </summary>
+        private void DibujarFlecha(Key tecla, float columna, int fila, float arriba, float giro)
         {
-            var bloque = new Bloque { Accion = accion };
-            RectTransform grupo = Grupo(bloque, accion.ToString(), y);
+            bool marcada = _porTecla.ContainsKey(tecla);
 
-            // Las alternativas de una misma acción —los dos Shift— son una sola cara:
-            // enseñar dos teclas que hacen lo mismo solo confunde.
-            float tras = Dibujar(grupo, bloque, new List<List<Key>> { teclas }, x);
+            RectTransform rt = Rectangulo("Tecla_" + tecla, columna, fila, arriba, 1f);
 
-            Texto(grupo, "Etiqueta", TextoDe(accion), Fnt.Etiqueta, Col.Etiqueta,
-                FishyUIKit.Cuerpo, tras, -Med.LadoTecla / 2f + 17f,
-                x + ancho - tras, 34f);
+            var fondo = rt.gameObject.AddComponent<Image>();
+            FishyUIKit.FondoRedondeado(fondo, marcada ? Col.Marcada : Col.Tapa,
+                radio: Med.RadioTecla);
+            fondo.raycastTarget = false;
 
-            _bloques.Add(bloque);
+            var go = new GameObject("Flecha", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(rt, false);
+
+            var flechaRT = (RectTransform)go.transform;
+            flechaRT.anchorMin = flechaRT.anchorMax = flechaRT.pivot = new Vector2(0.5f, 0.5f);
+            flechaRT.sizeDelta = new Vector2(Med.LadoFlecha, Med.LadoFlecha);
+            flechaRT.localRotation = Quaternion.Euler(0f, 0f, giro);
+
+            var img = go.GetComponent<Image>();
+            img.sprite = FishyUIKit.SpriteTriangulo();
+            img.color = marcada ? Col.MarcadaLetra : Col.TapaLetra;
+            img.raycastTarget = false;
+
+            if (marcada) Apuntar(tecla, fondo, img);
         }
 
-        /// <summary>Dibuja las caras de una fila una detrás de otra y devuelve dónde
-        /// termina la última.</summary>
-        private float Dibujar(RectTransform grupo, Bloque bloque, List<List<Key>> caras, float x)
+        /// <summary>El rectángulo de una tecla, colocado por su esquina de arriba a la
+        /// izquierda. El hueco entre teclas se descuenta del tamaño, así que las
+        /// columnas siguen cayendo en múltiplos limpios de la unidad.</summary>
+        private RectTransform Rectangulo(string nombre, float columna, int fila, float arriba,
+            float ancho)
         {
-            foreach (List<Key> teclas in caras)
-            {
-                Cara cara = Tecla(grupo, teclas, EtiquetaDe(teclas[0]), x, 0f, null);
-                bloque.Caras.Add(cara);
-                x += cara.Fondo.rectTransform.sizeDelta.x + Med.Hueco;
-            }
-
-            // Un hueco más antes del nombre: pegado a la tecla se lee como si fuera
-            // parte de ella.
-            return x + Med.Hueco;
-        }
-
-        /// <summary>El contenedor de una fila. Lleva un CanvasGroup para poder
-        /// atenuarla entera de una vez cuando esa tecla ya se aprendió.</summary>
-        private RectTransform Grupo(Bloque bloque, string nombre, float y)
-        {
-            var go = new GameObject("Fila_" + nombre, typeof(RectTransform), typeof(CanvasGroup));
+            var go = new GameObject(nombre, typeof(RectTransform));
             go.transform.SetParent(_tarjeta, false);
 
             var rt = (RectTransform)go.transform;
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(0f, y);
-            rt.sizeDelta = new Vector2(Med.AnchoPanel, 0f);
-
-            bloque.Grupo = go.GetComponent<CanvasGroup>();
+            rt.sizeDelta = new Vector2(ancho * Med.Unidad - Med.Hueco, Med.Unidad - Med.Hueco);
+            rt.anchoredPosition = new Vector2(Med.Padding + columna * Med.Unidad,
+                arriba - fila * Med.Unidad);
             return rt;
         }
 
-        /// <summary>
-        /// Una tecla: la cara redondeada, su letra y, si se le pasa un giro, el
-        /// triangulito de la dirección.
-        ///
-        /// La flecha va dibujada y no escrita por lo mismo que el aspa de cerrar y el
-        /// símbolo de pausa: ↑↓←→ no están en ninguna de las dos fuentes del juego y
-        /// saldrían como cuadros huecos. El triángulo ya existe en el kit
-        /// (<see cref="FishyUIKit.SpriteTriangulo"/>), nace mirando a la derecha y se
-        /// gira.
-        /// </summary>
-        private Cara Tecla(RectTransform padre, List<Key> teclas, string etiqueta,
-            float x, float y, float? giro)
+        private void Apuntar(Key tecla, Image fondo, Graphic simbolo)
         {
-            var cara = new Cara();
-            cara.Teclas.AddRange(teclas);
+            if (!_porTecla.TryGetValue(tecla, out Bloque bloque)) return;
 
-            var go = new GameObject("Tecla_" + etiqueta, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(padre, false);
-
-            float ancho = Mathf.Max(Med.LadoTecla,
-                etiqueta.Length * Fnt.Letra * Med.AnchoPorLetra + Med.PaddingTecla);
-
-            var rt = (RectTransform)go.transform;
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
-            rt.sizeDelta = new Vector2(ancho, Med.LadoTecla);
-            rt.anchoredPosition = new Vector2(x, y);
-
-            cara.Fondo = go.GetComponent<Image>();
-            FishyUIKit.FondoRedondeado(cara.Fondo, Col.Tecla, radio: Med.RadioTecla);
-            cara.Fondo.raycastTarget = false;
-
-            TextMeshProUGUI letra = FishyUIKit.Texto(go.transform, "Letra", etiqueta,
-                Fnt.Letra, Col.Letra, TextAlignmentOptions.Center);
-            letra.font = FishyUIKit.Cuerpo;   // "Espacio" en Mango no cabe ni se lee
-            letra.textWrappingMode = TextWrappingModes.NoWrap;
-            letra.raycastTarget = false;
-            FishyUIKit.Estirar(letra.rectTransform);
-
-            if (giro.HasValue)
-            {
-                // La letra sube un poco para hacerle sitio a la flecha.
-                letra.rectTransform.anchoredPosition = new Vector2(0f, Med.BajadaFlecha / 2f);
-                Flecha(go.transform, giro.Value);
-            }
-
-            return cara;
+            bloque.Caras.Add(new Cara { Tecla = tecla, Fondo = fondo, Simbolo = simbolo });
         }
 
-        private void Flecha(Transform padre, float giro)
+        /// <summary>
+        /// La lista de abajo: qué hace cada tecla, en renglones que se van llenando
+        /// de izquierda a derecha y saltan de línea cuando no cabe la siguiente.
+        ///
+        /// Cada entrada es un texto suyo, y no un renglón entero con todas, porque
+        /// cada una se apaga por su cuenta cuando esa tecla ya se usó. El ancho se
+        /// mide con TMP en vez de calcularlo a ojo: son frases en castellano, con
+        /// acentos y de largo distinto, y una cuenta aproximada se pasa de largo
+        /// justo en la más larga.
+        /// </summary>
+        private float DibujarLeyenda(float y, float ancho)
         {
-            var go = new GameObject("Flecha", typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(padre, false);
+            string tinte = ColorUtility.ToHtmlStringRGB(Col.LeyendaTecla);
 
-            var rt = (RectTransform)go.transform;
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(Med.LadoFlecha, Med.LadoFlecha);
-            rt.anchoredPosition = new Vector2(0f, -Med.BajadaFlecha);
-            rt.localRotation = Quaternion.Euler(0f, 0f, giro);
+            float x = Med.Padding;
+            float derecha = Med.Padding + ancho;
 
-            var img = go.GetComponent<Image>();
-            img.sprite = FishyUIKit.SpriteTriangulo();
-            img.color = Col.Letra;
-            img.raycastTarget = false;
+            foreach (Bloque bloque in _bloques)
+            {
+                TextMeshProUGUI texto = Texto(_tarjeta, "Leyenda_" + bloque.Accion,
+                    EntradaDeLeyenda(bloque, tinte), Fnt.Leyenda, Col.Leyenda,
+                    FishyUIKit.Cuerpo, x, y, ancho, Med.AltoLeyenda);
+
+                float suyo = texto.GetPreferredValues().x;
+
+                // Si no cabe, a la línea siguiente. Nunca con la primera del renglón:
+                // una entrada más ancha que la tarjeta se sale igual, y empujarla
+                // dejaría además un renglón vacío.
+                if (x > Med.Padding && x + suyo > derecha)
+                {
+                    y -= Med.AltoLeyenda;
+                    x = Med.Padding;
+                    texto.rectTransform.anchoredPosition = new Vector2(x, y);
+                }
+
+                texto.rectTransform.sizeDelta = new Vector2(suyo, Med.AltoLeyenda);
+                x += suyo + Med.HuecoLeyenda;
+
+                bloque.Leyenda = texto;
+            }
+
+            return y - Med.AltoLeyenda;
+        }
+
+        /// <summary>
+        /// «W A S D o las flechas · Caminar», con el nombre de las teclas del mismo
+        /// color que las teclas iluminadas del dibujo: ese color es todo el vínculo
+        /// entre la lista y el teclado.
+        ///
+        /// Las flechas no se nombran una a una —serían cuatro palabras largas— sino
+        /// con la coletilla de siempre, y solo si de verdad están atadas.
+        /// </summary>
+        private string EntradaDeLeyenda(Bloque bloque, string tinte)
+        {
+            var nombres = new List<string>();
+            bool hayFlechas = false;
+
+            foreach (Key tecla in EnOrdenDeDibujo(bloque.Teclas))
+            {
+                if (EsFlecha(tecla)) { hayFlechas = true; continue; }
+
+                string nombre = NombreDe(tecla);
+                if (!nombres.Contains(nombre)) nombres.Add(nombre);
+            }
+
+            string teclas = string.Join(" ", nombres);
+            string coletilla = hayFlechas ? Txt.OLasFlechas : "";
+
+            return $"<color=#{tinte}>{teclas}</color>{coletilla}{Txt.Separador}{TextoDe(bloque.Accion)}";
+        }
+
+        /// <summary>
+        /// Las teclas ordenadas como se ven en el dibujo: de arriba abajo y de
+        /// izquierda a derecha.
+        ///
+        /// Importa porque el orden en que vienen atadas no es el orden en que se
+        /// miran: el composite de movimiento va arriba-abajo-izquierda-derecha, y la
+        /// lista decía «W S A D», que no es como nadie nombra esas cuatro teclas. Se
+        /// ordena por dónde quedaron en el dibujo y sale «W A S D» sin escribirlo a
+        /// mano en ninguna parte.
+        /// </summary>
+        private List<Key> EnOrdenDeDibujo(List<Key> teclas)
+        {
+            var ordenadas = new List<Key>(teclas);
+
+            ordenadas.Sort((una, otra) =>
+            {
+                bool hayUna  = _sitio.TryGetValue(una, out Vector2 sitioUna);
+                bool hayOtra = _sitio.TryGetValue(otra, out Vector2 sitioOtra);
+
+                // Una tecla que no esté dibujada —no debería haberla— se va al final
+                // en vez de colarse en medio del orden de las demás.
+                if (!hayUna || !hayOtra) return hayUna == hayOtra ? 0 : (hayUna ? -1 : 1);
+
+                int porFila = sitioUna.y.CompareTo(sitioOtra.y);
+                return porFila != 0 ? porFila : sitioUna.x.CompareTo(sitioOtra.x);
+            });
+
+            return ordenadas;
         }
 
         /// <summary>Un texto colocado por su esquina de arriba a la izquierda.</summary>
