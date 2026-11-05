@@ -23,3 +23,32 @@ it('muestra errores del servidor sin aceptar un código rechazado', async () => 
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 'codigo_invalido', detail: 'El código no es correcto o ya venció.' }), { status: 400 })))
   await expect(verificarRecuperacion('solicitud', '012345')).rejects.toThrow('El código no es correcto o ya venció.')
 })
+
+// Reproduce lo que vio una persona en producción: /auth/cambiar-contrasena/ no
+// estaba desplegado, Django devolvió su página HTML de 404 y el portal mostró
+// el mensaje interno de ApiError, "La API respondió 404". Un apoderado o un
+// profesor no puede hacer nada con ese texto.
+it('no muestra el error técnico cuando el backend responde HTML en vez de JSON', async () => {
+  const consola = vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(
+    '<!doctype html><html><head><title>Page not found</title></head><body></body></html>',
+    { status: 404, headers: { 'content-type': 'text/html' } },
+  )))
+  const error = await cambiarContrasena('Anterior123', 'NuevaClave123', 'NuevaClave123')
+    .then(() => null, (e: Error) => e)
+  expect(error).toBeInstanceOf(Error)
+  expect(error!.message).not.toContain('La API respondió')
+  expect(error!.message).toContain('todavía no está disponible')
+  expect(consola.mock.calls[0][0]).toContain('no está desplegado')
+  consola.mockRestore()
+})
+
+it('avisa de un servicio caído cuando el error 500 no trae JSON', async () => {
+  const consola = vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>502 Bad Gateway</html>', { status: 502 })))
+  const error = await cambiarContrasena('Anterior123', 'NuevaClave123', 'NuevaClave123')
+    .then(() => null, (e: Error) => e)
+  expect(error!.message).toContain('no está respondiendo')
+  expect(error!.message).not.toContain('La API respondió')
+  consola.mockRestore()
+})

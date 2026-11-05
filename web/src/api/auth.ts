@@ -24,6 +24,34 @@ export function obtenerPerfil(): Promise<AdultoResponsable> {
   return api.get<AdultoResponsable>('/auth/perfil/')
 }
 
+/**
+ * Traduce un error cuyo cuerpo NO es JSON. DRF contesta JSON cuando rechaza
+ * datos, pero Django responde HTML cuando la URL no resuelve o el servidor se
+ * cae, y entonces `e.data` llega como texto. Sin esta rama, `operacionCuenta`
+ * relanzaba el ApiError tal cual y a la pantalla subía su mensaje interno,
+ * literalmente "La API respondió 404" — que es lo que apareció en pantalla al
+ * intentar cambiar la contraseña mientras ese endpoint no estaba desplegado.
+ *
+ * Quien lee eso no puede hacer nada con ello, y encima esconde el diagnóstico:
+ * un 404 aquí casi siempre significa que la ruta no existe en el backend
+ * publicado, no que la persona se haya equivocado. Por eso el detalle técnico
+ * va a la consola, para quien abra DevTools, y a la pantalla sube un aviso que
+ * dice qué pasó y qué puede hacer.
+ */
+function errorSinCuerpoJson(e: ApiError): ErrorUsuario {
+  console.error(
+    `La API respondió ${e.status} con un cuerpo que no es JSON. ` +
+    'Un 404 aquí suele significar que el endpoint no está desplegado en el backend.',
+  )
+  if (e.status === 404 || e.status === 405) {
+    return new ErrorUsuario('Esta función todavía no está disponible. Avisa al equipo de Fishy! para que la habilite.', e.status)
+  }
+  if (e.status >= 500) {
+    return new ErrorUsuario('El servicio de Fishy! no está respondiendo. Vuelve a intentarlo en unos minutos.', e.status)
+  }
+  return new ErrorUsuario('No pudimos completar la operación. Vuelve a intentarlo en unos minutos.', e.status)
+}
+
 export async function operacionCuenta<T>(accion: () => Promise<T>): Promise<T> {
   try { return await accion() }
   catch (e) {
@@ -33,6 +61,7 @@ export async function operacionCuenta<T>(accion: () => Promise<T>): Promise<T> {
       const mensajes = Object.values(errores).flat().filter((v): v is string => typeof v === 'string')
       throw new ErrorUsuario(typeof datos.detail === 'string' ? [datos.detail, ...Object.values(datos.errors ?? {}).flat()].join(' ') : mensajes.join(' ') || 'Revisa los datos enviados.', e.status)
     }
+    if (e instanceof ApiError) throw errorSinCuerpoJson(e)
     throw e
   }
 }
