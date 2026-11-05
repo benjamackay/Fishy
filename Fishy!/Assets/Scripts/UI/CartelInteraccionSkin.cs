@@ -65,6 +65,31 @@ namespace Fishy.UI
             FishyUIKit.FondoRedondeado(img, CartelInteraccionTheme.Colores.Panel,
                 radio: CartelInteraccionTheme.Medidas.RadioEsquina);
             img.raycastTarget = false;   // es un cartel, no un botón
+
+            Colocar(rt, dentro, padding);
+        }
+
+        /// <summary>
+        /// Lo lleva a su sitio de la pantalla.
+        ///
+        /// Es lo único que hace fuera de pintar, y conviene saber por qué: en las dos
+        /// escenas que lo tienen, el cartel está puesto a mano abajo a la izquierda,
+        /// que es justo donde ahora va el dibujo del teclado. Moverlo desde aquí lo
+        /// arregla en las dos de una vez y lo deja dicho en un sitio
+        /// (<see cref="CartelInteraccionTheme"/>) en vez de en dos YAML.
+        ///
+        /// Se coloca por la esquina de abajo a la izquierda de LO PINTADO y no por el
+        /// rectángulo del cartel: ese rectángulo está puesto a ojo, es más ancho que
+        /// su contenido y está descentrado respecto a él, así que anclarse a él
+        /// dejaría el cartel donde no se pidió.
+        /// </summary>
+        private static void Colocar(RectTransform cartel, Bounds dentro, float padding)
+        {
+            // La esquina de lo pintado, en coordenadas del propio cartel.
+            var esquina = new Vector2(dentro.min.x - padding, dentro.min.y - padding);
+
+            cartel.anchorMin = cartel.anchorMax = Vector2.zero;
+            cartel.anchoredPosition = CartelInteraccionTheme.Medidas.Posicion - esquina;
         }
 
         /// <summary>

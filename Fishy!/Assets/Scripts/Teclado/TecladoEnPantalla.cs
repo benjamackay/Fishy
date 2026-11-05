@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Fishy.Mision;
 using Fishy.Pausa;
 using Fishy.World;
 using TMPro;
@@ -65,11 +66,20 @@ namespace Fishy.UI
         /// en la escena y no hace falta hacerlo cada frame.</summary>
         private const float CadaCuanto = 0.5f;
 
-        /// <summary>Lo que se espera, en segundos reales, desde que se apaga la última
-        /// tecla hasta que el dibujo se va. Sin esta pausa el niño/a nunca ve
-        /// apagarse la que acaba de aprender: desaparecería todo en el mismo frame y
-        /// parecería que se rompió algo.</summary>
-        private const float Despedida = 1.5f;
+        /// <summary>
+        /// Lo que se espera, en segundos reales, desde que se apaga la última tecla
+        /// hasta que el dibujo se va. Sin esta pausa el niño/a nunca ve apagarse la
+        /// que acaba de aprender: desaparecería todo en el mismo frame y parecería
+        /// que se rompió algo.
+        ///
+        /// Son segundos <b>a la vista</b>: la cuenta vuelve a empezar cada vez que el
+        /// dibujo reaparece (ver <see cref="Revisar"/>). Si no, pasaba esto: la última
+        /// tecla que queda por usar suele ser Esc —abre el menú de pausa—, así que al
+        /// pulsarla el dibujo se escondía, el reloj seguía corriendo con el menú
+        /// abierto y al reanudar la despedida ya estaba vencida. El niño/a veía
+        /// desaparecer el teclado sin haber visto nada: pulsó Esc y lo liquidó.
+        /// </summary>
+        private const float Despedida = 2.5f;
 
         // ── Lo que se enseña ──────────────────────────────────────────────────
 
@@ -80,7 +90,7 @@ namespace Fishy.UI
 
         /// <summary>Cómo está pintada una tecla ahora mismo. Se guarda para no
         /// reescribir los colores en cada frame.</summary>
-        private enum Pinta { Sin, Encendida, Aprendida, Pulsada }
+        private enum Pinta { Sin, Encendida, Aprendida, Destacada, Pulsada }
 
         /// <summary>Una tecla iluminada del dibujo: su tapa, lo que lleva escrito o
         /// dibujado encima, y qué tecla de verdad es.</summary>
@@ -100,6 +110,7 @@ namespace Fishy.UI
             public readonly List<Key> Teclas = new List<Key>();
             public readonly List<Cara> Caras = new List<Cara>();
             public TMP_Text Leyenda;
+            public Pinta PintaDeLaLeyenda = Pinta.Sin;
             public bool Aprendida;
         }
 
@@ -122,6 +133,18 @@ namespace Fishy.UI
         private bool _todoAprendido;
         private float _momentoEnQueSeAprendioTodo;
         private bool _yaNoHaceFalta;
+        private string _ultimoDiagnostico;
+
+        /// <summary>Lo que la misión activa necesita ahora mismo. Esas teclas se
+        /// pintan del color de la misión y laten.</summary>
+        private readonly HashSet<Accion> _loQuePideLaMision = new HashSet<Accion>();
+
+        /// <summary>Hasta cuándo se enseña el recordatorio de una misión nueva, en
+        /// tiempo sin escalar. 0 = no hay ninguno en curso.</summary>
+        private float _recordarHasta;
+
+        private MissionManager _managerApuntado;
+        private MissionTracker _rastreadorApuntado;
 
         // ── Ciclo de vida ─────────────────────────────────────────────────────
 
@@ -176,7 +199,10 @@ namespace Fishy.UI
             if (_raiz == null || !_raiz.activeSelf) return;
 
             Repintar(EstaPulsada);
+            Latir();
         }
+
+        private void OnDestroy() => SoltarLasMisiones();
 
         /// <summary>Si esa tecla está pulsada ahora mismo. Es lo único que
         /// <see cref="Repintar"/> necesita saber del mundo, y por eso se le pasa
@@ -208,40 +234,67 @@ namespace Fishy.UI
             if (_otto == null) _otto = FindAnyObjectByType<OttoController>();
             if (_celular == null) _celular = FindAnyObjectByType<MenuController>();
 
+            ApuntarseALasMisiones();
+
+            // Con todo aprendido el dibujo ya no sale, salvo mientras dure el
+            // recordatorio de una misión recién empezada.
+            bool quiereVerse = !_yaNoHaceFalta || Time.unscaledTime < _recordarHasta;
+
             // Se construye con Otto delante y no en el Awake: las teclas se las
             // preguntamos a él, y en la escena del menú todavía no existe.
-            if (!_yaNoHaceFalta && _raiz == null && _otto != null && Keyboard.current != null)
+            if (quiereVerse && _raiz == null && _otto != null && Keyboard.current != null)
                 Construir();
 
-            bool mostrar = !_yaNoHaceFalta &&
+            bool mostrar = quiereVerse &&
                            _otto != null &&
                            _otto.movementEnabled &&
                            Keyboard.current != null &&
                            !EstadoDePausa.Pausado &&
                            EstadoDePausa.SePuedePausar() &&
-                           (_celular == null || !_celular.EstaAbierto) &&
-                           !GuiaALaVista();
+                           (_celular == null || !_celular.EstaAbierto);
 
-            if (_raiz != null && _raiz.activeSelf != mostrar) _raiz.SetActive(mostrar);
+            EmitirDiagnostico(quiereVerse, mostrar);
+
+            if (_raiz == null || _raiz.activeSelf == mostrar) return;
+
+            _raiz.SetActive(mostrar);
+
+            // Al volver a la vista, la cuenta para despedirse empieza de nuevo: lo
+            // que pasó mientras estaba escondido —el menú de pausa, el celular, una
+            // conversación— no cuenta como despedida, porque no se vio.
+            if (mostrar) _momentoEnQueSeAprendioTodo = Time.unscaledTime;
+        }
+
+        private void EmitirDiagnostico(bool quiereVerse, bool mostrar)
+        {
+            bool puedePausar = EstadoDePausa.SePuedePausar(out string motivoPausa);
+            bool celularAbierto = _celular != null && _celular.EstaAbierto;
+            string diagnostico =
+                $"quiereVerse={quiereVerse}, " +
+                $"yaNoHaceFalta={_yaNoHaceFalta}, " +
+                $"otto={_otto != null}, " +
+                $"movimiento={_otto != null && _otto.movementEnabled}, " +
+                $"teclado={Keyboard.current != null}, " +
+                $"pausado={EstadoDePausa.Pausado}, " +
+                $"puedePausar={puedePausar}, " +
+                $"motivoPausa='{motivoPausa}', " +
+                $"celularAbierto={celularAbierto}, " +
+                $"raiz={(_raiz == null ? "null" : _raiz.activeSelf.ToString())}, " +
+                $"mostrar={mostrar}";
+
+            if (diagnostico == _ultimoDiagnostico) return;
+            _ultimoDiagnostico = diagnostico;
+            Debug.Log($"[Teclado] {diagnostico}", this);
         }
 
         /// <summary>
-        /// Si el celular del guía del tutorial está asomado.
+        /// Pinta el estado de cada tecla: encendida mientras se la pulsa, del color
+        /// de la misión si la misión activa la pide, y apagada —ella y su renglón de
+        /// la lista— en cuanto se usó por primera vez.
         ///
-        /// Ocupa el lado derecho de la pantalla y le cae justo encima a este dibujo
-        /// —se dibuja además por encima (1250 contra 800)—, así que mientras el guía
-        /// habla, esto se aparta. No se pierde nada: el guía está explicando
-        /// precisamente eso, y el dibujo vuelve en cuanto se va.
-        ///
-        /// Se pregunta por el singleton y no se guarda la referencia porque el guía
-        /// solo existe en la escena del tutorial; en el resto esto es un null rápido.
-        /// </summary>
-        private static bool GuiaALaVista()
-            => CelularDelGuia.Instance != null && CelularDelGuia.Instance.EstaVisible;
-
-        /// <summary>
-        /// Pinta el estado de cada tecla: encendida mientras se la pulsa, y apagada
-        /// —ella y su renglón de la lista— en cuanto se usó por primera vez.
+        /// El orden importa: pulsarla gana a todo, porque es la respuesta a lo que el
+        /// niño/a acaba de hacer; y lo que la misión pide gana a «ya te la sabes»,
+        /// porque saberse una tecla no quita que ahora mismo sea la que hace falta.
         ///
         /// Recibe de quién preguntar para poder probarse sin teclado.
         /// </summary>
@@ -258,9 +311,12 @@ namespace Fishy.UI
 
                 if (algunaPulsada && !bloque.Aprendida) Aprender(bloque);
 
+                bool destacada = _loQuePideLaMision.Contains(bloque.Accion);
+
                 foreach (Cara cara in bloque.Caras)
                 {
                     Pinta pinta = pulsada(cara.Tecla) ? Pinta.Pulsada
+                                : destacada           ? Pinta.Destacada
                                 : bloque.Aprendida    ? Pinta.Aprendida
                                                       : Pinta.Encendida;
 
@@ -269,10 +325,16 @@ namespace Fishy.UI
                     Pintar(cara, pinta);
                 }
 
+                PintarLeyenda(bloque, destacada);
+
                 todas &= bloque.Aprendida;
             }
 
             if (!todas) { _todoAprendido = false; return; }
+
+            // Mientras dure el recordatorio de una misión nueva el dibujo se queda,
+            // aunque esté todo aprendido: justo para eso volvió a salir.
+            if (Time.unscaledTime < _recordarHasta) return;
 
             // Un respiro antes de irse, para que se vea apagarse la última. El
             // "¿ya empezó la cuenta?" va en su propio banderín y no en un 0 que
@@ -293,8 +355,19 @@ namespace Fishy.UI
 
         private static void Pintar(Cara cara, Pinta pinta)
         {
-            Color tapa    = pinta == Pinta.Pulsada ? Col.Pulsada      : Col.Marcada;
-            Color simbolo = pinta == Pinta.Pulsada ? Col.PulsadaLetra : Col.MarcadaLetra;
+            Color tapa, simbolo;
+
+            switch (pinta)
+            {
+                case Pinta.Pulsada:
+                    tapa = Col.Pulsada; simbolo = Col.PulsadaLetra; break;
+
+                case Pinta.Destacada:
+                    tapa = Col.Destacada; simbolo = Col.DestacadaLetra; break;
+
+                default:
+                    tapa = Col.Marcada; simbolo = Col.MarcadaLetra; break;
+            }
 
             if (pinta == Pinta.Aprendida)
             {
@@ -302,14 +375,67 @@ namespace Fishy.UI
                 simbolo.a *= Med.AlfaAprendida;
             }
 
-            if (cara.Fondo != null)   cara.Fondo.color = tapa;
+            if (cara.Fondo != null)
+            {
+                cara.Fondo.color = tapa;
+
+                // El latido lo pone Latir() en cada frame mientras la tecla esté
+                // destacada; al dejar de estarlo hay que devolverla a su tamaño o se
+                // queda congelada a medio latido.
+                if (pinta != Pinta.Destacada) cara.Fondo.rectTransform.localScale = Vector3.one;
+            }
+
             if (cara.Simbolo != null) cara.Simbolo.color = simbolo;
+        }
+
+        /// <summary>
+        /// El renglón de la lista, del color de la misión cuando esa tecla es la que
+        /// hace falta ahora. Sin esto solo latería la tecla, y el niño/a vería moverse
+        /// algo sin saber para qué sirve.
+        /// </summary>
+        private static void PintarLeyenda(Bloque bloque, bool destacada)
+        {
+            Pinta pinta = destacada        ? Pinta.Destacada
+                        : bloque.Aprendida ? Pinta.Aprendida
+                                           : Pinta.Encendida;
+
+            if (bloque.PintaDeLaLeyenda == pinta || bloque.Leyenda == null) return;
+            bloque.PintaDeLaLeyenda = pinta;
+
+            bloque.Leyenda.color = destacada ? Col.Destacada : Col.Leyenda;
+            bloque.Leyenda.alpha = pinta == Pinta.Aprendida ? Med.AlfaAprendida : 1f;
+        }
+
+        /// <summary>
+        /// Hace latir las teclas que la misión pide. Es el mismo latido de la flecha
+        /// que señala la zona, y con el mismo sentido: en esta pantalla, lo que se
+        /// mueve es lo que la misión está pidiendo.
+        ///
+        /// En tiempo sin escalar, como todo lo de esta pieza: si alguna vez late con
+        /// el juego a cámara lenta, no tiene por qué latir a cámara lenta.
+        /// </summary>
+        private void Latir()
+        {
+            if (_loQuePideLaMision.Count == 0) return;
+
+            float latido = 1f + Med.AmplitudLatido *
+                           Mathf.Sin(Time.unscaledTime * Med.VelocidadLatido);
+
+            foreach (Bloque bloque in _bloques)
+            {
+                if (!_loQuePideLaMision.Contains(bloque.Accion)) continue;
+
+                foreach (Cara cara in bloque.Caras)
+                {
+                    if (cara.Pinta != Pinta.Destacada || cara.Fondo == null) continue;
+                    cara.Fondo.rectTransform.localScale = Vector3.one * latido;
+                }
+            }
         }
 
         private void Aprender(Bloque bloque)
         {
-            bloque.Aprendida = true;
-            if (bloque.Leyenda != null) bloque.Leyenda.alpha = Med.AlfaAprendida;
+            bloque.Aprendida = true;   // de apagarlo se encarga PintarLeyenda
 
             HashSet<string> sabidas = Leer();
             sabidas.Add(bloque.Accion.ToString());
@@ -350,6 +476,153 @@ namespace Fishy.UI
         {
             PlayerPrefs.DeleteKey(ClaveAprendidas);
             PlayerPrefs.Save();
+        }
+
+        // ── Lo que pide la misión activa ──────────────────────────────────────
+
+        /// <summary>
+        /// Cuánto se queda el dibujo cuando vuelve a salir porque empezó una misión
+        /// nueva, en segundos reales. Lo justo para mirar qué tecla late y seguir
+        /// jugando; si se queda más, deja de ser un recordatorio y vuelve a ser un
+        /// cartel permanente que ya nadie necesita.
+        /// </summary>
+        private const float Recordatorio = 6f;
+
+        /// <summary>
+        /// Se engancha a las misiones si todavía no lo estaba, y se reengancha si el
+        /// gestor o el rastreador cambiaron —los dos son singletons de escena y la
+        /// partida puede recargar—.
+        ///
+        /// Son los mismos tres avisos que escucha el cartel de misión de la esquina:
+        /// el cambio de misión activa, el repintado del panel y el progreso de los
+        /// objetivos. No se inventa nada nuevo ni se pregunta cada frame.
+        ///
+        /// Se mira desde <see cref="Revisar"/>, cada medio segundo, en vez de
+        /// engancharse en el OnEnable: esta pieza vive desde la primera escena y los
+        /// dos gestores aparecen más tarde. Pedirlos con GetOrCreate los crearía en
+        /// el menú principal, donde no pinta nada tener misiones.
+        /// </summary>
+        private void ApuntarseALasMisiones()
+        {
+            MissionManager manager = MissionManager.Instance;
+            if (manager != _managerApuntado)
+            {
+                if (_managerApuntado != null)
+                {
+                    _managerApuntado.onMisionActivaCambiada.RemoveListener(AlCambiarLaMisionActiva);
+                    _managerApuntado.onPanelActualizado.RemoveListener(MirarQuePideLaMision);
+                }
+
+                _managerApuntado = manager;
+
+                if (manager != null)
+                {
+                    manager.onMisionActivaCambiada.AddListener(AlCambiarLaMisionActiva);
+                    manager.onPanelActualizado.AddListener(MirarQuePideLaMision);
+                }
+
+                MirarQuePideLaMision();
+            }
+
+            MissionTracker rastreador = MissionTracker.Instance;
+            if (rastreador != _rastreadorApuntado)
+            {
+                if (_rastreadorApuntado != null)
+                    _rastreadorApuntado.OnProgresoCambiado -= MirarQuePideLaMision;
+
+                _rastreadorApuntado = rastreador;
+
+                if (rastreador != null)
+                    rastreador.OnProgresoCambiado += MirarQuePideLaMision;
+
+                MirarQuePideLaMision();
+            }
+        }
+
+        private void SoltarLasMisiones()
+        {
+            if (_managerApuntado != null)
+            {
+                _managerApuntado.onMisionActivaCambiada.RemoveListener(AlCambiarLaMisionActiva);
+                _managerApuntado.onPanelActualizado.RemoveListener(MirarQuePideLaMision);
+                _managerApuntado = null;
+            }
+
+            if (_rastreadorApuntado != null)
+            {
+                _rastreadorApuntado.OnProgresoCambiado -= MirarQuePideLaMision;
+                _rastreadorApuntado = null;
+            }
+        }
+
+        /// <summary>
+        /// Una misión nueva: se mira qué pide y, si el dibujo ya se había retirado
+        /// por sabido, vuelve a salir un momento con esas teclas latiendo.
+        ///
+        /// Es el único caso en el que algo que ya se fue vuelve, y está pensado para
+        /// el niño/a que lleva media hora jugando y de pronto recibe una misión de un
+        /// tipo que no había tocado: «esto se hace con la E» sin tener que adivinarlo.
+        /// </summary>
+        private void AlCambiarLaMisionActiva(DesafioRuntime _)
+        {
+            MirarQuePideLaMision();
+
+            if (_yaNoHaceFalta && _loQuePideLaMision.Count > 0)
+                _recordarHasta = Time.unscaledTime + Recordatorio;
+        }
+
+        /// <summary>
+        /// Qué teclas hacen falta para lo que queda de la misión activa.
+        ///
+        /// Se miran solo los objetivos PENDIENTES: una misión de tres pasos con dos
+        /// hechos tiene que señalar lo que falta, no lo que ya se hizo.
+        /// </summary>
+        private void MirarQuePideLaMision()
+        {
+            _loQuePideLaMision.Clear();
+
+            DesafioRuntime activa = MissionManager.Instance != null
+                ? MissionManager.Instance.Activa
+                : null;
+
+            MissionTracker rastreador = MissionTracker.Instance;
+            if (activa == null || rastreador == null) return;
+
+            IReadOnlyList<ObjetivoMision> objetivos = rastreador.Objetivos(activa.Id);
+            if (objetivos == null) return;
+
+            foreach (ObjetivoMision objetivo in objetivos)
+            {
+                if (objetivo == null || objetivo.cumplido) continue;
+                _loQuePideLaMision.Add(AccionQueLoCierra(objetivo.tipo));
+            }
+        }
+
+        /// <summary>
+        /// Con qué tecla se cierra un objetivo de cada tipo.
+        ///
+        /// <b>Caminar solo se destaca cuando el objetivo es llegar a un sitio.</b>
+        /// Para los demás también hay que caminar —hasta el NPC, hasta el objeto,
+        /// hasta la zona del chat—, pero si se destacara siempre no destacaría nada:
+        /// estaría encendido en todas las misiones del juego. Lo que cambia de una
+        /// misión a otra, y por tanto lo que vale la pena señalar, es la tecla que
+        /// cierra el objetivo.
+        ///
+        /// Y esa tecla es la E en casi todos los demás, no por casualidad: recoger un
+        /// objeto, hablar con un NPC, atender un chat —de celular o cara a cara— y
+        /// abrir un caso del Modo Detective se hacen todos con el mismo gesto
+        /// —acercarse e interactuar—, porque esas piezas del mundo implementan
+        /// <c>IInteractable</c>. La excepción es abrir el panel del celular, que es
+        /// justo lo que su tecla hace.
+        /// </summary>
+        private static Accion AccionQueLoCierra(TipoObjetivo tipo)
+        {
+            switch (tipo)
+            {
+                case TipoObjetivo.LlegarAZona:  return Accion.Caminar;
+                case TipoObjetivo.AbrirElPanel: return Accion.Celular;
+                default:                        return Accion.Hablar;
+            }
         }
 
         // ── De dónde salen las teclas ─────────────────────────────────────────
@@ -586,8 +859,8 @@ namespace Fishy.UI
             tarjetaGO.transform.SetParent(canvasGO.transform, false);
             _tarjeta = (RectTransform)tarjetaGO.transform;
 
-            _tarjeta.anchorMin = _tarjeta.anchorMax = _tarjeta.pivot = new Vector2(1f, 0f);
-            _tarjeta.anchoredPosition = new Vector2(-Med.Margen.x, Med.Margen.y);
+            _tarjeta.anchorMin = _tarjeta.anchorMax = _tarjeta.pivot = new Vector2(0f, 0f);
+            _tarjeta.anchoredPosition = Med.Margen;
 
             var fondo = tarjetaGO.GetComponent<Image>();
             FishyUIKit.FondoRedondeado(fondo, Col.Panel, radio: Med.RadioPanel);
@@ -619,7 +892,7 @@ namespace Fishy.UI
                 if (!sabidas.Contains(bloque.Accion.ToString())) continue;
 
                 bloque.Aprendida = true;
-                if (bloque.Leyenda != null) bloque.Leyenda.alpha = Med.AlfaAprendida;
+                PintarLeyenda(bloque, destacada: false);
 
                 foreach (Cara cara in bloque.Caras)
                 {

@@ -78,6 +78,10 @@ public class TutorialPasos : MonoBehaviour
         "¡Buen trabajo!\n\n" +
         "Ahora Rosita, la flamenca. Al hablar con ella vas a elegir una respuesta entre " +
         "varias: toca la que quieras, aquí ninguna está mal.";
+    [TextArea(2, 5)] public string textoPanel =
+        "Ese fue tu primer chat. Ahora abre tu celular con Tab: ahí llevas tus " +
+        "misiones, tu mochila y tus conversaciones.\n\n" +
+        "Ábrelo y échale un vistazo.";
     [TextArea(2, 5)] public string textoDetective =
         "Falta la foca, que abre el Modo Detective: ahí se revisan conversaciones " +
         "para buscar señales de riesgo. Ella te explica el resto.";
@@ -133,6 +137,11 @@ public class TutorialPasos : MonoBehaviour
     private bool habloConElNpc;
     private bool cerroElChat;
     private bool cerroElCaso;
+
+    /// <summary>Si el panel del Tab llegó a abrirse. Se guarda en vez de mirarse en
+    /// el momento porque el paso se cierra con haberlo abierto, no con tenerlo
+    /// abierto: cerrarlo de inmediato cuenta igual.</summary>
+    private bool abrioElPanel;
 
     private float distanciaRecorrida;
     private Vector2? ultimaPosicion;
@@ -357,9 +366,28 @@ public class TutorialPasos : MonoBehaviour
             Agregar(textoOpciones, () => cerroElChat,
                 alEmpezar: () => Candado(npcOpciones, true));
 
+        // El paso del Tab vuelve a estar, y con él la misión que lo pide: hasta aquí
+        // el botón y el panel estaban apagados porque nadie los había explicado (ver
+        // Start), y este paso es el que los explica y los enciende.
+        if (panelDeJugador != null)
+            Agregar(textoPanel, () => abrioElPanel, alEmpezar: AbrirElPanelDeJugador);
+
         if (npcDetective != null)
             Agregar(textoDetective, () => cerroElCaso,
                 alEmpezar: () => Candado(npcDetective, true));
+    }
+
+    /// <summary>
+    /// Devuelve el panel del Tab y su botón, que arrancan apagados.
+    ///
+    /// El componente se vuelve a habilitar —su Update es el que escucha la tecla— y
+    /// el botón reaparece: a partir de aquí el celular es del niño/a. No se vuelve a
+    /// apagar, por lo mismo que los candados: un paso ya enseñado no se desenseña.
+    /// </summary>
+    private void AbrirElPanelDeJugador()
+    {
+        if (panelDeJugador != null) panelDeJugador.enabled = true;
+        if (botonDelTab != null) botonDelTab.SetActive(true);
     }
 
     // ── El candado: qué se puede tocar en cada paso ──────────────────────────
@@ -447,6 +475,7 @@ public class TutorialPasos : MonoBehaviour
         MedirElCamino();
         VigilarElChat();
         VigilarElCelular();
+        VigilarElPanel();
 
         if (entrando) return;
 
@@ -529,6 +558,14 @@ public class TutorialPasos : MonoBehaviour
     /// La excepción es la despedida: ahí el movimiento se lo quitamos nosotros, y
     /// el celular tiene que quedarse para que se lea la última línea.
     /// </summary>
+    /// <summary>El panel del Tab no avisa cuando se abre, así que se le pregunta.
+    /// Una vez abierto no hace falta seguir mirando.</summary>
+    private void VigilarElPanel()
+    {
+        if (abrioElPanel || panelDeJugador == null) return;
+        if (panelDeJugador.EstaAbierto) abrioElPanel = true;
+    }
+
     private void VigilarElCelular()
     {
         if (celular == null) return;

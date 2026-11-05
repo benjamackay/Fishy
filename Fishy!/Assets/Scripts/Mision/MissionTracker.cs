@@ -276,6 +276,42 @@ public class MissionTracker : MonoBehaviour
                       "es ponerlos en el catálogo de misiones.", this);
     }
 
+    /// <summary>
+    /// Da por cumplido un objetivo desde fuera, dejando dicho quién fue.
+    ///
+    /// Es para los objetivos que no saben cerrarse solos —hoy, los dos tipos locales
+    /// del tutorial: el chat cara a cara y abrir el panel del Tab—, cuyo disparador
+    /// vive en quien tiene las piezas delante. A partir de aquí siguen el mismo
+    /// camino que cualquier otro: avisan, repintan el panel y, si eran el último que
+    /// faltaba, completan la misión.
+    ///
+    /// <paramref name="porQue"/> no es decorativo: el log de misiones se diagnostica
+    /// por ahí, y «se cumplió solo» sin decir quién fue ya costó caro una vez.
+    ///
+    /// Devuelve false si esa misión no se está siguiendo, si no hay un objetivo con
+    /// ese orden o si ya estaba cumplido.
+    /// </summary>
+    public bool Cumplir(string desafioId, int orden, string porQue)
+    {
+        Seguimiento seguimiento = Buscar(desafioId);
+        if (seguimiento == null) return false;
+
+        ObjetivoMision objetivo = null;
+        foreach (ObjetivoMision candidato in seguimiento.objetivos)
+            if (candidato != null && candidato.ordenCatalogo == orden) { objetivo = candidato; break; }
+
+        if (objetivo == null || !objetivo.Cumplir(porQue)) return false;
+
+        if (verboseLogs)
+            Debug.Log($"[Misiones] Objetivo cumplido ← {objetivo.PorQue}: " +
+                      $"{objetivo.Describir()}  [{desafioId} #{orden}]", this);
+
+        OnObjetivoCumplido?.Invoke(seguimiento.desafio, objetivo);
+        OnProgresoCambiado?.Invoke();
+        RevisarTodo();
+        return true;
+    }
+
     public IReadOnlyList<ObjetivoMision> Objetivos(string desafioId)
     {
         Seguimiento seguimiento = Buscar(desafioId);

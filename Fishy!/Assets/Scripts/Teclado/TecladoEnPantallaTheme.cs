@@ -52,6 +52,16 @@ namespace Fishy.UI
             public static Color Pulsada      = Paleta.Verde;
             public static Color PulsadaLetra = Paleta.Crema;
 
+            /// <summary>
+            /// La tecla que hace falta para la misión activa. Es el amarillo de
+            /// «misión en curso» que ya usan el cartel de la esquina y la flecha que
+            /// señala la zona, y se toma prestado de ahí en vez de repetir el hex: si
+            /// alguien cambia ese amarillo, las tres cosas tienen que cambiar juntas o
+            /// dejan de leerse como lo mismo.
+            /// </summary>
+            public static Color Destacada      => MisionHudTheme.Colores.Titulo;
+            public static Color DestacadaLetra => FishyUIKit.TextoSobre(Destacada);
+
             public static Color Titulo = Paleta.Crema;
 
             /// <summary>La lista de abajo: el nombre de lo que hace cada tecla.</summary>
@@ -84,7 +94,14 @@ namespace Fishy.UI
             /// unidad.</summary>
             public static float Hueco = 4f;
 
-            /// <summary>Separación respecto a la esquina de abajo a la derecha.</summary>
+            /// <summary>
+            /// Separación respecto a la esquina de abajo a la izquierda.
+            ///
+            /// Esa esquina y no la derecha porque la derecha se la quedó el celular
+            /// del guía del tutorial, que es alto y baja hasta media pantalla. A la
+            /// izquierda no hay nada más: el cartel de «para interactuar» vivía ahí y
+            /// se corrió al lado (ver <see cref="CartelInteraccionTheme"/>).
+            /// </summary>
             public static Vector2 Margen = new Vector2(20f, 20f);
 
             /// <summary>Margen interior de la tarjeta y separación entre sus tres
@@ -118,6 +135,15 @@ namespace Fishy.UI
             /// dibujo y su renglón en la lista. No se borra, se apaga; así se ve lo
             /// aprendido sin que la tarjeta cambie de tamaño a mitad de partida.</summary>
             public static float AlfaAprendida = 0.45f;
+
+            /// <summary>
+            /// Cuánto crece y encoge una tecla que la misión activa pide ahora mismo,
+            /// y a qué ritmo. Los valores salen de la flecha que señala la zona
+            /// (<c>MisionHudTheme.Medidas</c>): es el mismo latido, y a propósito —en
+            /// esta pantalla, lo que late es lo que la misión está pidiendo—.
+            /// </summary>
+            public static float AmplitudLatido  = 0.08f;
+            public static float VelocidadLatido = 2.2f;
         }
 
         public static class Fuente

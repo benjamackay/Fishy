@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Fishy.Mision;
 using Fishy.Pausa;
 using Fishy.UI;
 using Fishy.World;
@@ -103,10 +104,22 @@ namespace Fishy.EditorTools
             ProbarLaTeclaSeEnciendeAlPulsarla(log);
             ProbarLoAprendidoSeAtenuaYLaTarjetaSeVa(log);
             ProbarNoSeVeCuandoNoToca(log);
+            ProbarLaPausaNoSeLlevaElDibujoPorDelante(log);
             ProbarElDibujoCabeEnPantalla(log);
             ProbarLasFilasDelTecladoCuadran(log);
             ProbarLasFlechasVanEnCruz(log);
             ProbarNadaSeSaleDeLaTarjeta(log);
+            ProbarElCartelDeInteractuarNoSePisaConElTeclado(log);
+
+            // ── C) Lo que pide la misión activa ──
+            ProbarLaMisionDestacaLaTeclaQueLaCierra(log);
+            ProbarLoQuePideLaMisionGanaALoAprendido(log);
+            ProbarAbrirElPanelDestacaLaTeclaDelCelular(log);
+
+            // ── D) Las misiones del tutorial, una por paso ──
+            ProbarElTutorialSePartEnMisionesDeUnObjetivo(log);
+            ProbarTerminarUnaMisionEntregaLaSiguiente(log);
+            ProbarElChatDeLaFlamencaCierraSuObjetivo(log);
 
             EstadoDePausa.Restablecer();
             PlayerPrefs.SetString(TecladoEnPantalla.ClaveAprendidas, aprendidasAntes);
@@ -609,6 +622,61 @@ namespace Fishy.EditorTools
         }
 
         /// <summary>
+        /// Pulsar Esc no puede liquidar el dibujo.
+        ///
+        /// Es el caso que se vio jugando: Esc suele ser la última tecla que queda por
+        /// usar, y al pulsarla pasan dos cosas a la vez —se da por aprendida y se abre
+        /// el menú de pausa, que esconde el dibujo—. Con la cuenta de la despedida
+        /// corriendo a reloj de pared, el rato del menú se la comía entera y al
+        /// reanudar el dibujo desaparecía en el primer frame: el niño/a pulsa una
+        /// tecla y el teclado se esfuma sin explicación.
+        ///
+        /// Lo que tiene que pasar: al reanudar, vuelve; y la despedida se ve entera,
+        /// porque la cuenta empieza de nuevo cuando el dibujo reaparece.
+        /// </summary>
+        private static void ProbarLaPausaNoSeLlevaElDibujoPorDelante(StringBuilder log)
+        {
+            TecladoEnPantalla.Olvidar();
+            EstadoDePausa.Restablecer();
+
+            OttoController otto = NuevoOtto();
+            Keyboard teclado = AsegurarTeclado();
+            TecladoEnPantalla ayuda = NuevoTeclado();
+            Invocar(ayuda, "Revisar");
+
+            // Se usan todas: empieza la cuenta para despedirse.
+            Repintar(ayuda, tecla => true);
+            bool visibleAlPrincipio = Visible(ayuda);
+
+            // Esc abre el menú: el dibujo se esconde y el rato de pausa pasa.
+            EstadoDePausa.Pausar();
+            Invocar(ayuda, "Revisar");
+            bool ocultoEnPausa = !Visible(ayuda);
+
+            Adelantar(ayuda, 60f);   // un menú de pausa largo
+
+            EstadoDePausa.Reanudar();
+            Invocar(ayuda, "Revisar");
+            bool vuelve = Visible(ayuda);
+
+            Repintar(ayuda, tecla => false);
+            bool sigueAhi = Visible(ayuda);
+
+            // Y una vez visto, sí se va.
+            Adelantar(ayuda, 10f);
+            Repintar(ayuda, tecla => false);
+            bool luegoSeDespide = !Visible(ayuda);
+
+            Comprobar(log, "pulsar Esc no liquida el dibujo: vuelve al reanudar y la despedida se ve",
+                visibleAlPrincipio && ocultoEnPausa && vuelve && sigueAhi && luegoSeDespide,
+                $"antes={visibleAlPrincipio}, oculto en pausa={ocultoEnPausa}, " +
+                $"vuelve={vuelve}, se queda={sigueAhi}, se despide después={luegoSeDespide}");
+
+            Soltar(ayuda, otto, teclado);
+            TecladoEnPantalla.Olvidar();
+        }
+
+        /// <summary>
         /// Una ayuda visible cuando no se puede jugar estorba y confunde. Se esconde
         /// en pausa, durante una cinemática o una carga, con el celular abierto
         /// encima y cuando no hay teclado que enseñar.
@@ -688,8 +756,10 @@ namespace Fishy.EditorTools
             float ancho = tarjeta.sizeDelta.x;
             float alto  = tarjeta.sizeDelta.y;
 
-            // En coordenadas de pantalla de la resolución de referencia.
-            var rTarjeta = new Rect(Referencia.x - margen.x - ancho, margen.y, ancho, alto);
+            // En coordenadas de pantalla de la resolución de referencia: la esquina
+            // de abajo a la izquierda, que es donde vive desde que el celular del
+            // guía se quedó con el lado derecho.
+            var rTarjeta = new Rect(margen.x, margen.y, ancho, alto);
 
             // Y no puede comerse media pantalla: es una ayuda, no la pantalla de
             // ayuda. La mitad del alto es el techo a partir del cual estorba más de
@@ -841,6 +911,307 @@ namespace Fishy.EditorTools
                                  : string.Join(" · ", fuera.Take(3)));
 
             Soltar(ayuda, otto, teclado);
+        }
+
+        /// <summary>
+        /// El cartel de «para interactuar» vivía abajo a la izquierda, que es donde
+        /// ahora va el dibujo del teclado. Se corrió al lado desde su tema, y esto
+        /// comprueba que de verdad no se pisan: si alguien engorda el teclado y no
+        /// mueve el cartel, el cartel se dibujaría debajo del dibujo (orden 0 contra
+        /// 800) y el niño/a no vería el aviso justo cuando tiene a alguien delante.
+        /// </summary>
+        private static void ProbarElCartelDeInteractuarNoSePisaConElTeclado(StringBuilder log)
+        {
+            OttoController otto = NuevoOtto();
+            Keyboard teclado = AsegurarTeclado();
+            TecladoEnPantalla ayuda = NuevoTeclado();
+            Invocar(ayuda, "Revisar");
+
+            RectTransform tarjeta = Tarjeta(ayuda);
+            Vector2 margen = TecladoEnPantallaTheme.Medidas.Margen;
+            var rTeclado = new Rect(margen.x, margen.y, tarjeta.sizeDelta.x, tarjeta.sizeDelta.y);
+
+            CartelInteraccionSkin.Reiniciar();
+            GameObject cartel = CartelDePrueba();
+            CartelInteraccionSkin.Aplicar(cartel);
+
+            var raiz = (RectTransform)cartel.transform;
+            var fondo = (RectTransform)raiz.Find(CartelInteraccionSkin.NombreFondo);
+
+            // El fondo, en coordenadas de pantalla: el cartel está anclado a la
+            // esquina de abajo a la izquierda y el fondo colocado dentro de él.
+            Vector2 centro = raiz.anchoredPosition + fondo.anchoredPosition;
+            var rCartel = new Rect(centro.x - fondo.sizeDelta.x / 2f,
+                                   centro.y - fondo.sizeDelta.y / 2f,
+                                   fondo.sizeDelta.x, fondo.sizeDelta.y);
+
+            Vector2 pedida = CartelInteraccionTheme.Medidas.Posicion;
+            bool dondeSePidio = Mathf.Abs(rCartel.xMin - pedida.x) < 0.5f &&
+                                Mathf.Abs(rCartel.yMin - pedida.y) < 0.5f;
+
+            Comprobar(log, "el cartel de «para interactuar» se aparta del dibujo del teclado",
+                dondeSePidio && !rCartel.Overlaps(rTeclado),
+                $"cartel x={rCartel.xMin:0}..{rCartel.xMax:0} y={rCartel.yMin:0}..{rCartel.yMax:0} · " +
+                $"teclado hasta x={rTeclado.xMax:0}");
+
+            UnityEngine.Object.DestroyImmediate(cartel);
+            Soltar(ayuda, otto, teclado);
+        }
+
+        // ── C) Lo que pide la misión activa ──────────────────────────────────────
+
+        /// <summary>
+        /// Lo que pidió el equipo: que las teclas que hacen falta para la misión
+        /// activa se remarquen. Se engancha a los mismos avisos que el cartel de
+        /// misión, y el tipo de cada objetivo pendiente dice qué tecla señalar.
+        ///
+        /// Las dos mitades de la regla: «llegar a una zona» señala las de caminar, y
+        /// todo lo demás —recoger, hablar, chatear, abrir un caso— señala la de
+        /// interactuar, porque las cuatro piezas del mundo se abren con la misma
+        /// tecla.
+        /// </summary>
+        private static void ProbarLaMisionDestacaLaTeclaQueLaCierra(StringBuilder log)
+        {
+            TecladoEnPantalla.Olvidar();
+
+            OttoController otto = NuevoOtto();
+            Keyboard teclado = AsegurarTeclado();
+            TecladoEnPantalla ayuda = NuevoTeclado();
+
+            var objetivos = new List<ObjetivoMision>
+            {
+                new ObjetivoMision { tipo = TipoObjetivo.LlegarAZona, zonaDestino = "zona_9" },
+            };
+            DarMisionActiva("MISION_DE_PRUEBA", objetivos);
+
+            // Revisar es quien se apunta a las misiones y quien construye el dibujo.
+            Invocar(ayuda, "Revisar");
+            Repintar(ayuda, tecla => false);
+
+            List<string> pideAlPrincipio = LoQuePide(ayuda);
+            Image w = CaraDe(ayuda, "Tecla_W");
+            Image e = CaraDe(ayuda, "Tecla_E");
+
+            bool caminarDestacado = pideAlPrincipio.Contains("Caminar") &&
+                                    pideAlPrincipio.Count == 1 &&
+                                    Iguales(w.color, TecladoEnPantallaTheme.Colores.Destacada) &&
+                                    !Iguales(e.color, TecladoEnPantallaTheme.Colores.Destacada);
+
+            // Cumplido ese objetivo y pendiente uno de hablar: cambia la tecla que se
+            // señala. Es el mismo camino que recorre una misión de verdad.
+            objetivos[0].cumplido = true;
+            objetivos.Add(new ObjetivoMision { tipo = TipoObjetivo.HablarConNpc, dialogoNpcId = "X" });
+
+            Invocar(ayuda, "MirarQuePideLaMision");
+            Repintar(ayuda, tecla => false);
+
+            List<string> pideAhora = LoQuePide(ayuda);
+            bool hablarDestacado = pideAhora.Contains("Hablar") && pideAhora.Count == 1 &&
+                                   Iguales(e.color, TecladoEnPantallaTheme.Colores.Destacada) &&
+                                   !Iguales(w.color, TecladoEnPantallaTheme.Colores.Destacada);
+
+            Comprobar(log, "la misión activa destaca la tecla que cierra lo que queda por hacer",
+                caminarDestacado && hablarDestacado,
+                $"con «llegar a zona» pide [{string.Join(", ", pideAlPrincipio)}], " +
+                $"con «hablar» pide [{string.Join(", ", pideAhora)}]");
+
+            // Y el renglón de la lista acompaña: una tecla que late sin decir para
+            // qué sirve no enseña nada.
+            TMP_Text renglon = ayuda.GetComponentsInChildren<TMP_Text>(true)
+                .FirstOrDefault(t => t.name == "Leyenda_Hablar");
+
+            Comprobar(log, "y su renglón de la lista se pinta del mismo color",
+                renglon != null &&
+                Iguales(renglon.color, TecladoEnPantallaTheme.Colores.Destacada),
+                renglon == null ? "no encontré el renglón" : $"color {renglon.color}");
+
+            QuitarMision();
+            Soltar(ayuda, otto, teclado);
+        }
+
+        /// <summary>
+        /// Una tecla ya usada se apaga, pero si la misión la pide vuelve a destacarse:
+        /// saberse la tecla no quita que ahora mismo sea la que hace falta. Es el
+        /// orden de prioridades que el niño/a necesita y el más fácil de romper al
+        /// tocar el pintado.
+        /// </summary>
+        private static void ProbarLoQuePideLaMisionGanaALoAprendido(StringBuilder log)
+        {
+            TecladoEnPantalla.Olvidar();
+
+            OttoController otto = NuevoOtto();
+            Keyboard teclado = AsegurarTeclado();
+            TecladoEnPantalla ayuda = NuevoTeclado();
+
+            var objetivos = new List<ObjetivoMision>
+            {
+                new ObjetivoMision { tipo = TipoObjetivo.LlegarAZona, zonaDestino = "zona_9" },
+            };
+            DarMisionActiva("MISION_DE_PRUEBA", objetivos);
+
+            Invocar(ayuda, "Revisar");
+
+            // Se usa la W: Caminar queda aprendida.
+            Repintar(ayuda, tecla => tecla == Key.W);
+            Repintar(ayuda, tecla => false);
+
+            Image w = CaraDe(ayuda, "Tecla_W");
+            bool sigueDestacada = Iguales(w.color, TecladoEnPantallaTheme.Colores.Destacada) &&
+                                  Mathf.Approximately(w.color.a, 1f);
+
+            // Y en cuanto la misión deja de pedirla, sí se apaga.
+            objetivos[0].cumplido = true;
+            Invocar(ayuda, "MirarQuePideLaMision");
+            Repintar(ayuda, tecla => false);
+
+            bool luegoSeApaga = Iguales(w.color, TecladoEnPantallaTheme.Colores.Marcada) &&
+                Mathf.Approximately(w.color.a, TecladoEnPantallaTheme.Medidas.AlfaAprendida);
+
+            Comprobar(log, "lo que la misión pide gana a «ya te la sabes», y se apaga al dejar de pedirlo",
+                sigueDestacada && luegoSeApaga,
+                $"mientras la pide={sigueDestacada}, cuando ya no={luegoSeApaga}");
+
+            QuitarMision();
+            Soltar(ayuda, otto, teclado);
+            TecladoEnPantalla.Olvidar();
+        }
+
+        /// <summary>
+        /// El tipo de objetivo nuevo para abrir el celular tiene que llevar al
+        /// teclado a destacar el Tab y no la E, que es la respuesta por defecto de
+        /// todos los demás.
+        /// </summary>
+        private static void ProbarAbrirElPanelDestacaLaTeclaDelCelular(StringBuilder log)
+        {
+            TecladoEnPantalla.Olvidar();
+
+            OttoController otto = NuevoOtto();
+            Keyboard teclado = AsegurarTeclado();
+            TecladoEnPantalla ayuda = NuevoTeclado();
+
+            DarMisionActiva("MISION_DE_PRUEBA", new List<ObjetivoMision>
+            {
+                new ObjetivoMision { tipo = TipoObjetivo.AbrirElPanel },
+            });
+
+            Invocar(ayuda, "Revisar");
+            Repintar(ayuda, tecla => false);
+
+            List<string> pide = LoQuePide(ayuda);
+            Image tab = CaraDe(ayuda, "Tecla_Tab");
+            Image e = CaraDe(ayuda, "Tecla_E");
+
+            Comprobar(log, "una misión de abrir el celular destaca el Tab, no la E",
+                pide.Count == 1 && pide.Contains("Celular") &&
+                Iguales(tab.color, TecladoEnPantallaTheme.Colores.Destacada) &&
+                !Iguales(e.color, TecladoEnPantallaTheme.Colores.Destacada),
+                $"pide [{string.Join(", ", pide)}]");
+
+            QuitarMision();
+            Soltar(ayuda, otto, teclado);
+        }
+
+        // ── D) Las misiones del tutorial ─────────────────────────────────────────
+
+        /// <summary>
+        /// Lo que se pidió: una misión por paso del guión, cada una con un solo
+        /// objetivo. Con los cuatro objetivos en una sola misión, el cartel los
+        /// enseñaría todos y el teclado destacaría todas sus teclas desde el primer
+        /// minuto; así, en cada momento hay exactamente una cosa que hacer.
+        /// </summary>
+        private static void ProbarElTutorialSePartEnMisionesDeUnObjetivo(StringBuilder log)
+        {
+            MisionesDelTutorial cadena = NuevaCadenaDelTutorial(out _);
+
+            List<object> eslabones = Eslabones(cadena);
+            var ids = new List<string>();
+            var tipos = new List<string>();
+            bool todosDeUno = true;
+
+            foreach (object eslabon in eslabones)
+            {
+                var ficha = (DesafioData)Campo(eslabon, "Ficha");
+                var objetivo = (ObjetivoMision)Campo(eslabon, "Objetivo");
+
+                ids.Add(ficha.desafioId);
+                tipos.Add(objetivo.tipo.ToString());
+
+                // Un objetivo por misión, y numerado: sin número no se puede cerrar
+                // desde fuera ni guardar su avance.
+                todosDeUno &= objetivo.ordenCatalogo == 1;
+            }
+
+            Comprobar(log, "el tutorial se parte en tres misiones encadenadas de un objetivo cada una",
+                ids.Count == 3 && todosDeUno &&
+                ids[0] == MisionesDelTutorial.IdFlamenca &&
+                ids[1] == MisionesDelTutorial.IdPanel &&
+                ids[2] == MisionesDelTutorial.IdCaso &&
+                tipos[0] == TipoObjetivo.ChatearCaraACara.ToString() &&
+                tipos[1] == TipoObjetivo.AbrirElPanel.ToString() &&
+                tipos[2] == TipoObjetivo.CompletarCasoDetective.ToString(),
+                string.Join(" → ", ids) + "  [" + string.Join(", ", tipos) + "]");
+
+            SoltarCadena(cadena);
+        }
+
+        /// <summary>
+        /// Terminar una abre la siguiente, y solo la siguiente: una misión que no es
+        /// la que tocaba —otra del juego, o la misma dos veces— no adelanta la
+        /// cadena.
+        /// </summary>
+        private static void ProbarTerminarUnaMisionEntregaLaSiguiente(StringBuilder log)
+        {
+            MisionesDelTutorial cadena = NuevaCadenaDelTutorial(out DesafioData primera);
+
+            // Una que no es la suya: no pasa nada.
+            Completar(cadena, "OTRA_MISION_CUALQUIERA");
+            bool noSeAdelanta = Entregados(cadena) == 0;
+
+            // La del huemul: entra la de la flamenca.
+            Completar(cadena, primera.desafioId);
+            bool entregoLaPrimera = Entregados(cadena) == 1 &&
+                MissionTracker.Instance.Objetivos(MisionesDelTutorial.IdFlamenca).Count == 1;
+
+            // Y la de la flamenca abre la del Tab.
+            Completar(cadena, MisionesDelTutorial.IdFlamenca);
+            bool entregoLaSegunda = Entregados(cadena) == 2 &&
+                MissionTracker.Instance.Objetivos(MisionesDelTutorial.IdPanel).Count == 1;
+
+            Comprobar(log, "terminar una misión del tutorial entrega la siguiente, y solo la siguiente",
+                noSeAdelanta && entregoLaPrimera && entregoLaSegunda,
+                $"sin adelantarse={noSeAdelanta}, flamenca={entregoLaPrimera}, panel={entregoLaSegunda}");
+
+            SoltarCadena(cadena);
+        }
+
+        /// <summary>
+        /// El disparador que hay que traer a mano: el chat con opciones avisa por un
+        /// evento de C#, no por uno de Unity, así que su objetivo no se puede cerrar
+        /// solo. Lo cierra la cadena del tutorial con <c>MissionTracker.Cumplir</c>,
+        /// que es la puerta nueva del rastreador.
+        /// </summary>
+        private static void ProbarElChatDeLaFlamencaCierraSuObjetivo(StringBuilder log)
+        {
+            MisionesDelTutorial cadena = NuevaCadenaDelTutorial(out DesafioData primera);
+            Completar(cadena, primera.desafioId);   // entra la misión de la flamenca
+
+            IReadOnlyList<ObjetivoMision> objetivos =
+                MissionTracker.Instance.Objetivos(MisionesDelTutorial.IdFlamenca);
+
+            bool empiezaPendiente = objetivos.Count == 1 && !objetivos[0].cumplido;
+
+            // Lo que hace el evento del chat al cerrarse.
+            cadena.GetType().GetMethod("AlCerrarElChat", Privado)
+                .Invoke(cadena, new object[] { 1f });
+
+            bool seCierra = objetivos[0].cumplido;
+            string porQue = objetivos[0].PorQue ?? "";
+
+            Comprobar(log, "cerrar el chat de la flamenca cierra su objetivo, y deja dicho quién fue",
+                empiezaPendiente && seCierra && porQue.Contains("tutorial"),
+                $"pendiente al empezar={empiezaPendiente}, cumplido={seCierra}, porqué «{porQue}»");
+
+            SoltarCadena(cadena);
         }
 
         // ── Andamios ─────────────────────────────────────────────────────────────
@@ -1002,6 +1373,179 @@ namespace Fishy.EditorTools
                 if (hijo.name == "Tapa" || hijo.name.StartsWith("Tecla_")) tapas.Add(hijo);
 
             return tapas;
+        }
+
+        /// <summary>
+        /// Una misión activa con los objetivos que se le pasen, montada como la monta
+        /// el juego: el rastreador la sigue y el gestor la pone de activa.
+        ///
+        /// Los dos singletons se ponen por reflexión en vez de por GetOrCreate: su
+        /// Awake llama a DontDestroyOnLoad, que fuera del modo Play no avisa sino que
+        /// TIRA excepción. Mismo truco que FishyPruebasPausa con el SaveManager.
+        /// </summary>
+        /// <summary>
+        /// La cadena de misiones del tutorial, con el mínimo de escena que necesita:
+        /// un TutorialPasos del que saca sus piezas, un MissionGiver con la ficha de
+        /// la misión del huemul y una foca a la que apuntar.
+        ///
+        /// El Start se invoca a mano, como todo en edición. El MissionManager y el
+        /// MissionTracker se crean con GetOrCreate: su Awake no corre fuera de Play,
+        /// que es justamente lo que evita el DontDestroyOnLoad que tiraría excepción.
+        /// </summary>
+        private static MisionesDelTutorial NuevaCadenaDelTutorial(out DesafioData primera)
+        {
+            QuitarMision();
+
+            var tutorialGO = new GameObject("TutorialPasosDePrueba");
+            var tutorial = tutorialGO.AddComponent<TutorialPasos>();
+            tutorial.npcDetective = new GameObject("FocaDePrueba")
+                .AddComponent<Fishy.Detective.DetectiveLauncher>();
+
+            primera = ScriptableObject.CreateInstance<DesafioData>();
+            primera.desafioId = "TUTORIAL_PRIMEROS_PASOS_DE_PRUEBA";
+            primera.titulo = "Primeros pasos";
+
+            var giro = new GameObject("MissionGiverDePrueba").AddComponent<MissionGiver>();
+            giro.desafio = primera;
+
+            MissionManager.GetOrCreate();
+            MissionTracker.GetOrCreate();
+
+            var cadenaGO = new GameObject("MisionesDelTutorialDePrueba");
+            var cadena = cadenaGO.AddComponent<MisionesDelTutorial>();
+            Invocar(cadena, "Start");
+            return cadena;
+        }
+
+        /// <summary>Le cuenta a la cadena que se completó esa misión, que es lo que
+        /// hace el evento del MissionManager.</summary>
+        private static void Completar(MisionesDelTutorial cadena, string desafioId)
+        {
+            var ficha = ScriptableObject.CreateInstance<DesafioData>();
+            ficha.desafioId = desafioId;
+
+            cadena.GetType().GetMethod("AlCompletarUna", Privado)
+                .Invoke(cadena, new object[] { new DesafioRuntime { data = ficha } });
+        }
+
+        private static List<object> Eslabones(MisionesDelTutorial cadena)
+        {
+            var lista = new List<object>();
+            var campo = cadena.GetType().GetField("_cadena", Privado)
+                .GetValue(cadena) as System.Collections.IEnumerable;
+
+            foreach (object eslabon in campo) lista.Add(eslabon);
+            return lista;
+        }
+
+        private static int Entregados(MisionesDelTutorial cadena)
+            => (int)cadena.GetType().GetField("_entregados", Privado).GetValue(cadena);
+
+        private static object Campo(object quien, string nombre)
+            => quien.GetType().GetField(nombre).GetValue(quien);
+
+        private static void SoltarCadena(MisionesDelTutorial cadena)
+        {
+            foreach (TutorialPasos tutorial in UnityEngine.Object.FindObjectsByType<TutorialPasos>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (tutorial.npcDetective != null)
+                    UnityEngine.Object.DestroyImmediate(tutorial.npcDetective.gameObject);
+
+                UnityEngine.Object.DestroyImmediate(tutorial.gameObject);
+            }
+
+            foreach (MissionGiver giver in UnityEngine.Object.FindObjectsByType<MissionGiver>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                UnityEngine.Object.DestroyImmediate(giver.gameObject);
+
+            if (cadena != null) UnityEngine.Object.DestroyImmediate(cadena.gameObject);
+
+            QuitarMision();
+        }
+
+        private static void DarMisionActiva(string id, List<ObjetivoMision> objetivos)
+        {
+            var desafio = ScriptableObject.CreateInstance<DesafioData>();
+            desafio.desafioId = id;
+            desafio.titulo = "Misión de prueba";
+
+            var rastreadorGO = new GameObject("MissionTrackerDePrueba")
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            var rastreador = rastreadorGO.AddComponent<MissionTracker>();
+            PonerInstancia(typeof(MissionTracker), rastreador);
+            rastreador.Seguir(desafio, objetivos);
+
+            var managerGO = new GameObject("MissionManagerDePrueba")
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            var manager = managerGO.AddComponent<MissionManager>();
+            PonerInstancia(typeof(MissionManager), manager);
+
+            typeof(MissionManager)
+                .GetField("<Activa>k__BackingField", Privado)
+                ?.SetValue(manager, new DesafioRuntime { data = desafio });
+        }
+
+        private static void QuitarMision()
+        {
+            foreach (MissionTracker rastreador in UnityEngine.Object.FindObjectsByType<MissionTracker>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                UnityEngine.Object.DestroyImmediate(rastreador.gameObject);
+
+            foreach (MissionManager manager in UnityEngine.Object.FindObjectsByType<MissionManager>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+                UnityEngine.Object.DestroyImmediate(manager.gameObject);
+
+            PonerInstancia(typeof(MissionTracker), null);
+            PonerInstancia(typeof(MissionManager), null);
+        }
+
+        private static void PonerInstancia(Type tipo, MonoBehaviour quien)
+        {
+            tipo.GetField("<Instance>k__BackingField", PrivadoEstatico)?.SetValue(null, quien);
+        }
+
+        /// <summary>Las acciones que el dibujo está destacando ahora mismo. El campo
+        /// es un conjunto de un enum privado, así que se leen por su nombre.</summary>
+        private static List<string> LoQuePide(TecladoEnPantalla ayuda)
+        {
+            var pide = new List<string>();
+
+            var conjunto = ayuda.GetType().GetField("_loQuePideLaMision", Privado)
+                ?.GetValue(ayuda) as System.Collections.IEnumerable;
+
+            if (conjunto != null)
+                foreach (object accion in conjunto) pide.Add(accion.ToString());
+
+            pide.Sort();
+            return pide;
+        }
+
+        /// <summary>Una réplica del cartel de «para interactuar» de la escena: la
+        /// manito con la letra y el texto al lado, apagado como está allí.</summary>
+        private static GameObject CartelDePrueba()
+        {
+            var cartel = new GameObject("InteractionPrompt", typeof(RectTransform))
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            var raiz = (RectTransform)cartel.transform;
+            raiz.anchorMin = raiz.anchorMax = Vector2.zero;
+            raiz.anchoredPosition = new Vector2(270f, 85f);
+            raiz.sizeDelta = new Vector2(500f, 150f);
+
+            Hijo(raiz, "Icono", new Vector2(75f, 75f), new Vector2(150f, 150f));
+            RectTransform etiqueta = Hijo(raiz, "Label", new Vector2(160f, 73f),
+                new Vector2(340f, 50f));
+            etiqueta.pivot = new Vector2(0f, 0.5f);
+            etiqueta.gameObject.AddComponent<TextMeshProUGUI>().text = "para interactuar";
+
+            cartel.SetActive(false);
+            return cartel;
         }
 
         private static RectTransform TapaDe(TecladoEnPantalla ayuda, string nombre)

@@ -19,6 +19,19 @@ using UnityEngine.Events;
 /// el mundo.
 /// </summary>
 /// <remarks>
+/// <b>Los dos últimos tipos no se cumplen solos.</b> Los cinco primeros saben
+/// cerrarse —miran la mochila, la zona, el historial, o se enganchan al evento del
+/// NPC—, pero <see cref="TipoObjetivo.ChatearCaraACara"/> y
+/// <see cref="TipoObjetivo.AbrirElPanel"/> esperan a que alguien los dé por
+/// cumplidos desde fuera con <c>MissionTracker.Cumplir</c>. Hoy ese alguien es
+/// <c>MisionesDelTutorial</c>, que tiene a mano las piezas de su escena.
+///
+/// Es a propósito y tiene precio: no viajan al backend —<see cref="TipoDesdeTexto"/>
+/// no les da cadena, así que el catálogo no los puede pedir— y una misión que los
+/// use fuera del tutorial se quedaría esperando para siempre si nadie los cierra.
+/// A cambio, el tutorial puede partir su misión en pasos sin que el servidor tenga
+/// que aprenderse categorías nuevas.
+///
 /// <b>Un tipo nuevo va SIEMPRE al final del enum.</b> Unity los serializa por índice,
 /// así que las escenas y prefabs guardan "tipo: 0/1/2". Meter uno en medio no da
 /// ningún error: recablea en silencio todos los objetivos ya configurados, y un
@@ -32,6 +45,15 @@ public enum TipoObjetivo
     ChatearPorTelefono,
     LlegarAZona,
     CompletarCasoDetective,
+
+    /// <summary>
+    /// Conversar cara a cara con uno de los NPCs que abren el chat con opciones
+    /// (<c>ChatModuleLauncher</c>).
+    /// </summary>
+    ChatearCaraACara,
+
+    /// <summary>Abrir el panel del celular, el del Tab.</summary>
+    AbrirElPanel,
 }
 
 [Serializable]
@@ -192,6 +214,9 @@ public class ObjetivoMision
             case "chatear_telefono":           return TipoObjetivo.ChatearPorTelefono;
             case "llegar_zona":                return TipoObjetivo.LlegarAZona;
             case "completar_caso_detective":   return TipoObjetivo.CompletarCasoDetective;
+
+            // ChatearCaraACara y AbrirElPanel no están aquí a propósito: son locales
+            // del tutorial y el catálogo no los puede pedir (ver la nota de la clase).
             default:
                 Debug.LogWarning($"[ObjetivoMision] Categoría de objetivo desconocida: " +
                                  $"'{tipo}'. Las válidas son recoger_objeto, hablar_npc, " +
@@ -237,6 +262,12 @@ public class ObjetivoMision
                 if (detective == null && !string.IsNullOrWhiteSpace(casoDetectiveId))
                     detective = BuscarDetectivePorCaso(casoDetectiveId.Trim());
                 return detective != null;
+
+            // Los dos de abajo no apuntan a nada del mundo: los cierra quien los
+            // dispara (ver la nota de la clase), así que no hay nada que buscar.
+            case TipoObjetivo.ChatearCaraACara:
+            case TipoObjetivo.AbrirElPanel:
+                return true;
 
             default:
                 return false;
@@ -376,6 +407,16 @@ public class ObjetivoMision
 
             case TipoObjetivo.CompletarCasoDetective:
                 return "Resolver un caso del Modo Detective";
+
+            case TipoObjetivo.ChatearCaraACara:
+                // Sin referencia a la que preguntarle el nombre: quien crea el
+                // objetivo le pone descripción, y esto es solo el respaldo.
+                return $"Conversar con {Respaldo(dialogoNpcId, "alguien")}";
+
+            case TipoObjetivo.AbrirElPanel:
+                // La tecla se saca de quien la escucha, no se escribe: si mañana el
+                // celular se abre con otra, esta línea lo dice sola.
+                return $"Abrir el celular con {MenuController.TeclaDelCelular}";
 
             default:
                 return "(objetivo desconocido)";
