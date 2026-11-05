@@ -11,8 +11,8 @@ using UnityEngine.UI;
 /// en un duplicado de ese objeto y no en un panel con marco propio.
 ///
 /// Un perfil solo tiene dos campos: el nombre, obligatorio y unico dentro de la
-/// cuenta, y la edad, opcional. El panel no elige por el usuario: si no tocan las
-/// flechas, el perfil se crea sin edad.
+/// cuenta, y la edad, opcional. La edad se elige con las flechas o se escribe en la
+/// caja. El panel no elige por el usuario: si no la tocan, el perfil se crea sin edad.
 /// </summary>
 public class PanelCrearPerfilUI : MonoBehaviour
 {
@@ -57,6 +57,7 @@ public class PanelCrearPerfilUI : MonoBehaviour
     private int solicitud;
     private int edad = EdadInicial;
     private RepetidorDePulsacion repetidorMenos, repetidorMas;
+    private TMP_InputField campoEdad;
 
     private void Awake()
     {
@@ -68,6 +69,14 @@ public class PanelCrearPerfilUI : MonoBehaviour
         // sumarse a el; con los dos puestos, un clic suelto contaria dos veces.
         repetidorMenos = Repetidor(botonEdadMenos, BajarEdad);
         repetidorMas   = Repetidor(botonEdadMas, SubirEdad);
+
+        campoEdad = CrearCampoEdad();
+        if (campoEdad != null)
+        {
+            campoEdad.onValueChanged.AddListener(AlEscribirEdad);
+            campoEdad.onEndEdit.AddListener(_ => PintarEdad());
+            campoEdad.onSubmit.AddListener(_ => PulsarCrear());
+        }
 
         // Enter en el nombre tambien envia: es un formulario de dos campos y obligar
         // a apuntar al boton es innecesario.
@@ -95,6 +104,76 @@ public class PanelCrearPerfilUI : MonoBehaviour
 
         repetidor.AlRepetir += accion;
         return repetidor;
+    }
+
+    /// <summary>
+    /// Vuelve escribible la caja de la edad, sin tocar la escena: mete el texto que ya
+    /// estaba (con su fuente y su tamano) dentro de un campo que solo acepta digitos,
+    /// y pone una copia que dice "No opina" cuando la caja esta vacia.
+    ///
+    /// El objeto se arma apagado y se enciende al final porque TMP_InputField busca su
+    /// texto en OnEnable; encendido desde el principio, arrancaria sin texto.
+    /// </summary>
+    private TMP_InputField CrearCampoEdad()
+    {
+        if (numeroEdad == null) return null;
+        var caja = numeroEdad.rectTransform.parent as RectTransform;
+        if (caja == null) return null;
+
+        var campoGO = new GameObject("CampoEdad", typeof(RectTransform), typeof(Image));
+        campoGO.SetActive(false);
+        campoGO.transform.SetParent(caja, false);
+        Estirar((RectTransform)campoGO.transform);
+
+        // Transparente pero con raycast: es lo que recibe el clic en toda la caja.
+        campoGO.GetComponent<Image>().color = Color.clear;
+
+        var area = new GameObject("Area", typeof(RectTransform), typeof(RectMask2D));
+        area.transform.SetParent(campoGO.transform, false);
+        var areaRT = (RectTransform)area.transform;
+        Estirar(areaRT);
+
+        TMP_Text sugerencia = Instantiate(numeroEdad, area.transform);
+        sugerencia.name = "SinEdad";
+        sugerencia.text = TextoSinEdad;
+        Estirar(sugerencia.rectTransform);
+
+        numeroEdad.rectTransform.SetParent(area.transform, false);
+        Estirar(numeroEdad.rectTransform);
+
+        var campo = campoGO.AddComponent<TMP_InputField>();
+        campo.textViewport = areaRT;
+        campo.textComponent = numeroEdad;
+        campo.placeholder = sugerencia;
+        campo.contentType = TMP_InputField.ContentType.Custom;
+        campo.characterValidation = TMP_InputField.CharacterValidation.Digit;
+        campo.keyboardType = TouchScreenKeyboardType.NumberPad;
+        campo.lineType = TMP_InputField.LineType.SingleLine;
+        campo.characterLimit = EdadMaxima.ToString().Length;
+        campo.caretColor = numeroEdad.color;
+        campo.customCaretColor = true;
+        campo.transition = Selectable.Transition.None;
+        campo.text = string.Empty;
+
+        campoGO.SetActive(true);
+        return campo;
+    }
+
+    private static void Estirar(RectTransform rt)
+    {
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+    }
+
+    /// <summary>Lo escrito manda: vacio es "No opina", y como solo entran dos digitos
+    /// no hay forma de salirse de 0..99.</summary>
+    private void AlEscribirEdad(string texto)
+    {
+        if (ocupado) return;
+        edad = int.TryParse(texto, out int valor)
+            ? Mathf.Clamp(valor, EdadMinima, EdadMaxima)
+            : SinEdad;
     }
 
     /// <summary>Le dice al panel a quien avisar. Lo llama <c>iniciar</c> en su Awake.</summary>
@@ -218,7 +297,14 @@ public class PanelCrearPerfilUI : MonoBehaviour
     /// donde ir.</summary>
     private void PintarEdad()
     {
-        if (numeroEdad != null)
+        // Con el campo, la caja vacia ya dice "No opina" por su cuenta; "07" se
+        // vuelve "7" al terminar de escribir.
+        if (campoEdad != null)
+        {
+            campoEdad.SetTextWithoutNotify(edad == SinEdad ? string.Empty : edad.ToString());
+            campoEdad.interactable = !ocupado;
+        }
+        else if (numeroEdad != null)
             numeroEdad.text = edad == SinEdad ? TextoSinEdad : edad.ToString();
 
         if (botonEdadMenos != null) botonEdadMenos.interactable = !ocupado;

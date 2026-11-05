@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { Tematicas } from '@/components/Reportes'
-import { crearPanelDemo, simularProgreso } from '@/mocks/gruposMock'
+import { crearPanelDemo, simularProgreso } from './fixtures/gruposMock'
 import { porcentajeSeguro } from '@/lib/reportes'
 import { crearPdfGrupo } from '@/lib/pdf'
 import type { ReporteGrupo } from '@/types/reportes'
@@ -63,7 +63,7 @@ describe('reportes y privacidad', () => {
   it('el PDF es un archivo válido que solo exporta campos agregados', async () => {
     const r = await crearPanelDemo(1001).obtenerReporteGrupo('grupo-demo-1001-a')
     const contaminado = { ...r, miembros: [{ email: 'secreto@example.com', nombre: 'NombrePrivado' }], transcripcion: 'ConversacionPrivada' } as ReporteGrupo
-    const doc = crearPdfGrupo(contaminado, true)
+    const doc = crearPdfGrupo(contaminado)
     const pdf = doc.output()
     expect(pdf.startsWith('%PDF-')).toBe(true)
     expect(doc.getNumberOfPages()).toBe(1)

@@ -1,6 +1,7 @@
 # Unity y Django en Railway
 
-En la rama `test`, Unity usa `https://fishy-test.up.railway.app/api`.
+En la rama `dev`, Unity usa `https://fishy-test.up.railway.app/api`,
+el mismo destino de Railway que la rama `test`.
 No se necesita ejecutar Django localmente. Se requiere conexión a internet.
 
 `Assets/Scripts/ApiManager.cs` define `BaseUrl` para todas las operaciones:

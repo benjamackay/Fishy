@@ -41,7 +41,7 @@ MissionManager.Activa            ← decide cuál es la misión (assembly Fishy.
 
 El corte está donde está por una razón concreta: `Fishy.Mision` tiene su propio
 `.asmdef` y **no puede ver Assembly-CSharp** (ni Unity permite lo contrario). El
-resumen de objetivos necesita `NPC`, `ItemData` y `PhoneChatLauncher`, así que la
+resumen de objetivos necesita `DialogoNeutroNPC`, `ItemData` y `PhoneChatLauncher`, así que la
 UI tiene que vivir del lado de Assembly-CSharp. A cambio, la parte que sí se
 puede probar sin escena ni cámara —qué misión es la activa y qué zona señalar—
 está entera en `MissionManager`, y es lo que cubren los tests.

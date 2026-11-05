@@ -66,7 +66,16 @@ public class NpcTematicaSync : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    private void OnEnable() { StartCoroutine(EsperarPartida()); }
+    private void OnEnable()
+    {
+        ApiManager.OnPartidaCerrada += AlCerrarPartida;
+        StartCoroutine(EsperarPartida());
+    }
+
+    private void OnDisable() => ApiManager.OnPartidaCerrada -= AlCerrarPartida;
+
+    /// <summary>Al volver a entrar se baja otra vez, como la primera vez.</summary>
+    private static void AlCerrarPartida() => partidaCargada = null;
 
     // ── Lo que llaman los NPCs ───────────────────────────────────────────────
 
@@ -94,7 +103,21 @@ public class NpcTematicaSync : MonoBehaviour
     /// </summary>
     private static void Subir(string id, bool exito)
     {
-        ColaDeCambios.EncolarNpc(id, exito);
+        ColaDeCambios.EncolarAppend($"npc:{id}",
+            (ok, error) =>
+            {
+                var api = ApiManager.Instance;
+                if (api == null || api.PartidaId == null) { error("No hay partida."); return; }
+
+                api.MarcarNpcTerminado(id, exito,
+                    onSuccess: _ => ok(),
+                    onError: e =>
+                    {
+                        Debug.LogWarning($"[NpcTematica] No se pudo guardar '{id}': {e}");
+                        error(e);
+                    });
+            },
+            $"NPC {id}");
     }
 
     // ── Bajar y repartir ─────────────────────────────────────────────────────

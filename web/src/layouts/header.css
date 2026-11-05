@@ -1,0 +1,21 @@
+.app-header{background:var(--blanco);border-bottom:1px solid var(--linea)}
+.header-inner{max-width:1500px;margin:0 auto;padding:16px clamp(20px,4vw,56px);display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:28px}
+.app-header .brand{width:112px;flex-shrink:0}
+.header-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.header-nav .nav-link{justify-content:center;gap:9px;padding:11px 16px}
+.app-header .account{grid-column:3;max-width:270px;min-width:0;border-left:1px solid var(--linea);padding-left:22px}
+.app-header .account>div{min-width:0}
+@media(max-width:1000px){
+  .header-inner{grid-template-columns:auto minmax(0,1fr) auto;gap:16px 24px}
+  .app-header .account{grid-column:3;grid-row:1}
+}
+@media(max-width:600px){
+  .header-inner{grid-template-columns:minmax(0,1fr) auto;padding:16px 20px;gap:14px}
+  .app-header .brand{width:96px}
+  .app-header .account{grid-column:2;grid-row:1;padding:0;border:0;max-width:175px;gap:8px}
+  .app-header .account .avatar{display:none}
+  .header-nav{grid-column:1/-1;grid-row:2}
+  .header-nav .nav-link{flex:1}
+}
+@media print{.app-header{display:none!important}}
+.cuenta-menu{position:relative}.cuenta-trigger{display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--texto);text-align:left;border-radius:8px;padding:6px;min-height:44px;max-width:100%}.cuenta-trigger:hover,.cuenta-trigger[aria-expanded=true]{background:var(--fondo)}.cuenta-identidad{min-width:0;flex:1}.account .cuenta-identidad>span{font-size:.75rem;color:var(--muted)}.cuenta-trigger>.icon{width:16px}.app-header .cuenta-desplegable{position:absolute;right:0;top:calc(100% + 12px);width:260px;max-width:calc(100vw - 40px);background:white;border:1px solid var(--linea);border-radius:12px;box-shadow:0 12px 36px #382e281a;padding:6px;z-index:30}.cuenta-resumen{padding:12px;border-bottom:1px solid var(--linea);margin-bottom:6px}.account .cuenta-resumen>span{font-size:.8rem;color:var(--muted)}.cuenta-desplegable>a,.cuenta-desplegable>button{width:100%;display:flex;align-items:center;gap:10px;padding:12px;border:0;background:transparent;color:var(--texto);border-radius:6px;font-size:.875rem;text-align:left;min-height:44px}.cuenta-desplegable>a:hover,.cuenta-desplegable>button:hover{background:var(--fondo);text-decoration:none}.cuenta-desplegable>button{color:var(--error)}@media(max-width:600px){.app-header .cuenta-trigger .avatar{display:inline-flex}.cuenta-identidad{display:none}.app-header .account{max-width:none}}

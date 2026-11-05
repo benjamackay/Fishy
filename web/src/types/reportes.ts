@@ -26,6 +26,7 @@ export interface NinoResumen {
 export interface ReporteNino {
   nino: NinoResumen
   actualizado_en: string | null
+  periodo?: { inicio: string; fin: string; zona_horaria: string } | null
   tematicas: ResultadoTematica[]
 }
 /** Nunca debe contener nombres, correos, identificadores ni resultados de integrantes. */
@@ -36,5 +37,6 @@ export interface ReporteGrupo {
   participantes_con_resultados: number
   minimo_participantes: number
   actualizado_en: string | null
+  periodo?: { inicio: string; fin: string; zona_horaria: string } | null
   tematicas: ResultadoTematica[]
 }

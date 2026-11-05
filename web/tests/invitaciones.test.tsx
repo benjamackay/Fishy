@@ -71,7 +71,7 @@ describe('aceptación de una invitación', () => {
   })
   it('conserva la invitación al registrarse e iniciar sesión, sin aceptar automáticamente', async () => {
     const { user, enviar, router } = abrir({ sesion: false, ninos: [] })
-    await user.click(await screen.findByRole('tab', { name: 'Registrarse' }))
+    await user.click(await screen.findByRole('button', { name: 'Registrarse' }))
     const email = screen.getByLabelText('Correo electrónico') as HTMLInputElement
     expect(email.value).toBe(invitacion.email)
     expect(email.readOnly).toBe(true)

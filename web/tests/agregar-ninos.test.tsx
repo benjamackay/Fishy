@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AgregarNinos } from '@/components/AgregarNinos'
 import * as hooks from '@/hooks/usePanel'
 import { panelReal } from '@/api/panelReal'
-import { crearPanelDemo } from '@/mocks/gruposMock'
+import { crearPanelDemo } from './fixtures/gruposMock'
 import type { PerfilFamilia } from '@/types/grupos'
 
 const perfiles: PerfilFamilia[] = [
@@ -19,7 +19,7 @@ function abrir() {
   vi.spyOn(hooks, 'usePanel').mockReturnValue(panelReal)
   const guardar = vi.fn()
   const cerrar = vi.fn()
-  const vista = render(<AgregarNinos id="curso" modoDemo={false} cerrar={cerrar} alGuardar={guardar} />)
+  const vista = render(<AgregarNinos id="curso" cerrar={cerrar} alGuardar={guardar} />)
   const user = userEvent.setup()
   return { ...vista, user, guardar, cerrar, buscar: async (correo = 'FAMILIA@example.com') => {
     await user.type(screen.getByLabelText('Correo del apoderado'), correo)
@@ -93,6 +93,24 @@ describe('agregar por correo con el adaptador real', () => {
     expect((screen.getByRole('checkbox', { name: /Lucas/ }) as HTMLInputElement).checked).toBe(false)
     expect((screen.getByRole('button', { name: 'Agregar', exact: true }) as HTMLButtonElement).disabled).toBe(true)
     expect(guardar).not.toHaveBeenCalled()
+  })
+  it('actualiza las inscripciones al volver a la ventana y retira los niños que pasaron a otro curso', async () => {
+    const enviar = vi.fn().mockResolvedValueOnce(json({ perfiles }))
+      .mockResolvedValueOnce(json({ perfiles: perfiles.map(p => p.jugador_id === 12 ? { ...p, estado: 'en_otro_curso' } : p) }))
+    vi.stubGlobal('fetch', enviar)
+    const { user, buscar } = abrir()
+    await buscar()
+    await user.click(await screen.findByRole('checkbox', { name: /Martina/ }))
+    await user.click(screen.getByRole('checkbox', { name: /Lucas/ }))
+    act(() => { window.dispatchEvent(new Event('focus')) })
+    await waitFor(() => {
+      const martina = screen.getByRole('checkbox', { name: /Martina/ }) as HTMLInputElement
+      expect(martina.disabled).toBe(true)
+      expect(martina.checked).toBe(false)
+    })
+    expect(screen.getByRole('checkbox', { name: /Martina/ }).closest('label')?.textContent).toContain('Ya está en otro curso')
+    expect((screen.getByRole('checkbox', { name: /Lucas/ }) as HTMLInputElement).checked).toBe(true)
+    expect(screen.getByRole('checkbox', { name: /Martina/ }).closest('label')?.className).toBe(screen.getByRole('checkbox', { name: /Sofía/ }).closest('label')?.className)
   })
   it('si la búsqueda tras un conflicto falla, impide reenviar los IDs antiguos', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(json({ perfiles }))

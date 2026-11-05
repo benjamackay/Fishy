@@ -1,5 +1,8 @@
 {
   "caseId": "DC_CASO_03",
+  "titulo": "El Reto que Grabaron",
+  "zona": "reto_viral",
+  "etiquetasMl": ["retos_virales", "presion_social"],
   "npcObservado1": "Lobo Marino",
   "npcObservado2": "Pingüino de Humboldt",
   "permisoPlayerText": "¿Puedo revisar los mensajes del reto de la cueva?",
@@ -68,6 +71,24 @@
       "texto": "sube el video altiro antes de que te arrepientas",
       "esRiesgo": true,
       "esAmbiguo": false
+    }
+  ],
+  "explicacionGuiada": [
+    {
+      "mensajeId": "DC03_MSG03",
+      "explicacion": "Presionar con la exclusión — decir que todos lo hicieron menos tú — es lo que empuja a alguien a una conducta riesgosa que no quería hacer."
+    },
+    {
+      "mensajeId": "DC03_MSG04",
+      "explicacion": "Amenazar con exponer a alguien públicamente es una señal grave: convierte el reto en un chantaje."
+    },
+    {
+      "mensajeId": "DC03_MSG07",
+      "explicacion": "Pedir que se le oculte algo a una figura protectora es una alerta importante: si hubiera que esconderlo, es porque algo anda mal."
+    },
+    {
+      "mensajeId": "DC03_MSG09",
+      "explicacion": "Apurar la publicación para que no haya tiempo de reconsiderar es presión y manipulación."
     }
   ]
 }

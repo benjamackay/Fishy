@@ -19,7 +19,7 @@ export interface AdultoResponsable {
    * habilita la gestión de grupos. No confundir con el acceso técnico al admin
    * de Django, que el backend no expone.
    */
-  rol?: 'padre' | 'profesor'
+  rol?: 'padre' | 'profesor' | 'admin'
 }
 
 export interface RespuestaLogin {

@@ -27,6 +27,32 @@ seguras.
 `% seguras = Safe / (Safe + Unsafe)`. Si **≥ 70 %** → *"Otto se siente seguro"*
 (estado tranquilo). Por debajo → estado preocupado (configurable en `moodTiers`).
 
+## Orden de las respuestas
+
+Las respuestas **se barajan cada vez que se muestran**. Sin esto la segura cae
+siempre en el mismo sitio dentro de cada conversación, y al repetirla se puede
+acertar por posición sin leer — justo lo contrario de lo que la actividad enseña.
+
+Se apaga con `aleatorizarOpciones` en `ChatModuleController`, y entonces salen en
+el orden que escribió el equipo (`BancoPreguntasLoader` las ordena por el campo
+`orden` del banco). Como ese componente se crea solo, para tocar la casilla desde
+el Inspector hay que poner un `ChatModuleController` en la escena; si no, manda el
+valor por defecto del script.
+
+Dos cosas que conviene no romper al tocar esto:
+
+- **La lista `node.options` no se reordena.** Se calcula una permutación aparte
+  (`ChatModuleController.OrdenDeOpciones`) y lo que devuelve la UI es el número de
+  *botón*, que hay que traducir a *opción*. Una `ChatConversation` puede ser un
+  asset del proyecto: barajarle la lista dentro del editor dejaría el orden
+  cambiado en disco.
+- **Lo que se registra en el backend sigue al orden mostrado**, no al del banco
+  (`ChatNode.ToOpciones(orden)`). El campo `orden` de `PosibleRespuesta` significa
+  "orden de presentación al jugador", así que mandar siempre 0,1,2 describiría una
+  pantalla que nadie vio. El puntaje no depende de esto: va por `opcion_banco_id`.
+
+Cubierto por `Fishy ▸ Probar armado de chats` (`FishyPruebasChat`).
+
 ## Montaje de la escena
 
 ### Opción A — botón de UI

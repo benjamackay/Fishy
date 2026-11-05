@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, invitaciones, panel_admin, reportes_web, seguimiento
+from . import cuenta, views, invitaciones, panel_admin, recuperacion, reportes_web, seguimiento
 
 urlpatterns = [
     # Portal web: grupos, invitaciones y reportes
@@ -26,7 +26,11 @@ urlpatterns = [
     # Auth (cuenta del adulto responsable)
     path("auth/registro/", views.registro, name="registro"),
     path("auth/login/", views.auth_login, name="auth_login"),
-    path("auth/perfil/", views.perfil_adulto, name="perfil_adulto"),
+    path("auth/perfil/", cuenta.perfil, name="perfil_adulto"),
+    path("auth/cambiar-contrasena/", cuenta.cambiar_contrasena),
+    path("auth/recuperacion/solicitar/", recuperacion.solicitar),
+    path("auth/recuperacion/verificar/", recuperacion.verificar),
+    path("auth/recuperacion/restablecer/", recuperacion.restablecer),
 
     # Perfiles de menores (control parental)
     path("jugadores/", views.jugadores, name="jugadores"),
@@ -42,6 +46,7 @@ urlpatterns = [
     path("partidas/<int:partida_id>/npcs/", views.npcs_partida, name="npcs_partida"),
     path("partidas/<int:partida_id>/riesgo-por-zona/", views.riesgo_por_zona, name="riesgo_por_zona"),
     path("partidas/<int:partida_id>/presion-social/", views.presion_social, name="presion_social"),
+    path("partidas/<int:partida_id>/puntaje-final/", views.puntaje_final, name="puntaje_final"),
     path("partidas/<int:partida_id>/oportunidades-mejora/", views.oportunidades_mejora, name="oportunidades_mejora"),
 
     # Progreso por partida (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)

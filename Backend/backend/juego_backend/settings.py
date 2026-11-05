@@ -43,6 +43,7 @@ if not SECRET_KEY:
 # porque esta explicado en juego_backend/filtros_error.py.
 DEFAULT_EXCEPTION_REPORTER_FILTER = "juego_backend.filtros_error.FiltroCredenciales"
 
+
 def lista_entorno(nombre):
     """Variable de entorno con valores separados por coma, sin vacios."""
     return [v.strip() for v in os.environ.get(nombre, "").split(",") if v.strip()]
@@ -83,6 +84,8 @@ CORS_ALLOWED_ORIGINS = list(dict.fromkeys([
     *lista_entorno("CORS_ALLOWED_ORIGINS"),
 ]))
 CORS_URLS_REGEX = r"^/api/.*$"
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = False
 
 # ─── Aplicaciones ─────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -102,9 +105,8 @@ INSTALLED_APPS = [
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    # Antes de CommonMiddleware: tiene que contestar el preflight OPTIONS del navegador.
     "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -172,8 +174,12 @@ PASSWORD_HASHERS = [
 ]
 
 # ─── Validación de contraseñas ────────────────────────────────────────────────
+# Una sola regla para registro, recuperación y cambio de contraseña (mínimo 8).
+# La similitud por defecto busca username/first_name, que AdultoResponsable no
+# tiene: sin user_attributes solo se comparaba con el correo.
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+     "OPTIONS": {"user_attributes": ("nombre", "apellido", "email")}},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -217,6 +223,12 @@ EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() == "true"
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "").strip() or "Fishy <no-reply@fishygame.cl>"
 FISHY_INVITACION_DIAS = 7
+# Recuperación de contraseña (api/recuperacion.py): vida del código y del permiso
+# para fijar la clave nueva, e intentos antes de anular el código.
+FISHY_RECUPERACION_MINUTOS = 10
+FISHY_RECUPERACION_PERMISO_MINUTOS = 5
+FISHY_RECUPERACION_INTENTOS = 5
+FISHY_RECUPERACION_REENVIO_SEGUNDOS = 60
 FISHY_REPORTE_MINIMO = 3
 
 # Criterios educativos iniciales, configurables por el equipo. No son una escala clínica.
@@ -230,13 +242,17 @@ FISHY_SEGUIMIENTO = {
     "dias_datos_antiguos": 30,
 }
 
+# El token de sesión vence a los N días de creado (api/autenticacion.py).
+# El login lo renueva al pasar la mitad: nunca entrega uno a punto de vencer.
+FISHY_TOKEN_DIAS = int(os.environ.get("FISHY_TOKEN_DIAS", "30"))
+
 # ─── Django REST Framework ────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
+        "api.autenticacion.TokenConVencimiento",
         "rest_framework.authentication.SessionAuthentication",
     ],
 }

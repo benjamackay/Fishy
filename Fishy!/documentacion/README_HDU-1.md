@@ -66,7 +66,7 @@ nombres distintos a los que se previeron acá:
   interactuable más cercano) + `Inventario/WorldItem.cs` (la recolección).
 - **Acción de "Interactuar"**: la resuelve `InteractionDetector.cs`, no
   `OttoController` directamente.
-- **NPC neutro con diálogo lineal**: `NPC.cs` + `DialogoNpcLoader.cs`, que lee
+- **NPC neutro con diálogo lineal**: `DialogoNeutroNPC.cs` (antes `NPC.cs`) + `DialogoNpcLoader.cs`, que lee
   la sección `dialogos_npc_neutros` del banco de preguntas — distinto del
   árbol de decisiones de `Desconocidos` (HDU-2), tal como se planeó acá.
 - **Persistencia de objetos recogidos**: ya no es solo `PlayerPrefs`; sube al

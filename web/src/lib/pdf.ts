@@ -23,7 +23,7 @@ function fechaPdf(valor: string | null): string {
 }
 
 /** Adaptación grupal de reportedemo.pdf: solo campos agregados, nunca el DOM ni datos de miembros. */
-export function crearPdfGrupo(reporte: ReporteGrupo, demo = false): jsPDF {
+export function crearPdfGrupo(reporte: ReporteGrupo): jsPDF {
   if (reporte.participantes_con_resultados < Math.max(3, reporte.minimo_participantes) || !hayResultados(reporte.tematicas)) {
     throw new ErrorUsuario('Aún no hay datos suficientes para descargar este reporte.')
   }
@@ -77,7 +77,7 @@ export function crearPdfGrupo(reporte: ReporteGrupo, demo = false): jsPDF {
   }
 
   texto('Reporte de Progreso', 18, 24, 'bold')
-  texto(demo ? 'Reporte grupal · Datos de demostración' : 'Reporte grupal', 24, 9)
+  texto('Reporte grupal', 24, 9)
   const anchoLogo = 28
   doc.addImage(logoPdf, 'PNG', 168, 9, anchoLogo, anchoLogo * TAMANO_LOGO_TEXTO.alto / TAMANO_LOGO_TEXTO.ancho, 'fishy-logo-texto', 'FAST')
   doc.setDrawColor(35, 35, 35)
@@ -87,7 +87,7 @@ export function crearPdfGrupo(reporte: ReporteGrupo, demo = false): jsPDF {
   let y = dato('Grupo:', reporte.nombre_grupo.replace(/\s+/g, ' ').trim().slice(0, 80), 37)
   y = dato('Integrantes:', String(reporte.total_integrantes), y)
   y = dato('Con resultados:', String(reporte.participantes_con_resultados), y)
-  y = dato('Alcance del reporte:', 'Resultados acumulados disponibles', y)
+  y = dato('Alcance del reporte:', reporte.periodo ? `Del ${reporte.periodo.inicio} al ${reporte.periodo.fin} (${reporte.periodo.zona_horaria})` : 'Resultados acumulados disponibles', y)
   y = texto('Última actualización de los resultados: ' + fechaPdf(reporte.actualizado_en), y + 3, 9.5, 'italic', true)
 
   y = texto('Resumen por temática', y + 8, 15, 'bolditalic', true)
@@ -169,6 +169,6 @@ export function crearPdfGrupo(reporte: ReporteGrupo, demo = false): jsPDF {
   return doc
 }
 
-export function descargarPdfGrupo(reporte: ReporteGrupo, demo = false): void {
-  crearPdfGrupo(reporte, demo).save('Fishy-reporte-grupal-' + new Date().toISOString().slice(0, 10) + '.pdf')
+export function descargarPdfGrupo(reporte: ReporteGrupo): void {
+  crearPdfGrupo(reporte).save('Fishy-reporte-grupal-' + new Date().toISOString().slice(0, 10) + '.pdf')
 }

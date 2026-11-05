@@ -6,8 +6,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// "Perfil de X": la lista de partidas guardadas de un perfil de menor, para elegir
-/// cual retomar o empezar una nueva.
+/// "Sesiones disponibles": la lista de partidas guardadas de un perfil de menor, para
+/// elegir cual retomar o empezar una nueva.
 ///
 /// Esta calcado de <see cref="PanelPerfilesUI"/>, incluidas sus defensas contra
 /// respuestas que llegan tarde. No es copiar por copiar: los dos paneles hacen lo
@@ -212,13 +212,18 @@ public class PanelPartidasUI : MonoBehaviour
         if (botonVolver != null) botonVolver.interactable = !ocupado;
     }
 
+    /// <summary>
+    /// El titulo dice QUE hay en la lista, no de quien es.
+    ///
+    /// Decia "Perfil de {nombre}", y eso nombraba la pantalla equivocada: aqui no se
+    /// elige perfil —eso ya paso en la pantalla anterior— sino cual de las partidas
+    /// guardadas se sigue. El nombre del perfil ademas se repetia con la cabecera.
+    /// </summary>
     private void ActualizarTitulo()
     {
         if (titulo == null) return;
 
-        titulo.text = perfil != null && !string.IsNullOrWhiteSpace(perfil.nombre)
-            ? $"Perfil de {perfil.nombre}"
-            : "Perfil de JUGADOR";
+        titulo.text = "Sesiones disponibles";
     }
 
     private void PulsarJugar()

@@ -12,7 +12,7 @@ function abrir() {
 }
 
 async function completarRegistro(user: ReturnType<typeof userEvent.setup>, confirmacion = 'Clave-larga-24') {
-  await user.click(screen.getByRole('tab', { name: 'Registrarse' }))
+  await user.click(screen.getAllByRole('link', { name: 'Registrarse' })[0])
   await user.type(screen.getByLabelText('Nombre de usuario'), 'nuevo_tutor')
   await user.type(screen.getByLabelText('Correo electrónico'), 'familia@example.com')
   await user.type(screen.getByLabelText('Contraseña', { exact: true }), 'Clave-larga-24')
@@ -20,22 +20,47 @@ async function completarRegistro(user: ReturnType<typeof userEvent.setup>, confi
 }
 
 describe('acceso y registro', () => {
-  it('permite alternar con teclado y solo expone el formulario activo', async () => {
+  it('un login rechazado informa credenciales incorrectas, no una sesión vencida', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 401 })))
     const user = abrir()
-    const login = screen.getByRole('tab', { name: 'Iniciar sesión' })
-    const registro = screen.getByRole('tab', { name: 'Registrarse' })
-    expect(login.getAttribute('aria-selected')).toBe('true')
-    expect(screen.queryByLabelText('Correo electrónico')).toBeNull()
-    login.focus()
-    await user.keyboard('{ArrowRight}')
-    expect(document.activeElement).toBe(registro)
-    expect(registro.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tabpanel').id).toBe('panel-registro')
-    expect(screen.getByLabelText('Correo electrónico')).toBeTruthy()
+    await user.type(screen.getByLabelText('Nombre de usuario'), 'usuario')
+    await user.type(screen.getByLabelText('Contraseña'), 'clave-incorrecta')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión', exact: true }))
+    expect((await screen.findByRole('alert')).textContent).toContain('Nombre de usuario o contraseña incorrectos.')
+  })
+  it('ignora sesiones ficticias antiguas y banderas de demostración', () => {
+    sessionStorage.setItem('fishy.demo.sesion.v2', 'alternativa')
+    vi.stubEnv('VITE_DEMO', 'true')
+    vi.stubEnv('VITE_GRUPOS_MOCK', 'true')
+    vi.stubEnv('VITE_FORZAR_ADMIN', 'true')
+    const enviar = vi.fn()
+    vi.stubGlobal('fetch', enviar)
+    abrir()
+    expect(screen.getByRole('form', { name: 'Iniciar sesión' })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Mis grupos' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Probar como/ })).toBeNull()
+    expect(enviar).not.toHaveBeenCalled()
+  })
+  it('valida el token con Django aunque exista una sesión ficticia anterior', async () => {
+    sessionStorage.setItem('fishy.demo.sesion.v2', 'alternativa')
+    localStorage.setItem('fishy.token', 'token-revocado')
+    const enviar = vi.fn().mockResolvedValue(new Response('{}', { status: 401 }))
+    vi.stubGlobal('fetch', enviar)
+    abrir()
+    await screen.findByRole('button', { name: 'Iniciar sesión', exact: true })
+    await vi.waitFor(() => expect(localStorage.getItem('fishy.token')).toBeNull())
+    expect(enviar.mock.calls[0][0]).toMatch(/\/auth\/perfil\/$/)
+    expect(screen.queryByRole('link', { name: 'Mis grupos' })).toBeNull()
+  })
+  it('separa ingreso y registro en páginas navegables con teclado', async () => {
+    const user = abrir()
+    expect(screen.getByRole('form', { name: 'Iniciar sesión' })).toBeTruthy()
+    const registro = screen.getAllByRole('link', { name: 'Registrarse' })[0]
+    registro.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('form', { name: 'Crear una cuenta' })).toBeTruthy()
     expect(screen.queryByRole('form', { name: 'Iniciar sesión' })).toBeNull()
-    await user.keyboard('{Home}')
-    expect(document.activeElement).toBe(login)
-    expect(screen.getByRole('tabpanel').id).toBe('panel-login')
+    await user.click(screen.getAllByRole('link', { name: 'Iniciar sesión' })[0])
     expect(screen.queryByLabelText('Correo electrónico')).toBeNull()
   })
   it('rechaza contraseñas diferentes antes de enviar datos y enfoca la confirmación', async () => {
@@ -100,8 +125,8 @@ describe('acceso y registro', () => {
     await user.click(screen.getByRole('button', { name: 'Mostrar contraseña', exact: true }))
     expect(clave.type).toBe('text')
     expect(clave.value).toBe('Clave-privada')
-    await user.click(screen.getByRole('tab', { name: 'Registrarse' }))
-    await user.click(screen.getByRole('tab', { name: 'Iniciar sesión' }))
+    await user.click(screen.getAllByRole('link', { name: 'Registrarse' })[0])
+    await user.click(screen.getAllByRole('link', { name: 'Iniciar sesión' })[0])
     const nueva = screen.getByLabelText('Contraseña', { exact: true }) as HTMLInputElement
     expect(nueva.type).toBe('password')
     expect(nueva.value).toBe('')

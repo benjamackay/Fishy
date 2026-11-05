@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { ProveedorSesion } from '@/auth/ProveedorSesion'
 import { rutas } from '@/routes'
+import { prepararCuenta } from './fixtures/sesion'
 import * as pdf from '@/lib/pdf'
-import * as demo from '@/mocks/gruposMock'
+import * as demo from './fixtures/gruposMock'
 
 function abrir(ruta = '/login', cuenta?: 'principal' | 'alternativa') {
-  if (cuenta) sessionStorage.setItem('fishy.demo.sesion.v2', cuenta)
+  if (cuenta) prepararCuenta(cuenta)
   const router = createMemoryRouter(rutas, { initialEntries: [ruta] })
   const vista = render(<ProveedorSesion><RouterProvider router={router} /></ProveedorSesion>)
   return { ...vista, router, user: userEvent.setup() }
@@ -39,24 +40,31 @@ describe('criterios de aceptación en las pantallas', () => {
     await user.click(screen.getByRole('button', { name: 'Descargar reporte' }))
     await waitFor(() => expect(guardar).toHaveBeenCalledTimes(1))
     expect(guardar.mock.calls[0][0].tematicas[0].metricas?.decisiones_evaluadas).toBe(45)
-    expect(guardar.mock.calls[0][1]).toBe(true)
-    expect(await screen.findByText('PDF generado. La descarga está lista en tu navegador.')).toBeTruthy()
+    expect(guardar.mock.calls[0]).toHaveLength(1)
+    expect(await screen.findByText('PDF generado. Revisa las descargas de tu navegador.')).toBeTruthy()
   })
-  it('protege reportes antes de iniciar sesión y la demo no solicita endpoints', async () => {
+  it('protege reportes antes de iniciar sesión y vuelve al reporte después del login', async () => {
     const fetch = vi.fn().mockRejectedValue(new Error('No debe usar red'))
     vi.stubGlobal('fetch', fetch)
     const { user } = abrir('/reportes/101')
-    await user.click(await screen.findByRole('button', { name: 'Probar como padre' }))
+    prepararCuenta('principal', false)
+    await user.type(await screen.findByLabelText('Nombre de usuario'), 'camila')
+    await user.type(screen.getByLabelText('Contraseña'), 'clave-de-prueba')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión', exact: true }))
     expect(await screen.findByRole('heading', { name: 'El progreso de Martina' })).toBeTruthy()
     expect(fetch).not.toHaveBeenCalled()
   })
   it('al cambiar de tutor no muestra los niños de la cuenta anterior', async () => {
     const { user } = abrir('/', 'principal')
     expect(await screen.findByRole('link', { name: 'Ver reporte de Martina' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Menú de usuario' }))
     await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
-    await user.click(screen.getByRole('button', { name: 'Probar como profesor' }))
-    expect(await screen.findByRole('heading', { name: 'Mis grupos' })).toBeTruthy()
+    prepararCuenta('alternativa', false)
+    await user.type(await screen.findByLabelText('Nombre de usuario'), 'diego')
+    await user.type(screen.getByLabelText('Contraseña'), 'clave-de-prueba')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión', exact: true }))
+    expect(await screen.findByRole('heading', { name: 'Panel de administración' })).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Reportes', exact: true })).toBeNull()
     expect(screen.queryByText('Sofía')).toBeNull()
     expect(screen.queryByText('Martina')).toBeNull()
@@ -70,14 +78,20 @@ describe('criterios de aceptación en las pantallas', () => {
     expect(screen.queryAllByRole('meter')).toHaveLength(0)
   })
   it('crea un grupo y agrega solo los hermanos seleccionados por correo', async () => {
-    const { user } = abrir('/admin/grupos', 'alternativa')
+    const { user, router } = abrir('/admin/grupos', 'alternativa')
     await user.click(await screen.findByRole('button', { name: 'Crear grupo', exact: true }))
     let dialogo = screen.getByRole('dialog')
     await user.type(within(dialogo).getByLabelText('Nombre del grupo'), 'Tutorías')
     await user.click(within(dialogo).getByRole('button', { name: 'Crear grupo', exact: true }))
-    expect(await screen.findByRole('heading', { name: 'Tutorías' })).toBeTruthy()
+    const creado = await screen.findByRole('dialog', { name: 'Grupo creado correctamente' })
+    expect(creado.textContent).toContain('Tutorías')
+    expect(router.state.location.pathname).toBe('/admin/grupos')
+    await user.click(within(creado).getByRole('button', { name: 'Entendido' }))
+    expect(await screen.findByRole('heading', { name: 'Tutorías', level: 3 })).toBeTruthy()
+    await user.click(await screen.findByRole('link', { name: 'Detalle de Tutorías' }))
+    expect(await screen.findByRole('heading', { name: 'Tutorías', level: 1 })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Invitar familia' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Agregar', exact: true }))
+    await user.click(await screen.findByRole('button', { name: 'Agregar usuario', exact: true }))
     dialogo = screen.getByRole('dialog')
     await user.type(within(dialogo).getByLabelText('Correo del apoderado'), 'FAMILIA.SILVA@example.com')
     await user.click(within(dialogo).getByRole('button', { name: 'Buscar' }))
@@ -86,12 +100,14 @@ describe('criterios de aceptación en las pantallas', () => {
     expect(sofia.checked).toBe(false)
     await user.click(within(dialogo).getByRole('checkbox', { name: /Valentina/ }))
     await user.click(within(dialogo).getByRole('button', { name: 'Agregar', exact: true }))
+    const confirmacion = await screen.findByRole('dialog', { name: 'Niño(s) agregado(s) al curso' })
+    expect(confirmacion.textContent).toContain('Se agregó correctamente al niño o a los niños seleccionados.')
+    await user.click(within(confirmacion).getByRole('button', { name: 'Entendido' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(await screen.findByRole('button', { name: 'Eliminar integrante Valentina' })).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Eliminar integrante Mateo' })).toBeNull()
+    expect(await screen.findByRole('button', { name: 'Eliminar usuario Valentina' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Eliminar usuario Mateo' })).toBeNull()
     expect(screen.getByText('1 perfil vinculado')).toBeTruthy()
-    expect(screen.getByText(/Selección guardada/)).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Agregar', exact: true }))
+    await user.click(screen.getByRole('button', { name: 'Agregar usuario', exact: true }))
     dialogo = screen.getByRole('dialog')
     await user.type(within(dialogo).getByLabelText('Correo del apoderado'), 'familia.silva@example.com')
     await user.click(within(dialogo).getByRole('button', { name: 'Buscar' }))
@@ -101,10 +117,10 @@ describe('criterios de aceptación en las pantallas', () => {
   })
   it('quitar un integrante exige confirmar y conserva el resto del grupo', async () => {
     const { user } = abrir('/admin/grupos/grupo-demo-1002-a', 'alternativa')
-    await user.click(await screen.findByRole('button', { name: 'Eliminar integrante Sofía' }))
+    await user.click(await screen.findByRole('button', { name: 'Eliminar usuario Sofía' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Volver' }))
     expect(screen.getByText('Sofía')).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Eliminar integrante Sofía' }))
+    await user.click(screen.getByRole('button', { name: 'Eliminar usuario Sofía' }))
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirmar' }))
     await waitFor(() => expect(screen.queryByText('Sofía')).toBeNull())
     expect(screen.getByText('Lucas')).toBeTruthy()
@@ -140,8 +156,7 @@ describe('criterios de aceptación en las pantallas', () => {
     await screen.findByRole('heading', { name: 'El progreso de Martina' })
     const retos = screen.getByRole('region', { name: 'Retos Virales' })
     expect(within(retos).queryByRole('meter')).toBeNull()
-    await user.click(screen.getByText('Probar la actualización automática'))
-    await user.click(screen.getByRole('button', { name: 'Simular nivel completado' }))
+    await act(async () => { await demo.simularProgreso(1001, 101, 'retos_virales') })
     await waitFor(() => expect(within(retos).getByRole('meter').getAttribute('aria-valuenow')).toBe('80'))
     await user.click(within(screen.getByRole('navigation', { name: 'Navegación principal' })).getByRole('link', { name: 'Reportes', exact: true }))
     await user.click(await screen.findByRole('link', { name: 'Ver reporte de Martina' }))

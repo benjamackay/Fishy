@@ -15,8 +15,10 @@ using UnityEngine.UI;
 /// crecer el rect. Ahora es un panel propio con su cartel a medida.
 ///
 /// El backend pide tres datos y los tres son obligatorios: nombre (unico, y es el
-/// que despues sirve para entrar), email (unico) y password de al menos 4 caracteres
-/// (Backend/backend/api/serializers.py:14). apellido y edad existen en el endpoint
+/// que despues sirve para entrar), email (unico) y password que cumpla
+/// AUTH_PASSWORD_VALIDATORS (settings.py): al menos 8 caracteres, no comun, no solo
+/// numeros y no parecida al nombre o al correo. Aqui solo se revisa el largo; lo
+/// demas lo explica el mensaje del backend. apellido y edad existen en el endpoint
 /// pero son opcionales, y esta pantalla no los pide.
 ///
 /// /auth/registro/ devuelve token, asi que al crear la cuenta la sesion ya queda
@@ -41,8 +43,8 @@ public class PanelCrearCuentaUI : MonoBehaviour
     /// Avisar aqui es mas claro que esperar 700 ms a que vuelva un 400.</summary>
     private const int LargoMaximoNombre = 150;
 
-    /// <summary>Minimo que exige el serializer del registro (min_length=4).</summary>
-    private const int LargoMinimoPassword = 4;
+    /// <summary>Minimo de MinimumLengthValidator en el backend (8 por defecto).</summary>
+    private const int LargoMinimoPassword = 8;
 
     private Action alCrear;
     private Action alIniciarSesion;

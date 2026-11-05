@@ -54,6 +54,11 @@ namespace Fishy.UI
             Hide();
         }
 
+        /// <summary>Si la pantalla está tapando el juego. La mira
+        /// <c>BloqueosDePausa</c>: durante una transición de carga no se pausa
+        /// (HDU-17 CA1).</summary>
+        public bool Visible => panel != null && panel.activeInHierarchy;
+
         public void Show()
         {
             if (panel != null) panel.SetActive(true);

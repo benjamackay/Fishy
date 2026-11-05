@@ -2,7 +2,23 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { EVENTO_DATOS, INTERVALO_REPORTES_MS, useDatosVivos } from '@/hooks/useDatosVivos'
 import { ApiError } from '@/lib/api'
+import { ErrorUsuario } from '@/lib/errores'
 describe('actualización automática', () => {
+  it('conserva datos ante errores temporales traducidos y los retira ante un permiso revocado', async () => {
+    const cargar = vi.fn().mockResolvedValueOnce('Datos')
+      .mockRejectedValueOnce(new ErrorUsuario('Servicio no disponible', 503))
+      .mockRejectedValueOnce(new ErrorUsuario('Demasiadas solicitudes', 429))
+      .mockRejectedValueOnce(new ErrorUsuario('Acceso revocado', 403))
+    const { result } = renderHook(() => useDatosVivos(cargar, 'uno'))
+    await waitFor(() => expect(result.current.datos).toBe('Datos'))
+    for (const status of [503, 429]) {
+      await act(async () => { window.dispatchEvent(new Event('focus')) })
+      expect(result.current.datos).toBe('Datos')
+      expect((result.current.error as ErrorUsuario).status).toBe(status)
+    }
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    expect(result.current.datos).toBeNull()
+  })
   it('reconsulta por tiempo, foco, conexión, otra pestaña y eventos del juego', async () => {
     vi.useFakeTimers()
     let valor = 1

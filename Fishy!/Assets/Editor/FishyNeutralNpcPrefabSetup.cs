@@ -12,7 +12,7 @@ namespace Fishy.EditorTools
     /// que cada instancia solo traiga su propio NPCDialogue y, si corresponde, un
     /// DesafioData.
     ///
-    /// Reutiliza el sistema que ya existe (NPC.cs + InteractionDetector.cs — este
+    /// Reutiliza el sistema que ya existe (DialogoNeutroNPC.cs + InteractionDetector.cs — este
     /// último va en Otto, no en el NPC) en vez de duplicar un sistema de diálogo
     /// paralelo al de Chat/Detective.
     /// </summary>
@@ -41,7 +41,7 @@ namespace Fishy.EditorTools
             box.isTrigger = true;
             box.size = DefaultTriggerSize;
 
-            go.AddComponent<NPC>();
+            go.AddComponent<DialogoNeutroNPC>();
             go.AddComponent<MissionGiver>();
 
             bool existiaAntes = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath) != null;
@@ -51,8 +51,8 @@ namespace Fishy.EditorTools
             // Canvas de diálogo de la escena (no se pueden guardar en el prefab asset).
             // Si ya hay otro NPC en la escena con eso cableado (p. ej. "Huemul"), se
             // copian a la instancia nueva para no tener que arrastrarlas a mano.
-            var npcInstancia = go.GetComponent<NPC>();
-            var npcExistente = Object.FindObjectsByType<NPC>()
+            var npcInstancia = go.GetComponent<DialogoNeutroNPC>();
+            var npcExistente = Object.FindObjectsByType<DialogoNeutroNPC>()
                 .FirstOrDefault(n => n != npcInstancia && n.dialoguePanel != null);
             bool uiCopiada = npcExistente != null;
             if (uiCopiada)

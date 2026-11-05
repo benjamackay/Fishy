@@ -4,22 +4,33 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { ProveedorSesion } from '@/auth/ProveedorSesion'
 import { rutas } from '@/routes'
+import { prepararCuenta } from './fixtures/sesion'
 import { aplicarPermisosPanel } from '@/lib/permisosPanel'
-import { crearPanelDemo } from '@/mocks/gruposMock'
-import * as demo from '@/mocks/gruposMock'
-import { perfilesDemo } from '@/mocks/sesionDemo'
+import { crearPanelDemo } from './fixtures/gruposMock'
+import * as demo from './fixtures/gruposMock'
+import { perfilesDemo } from './fixtures/sesionDemo'
 import * as auth from '@/api/auth'
 import { panelReal } from '@/api/panelReal'
 import type { FuentePanel } from '@/types/panel'
 import type { AdultoResponsable } from '@/types/api'
 
 function abrir(ruta: string, cuenta?: 'principal' | 'alternativa') {
-  if (cuenta) sessionStorage.setItem('fishy.demo.sesion.v2', cuenta)
+  if (cuenta) prepararCuenta(cuenta)
   const router = createMemoryRouter(rutas, { initialEntries: [ruta] })
   render(<ProveedorSesion><RouterProvider router={router} /></ProveedorSesion>)
   return userEvent.setup()
 }
 describe('tutores padres y administradores', () => {
+  it.each(['admin', undefined] as const)('no trata el rol %s como padre ni consulta niños', async rol => {
+    localStorage.setItem('fishy.token', 'token-prueba')
+    vi.spyOn(auth, 'obtenerPerfil').mockResolvedValue({ ...perfilesDemo.principal, rol })
+    const listar = vi.spyOn(panelReal, 'listarNinos')
+    abrir('/')
+    await screen.findByRole('button', { name: 'Cambiar de cuenta' })
+    expect(screen.queryByText('Tutor padre/madre')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Reportes', exact: true })).toBeNull()
+    expect(listar).not.toHaveBeenCalled()
+  })
   it('el padre ve sus hijos y no tiene navegación ni botones de grupos', async () => {
     abrir('/', 'principal')
     await screen.findByRole('link', { name: 'Ver reporte de Martina' })
@@ -44,26 +55,32 @@ describe('tutores padres y administradores', () => {
     // La pantalla bloqueada no llega a cargar/sembrar datos de grupos.
     expect(localStorage.getItem('fishy.demo.panel.v2.1001')).toBeNull()
   })
-  it('la demo de profesor inicia en grupos y permite crear', async () => {
-    const user = abrir('/login')
-    await user.click(screen.getByRole('button', { name: 'Probar como profesor' }))
-    await screen.findByRole('heading', { name: 'Mis grupos' })
+  it('una sesión de profesor inicia en grupos y permite crear', async () => {
+    const user = abrir('/login', 'alternativa')
+    await screen.findByRole('heading', { name: 'Panel de administración' })
     expect(screen.getByText('Tutor administrador')).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Crear grupo', exact: true }))
     const dialogo = screen.getByRole('dialog')
     await user.type(within(dialogo).getByLabelText('Nombre del grupo'), 'Curso del profesor')
     await user.click(within(dialogo).getByRole('button', { name: 'Crear grupo', exact: true }))
-    expect(await screen.findByRole('heading', { name: 'Curso del profesor' })).toBeTruthy()
+    const confirmacion = await screen.findByRole('dialog', { name: 'Grupo creado correctamente' })
+    await user.click(within(confirmacion).getByRole('button', { name: 'Entendido' }))
+    expect(screen.getByRole('heading', { name: 'Panel de administración', level: 1 })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Curso del profesor', level: 3 })).toBeTruthy()
   })
   it('cambiar de profesor a padre retira el grupo que estaba abierto', async () => {
     const user = abrir('/admin/grupos/grupo-demo-1002-a/reporte', 'alternativa')
     await screen.findByRole('heading', { name: '5° Básico A' })
+    await user.click(screen.getByRole('button', { name: 'Menú de usuario' }))
     await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
-    await user.click(await screen.findByRole('button', { name: 'Probar como padre' }))
+    prepararCuenta('principal', false)
+    await user.type(await screen.findByLabelText('Nombre de usuario'), 'camila')
+    await user.type(screen.getByLabelText('Contraseña'), 'clave-de-prueba')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión', exact: true }))
     await screen.findByRole('heading', { name: 'Acceso exclusivo para profesores' })
     expect(screen.queryByRole('button', { name: 'Descargar reporte' })).toBeNull()
     expect(screen.queryByText('5° Básico A')).toBeNull()
-    await user.click(screen.getByRole('link', { name: 'Ver los reportes de mis hijos' }))
+    await user.click(screen.getByRole('link', { name: 'Volver al inicio' }))
     expect(await screen.findByRole('link', { name: 'Ver reporte de Martina' })).toBeTruthy()
   })
   it.each([
@@ -88,7 +105,7 @@ describe('tutores padres y administradores', () => {
     const ninos = vi.spyOn(panelReal, 'listarNinos')
     const reporte = vi.spyOn(panelReal, 'obtenerReporteNino')
     abrir('/reportes/103')
-    await screen.findByRole('heading', { name: 'Mis grupos' })
+    await screen.findByRole('heading', { name: 'Panel de administración' })
     expect(grupos).toHaveBeenCalled()
     expect(ninos).not.toHaveBeenCalled()
     expect(reporte).not.toHaveBeenCalled()
@@ -100,14 +117,14 @@ describe('tutores padres y administradores', () => {
     const consultar = vi.spyOn(fuente, 'obtenerReporteNino')
     vi.spyOn(demo, 'crearPanelDemo').mockReturnValue(fuente)
     const user = abrir(ruta, 'alternativa')
-    await screen.findByRole('heading', { name: 'Mis grupos' })
+    await screen.findByRole('heading', { name: 'Panel de administración' })
     const navegacion = screen.getByRole('navigation', { name: 'Navegación principal' })
     expect(within(navegacion).getAllByRole('link')).toHaveLength(1)
     expect(within(navegacion).getByRole('link', { name: 'Mis grupos' })).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Reportes', exact: true })).toBeNull()
     expect(screen.queryByText('Sofía')).toBeNull()
     await user.click(screen.getByRole('link', { name: 'Fishy! Inicio' }))
-    expect(screen.getByRole('heading', { name: 'Mis grupos' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Panel de administración' })).toBeTruthy()
     expect(listar).not.toHaveBeenCalled()
     expect(consultar).not.toHaveBeenCalled()
   })
@@ -142,10 +159,11 @@ describe('permisos antes de invocar el servicio', () => {
     p => p.eliminarUsuario('grupo', 'miembro'),
     p => p.eliminarGrupo('grupo'),
     p => p.obtenerReporteGrupo('grupo'),
+    p => p.obtenerSeguimiento('grupo'),
   ]
   it.each(['padre', undefined, 'Profesor', 'admin', true, null])('deniega todas las operaciones grupales con un rol no autorizado: %s', async rol => {
     const fuente = crearPanelDemo(1001)
-    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'buscarFamilia', 'agregarNinos', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
+    const espias = ['listarGrupos', 'crearGrupo', 'obtenerGrupo', 'buscarFamilia', 'agregarNinos', 'invitarFamilia', 'reenviarInvitacion', 'cancelarInvitacion', 'eliminarUsuario', 'eliminarGrupo', 'obtenerReporteGrupo', 'obtenerSeguimiento'].map(nombre => vi.spyOn(fuente, nombre as keyof FuentePanel))
     const perfil = { ...perfilesDemo.principal, is_admin: true, rol } as unknown as AdultoResponsable
     const panel = aplicarPermisosPanel(fuente, perfil)
     for (const operacion of operaciones) await expect(operacion(panel)).rejects.toThrow('Solo los tutores administradores')

@@ -1,4 +1,5 @@
 using System.Collections;
+using Fishy.Pausa;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -21,9 +22,13 @@ namespace Fishy.World
     ///
     /// Requiere un Rigidbody2D (Body Type = Dynamic, Gravity Scale = 0) y un
     /// Collider2D en el mismo GameObject de Otto.
+    ///
+    /// HDU-17 — Implementa <see cref="IEntradaPausable"/>: es la entrada del jugador
+    /// que el menú de pausa tiene que callar (CA3). Se apunta solo a la
+    /// <see cref="PuertaDeEntrada"/>, así que no hay nada que cablear en la escena.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
-    public class OttoController : MonoBehaviour
+    public class OttoController : MonoBehaviour, IEntradaPausable
     {
         
         [Header("Velocidades")]
@@ -73,6 +78,21 @@ namespace Fishy.World
         private Transform jumpVisual;            // hijo que realiza el "hop" (NUNCA el root)
         private Vector3 jumpVisualBaseLocalPos;
         private bool jumpAnimatorOnly;           // true si el salto es sólo animación
+
+        /// <summary>
+        /// Las acciones tal como quedaron atadas en <see cref="BuildInputActions"/>.
+        ///
+        /// Son de lectura y existen para que el teclado de ayuda
+        /// (<c>Fishy.UI.TecladoEnPantalla</c>) enseñe las teclas de VERDAD en vez de
+        /// unas escritas a mano en la UI: si mañana saltar deja de ser el espacio, el
+        /// cartel lo dice solo. Es el mismo criterio que ya seguía
+        /// <c>InteractionDetector</c> con su etiqueta de la E.
+        ///
+        /// Vienen a null hasta el Awake, así que quien las lea tiene que comprobarlo.
+        /// </summary>
+        public InputAction AccionMover  => moveAction;
+        public InputAction AccionCorrer => runAction;
+        public InputAction AccionSaltar => jumpAction;
 
         /// <summary>Velocidad actual real (para animaciones/UI). 0 = detenido.</summary>
         public float CurrentSpeed => currentMove.magnitude * (vRun || RunPressed() ? runSpeed : walkSpeed);
@@ -129,6 +149,8 @@ namespace Fishy.World
             moveAction?.Enable();
             runAction?.Enable();
             jumpAction?.Enable();
+
+            PuertaDeEntrada.Registrar(this);
         }
 
         private void OnDisable()
@@ -136,6 +158,8 @@ namespace Fishy.World
             moveAction?.Disable();
             runAction?.Disable();
             jumpAction?.Disable();
+
+            PuertaDeEntrada.Soltar(this);
         }
 
         private void OnDestroy()
@@ -151,8 +175,27 @@ namespace Fishy.World
                 rb.position = spawnPoint.position;
 
             if (enableOnStart)
+            {
                 EnableMovement();
+
+                // Otto se apuntó en OnEnable, cuando todavía tenía el movimiento
+                // apagado, y lo acaba de encender. Si el juego está en pausa —un Otto
+                // que aparece al volver de una carga— la puerta lo vuelve a callar
+                // ahora y lo enciende ella al reanudar. Sin esto caminaría con el
+                // mundo congelado.
+                PuertaDeEntrada.Revisar(this);
+            }
         }
+
+        // ── HDU-17: la pausa calla la entrada (CA3) ───────────────────────────
+
+        /// <summary>Si Otto está escuchando al jugador. Es el mismo banderín de
+        /// siempre: la pausa no inventa un segundo estado que se pueda desincronizar
+        /// del que ya usan el menú, los diálogos y las cinemáticas.</summary>
+        bool IEntradaPausable.EntradaActiva => movementEnabled;
+
+        void IEntradaPausable.SuspenderEntrada() => DisableMovement();
+        void IEntradaPausable.ReanudarEntrada() => EnableMovement();
 
         /// <summary>
         /// Habilita el movimiento. Llamar cuando el mundo terminó de cargar.
@@ -169,12 +212,28 @@ namespace Fishy.World
 
         /// <summary>
         /// Reubica a Otto en una posición de inicio y lo deja detenido.
+        ///
+        /// Lleva la cámara con él. Un teletransporte que deje la cámara atrás no
+        /// es un teletransporte: se la ve recorrer el mapa hasta el destino, que
+        /// es justo lo que no había que enseñar. Al restaurar una partida eso se
+        /// notaba aunque Otto ya apareciera colocado.
         /// </summary>
         public void TeleportTo(Vector3 position)
         {
+            // El Transform además del Rigidbody. 'Physics2D.autoSyncTransforms'
+            // viene en false, así que tocar sólo rb.position deja el Transform con
+            // el valor viejo hasta el siguiente paso de física — y el Transform es
+            // lo que lee la cámara.
+            transform.position = position;
             rb.position = position;
             rb.linearVelocity = Vector2.zero;
             currentMove = Vector2.zero;
+
+            // Se busca en vez de guardarse: los teletransportes son contados, y así
+            // esto no obliga a cablear una referencia en la escena ni se queda en
+            // null si la cámara se crea después.
+            CameraFollow2D camara = FindAnyObjectByType<CameraFollow2D>();
+            if (camara != null) camara.SnapToTarget();
         }
 
         // ──────────────────────────────────────────────────────────────────────

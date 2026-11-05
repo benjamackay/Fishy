@@ -402,6 +402,9 @@ class PreguntaBanco(models.Model):
     nivel_riesgo         = models.PositiveSmallIntegerField(default=0)
     es_mensaje_riesgo    = models.BooleanField(default=False)
     mensaje_npc          = models.TextField()
+    # Lo que Otto piensa "para sí" después del mensaje del NPC y antes de las
+    # opciones. Va aparte de mensaje_npc porque lo dice Otto, no el NPC.
+    pensamiento_otto     = models.TextField(blank=True, default="")
     etiquetas_ml         = models.JSONField(default=list)
     es_fin_de_npc        = models.BooleanField(default=False, help_text="True en estados FIN_SEGURO / FIN_INSEGURO")
     es_fin_de_zona       = models.BooleanField(default=False, help_text="True en la pregunta ZONA_FIN")
@@ -714,10 +717,11 @@ class DialogoNPC(models.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 # RECOMPENSA DE ALBUM  (catalogo — HDU-11 / HDU-12)
 #
-# Las 12 recompensas vienen de dos origenes distintos y excluyentes:
-#   - las 6 de misiones secundarias, desde `pista_mision` del dialogo  -> mision
-#   - las 6 de misiones principales, desde `consecuencia_narrativa`    -> opcion
-# Por eso los dos origenes son opcionales, con un check que obliga a tener
+# Las recompensas vienen de tres origenes distintos y excluyentes:
+#   - las de misiones secundarias, desde `pista_mision` del dialogo   -> mision
+#   - las de misiones principales, desde `consecuencia_narrativa`     -> opcion
+#   - las de los finales A/B/C, desde `finales_narrativos`            -> final
+# Por eso los tres origenes son opcionales, con un check que obliga a tener
 # exactamente uno. El `recompensa_id` se deriva del origen y no del nombre: el
 # nombre es texto que Luis puede reescribir, el id del origen es estable.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -738,6 +742,13 @@ class RecompensaAlbum(models.Model):
             "Mensaje.opcion_banco_id."
         ),
     )
+    final_id        = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text=(
+            "`id` del final (FINAL_A/B/C) que la entrega. La medalla depende del "
+            "puntaje de toda la aventura, no de la opcion que se elija en la Mision 6."
+        ),
+    )
 
     def __str__(self):
         return f"{self.recompensa_id} — {self.nombre}"
@@ -749,8 +760,9 @@ class RecompensaAlbum(models.Model):
         constraints = [
             models.CheckConstraint(
                 condition=(
-                    models.Q(mision__isnull=False, opcion_banco_id="")
-                    | (models.Q(mision__isnull=True) & ~models.Q(opcion_banco_id=""))
+                    models.Q(mision__isnull=False, opcion_banco_id="", final_id="")
+                    | (models.Q(mision__isnull=True, final_id="") & ~models.Q(opcion_banco_id=""))
+                    | (models.Q(mision__isnull=True, opcion_banco_id="") & ~models.Q(final_id=""))
                 ),
                 name="recompensa_con_un_solo_origen",
             )
@@ -1092,6 +1104,23 @@ class InvitacionGrupo(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["grupo", "email", "nombre_clave"], condition=models.Q(estado="pendiente"), name="invitacion_pendiente_unica_por_nino")]
+
+
+class CodigoRecuperacion(models.Model):
+    """Código de 6 dígitos para recuperar la contraseña (ver api/recuperacion.py).
+    Se guarda solo su HMAC: con un millón de combinaciones un hash simple se
+    revierte probándolas todas, el HMAC exige además la SECRET_KEY."""
+    # Lo único que el portal conoce de la solicitud. Las de correos sin cuenta reciben
+    # uno al azar que no está en la tabla: así no se distinguen desde afuera.
+    solicitud_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    adulto = models.ForeignKey(AdultoResponsable, on_delete=models.CASCADE, related_name="codigos_recuperacion")
+    codigo_hash = models.CharField(max_length=64)
+    intentos = models.PositiveSmallIntegerField(default=0)
+    vence_en = models.DateTimeField()
+    # Al acertar el código se entrega un permiso de un solo uso para fijar la contraseña.
+    permiso_hash = models.CharField(max_length=64, null=True, blank=True, unique=True)
+    permiso_vence_en = models.DateTimeField(null=True, blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

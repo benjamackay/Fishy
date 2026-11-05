@@ -1,31 +1,66 @@
-from django.test import SimpleTestCase
+"""Peticiones del portal de cPanel con el middleware real, sin acceder a la BD."""
+from django.conf import settings
+from django.test import SimpleTestCase, override_settings
 
 
 class CorsPortalTests(SimpleTestCase):
-    def preflight(self, origin, path="/api/auth/registro/"):
+    def preflight(self, origen, ruta="/api/auth/login/"):
         return self.client.options(
-            path,
-            HTTP_ORIGIN=origin,
+            ruta,
+            HTTP_ORIGIN=origen,
             HTTP_ACCESS_CONTROL_REQUEST_METHOD="POST",
-            HTTP_ACCESS_CONTROL_REQUEST_HEADERS="content-type,authorization",
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS="authorization,content-type",
         )
 
-    def test_portal_permite_registro_y_token(self):
-        for origin in ("https://fishygame.cl", "https://www.fishygame.cl"):
-            with self.subTest(origin=origin):
-                response = self.preflight(origin)
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual(response["Access-Control-Allow-Origin"], origin)
-                self.assertIn("POST", response["Access-Control-Allow-Methods"])
-                headers = response["Access-Control-Allow-Headers"].lower()
-                self.assertIn("content-type", headers)
-                self.assertIn("authorization", headers)
-                self.assertNotIn("Access-Control-Allow-Credentials", response)
+    def test_dominios_oficiales_permiten_login_con_token_y_json(self):
+        for origen in ("https://fishygame.cl", "https://www.fishygame.cl"):
+            with self.subTest(origen=origen):
+                respuesta = self.preflight(origen)
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertEqual(respuesta.headers["Access-Control-Allow-Origin"], origen)
+                self.assertIn("POST", respuesta.headers["Access-Control-Allow-Methods"])
+                cabeceras = respuesta.headers["Access-Control-Allow-Headers"].lower()
+                self.assertIn("authorization", cabeceras)
+                self.assertIn("content-type", cabeceras)
+                self.assertNotIn("Access-Control-Allow-Credentials", respuesta.headers)
 
-    def test_no_autoriza_origen_ajeno(self):
-        response = self.preflight("https://fishygame.cl.example.com")
-        self.assertNotIn("Access-Control-Allow-Origin", response)
+    # El registro es la primera peticion que hace un tutor nuevo, antes de tener
+    # token, y se comprueba aparte del login porque es la que mas veces se ha
+    # roto en produccion. Si el preflight de esta ruta deja de pasar, nadie puede
+    # crear una cuenta desde el portal aunque el login siga funcionando.
+    def test_el_registro_tambien_admite_el_preflight_del_portal(self):
+        respuesta = self.preflight("https://fishygame.cl", "/api/auth/registro/")
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.headers["Access-Control-Allow-Origin"], "https://fishygame.cl")
+        self.assertIn("POST", respuesta.headers["Access-Control-Allow-Methods"])
 
-    def test_no_abre_admin(self):
-        response = self.preflight("https://fishygame.cl", "/admin/login/")
-        self.assertNotIn("Access-Control-Allow-Origin", response)
+    def test_otros_origenes_no_se_autorizan(self):
+        for origen in (
+            "https://otro.cl",
+            "http://fishygame.cl",
+            "https://fishygame.cl.otro.cl",
+            "null",
+        ):
+            with self.subTest(origen=origen):
+                respuesta = self.preflight(origen)
+                self.assertNotIn("Access-Control-Allow-Origin", respuesta.headers)
+
+    def test_salud_incluye_cors_en_la_respuesta_real(self):
+        respuesta = self.client.get("/api/health/", HTTP_ORIGIN="https://fishygame.cl")
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.json()["status"], "ok")
+        self.assertEqual(respuesta.headers["Access-Control-Allow-Origin"], "https://fishygame.cl")
+
+    def test_cors_no_omite_la_autenticacion(self):
+        respuesta = self.client.get("/api/auth/perfil/", HTTP_ORIGIN="https://fishygame.cl")
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(respuesta.headers["Access-Control-Allow-Origin"], "https://fishygame.cl")
+
+    def test_cors_no_se_aplica_al_admin(self):
+        respuesta = self.client.get("/admin/login/", HTTP_ORIGIN="https://fishygame.cl")
+        self.assertNotIn("Access-Control-Allow-Origin", respuesta.headers)
+
+    @override_settings(CORS_ALLOWED_ORIGINS=[*settings.CORS_ALLOWED_ORIGINS, "https://portal.otro.cl"])
+    def test_se_pueden_agregar_origenes_exactos(self):
+        respuesta = self.preflight("https://portal.otro.cl")
+        self.assertEqual(respuesta.headers["Access-Control-Allow-Origin"], "https://portal.otro.cl")

@@ -251,9 +251,11 @@ namespace Fishy.UI
                 SetStatus("Escribe tu nombre y tu contraseña.", true);
                 return;
             }
-            if (pass.Length < 4)
+            // Solo al registrar: las cuentas antiguas con claves mas cortas siguen
+            // entrando. Mismo minimo que AUTH_PASSWORD_VALIDATORS del backend.
+            if (mode == Mode.Register && pass.Length < 8)
             {
-                SetStatus("La contraseña debe tener al menos 4 caracteres.", true);
+                SetStatus("La contraseña debe tener al menos 8 caracteres.", true);
                 return;
             }
 
@@ -675,8 +677,10 @@ namespace Fishy.UI
                 low.Contains("network") || low.Contains("unreachable"))
                 return "No se pudo conectar con el servidor.";
             if (low.Contains("min_length") || low.Contains("short") ||
-                low.Contains("4 character"))
-                return "La contraseña debe tener al menos 4 caracteres.";
+                low.Contains("demasiado corta") || low.Contains("8 character"))
+                return "La contraseña debe tener al menos 8 caracteres.";
+            if (low.Contains("común") || low.Contains("numérica") || low.Contains("parecida"))
+                return "Elige una contraseña menos predecible.";
             return "Ocurrió un problema. Inténtalo de nuevo.";
         }
 
