@@ -27,6 +27,7 @@ export default function GrupoPage() {
   const estado = useDatosVivos(signal => panel.obtenerGrupo(id, { signal }), 'grupo:' + perfil?.id + ':' + id)
   const seguimiento = useDatosVivos(signal => panel.obtenerSeguimiento(id, { signal }), 'seguimiento:' + perfil?.id + ':' + id)
   const [soloApoyo, setSoloApoyo] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
   const [agregarNinos, setAgregarNinos] = useState(false)
   const [eliminar, setEliminar] = useState<Eliminacion | null>(null)
   const [ocupado, setOcupado] = useState(false)
@@ -38,7 +39,9 @@ export default function GrupoPage() {
   const alertas = seguimiento.datos ? areasDeApoyo(seguimiento.datos) : null
   const conApoyo = [...(alertas?.keys() ?? [])].flatMap(miembroId => g?.miembros.filter(m => m.id === miembroId) ?? [])
   const filtrando = soloApoyo && alertas !== null
-  const miembrosVisibles = filtrando ? conApoyo : g?.miembros ?? []
+  const miembrosBase = filtrando ? conApoyo : g?.miembros ?? []
+  const termino = busqueda.trim().toLocaleLowerCase()
+  const miembrosVisibles = termino ? miembrosBase.filter(m => m.nombre_nino.toLocaleLowerCase().includes(termino)) : miembrosBase
   function abrirEliminar(objeto: Eliminacion) { setError(null); setExito(''); setEliminar(objeto) }
   async function confirmarEliminar() {
     if (!eliminar || ocupado) return
@@ -64,10 +67,11 @@ export default function GrupoPage() {
       {exito && <Exito>{exito}</Exito>}
       {seguimiento.error && !alertas && <p className="aviso aviso--error" role="alert">Alertas no disponibles: no pudimos consultar quién necesita apoyo. <button type="button" className="boton" onClick={seguimiento.recargar}>Reintentar</button></p>}
       <section className="card">
-        <div className="pila spread"><div><h2>Niños del curso</h2><span className="mini muted">{filtrando ? miembrosVisibles.length + ' de ' + g.miembros.length : g.miembros.length} {g.miembros.length === 1 ? 'perfil vinculado' : 'perfiles vinculados'}</span>{demo && <span className="apoyo-demo">Alertas de ejemplo</span>}</div><button type="button" className="boton" disabled={ocupado} onClick={() => { setError(null); setExito(''); setAgregarNinos(true) }}><Icono nombre="mas" />Agregar usuario</button>
+        <div className="pila spread"><div><h2>Niños del curso</h2><span className="mini muted">{miembrosVisibles.length} de {g.miembros.length} {g.miembros.length === 1 ? 'perfil vinculado' : 'perfiles vinculados'}</span>{demo && <span className="apoyo-demo">Alertas de ejemplo</span>}</div><button type="button" className="boton" disabled={ocupado} onClick={() => { setError(null); setExito(''); setAgregarNinos(true) }}><Icono nombre="mas" />Agregar usuario</button>
         </div>
+        {g.miembros.length > 0 && <label className="busqueda-integrantes"><span className="sr-only">Buscar integrante por nombre</span><input type="search" aria-label="Buscar integrante por nombre" placeholder="Buscar integrante" value={busqueda} onChange={e => setBusqueda(e.target.value)} /></label>}
         {g.miembros.length === 0 ? <div className="empty-state" style={{ marginTop: 22 }}><Icono nombre="grupo" /><h3>Agrega a los primeros niños</h3><p>Busca el correo de su apoderado y selecciona los perfiles que corresponden a este curso.</p></div> :
-          miembrosVisibles.length === 0 ? <div className="empty-state apoyo-sin-coincidencias" role="status"><Icono nombre="alerta" /><p>Sin alertas de apoyo</p><button type="button" className="boton" onClick={() => setSoloApoyo(false)}>Ver todos</button></div> :
+          miembrosVisibles.length === 0 ? <div className="empty-state apoyo-sin-coincidencias" role="status"><Icono nombre="alerta" /><p>{termino ? 'Sin resultados' : 'Sin alertas de apoyo'}</p>{termino ? <span className="mini muted">Prueba con otro nombre.</span> : <button type="button" className="boton" onClick={() => setSoloApoyo(false)}>Ver todos</button>}</div> :
           <ul className="members">{miembrosVisibles.map(m => {
             const areas = alertas?.get(m.id) ?? []
             return <li className={'member' + (areas.length ? ' member--apoyo' : '')} key={m.id}><span className="avatar small"><Icono nombre="grupo" /></span><div className="member-content"><div className="member-nombre"><strong>{m.nombre_nino}</strong><AlertaApoyo areas={areas} /></div><p>{m.email}</p><p>Vinculado el {fechaActualizacion(m.fecha_ingreso)}</p></div><button type="button" className="boton boton--peligro" disabled={ocupado} onClick={() => abrirEliminar({ miembro: m })} aria-label={'Eliminar usuario ' + m.nombre_nino}><Icono nombre="borrar" />Eliminar usuario</button></li>

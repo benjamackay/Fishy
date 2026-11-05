@@ -6,22 +6,12 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// HDU-12 CA2 / HDU-11 — Monta los dos álbumes como pantallas del celular de Otto:
-/// uno para las <b>evidencias</b> y otro para las <b>recompensas</b> (los pines).
+/// HDU-12 CA2 — Monta el álbum de <b>evidencias</b> como pantalla del celular de
+/// Otto, con su botón en el inicio.
 ///
-/// <b>Por qué dos y no uno.</b> Se ganan de forma distinta —el pin pide acertar más
-/// de la mitad de las señales de un caso; una evidencia la deja UNA señal bien
-/// marcada— y en una sola pantalla cada estado vacío tenía que disculparse por la
-/// mitad del contenido. Separados, cada uno dice una cosa sola y la dice entera.
-///
-/// <b>Pero solo uno tiene botón en el menú, y es a propósito.</b> Evidencias sí:
-/// es lo que el niño/a va llenando caso a caso y a lo que vuelve a consultar.
-/// Recompensas no: se entra desde la mochila, pulsando el ítem «Álbum» —ver
-/// <see cref="AlbumEvidenciasUI.Show"/>—, que es por donde se entraba desde HDU-11 y
-/// donde ese ítem ya estaba. Así el inicio del celular se queda en siete botones en
-/// vez de ocho, y no hay dos puertas compitiendo para la misma pantalla.
-/// Las dos páginas se crean igual: la de recompensas existe y tiene su índice, solo
-/// que quien la abre es la mochila.
+/// Los <b>pines</b> no van aquí: tienen su propio álbum, un libro que se abre
+/// encima del celular desde el ítem «Álbum» de la mochila (ver
+/// <see cref="AlbumDePinesUI"/> y <see cref="AlbumEvidenciasUI.Show"/>).
 ///
 /// <b>Por qué el botón se clona y la página se calca.</b> Los botones del celular son
 /// arte de la escena dentro de un <see cref="GridLayoutGroup"/> de cuatro columnas, y
@@ -38,16 +28,13 @@ public static class AccesoAlbumEnElCelular
 {
     // ── Nombres de lo que se crea ─────────────────────────────────────────────
 
-    /// <summary>El único botón que se añade al inicio del celular. Recompensas no
-    /// tiene: se entra por la mochila (ver la nota de la clase).</summary>
+    /// <summary>El botón que se añade al inicio del celular.</summary>
     public const string NombreBotonEvidencias = "BotonAlbumEvidencias";
 
     public const string NombrePaginaEvidencias = "AlbumEvidenciasPage";
-    public const string NombrePaginaRecompensas = "AlbumRecompensasPage";
 
-    /// <summary>Lo que se lee en el encabezado del celular al abrir cada página.</summary>
+    /// <summary>Lo que se lee en el encabezado del celular al abrir la página.</summary>
     public const string TituloEvidencias = "Evidencias";
-    public const string TituloRecompensas = "Recompensas";
 
     /// <summary>
     /// Dónde se busca el ícono de trazo que va dentro del botón.
@@ -64,11 +51,9 @@ public static class AccesoAlbumEnElCelular
     /// último que haya: lo que importa es que el nuevo se parezca a sus vecinos.</summary>
     private const string Plantilla = "BotonInventario";
 
-    /// <summary>En qué posición del celular quedó cada página. -1 = todavía no se
-    /// colocó (no hay celular en esta escena). Lo lee <see cref="AlbumEvidenciasUI"/>
-    /// para que el ítem de la mochila siga abriendo el álbum de evidencias.</summary>
+    /// <summary>En qué posición del celular quedó la página. -1 = todavía no se
+    /// colocó (no hay celular en esta escena).</summary>
     public static int IndiceEvidencias { get; private set; } = -1;
-    public static int IndiceRecompensas { get; private set; } = -1;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void LimpiarEstadoEstatico()
@@ -77,7 +62,6 @@ public static class AccesoAlbumEnElCelular
         // entre corridas de Play y abrir la página 7 de un celular que ya no existe
         // es un IndexOutOfRange con mala pinta.
         IndiceEvidencias = -1;
-        IndiceRecompensas = -1;
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -94,7 +78,7 @@ public static class AccesoAlbumEnElCelular
     private static void AlCargarEscena(Scene escena, LoadSceneMode modo) => Colocar();
 
     /// <summary>
-    /// Pone los dos álbumes en el celular de esta escena, si hay uno y todavía no los
+    /// Pone el álbum de evidencias en el celular de esta escena, si hay uno y todavía no los
     /// tiene. En las escenas sin celular —el login, los menús— no hace nada y no se
     /// queja.
     /// </summary>
@@ -107,7 +91,7 @@ public static class AccesoAlbumEnElCelular
     }
 
     /// <summary>
-    /// Igual, sobre un celular concreto. Devuelve true si los álbumes quedaron
+    /// Igual, sobre un celular concreto. Devuelve true si el álbum quedó
     /// puestos en esta llamada; false si no había celular, si ya los tenía o si no se
     /// pudo.
     ///
@@ -127,21 +111,17 @@ public static class AccesoAlbumEnElCelular
         if (plantilla == null)
         {
             Debug.LogWarning("[Álbum] El celular no tiene ningún botón del que copiar el " +
-                             "aspecto: los álbumes se quedan fuera del menú.", celular);
+                             "aspecto: el álbum se queda fuera del menú.", celular);
             return false;
         }
 
-        // El aspecto de las páginas se copia de una que ya exista. Se hace ANTES de
-        // crear ninguna: las páginas nuevas lo leen al construirse.
+        // El aspecto de la página se copia de una que ya exista. Se hace ANTES de
+        // crearla: la página nueva lo lee al construirse.
         PaginaDeAlbum.TomarAspectoDe(celular.pages[0]);
 
         IndiceEvidencias = AnadirPagina<PaginaDeEvidencias>(
             celular, NombrePaginaEvidencias, TituloEvidencias);
-        IndiceRecompensas = AnadirPagina<PaginaDeRecompensas>(
-            celular, NombrePaginaRecompensas, TituloRecompensas);
 
-        // Solo evidencias gana botón. A recompensas se entra desde la mochila; su
-        // página ya está creada y con su índice, esperando a que la abran.
         AnadirBoton(inicio, plantilla, NombreBotonEvidencias, TituloEvidencias,
             RutaIconoEvidencias, celular, IndiceEvidencias);
 
@@ -313,11 +293,9 @@ public static class AccesoAlbumEnElCelular
 
     // ── Para quien quiera abrirlos desde fuera ────────────────────────────────
 
-    /// <summary>Abre el álbum de evidencias en el celular. Lo usa el ítem de la
-    /// mochila. Devuelve false si en esta escena no hay celular con álbumes.</summary>
+    /// <summary>Abre el álbum de evidencias en el celular. Devuelve false si en esta
+    /// escena no hay celular con álbum.</summary>
     public static bool AbrirEvidencias() => Abrir(IndiceEvidencias);
-
-    public static bool AbrirRecompensas() => Abrir(IndiceRecompensas);
 
     private static bool Abrir(int indice)
     {

@@ -75,6 +75,8 @@ namespace Fishy.UI
         private Transform _botonera;
         private Button _btnSeguir, _btnConfig, _btnSalir;
         private PanelConfiguracionUI _config;
+        private TecladoEnPantalla _controles;
+        private Transform _canvas;
         private bool _saliendo;
         private bool _confirmandoSalida;
 
@@ -131,6 +133,7 @@ namespace Fishy.UI
             // Con la configuración abierta, Esc es «volver», no «seguir jugando»:
             // es lo que hace el botón que se está mirando, y saltar del ajuste al
             // juego de un tecleo deja a cualquiera sin saber si guardó el cambio.
+            if (_controles != null && _controles.Abierto) { CerrarControles(); return; }
             if (_config != null && _config.Abierto) { CerrarConfiguracion(); return; }
 
             // Igual con la confirmación de salida: Esc es «no», no «a jugar».
@@ -181,6 +184,7 @@ namespace Fishy.UI
             if (!Abierto || _saliendo) return;
 
             _config?.Cerrar();
+            _controles?.Cerrar();
             _raiz.SetActive(false);
 
             EstadoDePausa.Reanudar();
@@ -201,8 +205,32 @@ namespace Fishy.UI
 
         public void CerrarConfiguracion()
         {
+            _controles?.Cerrar();
             _config?.Cerrar();
             if (_botonera != null) _botonera.gameObject.SetActive(true);
+        }
+
+        /// <summary>Cambia la tarjeta de configuración por la de controles. El juego
+        /// sigue en pausa, y la tarjeta no se va sola: solo con «Volver» o Esc.</summary>
+        public void AbrirControles()
+        {
+            if (_saliendo) return;
+            if (_raiz == null) Construir();
+
+            if (_controles == null)
+                _controles = TecladoEnPantalla.CrearEn(_canvas, CerrarControles);
+
+            if (_botonera != null) _botonera.gameObject.SetActive(false);
+            _config?.Cerrar();
+            _controles.Abrir();
+        }
+
+        /// <summary>De los controles se vuelve a la configuración, que es de donde
+        /// se vino.</summary>
+        public void CerrarControles()
+        {
+            _controles?.Cerrar();
+            _config?.Abrir();
         }
 
         // ── Salir al menú principal (CA5) ─────────────────────────────────────
@@ -360,6 +388,8 @@ namespace Fishy.UI
             if (_raiz != null) Destroy(_raiz);
             _raiz = null;
             _config = null;
+            _controles = null;
+            _canvas = null;
             _botonera = null;
 
             SceneManager.LoadScene(escenaMenu);
@@ -531,7 +561,9 @@ namespace Fishy.UI
                 Paleta.Rojo, 34f, 88f, PedirConfirmacionDeSalida);
 
             // Hermana de la tarjeta y no hija: se muestra en su lugar, tapándola.
-            _config = new PanelConfiguracionUI(canvasGO.transform, CerrarConfiguracion);
+            _config = new PanelConfiguracionUI(canvasGO.transform, CerrarConfiguracion,
+                AbrirControles);
+            _canvas = canvasGO.transform;
 
             _raiz = canvasGO;
         }

@@ -54,8 +54,8 @@ namespace Fishy.EditorTools
 
             AsegurarApiLocal();
 
-            // ── Las dos pantallas del celular ──
-            ProbarElCelularRecibeLasDosPaginasYUnBoton(log);
+            // ── La pantalla de evidencias del celular y el álbum de pines ──
+            ProbarElCelularRecibeLaPaginaYSuBoton(log);
             ProbarLaPaginaVaciaSeAbreSinExcepciones(log);
             ProbarCadaPantallaVaciaDiceLoSuyo(log);
             ProbarLasPaginasCalcanElAspectoDelCelular(log);
@@ -64,7 +64,7 @@ namespace Fishy.EditorTools
             ProbarElDetalleTraeLaExplicacionYElContexto(log);
             ProbarReabrirNoDuplicaFilas(log);
             ProbarLosPinesVanEnSuPropiaPantalla(log);
-            ProbarUnPinSinIconoSigueDejandoLeerCualEs(log);
+            ProbarAlPulsarUnPinSeLeeQueEs(log);
             ProbarCadaPuertaAbreSuPaginaYNoOtra(log);
             ProbarColocarDosVecesNoDuplica(log);
             // ── El camino real, desde el Modo Detective ──
@@ -88,46 +88,33 @@ namespace Fishy.EditorTools
                 EditorApplication.Exit(_fallas.Count > 0 ? 1 : 0);
         }
 
-        // ── Las dos pantallas del celular ────────────────────────────────────────
+        // ── La pantalla de evidencias del celular y el álbum de pines ────────────
 
         /// <summary>
-        /// HDU-12 CA2 — El celular gana DOS páginas pero UN SOLO botón.
+        /// HDU-12 CA2 — El celular gana la página de evidencias y su botón, y las dos
+        /// listas de <see cref="PhoneMenuNavigation"/> siguen cuadrando: si se
+        /// descuadran, un botón abre la pantalla de otro y el encabezado miente.
         ///
-        /// Evidencias lleva botón en el inicio; recompensas no, porque se entra desde
-        /// la mochila (ver <see cref="AlbumEvidenciasUI.Show"/>). Que su página exista
-        /// igual, con su índice y su título, es justo lo que hace falta comprobar: una
-        /// pantalla sin botón es fácil de dejar a medio montar y nadie se entera hasta
-        /// que alguien pulsa el ítem.
-        ///
-        /// Y las dos listas de <see cref="PhoneMenuNavigation"/> tienen que seguir
-        /// cuadrando: si se descuadran, un botón abre la pantalla del otro y el
-        /// encabezado miente.
+        /// Los pines ya no tienen página en el celular: van en su libro
+        /// (<see cref="AlbumDePinesUI"/>).
         /// </summary>
-        private static void ProbarElCelularRecibeLasDosPaginasYUnBoton(StringBuilder log)
+        private static void ProbarElCelularRecibeLaPaginaYSuBoton(StringBuilder log)
         {
             Reiniciar();
             PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
             if (celular == null) return;
 
             Transform bEvi = celular.home.transform.Find(AccesoAlbumEnElCelular.NombreBotonEvidencias);
-
-            // Ningún botón del inicio puede llevar a la página de recompensas.
             int iEvi = AccesoAlbumEnElCelular.IndiceEvidencias;
-            int iRec = AccesoAlbumEnElCelular.IndiceRecompensas;
 
-            bool indices = iEvi >= 0 && iRec >= 0 && iEvi != iRec
-                && iEvi < celular.pages.Length && iRec < celular.pages.Length
-                && celular.pages.Length == celular.pageTitles.Length;
-
-            bool emparejado = indices
+            bool emparejado = iEvi >= 0 && iEvi < celular.pages.Length
+                && celular.pages.Length == celular.pageTitles.Length
                 && celular.pages[iEvi].GetComponent<PaginaDeEvidencias>() != null
-                && celular.pages[iRec].GetComponent<PaginaDeRecompensas>() != null
-                && celular.pageTitles[iEvi] == AccesoAlbumEnElCelular.TituloEvidencias
-                && celular.pageTitles[iRec] == AccesoAlbumEnElCelular.TituloRecompensas;
+                && celular.pageTitles[iEvi] == AccesoAlbumEnElCelular.TituloEvidencias;
 
-            Comprobar(log, "el celular gana dos páginas y solo el botón de evidencias",
+            Comprobar(log, "el celular gana la página de evidencias y su botón",
                 bEvi != null && emparejado,
-                $"botón evidencias={bEvi != null}, evidencias={iEvi}, recompensas={iRec}, " +
+                $"botón evidencias={bEvi != null}, evidencias={iEvi}, " +
                 $"páginas={celular.pages.Length}, títulos={celular.pageTitles.Length}");
 
             SoltarCelular(celular);
@@ -160,11 +147,8 @@ namespace Fishy.EditorTools
             try
             {
                 celular = NuevoCelularConAlbumes(null);
-                if (celular != null)
-                {
-                    AbrirPagina(PaginaEvidencias(celular));
-                    AbrirPagina(PaginaRecompensas(celular));
-                }
+                if (celular != null) AbrirPagina(PaginaEvidencias(celular));
+                AlbumEvidenciasUI.Show();
             }
             catch (Exception ex)
             {
@@ -177,10 +161,11 @@ namespace Fishy.EditorTools
             }
 
             Comprobar(log, "las dos pantallas vacías se abren sin una sola excepción",
-                !exploto && celular != null && ruidos.Count == 0,
+                !exploto && celular != null && ruidos.Count == 0 && AlbumDePinesUI.Abierto,
                 ruidos.Count == 0 ? "" : ruidos[0]);
 
             SoltarCelular(celular);
+            SoltarAlbumDePines();
         }
 
         /// <summary>
@@ -199,18 +184,21 @@ namespace Fishy.EditorTools
             if (celular == null) return;
 
             GameObject evi = PaginaEvidencias(celular);
-            GameObject rec = PaginaRecompensas(celular);
             AbrirPagina(evi);
-            AbrirPagina(rec);
+
+            // Y el libro de pines vacío enseña los tres recuadros con su «?».
+            AlbumEvidenciasUI.Show();
+            int incognitas = Incognitas().Count(g => g.activeSelf);
 
             bool evidenciasBien = Dice(evi, "Modo Detective") && !Dice(evi, "pines");
-            bool recompensasBien = Dice(rec, "pines") && !Dice(rec, "Modo Detective");
+            bool pinesBien = incognitas == 3;
 
-            Comprobar(log, "cada pantalla vacía explica cómo se llena ELLA, no la otra",
-                evidenciasBien && recompensasBien,
-                $"evidencias={evidenciasBien}, recompensas={recompensasBien}");
+            Comprobar(log, "la pantalla vacía de evidencias habla de ella, y el álbum vacío enseña sus tres recuadros",
+                evidenciasBien && pinesBien,
+                $"evidencias={evidenciasBien}, recuadros con «?»={incognitas}");
 
             SoltarCelular(celular);
+            SoltarAlbumDePines();
         }
 
         /// <summary>
@@ -375,44 +363,44 @@ namespace Fishy.EditorTools
             if (celular == null) return;
 
             GameObject evi = PaginaEvidencias(celular);
-            GameObject rec = PaginaRecompensas(celular);
             AbrirPagina(evi);
-            AbrirPagina(rec);
+            AlbumEvidenciasUI.Show();
 
-            int pinesEnRecompensas = Pines(rec).Count;
+            int pegados = IconosDePines().Count(i => i.enabled && i.sprite != null);
             int pinesEnEvidencias = Pines(evi).Count;
 
-            Comprobar(log, "los pines salen en recompensas y no se cuelan en evidencias",
-                pinesEnRecompensas == 1 && pinesEnEvidencias == 0 && Filas(evi).Count == 1,
-                $"pines en recompensas={pinesEnRecompensas}, en evidencias={pinesEnEvidencias}");
+            Comprobar(log, "los pines se pegan en su libro y no se cuelan en evidencias",
+                pegados == 1 && pinesEnEvidencias == 0 && Filas(evi).Count == 1,
+                $"pines pegados en el libro={pegados}, en evidencias={pinesEnEvidencias}");
 
             SoltarCelular(celular);
+            SoltarAlbumDePines();
         }
 
-        private static void ProbarUnPinSinIconoSigueDejandoLeerCualEs(StringBuilder log)
+        /// <summary>Al pulsar un pin ganado se lee cuál es; al pulsar un recuadro vacío,
+        /// cómo se consigue.</summary>
+        private static void ProbarAlPulsarUnPinSeLeeQueEs(StringBuilder log)
         {
             Reiniciar();
-
             DarPin("PIN_VIGIA_SILENCIOSO");
 
-            PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
-            if (celular == null) return;
+            AlbumEvidenciasUI.Show();
+            AlbumDePinesUI album = AlbumDePinesUI.Instancia;
+            GameObject raiz = album != null ? album.gameObject : null;
 
-            GameObject rec = PaginaRecompensas(celular);
-            AbrirPagina(rec);
+            ItemData pin = CatalogoItems.Buscar("PIN_VIGIA_SILENCIOSO");
 
-            string hover = TextoDelHover(rec);
-            Transform pin = Pines(rec).FirstOrDefault();
-            if (pin != null) pin.GetComponent<Button>().onClick.Invoke();
-            Asentar(rec);
+            album?.Elegir(0);
+            bool ganado = album != null && album.DetalleAbierto && pin != null &&
+                          Dice(raiz, pin.itemName);
 
-            GameObject detalle = Detalle(rec);
+            album?.Elegir(2);
+            bool vacio = album != null && album.DetalleAbierto && Dice(raiz, "por descubrir");
 
-            Comprobar(log, "un pin se puede identificar con el mouse y pulsándolo",
-                !string.IsNullOrEmpty(hover) && detalle != null && detalle.activeSelf,
-                hover ?? "(sin texto de hover)");
+            Comprobar(log, "al pulsar un pin se lee qué es, y un recuadro vacío dice cómo se gana",
+                ganado && vacio, $"pin ganado={ganado}, recuadro vacío={vacio}");
 
-            SoltarCelular(celular);
+            SoltarAlbumDePines();
         }
 
         /// <summary>
@@ -431,18 +419,21 @@ namespace Fishy.EditorTools
             PhoneMenuNavigation celular = NuevoCelularConAlbumes(log);
             if (celular == null) return;
 
-            // El botón del menú lleva a evidencias; el ítem de la mochila, a
-            // recompensas. Son las dos únicas puertas, y cada una abre la suya.
+            // El botón del menú lleva a evidencias; el ítem de la mochila, al libro
+            // de pines, sin tocar las páginas del celular.
             bool botonBien = AbreSolo(celular, AccesoAlbumEnElCelular.IndiceEvidencias, () =>
             {
                 Transform b = celular.home.transform.Find(AccesoAlbumEnElCelular.NombreBotonEvidencias);
                 if (b != null) b.GetComponent<Button>().onClick.Invoke();
             }, out string detalleBoton);
 
-            bool itemBien = AbreSolo(celular, AccesoAlbumEnElCelular.IndiceRecompensas,
-                AlbumEvidenciasUI.Show, out string detalleItem);
+            celular.ShowHome();
+            AlbumEvidenciasUI.Show();
+            bool itemBien = AlbumDePinesUI.Abierto && celular.pages.All(p => !p.activeSelf);
+            string detalleItem = itemBien ? "" : "el ítem no abrió solo el álbum de pines";
+            SoltarAlbumDePines();
 
-            Comprobar(log, "el botón del menú abre evidencias y el ítem de la mochila, recompensas",
+            Comprobar(log, "el botón del menú abre evidencias y el ítem de la mochila, el álbum de pines",
                 botonBien && itemBien,
                 string.Join(" | ", new[] { detalleBoton, detalleItem }
                     .Where(s => !string.IsNullOrEmpty(s))));
@@ -490,7 +481,7 @@ namespace Fishy.EditorTools
             AccesoAlbumEnElCelular.Colocar(celular);
             AccesoAlbumEnElCelular.Colocar(celular);
 
-            Comprobar(log, "colocar los álbumes tres veces deja dos botones y dos páginas",
+            Comprobar(log, "colocar el álbum tres veces no repite el botón ni la página",
                 celular.home.transform.childCount == botones && celular.pages.Length == paginas,
                 $"botones {botones} → {celular.home.transform.childCount}, " +
                 $"páginas {paginas} → {celular.pages.Length}");
@@ -697,8 +688,32 @@ namespace Fishy.EditorTools
         private static GameObject PaginaEvidencias(PhoneMenuNavigation celular)
             => celular.pages[AccesoAlbumEnElCelular.IndiceEvidencias];
 
-        private static GameObject PaginaRecompensas(PhoneMenuNavigation celular)
-            => celular.pages[AccesoAlbumEnElCelular.IndiceRecompensas];
+        /// <summary>Cierra y destruye el libro de pines, que se monta solo en la escena
+        /// al abrirlo.</summary>
+        private static void SoltarAlbumDePines()
+        {
+            AlbumDePinesUI album = AlbumDePinesUI.Instancia;
+            if (album != null) UnityEngine.Object.DestroyImmediate(album.gameObject);
+            Fishy.Pausa.EstadoDePausa.Restablecer();
+        }
+
+        private static IEnumerable<GameObject> Incognitas()
+        {
+            AlbumDePinesUI album = AlbumDePinesUI.Instancia;
+            if (album == null) return Enumerable.Empty<GameObject>();
+
+            return album.GetComponentsInChildren<Transform>(true)
+                .Where(t => t.name == "Incognita").Select(t => t.gameObject);
+        }
+
+        private static IEnumerable<Image> IconosDePines()
+        {
+            AlbumDePinesUI album = AlbumDePinesUI.Instancia;
+            if (album == null) return Enumerable.Empty<Image>();
+
+            return album.GetComponentsInChildren<Image>(true)
+                .Where(i => i.name == "Icono" && i.transform.parent.name.StartsWith("Recuadro_"));
+        }
 
         /// <summary>
         /// Enciende una página y la deja medida.
@@ -804,21 +819,6 @@ namespace Fishy.EditorTools
             return pagina.GetComponentsInChildren<Transform>(true)
                 .Where(t => t.name.StartsWith(prefijo) && t.gameObject != pagina)
                 .ToList();
-        }
-
-        /// <summary>El texto que la casilla de pin enseña al pasarle el mouse. PinHover
-        /// es una clase anidada privada de la página, así que se la busca por nombre.</summary>
-        private static string TextoDelHover(GameObject pagina)
-        {
-            foreach (MonoBehaviour comp in pagina.GetComponentsInChildren<MonoBehaviour>(true))
-            {
-                if (comp == null || comp.GetType().Name != "PinHover") continue;
-
-                return (string)comp.GetType()
-                    .GetField("texto", BindingFlags.Instance | BindingFlags.Public)
-                    ?.GetValue(comp);
-            }
-            return null;
         }
 
         private static void DarPin(string itemId)
