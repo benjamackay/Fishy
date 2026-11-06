@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Fishy.Album;
 using Fishy.Net;
 
 namespace Fishy.Detective
@@ -11,7 +12,12 @@ namespace Fishy.Detective
         public int totalRiesgo;
         public float porcentaje;
         public List<(DetectiveMessage mensaje, string explicacion)> noIdentificados;
-        public bool DebeOfrecerRepetir => porcentaje < 0.5f;
+
+        /// <summary>Aciertos que hay que <b>superar</b> para aprobar: con la mitad justa
+        /// todavía se repite.</summary>
+        public const float UmbralAprobacion = 0.5f;
+
+        public bool DebeOfrecerRepetir => porcentaje <= UmbralAprobacion;
     }
 
     public class DetectiveCaseManager : MonoBehaviour
@@ -20,7 +26,7 @@ namespace Fishy.Detective
         private HashSet<string> _marcados = new HashSet<string>();
 
         /// <summary>
-        /// Si el último <see cref="CalcularResultado"/> llegó al umbral de aprobación.
+        /// Si el último <see cref="CalcularResultado"/> superó el umbral de aprobación.
         /// Empieza en true a propósito: si se cierra el modo Detective sin haber
         /// confirmado ninguna respuesta —el jugador se arrepiente y sale— no hay
         /// resultado reprobado que justifique bloquear el reintento más adelante.
@@ -58,9 +64,9 @@ namespace Fishy.Detective
             int total    = riesgoReal.Count;
             float porcentaje = total > 0 ? (float)aciertos / total : 1f;
 
-            // Construye diccionario de explicaciones para lookup rápido
-            var expDict = _caso.explicacionGuiada
-                .ToDictionary(e => e.mensajeId, e => e.explicacion);
+            // Las explicaciones, por mensajeId. La lista puede venir en null o con
+            // ids repetidos; ver DetectiveCase.ExplicacionesPorMensaje.
+            var expDict = _caso.ExplicacionesPorMensaje();
 
             var noIdentificados = riesgoReal
                 .Where(m => !_marcados.Contains(m.id))
@@ -82,14 +88,30 @@ namespace Fishy.Detective
 
             UltimoAprobado = !resultado.DebeOfrecerRepetir;
 
+            // HDU-12 CA1 — Cada señal bien marcada queda en el álbum, con el nombre
+            // del caso, su zona, su tipo de señal y la explicación.
+            //
+            // Va acá, y antes de la recompensa y del reporte, por dos razones. Una:
+            // este es el ÚNICO instante en que están a la vez el caso completo —título,
+            // zona, etiquetas, textos, explicaciones— y el conjunto marcado; el
+            // servidor solo guarda ids, así que lo que no se anote ahora no se podrá
+            // reconstruir después. Dos: se registra aunque no apruebe. Una señal bien
+            // marcada es un acierto del niño/a aunque no alcance el umbral del pin, y
+            // el álbum es donde se ve lo que fue aprendiendo, no solo lo que ganó.
+            //
+            // Y no en DetectiveLauncher al cerrar, porque el niño/a puede pulsar
+            // "Repetir" sin salir: cada intento tiene que sumar lo suyo.
+            AlbumDetectivePuente.RegistrarBienMarcadas(_caso, _marcados);
+
             OtorgarRecompensaSiCorresponde(porcentaje);
+            OtorgarAlbumSiHayEvidencias();
             ReportarProgreso(resultado);
             return resultado;
         }
 
         /// <summary>
-        /// HDU-11 — Entrega el pin del caso si el jugador llegó al umbral de
-        /// aciertos. La recompensa se busca primero en <see cref="_caso"/> (lo que
+        /// HDU-11 — Entrega el pin del caso si el jugador superó el umbral de
+        /// aciertos —igual que para aprobar, la mitad justa no alcanza—. La recompensa se busca primero en <see cref="_caso"/> (lo que
         /// haya traído el backend con el caso) y, si no vino nada ahí, se cae al
         /// catálogo local <see cref="CatalogoRecompensasDetective"/> — el mismo
         /// contenido, pero embebido en el juego. Cubre tres situaciones con el
@@ -104,7 +126,7 @@ namespace Fishy.Detective
         private void OtorgarRecompensaSiCorresponde(float porcentaje)
         {
             var recompensa = ResolverRecompensa(_caso);
-            if (recompensa == null || porcentaje < recompensa.umbralAciertos) return;
+            if (recompensa == null || porcentaje <= recompensa.umbralAciertos) return;
 
             var item = CatalogoItems.Buscar(recompensa.itemId);
             if (item == null)
@@ -118,7 +140,6 @@ namespace Fishy.Detective
             if (recompensa.noDuplicaAlRepetir && yaLoTiene) return;
 
             InventoryManager.Instance.AddItem(item, 1);
-            OtorgarAlbumSiEsPrimerPin();
             Debug.Log($"[Detective] Recompensa entregada: {recompensa.itemId} ({_caso.caseId})");
 
             DetectiveRewardEvents.RaiseOtorgada(new RecompensaOtorgada(recompensa.itemId, recompensa.nombre));
@@ -141,11 +162,20 @@ namespace Fishy.Detective
             return CatalogoRecompensasDetective.Buscar(caso.caseId);
         }
 
-        /// <summary>Adelanto mínimo de HDU-12: el álbum aparece en la mochila junto
-        /// con el primer pin. La versión completa (agrupar por caso, cada señal
-        /// individual) queda para esa historia.</summary>
-        private void OtorgarAlbumSiEsPrimerPin()
+        /// <summary>
+        /// HDU-12 — El álbum aparece en la mochila en cuanto hay algo que mirar
+        /// dentro.
+        ///
+        /// Antes colgaba del primer pin, cuando el álbum no era más que la vitrina de
+        /// los pines. Ya no sirve: una sola señal bien marcada deja evidencia y no da
+        /// pin —el pin pide superar la mitad—, así que atarlo al pin dejaba al niño/a
+        /// que acertó una de cuatro con evidencias guardadas y sin ninguna forma de
+        /// abrir el álbum para verlas. El ítem es la única puerta de entrada.
+        /// </summary>
+        private void OtorgarAlbumSiHayEvidencias()
         {
+            if (AlbumDeEvidencias.Cantidad == 0) return;
+
             var album = CatalogoItems.Buscar(AlbumEvidenciasUI.ItemIdAlbum);
             if (album == null)
             {

@@ -58,21 +58,17 @@ class SeguimientoTests(TestCase):
         a = self.consultar()["alumnos"][0]
         self.assertEqual(a["estado"], "sin_datos")
         self.assertIsNone(a["general"])
-        self.assertTrue(all(t["porcentaje_seguro"] is None for t in a["tematicas"]))
+        self.assertTrue(all(t["estado"] == "sin_datos" for t in a["tematicas"]))
         self.registrar(0, 4)
         a = self.consultar()["alumnos"][0]
-        t = a["tematicas"][0]
         self.assertEqual(a["estado"], "muestra_insuficiente")
-        self.assertEqual(t["decisiones_evaluadas"], 4)
-        self.assertIsNone(t["porcentaje_seguro"])
-        self.assertIsNone(t["decisiones_seguras"])
+        self.assertEqual(a["tematicas"][0]["estado"], "muestra_insuficiente")
 
     def test_cero_seguras_con_muestra_suficiente_es_prioritario(self):
         self.registrar(0, 5)
         a = self.consultar()["alumnos"][0]
         self.assertEqual(a["estado"], "prioritario")
-        self.assertEqual(a["tematicas"][0]["porcentaje_seguro"], 0)
-        self.assertEqual(a["tematicas"][0]["decisiones_seguras"], 0)
+        self.assertEqual(a["tematicas"][0]["estado"], "prioritario")
 
     def test_fronteras_40_y_60_y_seguras_optimas(self):
         self.registrar(2, 5)
@@ -81,7 +77,7 @@ class SeguimientoTests(TestCase):
         self.assertEqual(a["estado"], "apoyo")
         self.assertEqual(a["tematicas"][0]["estado"], "apoyo")
         self.assertEqual(a["tematicas"][1]["estado"], "sin_alertas")
-        self.assertEqual(a["general"]["porcentaje_seguro"], 50)
+        self.assertEqual(a["general"], {"estado": "apoyo"})
 
     def test_una_tematica_baja_no_se_oculta_por_un_promedio_alto(self):
         self.registrar(0, 5)
@@ -90,17 +86,15 @@ class SeguimientoTests(TestCase):
         a = self.consultar()["alumnos"][0]
         self.assertEqual(a["estado"], "prioritario")
         self.assertEqual(a["general"]["estado"], "sin_alertas")
-        self.assertAlmostEqual(a["general"]["porcentaje_seguro"], 88.9)
-        self.assertEqual(a["general"]["decisiones_evaluadas"], 45)
         self.assertEqual(a["tematicas"][2]["tematica"], "retos_virales")
-        self.assertEqual(a["tematicas"][2]["decisiones_evaluadas"], 20)
+        self.assertEqual(a["tematicas"][2]["estado"], "sin_alertas")
 
     def test_general_no_incorpora_temas_con_pocos_datos(self):
         self.registrar(0, 20)
         self.registrar(4, 4, "ciberacoso")
         a = self.consultar()["alumnos"][0]
         self.assertIsNone(a["general"])
-        self.assertIsNone(a["tematicas"][1]["porcentaje_seguro"])
+        self.assertEqual(a["tematicas"][1]["estado"], "muestra_insuficiente")
 
     def test_ventana_ultimas_20_por_tema_y_mejora_retira_alerta(self):
         self.registrar(0, 25, fecha=timezone.now() - timedelta(days=3))
@@ -109,15 +103,15 @@ class SeguimientoTests(TestCase):
         self.registrar(5, 5, "ciberacoso")
         a = self.consultar()["alumnos"][0]
         self.assertEqual(a["estado"], "sin_alertas")
-        self.assertEqual(a["tematicas"][0]["decisiones_evaluadas"], 20)
-        self.assertEqual(a["tematicas"][0]["porcentaje_seguro"], 100)
-        self.assertEqual(a["tematicas"][1]["decisiones_evaluadas"], 5)
+        # Sin la ventana, 20 seguras de 45 serían "apoyo".
+        self.assertEqual(a["tematicas"][0]["estado"], "sin_alertas")
+        self.assertEqual(a["tematicas"][1]["estado"], "sin_alertas")
 
     def test_empates_de_fecha_tienen_orden_determinista(self):
         fecha = timezone.now() - timedelta(hours=1)
         self.registrar(0, 20, fecha=fecha)
         self.registrar(20, 20, fecha=fecha)
-        self.assertEqual(self.consultar()["alumnos"][0]["tematicas"][0]["porcentaje_seguro"], 100)
+        self.assertEqual(self.consultar()["alumnos"][0]["tematicas"][0]["estado"], "sin_alertas")
 
     def test_senala_datos_antiguos_incluso_si_hay_una_respuesta_nueva(self):
         self.registrar(0, 5, fecha=timezone.now() - timedelta(days=31))
@@ -134,8 +128,8 @@ class SeguimientoTests(TestCase):
         for opcion in (None, "", "NO_EXISTE"):
             Mensaje.objects.create(chat=chat, tipo="chain", respuesta="ConversacionPrivada", opcion_banco_id=opcion)
         self.assertEqual(self.consultar()["alumnos"][0]["estado"], "sin_datos")
-        self.registrar(3, 5)
-        self.assertEqual(self.consultar()["alumnos"][0]["tematicas"][0]["decisiones_evaluadas"], 5)
+        self.registrar(3, 5)  # Con las 10 del futuro serían 3 de 15: prioritario.
+        self.assertEqual(self.consultar()["alumnos"][0]["tematicas"][0]["estado"], "sin_alertas")
 
     def test_solo_el_nino_vinculado_nunca_hermanos_o_invitaciones_pendientes(self):
         self.registrar(5, 5)
@@ -156,7 +150,20 @@ class SeguimientoTests(TestCase):
         with self.assertNumQueries(6):  # Grupo, vínculos, banco y tres consultas de ventana; sin N+1.
             alumnos = self.consultar()["alumnos"]
         self.assertEqual([a["nombre_nino"] for a in alumnos], ["Tomás", "Martina"])
-        self.assertEqual([a["tematicas"][0]["porcentaje_seguro"] for a in alumnos], [0, 100])
+        self.assertEqual([a["tematicas"][0]["estado"] for a in alumnos], ["prioritario", "sin_alertas"])
+
+    def test_el_profesor_recibe_la_alerta_no_los_resultados(self):
+        # Es lo que dicen la invitación y el aviso a la familia: ni porcentajes ni conteos.
+        self.registrar(1, 5)
+        self.registrar(4, 5, "ciberacoso")
+        self.registrar(5, 5, "retos_virales")
+        alumno = self.consultar()["alumnos"][0]
+        self.assertEqual(alumno["estado"], "prioritario")
+        self.assertEqual(set(alumno["general"]), {"estado"})
+        for t in alumno["tematicas"]:
+            self.assertEqual(set(t), {"tematica", "estado", "actualizado_en", "datos_antiguos"})
+        for texto in ("porcentaje", "decisiones", "seguras"):
+            self.assertNotIn(texto, str(alumno))
 
     def test_acceso_exclusivo_profesor_propietario_y_revocacion(self):
         for usuario, codigo in ((self.padre, 403), (self.otro, 404), (None, 401)):

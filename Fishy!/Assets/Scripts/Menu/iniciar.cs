@@ -290,14 +290,13 @@ public class iniciar : MonoBehaviour
         SetOcupado(true);
         SetEstado("Conectando con el servidor...", colorInfo);
 
-        // ReintentarConexion en vez de CheckHealth: este ultimo corta en seco si
-        // useLocalMode ya se prendio, y entonces nunca se recuperaria la conexion.
+        // Verifica Railway y sale de cualquier simulación explícita del Editor.
         ApiManager.Instance.ReintentarConexion(ok =>
         {
             backendListo = ok;
             SetOcupado(false);
             SetEstado(ok ? string.Empty
-                         : "Sin conexión con el servidor. Verifica que el backend Django esté corriendo.",
+                         : "No se pudo conectar con el servidor. Comprueba tu conexión e intenta de nuevo.",
                       ok ? colorInfo : colorError);
         });
     }

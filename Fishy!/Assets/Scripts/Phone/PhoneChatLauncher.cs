@@ -97,6 +97,13 @@ namespace Fishy.Phone
         private PhoneZoomController _zoom;
         private bool               _sequenceRunning;
 
+        /// <summary>
+        /// Cuántas secuencias de chat están en curso en toda la escena, incluido el
+        /// zoom de vuelta al mundo. Lo mira el sistema de finales para no aparecer
+        /// encima del celular cuando la Misión 6 termina.
+        /// </summary>
+        public static int SecuenciasEnCurso { get; private set; }
+
         // ── Unity ──────────────────────────────────────────────────────────────
         private void Awake()
         {
@@ -154,6 +161,7 @@ namespace Fishy.Phone
         private IEnumerator PhoneSequence()
         {
             _sequenceRunning = true;
+            SecuenciasEnCurso++;
 
             // Con variantes, el contenido depende de cómo viene jugando el niño/a (ver
             // VariablesJugador), y ese valor sólo se refresca al cambiar de zona: los
@@ -168,8 +176,23 @@ namespace Fishy.Phone
             else
                 yield return PhoneSequenceDirecta();
 
+            // Antes de avisar: quien escuche el evento puede preguntar por el historial
+            // en el mismo frame, y tiene que encontrarlo ya puesto.
+            //
+            // Importa especialmente aquí: sin `repetible` este lanzador NO se vuelve a
+            // abrir, así que un objetivo de misión que llegara después de la conversación
+            // se quedaba imposible de cumplir.
+            HistorialDeObjetivos.AnotarChats(EscenariosPedidos());
+
+            // Antes de avisar: al cerrar el chat se completa su misión, y si esa misión
+            // se bifurca según cómo terminó el reto, la decisión se toma en este mismo
+            // frame (ver MisionRegistro.desbloquea_si_acepta).
+            RechazosEnChats.Anotar(EscenariosPedidos(),
+                ChatModuleController.Instance != null ? ChatModuleController.Instance.UltimaEleccion : null);
+
             onChatClosed?.Invoke();
             _sequenceRunning = false;
+            SecuenciasEnCurso = Mathf.Max(0, SecuenciasEnCurso - 1);
             _terminoEnFrame = Time.frameCount;
         }
 

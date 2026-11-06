@@ -125,6 +125,24 @@ namespace Fishy.Mision
         public string desbloquea_mision;
 
         /// <summary>
+        /// Convierte <see cref="desbloquea_mision"/> en una bifurcación: si en el chat
+        /// de esta misión el jugador terminó <b>rechazando</b> (su última elección fue
+        /// segura), sigue <see cref="desbloquea_mision"/>; si terminó aceptando o en
+        /// duda, sigue ESTA. Vacío = sin bifurcación, se encadena siempre igual.
+        ///
+        /// Es el "paso 4 solo si Otto rechazó el paso 3" del orden de narración de la
+        /// Zona 3. "Rechazar" usa la misma regla que el contador de presión social del
+        /// backend (última decisión del reto: segura = rechazo, insegura = aceptó,
+        /// dudosa = corta la racha), pero se calcula aquí, con la elección que se acaba
+        /// de hacer: las decisiones del chat no llegan al backend hasta el siguiente
+        /// guardado, así que preguntarle a él daría siempre la respuesta de antes.
+        ///
+        /// Lo resuelve <c>ConexionAutomaticaMisiones</c>, con el resultado que anota
+        /// <c>RechazosEnChats</c>.
+        /// </summary>
+        public string desbloquea_si_acepta;
+
+        /// <summary>
         /// Id del ItemData (de <c>Resources/Items</c>) que se entrega solo al
         /// completar ÉSTA misión. Vacío = sin recompensa automática. Se
         /// entrega una sola vez: las misiones no se repiten, así que no hace falta un
@@ -374,11 +392,22 @@ namespace Fishy.Mision
                     desdeBase.Add(local);
                     agregadas++;
                 }
-                else if ((remota.objetivos == null || remota.objetivos.Count == 0) &&
-                         local.objetivos != null && local.objetivos.Count > 0)
+                else
                 {
-                    remota.objetivos = local.objetivos;
-                    conObjetivos++;
+                    if ((remota.objetivos == null || remota.objetivos.Count == 0) &&
+                        local.objetivos != null && local.objetivos.Count > 0)
+                    {
+                        remota.objetivos = local.objetivos;
+                        conObjetivos++;
+                    }
+
+                    // La tabla Mision no tiene este campo: lo inventó Unity y el
+                    // cargar_banco no lo lee. Sin esto, el día que alguien cargue estas
+                    // misiones en la base, la bifurcación del segundo reto desaparecería
+                    // en silencio y la cadena seguiría siempre por el mismo lado.
+                    if (string.IsNullOrWhiteSpace(remota.desbloquea_si_acepta) &&
+                        !string.IsNullOrWhiteSpace(local.desbloquea_si_acepta))
+                        remota.desbloquea_si_acepta = local.desbloquea_si_acepta;
                 }
             }
 

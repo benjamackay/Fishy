@@ -12,12 +12,17 @@ using UnityEngine.InputSystem;
 /// (el cartelito sobre la cabeza) y al pulsar la tecla de interacción —E por
 /// defecto— se llama a <see cref="IInteractable.Interact"/> del más cercano.
 ///
+/// Junto al icono del mundo puede encenderse <see cref="screenPrompt"/>, el
+/// cartel del Canvas ("E para interactuar") que vive en la esquina de la
+/// pantalla. Los dos se mandan desde el mismo sitio, así que no pueden
+/// desincronizarse.
+///
 /// La acción de entrada se arma en código, igual que en OttoController: no hace
 /// falta un PlayerInput ni cablear nada en el inspector.
 ///
 /// Detalle importante: una vez iniciada la conversación el objetivo NO se suelta
 /// aunque su CanInteract() pase a false, porque es la misma tecla la que avanza
-/// las líneas de diálogo (ver <see cref="NPC.Interact"/>). Lo que sí se esconde
+/// las líneas de diálogo (ver <see cref="DialogoNeutroNPC.Interact"/>). Lo que sí se esconde
 /// es el aviso, que con el panel abierto ya no aporta nada.
 /// </summary>
 public class InteractionDetector : MonoBehaviour
@@ -38,6 +43,15 @@ public class InteractionDetector : MonoBehaviour
 
     [Tooltip("Color de la letra. El cartel por defecto es un cuadro blanco, así que negro contrasta.")]
     public Color keyLabelColor = Color.black;
+
+    [Header("Aviso en pantalla")]
+    [Tooltip("Cartel del Canvas que se enciende a la vez que la manito. Si se deja vacío sólo " +
+             "se usa el aviso del mundo.")]
+    public GameObject screenPrompt;
+
+    [Tooltip("Texto de ese cartel donde va la letra de la tecla. Se escribe solo desde " +
+             "'Interact Key': no hace falta teclearla a mano.")]
+    public TMP_Text screenPromptKeyLabel;
 
     [Header("Entrada")]
     [Tooltip("Tecla que dispara la interacción.")]
@@ -64,13 +78,22 @@ public class InteractionDetector : MonoBehaviour
     {
         ResolverIcono();
         PrepararEtiqueta();
+        PrepararCartel();
         RevisarCollider();
         if (useOwnInputAction) ConstruirInput();
     }
 
     private void OnEnable() => interactAction?.Enable();
 
-    private void OnDisable() => interactAction?.Disable();
+    private void OnDisable()
+    {
+        interactAction?.Disable();
+
+        // El cartel cuelga del Canvas, no de Otto: si este detector se apaga
+        // —cambio de zona, cinemática, pausa— nadie más lo escondería y se
+        // quedaría clavado en pantalla pidiendo una E que ya no hace nada.
+        MostrarAviso(false);
+    }
 
     private void OnDestroy() => interactAction?.Dispose();
 
@@ -107,7 +130,7 @@ public class InteractionDetector : MonoBehaviour
             // con isDialogueActive en true, su CanInteract() no vuelve a ser true y
             // deja de poder hablarse en toda la partida (además de dejar a Otto sin
             // movimiento, que se le devuelve ahí dentro).
-            if (interactable is NPC npc) npc.AbandonarDialogo();
+            if (interactable is DialogoNeutroNPC npc) npc.AbandonarDialogo();
             objetivo = null;
         }
     }
@@ -119,7 +142,13 @@ public class InteractionDetector : MonoBehaviour
     {
         // Un NPC puede desactivarse por su cuenta (p. ej. el del bosque cuando se
         // aleja) sin que llegue a dispararse OnTriggerExit2D.
-        enRango.RemoveAll(c => c == null || !c.gameObject.activeInHierarchy);
+        //
+        // Se mira también el componente y no solo el GameObject: PresenciaSegunMision
+        // retira a un NPC apagándole las piezas —el objeto sigue activo, porque si no
+        // no podría volver—, así que uno que ya estuviera en la lista seguiría siendo
+        // un objetivo válido sin esto.
+        enRango.RemoveAll(c => c == null || !c.gameObject.activeInHierarchy ||
+                               (c is Behaviour pieza && !pieza.enabled));
 
         // 'objetivo' es una interfaz, así que su '== null' es comparación normal de
         // C# y NO el operador de Unity: un objeto ya destruido —un WorldItem recién
@@ -157,6 +186,9 @@ public class InteractionDetector : MonoBehaviour
     {
         if (interactionIcon != null && interactionIcon.activeSelf != visible)
             interactionIcon.SetActive(visible);
+
+        if (screenPrompt != null && screenPrompt.activeSelf != visible)
+            screenPrompt.SetActive(visible);
     }
 
     // ── Montaje ──────────────────────────────────────────────────────────────
@@ -210,6 +242,22 @@ public class InteractionDetector : MonoBehaviour
             keyLabel.sortingLayerID = fondo.sortingLayerID;
             keyLabel.sortingOrder = fondo.sortingOrder + 1;
         }
+    }
+
+    private void PrepararCartel()
+    {
+        // La letra se escribe aquí y no en el inspector para que siga a
+        // 'interactKey': si mañana la interacción pasa a F, el cartel lo dice.
+        if (screenPromptKeyLabel != null) screenPromptKeyLabel.text = interactKey.ToString();
+
+        // Y se le pone fondo, que en la escena no tiene ninguno: el texto va en
+        // crema directamente sobre el mapa, y sobre la arena no se lee. Solo pinta
+        // (ver CartelInteraccionSkin), igual que el skin del panel de diálogo.
+        if (screenPrompt != null) Fishy.UI.CartelInteraccionSkin.Aplicar(screenPrompt);
+
+        // Arranca apagado pase lo que pase: en la escena es fácil dejárselo
+        // encendido tras moverlo y no notarlo hasta ver la partida empezada.
+        if (screenPrompt != null) screenPrompt.SetActive(false);
     }
 
     private void ConstruirInput()

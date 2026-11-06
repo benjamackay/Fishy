@@ -4,13 +4,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 
+from .autenticacion import token_para
 from .models import (
     UsuarioJugador, NivelRiesgo, Partida, NPC, Chat, Mensaje,
     PosibleRespuesta, PreguntaBanco, OpcionBanco,
@@ -57,7 +57,7 @@ def registro(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     adulto = serializer.save()
-    token, _ = Token.objects.get_or_create(user=adulto)
+    token = token_para(adulto)
     return Response({"token": token.key, "adulto_id": adulto.pk}, status=status.HTTP_201_CREATED)
 
 
@@ -69,7 +69,7 @@ def auth_login(request):
     adulto = authenticate(request, username=nombre, password=password)
     if adulto is None:
         return Response({"error": "Credenciales inválidas"}, status=status.HTTP_401_UNAUTHORIZED)
-    token, _ = Token.objects.get_or_create(user=adulto)
+    token = token_para(adulto)
     return Response({"token": token.key, "adulto_id": adulto.pk})
 
 
@@ -1376,6 +1376,126 @@ UMBRAL_RECHAZOS = 2
 # Tope del nivel. Hoy la zona tiene tres NPCs, así que la racha máxima es 3 y el
 # nivel máximo alcanzable es 2. Si se agregan NPCs, subir esto además del banco.
 NIVEL_PRESION_MAXIMO = 2
+
+ZONAS_DEL_RECORRIDO = ("desconocidos", "ciberacoso", "reto_viral")
+SUFIJO_VARIANTE = "_BASE"
+
+
+def puntos_maximos_del_recorrido():
+    """
+    Lo que sumaría quien elige la mejor ruta en cada chat de las tres zonas.
+
+    Se calcula desde el banco y no se escribe fijo, porque algunas misiones suman
+    más con las respuestas de seguimiento (M1: +2 y después +1). Para cada
+    escenario se recorre el árbol desde su primer nodo —el que ninguna opción
+    apunta— y en cada pregunta se toma la opción que más suma contando lo que
+    viene después.
+
+    Las variantes de un mismo escenario (`M6_DECISION01` y `M6_DECISION01_BASE`)
+    son alternativas: se juega una u otra según la presión acumulada. Cuentan una
+    sola vez, con la que más da.
+
+    Devuelve (total, {escenario: máximo}).
+    """
+    preguntas = {
+        p.pregunta_id: p
+        for p in PreguntaBanco.objects
+        .filter(zona__in=ZONAS_DEL_RECORRIDO)
+        .prefetch_related("opciones")
+    }
+
+    def mejor_desde(pid, vistos):
+        p = preguntas.get(pid)
+        if p is None or pid in vistos:
+            return 0
+        vistos = vistos | {pid}
+        opciones = list(p.opciones.all())
+        if opciones:
+            return max(o.impacto_puntuacion + mejor_desde(o.siguiente_pregunta, vistos)
+                       for o in opciones)
+        return mejor_desde(p.narrativa_continuacion, vistos) if p.narrativa_continuacion else 0
+
+    por_escenario = {}
+    escenarios = {p.escenario_id for p in preguntas.values() if p.escenario_id}
+    for escenario in escenarios:
+        del_escenario = [p for p in preguntas.values() if p.escenario_id == escenario]
+        apuntados = {o.siguiente_pregunta for p in del_escenario for o in p.opciones.all()}
+        apuntados |= {p.narrativa_continuacion for p in del_escenario}
+        raices = [p.pregunta_id for p in del_escenario if p.pregunta_id not in apuntados]
+        por_escenario[escenario] = max((mejor_desde(r, frozenset()) for r in raices), default=0)
+
+    por_grupo = {}
+    for escenario, maximo in por_escenario.items():
+        grupo = escenario[:-len(SUFIJO_VARIANTE)] if escenario.endswith(SUFIJO_VARIANTE) else escenario
+        por_grupo[grupo] = max(por_grupo.get(grupo, 0), maximo)
+
+    return sum(por_grupo.values()), por_escenario
+
+
+@api_view(["GET"])
+def puntaje_final(request, partida_id):
+    """
+    Puntaje de la aventura completa, para elegir el final (HDU-09) al terminar la
+    Misión 6.
+
+    Son los mismos puntos del chat que ya mueven el estado de Otto: cada opción
+    elegida suma su `impacto_puntuacion` (+2, +1, 0 o -1), las respuestas de
+    seguimiento incluidas. Se suman las tres zonas; si el total da negativo, cuenta
+    como 0. El porcentaje es ese total sobre `puntos_maximos_del_recorrido()`, con
+    tope en 100 por si se repitió algún chat.
+
+    Se deriva de los `Mensaje` con `opcion_banco_id`, igual que `presion_social`:
+    la aventura se juega en varias sesiones, así que un contador de Unity
+    arrancaría en cero cada vez que se retoma la partida.
+
+    Qué final corresponde a cada porcentaje NO se decide aquí: los umbrales son
+    contenido y viven en `finales_narrativos` del banco, junto a los textos.
+
+    Respuesta:
+    {"partida_id": 1, "puntos": 16, "puntos_brutos": 16, "puntos_maximos": 18,
+     "porcentaje": 88.9, "decisiones": 9, "por_zona": {"desconocidos": 5, ...}}
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    elegidos = list(
+        Mensaje.objects
+        .filter(chat__partida=partida)
+        .exclude(opcion_banco_id__isnull=True)
+        .exclude(opcion_banco_id="")
+        .values_list("opcion_banco_id", flat=True)
+    )
+    opciones = {
+        o.opcion_id: o
+        for o in OpcionBanco.objects
+        .filter(opcion_id__in=set(elegidos))
+        .select_related("pregunta")
+    }
+
+    por_zona = {z: 0 for z in ZONAS_DEL_RECORRIDO}
+    decisiones = 0
+    for opcion_id in elegidos:
+        opcion = opciones.get(opcion_id)
+        if opcion is None or opcion.pregunta.zona not in por_zona:
+            continue  # contenido retirado del banco, o una zona fuera del recorrido
+        por_zona[opcion.pregunta.zona] += opcion.impacto_puntuacion
+        decisiones += 1
+
+    brutos = sum(por_zona.values())
+    puntos = max(0, brutos)
+    maximos, _ = puntos_maximos_del_recorrido()
+
+    return Response({
+        "partida_id": partida.pk,
+        "puntos": puntos,
+        "puntos_brutos": brutos,
+        "puntos_maximos": maximos,
+        "porcentaje": round(min(100.0, 100.0 * puntos / maximos), 1) if maximos else None,
+        "decisiones": decisiones,
+        "por_zona": por_zona,
+    })
+
 
 ZONA_RETOS = "reto_viral"
 

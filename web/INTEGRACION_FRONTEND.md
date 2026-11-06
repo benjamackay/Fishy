@@ -1,17 +1,99 @@
 # Integración del panel de Fishy
 
 **Estado al 13 de septiembre de 2026:** el frontend consume grupos, invitaciones,
-reportes y seguimiento reales. El backend los reincorporó con la migración
+reportes reales. El backend los reincorporó con la migración
 `0014_grupos_invitaciones`, sobre el esquema de `dev`. Invitar y reenviar
 responden 503 mientras no se configure el proveedor de correo; lo demás funciona.
-La demostración continúa separada: un fallo del servidor jamás activa datos
-ficticios.
+El portal no incluye demostraciones ni sesiones ficticias. Un fallo del servidor
+se informa al usuario sin sustituir los datos.
 
 El contrato de dominio está en `src/types/panel.ts` y el adaptador en
 `src/api/panelReal.ts`. La implementación y la configuración del servidor están
 en [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
-## Vinculación por niño
+## Agregar niños por correo (HDU17)
+
+**Frontend conectado al contrato de `dev` (27 de septiembre de 2026).**
+No se modificaron el backend ni las migraciones para esta integración.
+
+Es el flujo que pide el criterio de aceptación de HDU17: el profesor presiona
+"Agregar", escribe el correo del apoderado, ve los perfiles de niño de esa cuenta,
+marca uno o varios y presiona "Agregar". Quedan en el curso **de inmediato**, sin
+correo ni aceptación de la familia. Reemplaza a "Invitar familia" en el portal:
+las invitaciones siguen en el backend (sección siguiente), pero **se ocultan**.
+El aviso a la familia y que ella pueda sacar al niño quedan para el Sprint 3.
+
+**Un niño está en un solo curso a la vez.** Lo garantiza la base de datos.
+
+### Endpoints (profesor dueño del grupo)
+
+| Método y ruta | Body | Respuesta |
+|---|---|---|
+| `POST /api/grupos/<id>/buscar-familia/` | `{"email": "..."}` | 200 `{"perfiles": [{"jugador_id", "nombre", "estado"}]}` |
+| `POST /api/grupos/<id>/miembros/` | `{"email": "...", "jugador_ids": [1, 2]}` | 201 con el detalle del grupo (igual que `GET /api/grupos/<id>/`); 200 si todos ya estaban |
+
+Es POST también para buscar, para que el correo no quede en URLs ni logs.
+
+`estado` de cada perfil:
+
+- `disponible`: se puede marcar.
+- `en_este_curso`: ya está; mostrarlo marcado o deshabilitado.
+- `en_otro_curso`: **deshabilitado**, con el texto "Ya está en otro curso". No se
+  dice cuál ni de qué profesor, a propósito.
+
+Solo se devuelve el nombre del perfil: nada de edad ni avance antes de agregarlo.
+
+### Aviso por correo a la familia
+
+Al agregar, la cuenta de familia recibe un correo con el nombre de los niños nuevos, el
+curso y el profesor (uno solo aunque sean hermanos). La respuesta de `miembros/` trae
+`aviso_familia` para que el portal pueda decirlo:
+
+| Valor | Qué mostrar |
+|---|---|
+| `enviado` | "Le avisamos a la familia por correo." |
+| `fallido` | "Se agregó, pero no pudimos avisar por correo a la familia." |
+| `desactivado` | Nada: el correo no está configurado en el servidor. |
+| `sin_cambios` | Nada: no había nadie nuevo que agregar. |
+
+**Un fallo del correo nunca deshace la incorporación**: el niño queda en el curso igual.
+
+### Errores (todos traen `detail` listo para mostrar)
+
+| Código | Cuándo |
+|---|---|
+| 400 | Correo inválido, `jugador_ids` vacío o con más de 20 |
+| 403 | La cuenta no es profesor (padre y admin incluidos) |
+| 404 `No encontramos perfiles de niño para ese correo.` | El correo no tiene cuenta, es de un profesor, no tiene niños, o algún `jugador_id` no es de ese correo. **Es el mismo mensaje a propósito**, para no revelar quién está registrado |
+| 404 (otro texto) | El grupo no existe o es de otro profesor |
+| 409 `Martina ya está en otro curso. ...` | Algún elegido está en otro curso. **No se agrega ninguno** (todo o nada) |
+| 429 | Más de 120 búsquedas o agregados por hora del mismo profesor |
+
+Repetir un agregado no duplica: los que ya estaban se saltan sin error.
+
+### Comportamiento implementado en web
+
+- `AgregarNinos` separa la búsqueda y la selección. Cambiar de correo descarta
+  perfiles y selección anteriores; el agregado usa el correo de la búsqueda.
+- Los perfiles `en_este_curso` aparecen marcados y deshabilitados; los de otro
+  curso aparecen deshabilitados. Solo se envían nuevos perfiles seleccionados,
+  con un máximo de 20 por operación. Antes del agregado se muestran solo nombres
+  y disponibilidad, sin edad ni progreso.
+- Se muestran `detail` para 403, 404, 409 y 429, y errores 400 por campo. Un 409
+  descarta la selección y repite la búsqueda; si falla, exige buscar otra vez.
+- Al guardar, el detalle del grupo se reconsulta automáticamente. Las
+  respuestas 200 y 201 se consideran éxito; no se promete envío de correo.
+- El detalle del grupo no ofrece botón, modal ni listado de invitaciones.
+  Los métodos de API y la ruta de aceptación se conservan.
+- Las fixtures de `tests/fixtures` permiten verificar selección de hermanos,
+  unicidad entre cursos y reintentos sin duplicar, sin incluirse en el sitio.
+- Pruebas: `npm test`, `npm run build`, `npm run lint`. Las solicitudes del
+  adaptador se verifican con respuestas simuladas, sin modificar Supabase.
+
+
+## Vinculación por niño (invitaciones, oculto en el portal)
+
+Una invitación de un niño que ya está en otro curso se rechaza al aceptarla (409).
 
 El profesor envía `{ email, nombre_nino }` desde el detalle de su propio grupo.
 Se crea una invitación con UUID, vencimiento y secreto de un solo uso. El envío no
@@ -30,7 +112,8 @@ por nombre. Si existe con otro nombre, el profesor debe cancelar y corregir la
 invitación para conservar su progreso. Si no existe, se crea únicamente ese
 perfil dentro de la misma transacción que lo incorpora al curso.
 
-La membresía persiste `grupo + jugador_id`, con unicidad en base de datos.
+La membresía persiste `grupo + jugador_id`. Desde la `0018`, la base exige que
+cada `jugador_id` esté en un solo grupo.
 Dos hermanos requieren dos invitaciones. Quitar a un integrante elimina solo
 su pertenencia al curso, conservando la cuenta, el perfil y el juego.
 
@@ -41,19 +124,19 @@ su pertenencia al curso, conservando la cuenta, el perfil y el juego.
 | listarNinos | Hijos del padre autenticado |
 | obtenerReporteNino | Resumen del hijo autorizado |
 | listarGrupos / crearGrupo / obtenerGrupo | Grupos propios del profesor |
-| invitarFamilia | Invitación para un correo y un niño |
+| buscarFamilia | Perfiles del correo con disponibilidad para el curso, mediante POST |
+| agregarNinos | Incorpora únicamente los IDs seleccionados y el correo consultado |
+| invitarFamilia | Invitación para un correo y un niño (flujo oculto) |
 | reenviarInvitacion | Nuevo enlace; invalida el anterior |
 | cancelarInvitacion | Invalida el enlace sin borrar perfiles |
 | eliminarUsuario | Quita una membresía infantil concreta |
 | eliminarGrupo | Elimina grupo y enlaces; conserva perfiles |
 | obtenerReporteGrupo | Agregado de los niños vinculados, sin filas individuales |
-| obtenerSeguimientoGrupo | Seguimiento privado por alumno del propio curso, sin textos del juego |
 
-Los errores previstos del nuevo contrato se muestran con mensajes aptos para las
-familias y profesores. Un fallo de correo no muestra éxito: la fila conserva
-`estado_envio: fallido` y puede reenviarse. Sin proveedor configurado se informa
-que el envío no está disponible. La demo solo simula creación, reenvío y cancelación;
-no envía correos ni genera enlaces reales de aceptación.
+Los errores previstos del contrato se muestran con mensajes para familias y
+profesores. La interfaz actual agrega por correo del apoderado; no ofrece envío
+ni reenvío de invitaciones. La ruta de aceptación sigue disponible para enlaces
+existentes. Las pruebas de estos contratos no envían correos.
 
 ## Roles y privacidad
 
@@ -62,8 +145,7 @@ Ver la sección [Panel del admin](#panel-del-admin) para el tercero.
 El registro no permite asignar el rol de profesor: lo asigna el equipo desde el
 admin de Django. Los endpoints de perfiles de menores (`jugadores/`, su detalle
 y sus partidas) y el reporte individual responden 403 a los profesores. Padres y madres no pueden
-gestionar grupos; profesores consultan sus propios grupos, sus agregados y las
-necesidades de apoyo de los alumnos vinculados a ese curso.
+gestionar grupos; profesores consultan sus propios grupos, sus reportes agregados.
 Los endpoints nuevos verifican estas reglas en servidor además del frontend.
 La invitación no concede acceso a un perfil ajeno ni convierte a un profesor
 en responsable de un niño.
@@ -112,8 +194,6 @@ cualquier grupo, sea de quien sea:
 
 ### Lo que el admin NO puede (403)
 
-- `GET /api/grupos/<id>/seguimiento/`: son datos por niño (nombre, correo de la
-  familia y nivel de riesgo).
 - `GET /api/grupos/` ("mis grupos") y toda escritura en grupos: crear, borrar,
   quitar integrantes, invitar. Siguen siendo del profesor dueño.
 - `jugadores/`, su detalle, sus partidas y el reporte individual.
@@ -158,52 +238,6 @@ correos, IDs infantiles ni conversaciones. Los reportes individuales validan
 el propietario. El PDF mantiene el diseño y logo oficiales ya implementados.
 
 ## Actualización y validación
-
-### Seguimiento de apoyo en el grupo
-
-`GET /grupos/:id/seguimiento/` devuelve `SeguimientoGrupo` (contrato en
-`src/types/seguimiento.ts`). Es una consulta independiente del reporte grupal:
-contiene el ID de la membresía, nombre invitado, correo familiar, estado,
-contadores por temática, fecha de la última decisión y criterios utilizados.
-Solo el profesor propietario puede consultarla. No habilita las rutas de
-reportes personales para profesores ni incorpora hermanos o invitaciones pendientes.
-El correo y la aceptación de invitaciones explican esta visibilidad a la familia.
-
-Criterios iniciales configurables en `settings.FISHY_SEGUIMIENTO`:
-
-- Se toman las últimas 20 decisiones clasificadas por niño y temática, ordenadas
-  por fecha e ID. La ventana se limita en SQL y se recalcula en cada consulta.
-- Con un mínimo de 5 decisiones: menos de 40% seguras → `prioritario`;
-  de 40% a menos de 60% → `apoyo`; desde 60% → `sin_alertas`.
-  Se comparan contadores sin redondear; se muestra como máximo un decimal.
-- De 1 a 4 decisiones → `muestra_insuficiente`; ninguna → `sin_datos`.
-  En ambos casos porcentaje y contador de decisiones seguras son `null`.
-- El resumen general pondera por decisiones de las temáticas con muestra
-  suficiente: necesita al menos 10 decisiones en 2 temáticas. Una temática baja
-  mantiene la alerta incluso con un promedio alto; no mide modos del juego
-  sin opciones clasificadas ni pretende ser un diagnóstico.
-- `datos_antiguos` indica que la ventana incluye algún resultado de hace más de
-  30 días. Una sola decisión nueva no esconde el resto de la muestra antigua.
-  Los resultados futuros o no clasificables se excluyen. Un resultado antiguo
-  sigue visible, rotulado para verificar el aprendizaje actual.
-
-El panel reconsulta cada 15 segundos, al volver a él y con cambios del juego.
-Una mejora que cruza el umbral retira la alerta automáticamente. La eliminación
-de un vínculo también retira su seguimiento; los errores de permisos eliminan
-los datos previos y los fallos de conexión identifican la última consulta conocida.
-Los filtros distinguen alumnos que requieren apoyo, alumnos sin ninguna temática
-con muestra suficiente y todos los alumnos. Las temáticas faltantes siguen
-indicándose aunque otras sí tengan resultados.
-
-“Preparar correo a la familia” abre un borrador `mailto:` editable con la
-sugerencia de coordinar una conversación, sin envío automático. No depende
-del proveedor SMTP de invitaciones. El PDF y la pantalla de reporte mantienen
-solo métricas agregadas; el seguimiento también se oculta en la impresión web.
-
-En la demo del profesor, abrir el grupo → “Probar casos de apoyo” → “Simular
-casos de apoyo”. Se reemplazan únicamente resultados ficticios del grupo: prioridad,
-apoyo, muestra insuficiente y ausencia de datos. “Simular mejora” cambia las
-muestras ficticias al 90% y permite comprobar que las alertas desaparecen.
 
 ### Comprobación
 

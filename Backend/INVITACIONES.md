@@ -1,5 +1,10 @@
 # Invitaciones a un niño de un curso
 
+> **Desde el 25 de septiembre de 2026 el portal agrega niños por correo, sin invitación**
+> (HDU17: `buscar-familia/` y `miembros/`, en `api/invitaciones.py`). Las invitaciones
+> siguen funcionando en el backend, pero el portal las oculta. La migración `0018`
+> deja a cada niño en un solo curso. Contrato en `web/INTEGRACION_FRONTEND.md`.
+
 **Estado al 13 de septiembre de 2026:** grupos, invitaciones, reporte grupal y
 seguimiento están activos en el backend. Se reincorporaron sobre el esquema de
 `dev` con la migración `0014_grupos_invitaciones`, que depende de

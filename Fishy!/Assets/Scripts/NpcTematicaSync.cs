@@ -66,7 +66,16 @@ public class NpcTematicaSync : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    private void OnEnable() { StartCoroutine(EsperarPartida()); }
+    private void OnEnable()
+    {
+        ApiManager.OnPartidaCerrada += AlCerrarPartida;
+        StartCoroutine(EsperarPartida());
+    }
+
+    private void OnDisable() => ApiManager.OnPartidaCerrada -= AlCerrarPartida;
+
+    /// <summary>Al volver a entrar se baja otra vez, como la primera vez.</summary>
+    private static void AlCerrarPartida() => partidaCargada = null;
 
     // ── Lo que llaman los NPCs ───────────────────────────────────────────────
 

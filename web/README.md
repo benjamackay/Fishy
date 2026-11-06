@@ -1,10 +1,36 @@
 # Fishy! · Panel de tutores
 
-Frontend en React + TypeScript + Vite, con grupos e invitaciones por niño
-integrados con Django. El envío de correo queda preparado para configurar el
+Frontend en React + TypeScript + Vite, con grupos y agregado de niños por correo
+integrados con Django. Las invitaciones se conservan, pero están ocultas en el panel. El envío de correo queda preparado para configurar el
 proveedor elegido. Ver [Backend/INVITACIONES.md](../Backend/INVITACIONES.md).
 
 ## Ejecutar y probar
+
+### Demostración de reportes por período
+
+Agrega `VITE_PERIODO_DEMO=true` en `web/.env.local` y levanta el servidor de
+desarrollo. La sesión ficticia entra automáticamente, sin llamadas al backend.
+El aviso superior permite alternar entre familia y profesor. Abre un reporte
+individual o grupal para filtrar; las fechas incluyen ambos días completos en
+`America/Santiago`. Prueba 05/10/2026 (0%), 15/10/2026 (100%) o agosto de 2026
+(sin decisiones evaluadas). El acumulado de la muestra es 67% por temática.
+
+La demostracion se excluye del build de produccion. Los filtros reales y el PDF
+por periodo ya estan conectados a Django. Para volver al acceso real, elimina
+la variable o cambiala a `false`. `VITE_FRONTEND_MOCK=true` usa el mismo proveedor.
+
+Para comparar, entra como profesor y abre **Reporte grupal → Comparar períodos**.
+La demo de `5° Básico A` también tiene acceso directo en
+`/admin/grupos/grupo-demo-1002-a/comparar?demoRol=profesor`.
+Los ejemplos rápidos cargan fechas; presiona **Comparar períodos** para aplicarlas.
+El 05/10 frente al 15/10 tiene muestras suficientes. El 15/10 frente al 18/10
+deja Ciberacoso sin mínimo de participantes en el segundo período, mientras las
+otras temáticas siguen disponibles. Cada tarjeta muestra los dos porcentajes,
+sus fechas, las decisiones evaluadas y la diferencia B − A en puntos porcentuales.
+Una muestra insuficiente no publica cantidad evaluada, porcentaje ni diferencia
+de ese período. La pertenencia al grupo se comprueba antes de consultar los dos
+agregados; cualquier error evita publicar resultados parciales. La autorización
+real y el calculo de agregados por fechas se aplican en Django.
 
 Se requiere Node compatible con el proyecto (22.19 o superior).
 
@@ -14,26 +40,14 @@ npm run dev
 ```
 
 En Windows, si PowerShell bloquea npm.ps1, usar `npm.cmd` en los comandos.
-Abrir la URL que muestra Vite y seleccionar **Probar como padre** o
-**Probar como profesor**. No requiere
-backend ni contraseña y siempre muestra una etiqueta de datos ficticios.
-
-- Camila, tutora madre: reportes de Martina (resultados parciales) y Tomás
-  (sin actividad), sin acceso a grupos.
-- Diego, tutor administrador/profesor: únicamente creación, gestión y reportes
-  de grupos. No tiene niños asociados ni acceso a reportes individuales.
-- La demo de profesor abre Mis grupos, con un grupo con resultados y otro sin datos.
-- “Invitar familia” solicita nombre del niño y correo del padre. La demo simula
-  invitaciones, reenvío y cancelación; nunca afirma que se envió un correo real.
-  Dos hermanos requieren dos invitaciones, aunque compartan el correo del padre.
-- En un reporte individual, “Probar la actualización automática” simula un
-  nivel completado. El cambio también afecta al agregado del grupo cuando
-  ese perfil participa en él.
-- Los cambios de la demo se guardan en este navegador, separados por cuenta.
-  Con almacenamiento bloqueado permanecen en memoria durante esa sesión.
-  Las pestañas del mismo origen se notifican sus cambios.
-- Si se usó la demo anterior del profesor, se elimina su vínculo individual
-  antiguo conservando grupos, integrantes y resultados agregados.
+Abrir la URL que muestra Vite para ver la portada pública. El menú lleva a las
+secciones informativas, al contacto oficial y a los formularios independientes
+de `/login` y `/registro`. El panel autenticado se encuentra en `/panel`;
+las sesiones existentes que entran a `/` se redirigen allí. Para usar el panel,
+iniciar sesión con una cuenta de Django.
+En produccion el portal usa unicamente la API configurada. La demostracion
+solo se habilita explicitamente en desarrollo. Los errores del servicio no
+activan datos alternativos.
 
 ```sh
 npm test
@@ -50,7 +64,7 @@ con el juego y los endpoints reales.
 
 | Ruta | Vista |
 |---|---|
-| /login | Inicio de sesión existente y entrada separada a demo |
+| /login | Inicio de sesión y registro |
 | /invitacion#token | Registro/login y aceptación de una invitación para un niño |
 | / | Reportes de los hijos para padres; redirección a grupos para profesores |
 | /reportes/:id | Resumen individual por temática, exclusivo de padres |
@@ -79,34 +93,23 @@ incluso si el servicio antiguo todavía les atribuye perfiles infantiles.
 
 ## Integración del backend
 
+Las tres interfaces ya estan conectadas. Ver el [estado de integracion](../docs/INTEGRACION_FEATURES_WEB.md).
+
 Ver [INTEGRACION_FRONTEND.md](INTEGRACION_FRONTEND.md).
 El contrato es `src/types/panel.ts` (`FuentePanel`); el punto de conexión es
 `src/api/panelReal.ts`. No hay que reescribir las pantallas.
 
 El login y el listado de perfiles conservan las llamadas que ya existían.
-El adaptador conecta grupos, invitaciones, integrantes, reportes y seguimiento
+El adaptador conecta grupos, invitaciones, integrantes y reportes
 con los endpoints de Django (migración `0014_grupos_invitaciones`). Invitar
 necesita además la configuración SMTP del backend; sin ella responde 503 con un
 mensaje claro. Las invitaciones exigen aceptación con el correo destinatario y
 vinculan solo un perfil infantil.
 **No se reemplaza una respuesta fallida del servicio real por datos ficticios.**
 
-La demo está disponible por defecto solo en desarrollo. `VITE_DEMO=true` la
-ofrece explícitamente en un build de demostración; `VITE_DEMO=false` la oculta.
-`VITE_GRUPOS_MOCK` y `VITE_FORZAR_ADMIN` no activan las nuevas pantallas.
+Las variables antiguas `VITE_DEMO`, `VITE_GRUPOS_MOCK` y `VITE_FORZAR_ADMIN` no habilitan accesos ni cambian permisos.
 
 ## Reportes y privacidad
-
-El detalle de cada grupo incluye **Alumnos que necesitan apoyo**, visible solo
-para su profesor. Explica las dificultades con métricas por temática y permite
-preparar un correo a la familia. Los umbrales iniciales son 60% para apoyo y 40%
-para prioridad, con al menos cinco decisiones por temática. Las muestras pequeñas
-y antiguas se distinguen explícitamente. El reporte grupal y su PDF permanecen
-agregados. Ver criterios completos en [INTEGRACION_FRONTEND.md](INTEGRACION_FRONTEND.md).
-
-Para probarlo en la demo: entrar como profesor → abrir 5° Básico A →
-**Probar casos de apoyo** → **Simular casos de apoyo**. **Simular mejora**
-permite verificar que las alertas se retiran automáticamente.
 
 - Tres temáticas fijas: Desconocidos, Ciberacoso y Retos Virales.
 - Decisiones seguras / decisiones evaluadas × 100, redondeado al entero.
@@ -148,14 +151,14 @@ confirma únicamente una respuesta válida. Tras crear la cuenta permite volver
 al login con el usuario rellenado. Los permisos siguen viniendo del perfil real.
 
 Café claro `#b78e70`, café pastel `#f0e4d9` y blanco. El café oscuro se utiliza
-en texto y controles para legibilidad. Navegación lateral en escritorio y
-horizontal en móvil, rejillas adaptables, formularios con etiquetas, estados
+en texto y controles para legibilidad. Encabezado horizontal superior en escritorio y
+navegación adaptada en filas para móvil, rejillas adaptables, formularios con etiquetas, estados
 accesibles y ventanas de confirmación mediante `dialog` nativo.
 Tipografías DM Sans / Manrope, con fuentes del sistema como respaldo.
 
 El logo oficial de texto se conserva sin modificaciones en
 `src/assets/fishy-text-logo.png` y se utiliza en el acceso, la navegación,
-el pie de página, el icono del sitio y el PDF. Mantiene proporciones y
+el icono del sitio y el PDF. Mantiene proporciones y
 transparencia originales. El logo está incluido en la aplicación, sin
 descargas externas adicionales al generar el documento.
 

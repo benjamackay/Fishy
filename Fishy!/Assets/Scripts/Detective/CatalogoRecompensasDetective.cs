@@ -4,8 +4,9 @@ using UnityEngine;
 
 namespace Fishy.Detective
 {
-    /// <summary>Recompensa de un caso: qué ítem, a partir de qué umbral, y si se
-    /// vuelve a entregar al repetir el caso.</summary>
+    /// <summary>Recompensa de un caso: qué ítem, qué umbral de aciertos hay que superar
+    /// (estrictamente: 0,5 pide más de la mitad), y si se vuelve a entregar al repetir
+    /// el caso.</summary>
     [Serializable]
     public class RecompensaCaso
     {

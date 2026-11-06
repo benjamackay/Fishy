@@ -18,20 +18,49 @@ cerrar el juego.
 
 | Momento | Quién lo dispara | Tope | Reintenta |
 |---|---|---|---|
-| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 8 s | Sí, hasta `maxIntentos` = 3 |
-| **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s | No: no hay otra oportunidad |
-| **Manual** | Una prueba, o el menú de pausa | `topeNormal` | Sí |
+| **Cambio de zona** | `ZonaActual.OnZonaCambiada` → `SaveManager.AlCambiarDeZona` | `topeNormal` = 45 s, de fondo | **Insiste hasta vaciar la cola** |
+| **Cierre del juego** | `Application.wantsToQuit` → `SaveManager.QuiereCerrar` | `topeDeCierre` = 10 s, y después **pregunta** | Sí, y el juego no cierra hasta vaciar |
+| **Manual** | Una prueba (el menú de pausa usa el del cierre, ver §5) | `topeNormal` | Sí |
+| **Disparador** | Un `GuardarPartida` en la escena, enganchado a un evento | el `tope` del componente (10 s) | Sí |
+
+**No hay tope de intentos.** El que manda es el plazo: mientras quede, se insiste. Antes
+había un `maxIntentos = 3` y lo que lo agotaba **se abandonaba**, con el agravante de que
+los dedup (§4) ya lo daban por encolado y no se volvía a intentar en toda la sesión.
 
 Y **solo** esos. Hubo además un guardado periódico y otro al terminar cada interacción;
 se quitaron a propósito. Si vuelven a hacer falta, lo que hay que añadir es un valor
 nuevo en `SaveManager.Motivo`, no reabrir los de antes.
+
+> Se probó un tercer momento —un goteo de fondo cada 10 s mientras se juega— y **se
+> retiró**: la decisión es que la partida se guarde en esos dos momentos y en ningún otro.
+> Lo que cubre el hueco no es guardar más seguido, sino insistir hasta vaciar la cola
+> cuando sí toca guardar.
+
+### `Disparador`: cuando la historia necesita la nube al día
+
+El **Disparador** no es un tercer momento fijo: solo guarda donde la escena tenga un
+`GuardarPartida` enganchado a algo, y por eso viene encendido por defecto sin cambiar
+nada de lo anterior. Existe para el final del juego: el final se calcula con las
+decisiones guardadas en la nube, y al terminar la última misión las de la Zona 3
+siguen en la cola —se cerraría con un final que ignora la zona entera—.
+
+- **Se engancha** `GuardarPartida.Guardar` a cualquier evento (el `alCompletar` de un
+  `AlCompletarMision`, un botón…).
+- **Quien necesite los datos al día** se engancha a su `alGuardar`, no al mismo evento:
+  ahí todavía no subió nada. Si no se pudo subir todo —sin conexión, sin sesión, plazo
+  vencido— sale `alQuedarPendiente` en su lugar.
+- **Espera un frame antes de vaciar**: los otros oyentes del mismo evento suelen encolar
+  cambios (registrar la zona completada), y el vaciado toma una foto de la cola al
+  empezar.
+- **No lo frena la espera mínima**, igual que al cierre: está para agrupar cambios de zona
+  en ráfaga, y uno pedido por la historia es puntual y tiene a alguien esperando.
 
 ### Encenderlos y apagarlos sin tocar código
 
 `SaveManager.momentosActivos` es un `[Flags]` visible en el Inspector:
 
 ```csharp
-[Flags] public enum Momentos { Ninguno = 0, CambioDeZona = 1, CierreDeAplicacion = 2, Manual = 4 }
+[Flags] public enum Momentos { Ninguno = 0, CambioDeZona = 1, CierreDeAplicacion = 2, Manual = 4, Disparador = 8 }
 ```
 
 Los valores de `Motivo` son las mismas potencias de dos, así que `Preparar()` pregunta
@@ -63,10 +92,25 @@ con un `&` y no hay ningún `switch` que haya que acordarse de ampliar. Dejarlo 
           │
           ▼
   ColaDeCambios.Vaciar(motivo, tope)   ← sale todo, en orden
-          │
-          ▼
+          │                              y se repite mientras quede algo
+          ▼                              y quede plazo
   ApiManager.Send<T>()                 ← las peticiones de verdad
 ```
+
+### Insistir, no dar una pasada
+
+`Vaciar()` no recorre la cola una vez: la recorre **en rondas**, hasta que quede vacía o se
+acabe el plazo. Lo que falla vuelve a la cola y se reintenta en la ronda siguiente, dentro
+del mismo vaciado.
+
+Hacía falta justamente porque los momentos son dos y nada más: antes, lo que fallaba se
+quedaba esperando al siguiente momento de guardado, y ese siguiente podía estar a media
+partida de distancia. Un fallo de red de un segundo dejaba el cambio sin subir media hora.
+
+Si una ronda entera no consigue subir nada, se esperan `EsperaEntreRondas` = 0,5 s antes de
+la siguiente: contra un servidor que no contesta, repetir sin pausa solo quemaría frames
+hasta agotar el plazo. La espera va en **realtime**, porque `MenuPausa` pone
+`Time.timeScale = 0`.
 
 ---
 
@@ -116,6 +160,7 @@ del niño/a retrocedería.
 | `personaje` | Snapshot | `PersonajeBackendSync.MarcarSucio()` | `PATCH /partidas/{id}/personaje/` |
 | `inventario` | Snapshot | `InventarioBackendSync.MarcarSucio()` | `PUT /partidas/{id}/inventario/` |
 | `partida.progreso` | Snapshot | `ColaDeCambios.EncolarProgreso()` | `PATCH /partidas/{id}/` |
+| `partida.ultimo_guardado` | Snapshot | `SaveManager.Preparar()`, en cada guardado | `PATCH /partidas/{id}/` sin campos: pone al día `fecha_update`, que es la fecha y el orden de la lista de sesiones |
 | `objeto:{id}` | Append | `ObjetosRecogidosSync.Marcar()` | `POST /partidas/{id}/objetos-recogidos/` |
 | `npc:{id}` | Append | `NpcTematicaSync.Marcar()` | `POST /partidas/{id}/progreso-npcs/` |
 | `mision:{id}` | Append | `MisionBackendSync` | `POST /partidas/{id}/misiones/` |
@@ -160,19 +205,51 @@ wantsToQuit  →  ¿ya vaciamos?        → sí: cerrar
              →  arrancar CerrarCuandoTermine() y cancelar este cierre
 ```
 
-`CerrarCuandoTermine()` vacía con tope de 10 s. Si al vencer quedan cambios **pregunta en
-vez de decidir**: `MenuPausa.PreguntarSiEsperar()` muestra *"No se pudo conectar con el
-servidor"*, cuántos cambios quedan, y dos botones — **"Seguir esperando"** (otros 10 s,
-repetible) y **"Cerrar de todas formas"**. Mientras el cartel está a la vista el cierre
-sigue cancelado; no hay prisa. Lo que no vale es cerrar en silencio.
+**El juego no se cierra hasta que la cola esté vacía.** `CerrarCuandoTermine()` vacía
+insistiendo, con tope de 10 s por vuelta, y repite mientras quede algo.
 
-Los tres caminos de salida terminan en el mismo sitio:
+Si al vencer los 10 s todavía quedan cambios, **pregunta en vez de decidir**:
 
-| Camino | Pasa por | Quién pregunta |
-|---|---|---|
-| Botón "Guardar y salir" | `MenuPausa.GuardarYSalir()` | El propio menú; después llama a `SaveManager.MarcarCierreListo()` para que no se arranque un segundo vaciado |
-| Aspa de la ventana | `wantsToQuit` | `SaveManager` se lo pide a `MenuPausa` |
-| Alt+F4 | `wantsToQuit` | ídem |
+```
+              Guardando
+
+  El guardado del juego está tardando más de lo esperado
+  ¿Salir ahora? Se perderán datos
+
+       [ Seguir esperando ]    [ Salir ahora ]
+```
+
+«Seguir esperando» da otros 10 s, y es repetible sin límite: mientras el cartel está a la
+vista el cierre sigue cancelado y la cola sigue insistiendo. «Salir ahora» cierra
+perdiendo lo que quede, y lo dice en el log. Lo que no vale es cerrar en silencio.
+
+El cartel no dice cuántos cambios faltan: a un niño/a no le dice nada. El número sí va al
+log, para quien tenga que diagnosticarlo.
+
+Los tres caminos para dejar de jugar guardan igual:
+
+| Camino | Pasa por | Quién pregunta | Termina en |
+|---|---|---|---|
+| Botón "Guardar y volver al menú" (Esc) | `MenuPausa.GuardarYSalir()` | El propio menú | La escena `MenuDos`, con la aplicación abierta |
+| Aspa de la ventana | `wantsToQuit` | `SaveManager` se lo pide a `MenuPausa` | Se cierra el juego |
+| Alt+F4 | `wantsToQuit` | ídem | ídem |
+
+**Volver al menú cuenta como cierre** (`Motivo.CierreDeAplicacion`): se deja de jugar la
+partida, así que se guarda igual que al cerrar. Tres cosas que lo distinguen del cierre de
+verdad, porque la aplicación sigue viva:
+
+- **No marca el cierre como listo.** El aspa desde el menú tiene que seguir guardando.
+- **Si el jugador eligió «Salir ahora», lo pendiente se descarta**
+  (`ColaDeCambios.DescartarTodo`, con `LogError` y las claves). Al cerrar la aplicación eso
+  muere con el proceso; aquí se quedaría en la cola sin partida a la que subir, y el aspa
+  desde el menú preguntaría una y otra vez.
+- **Cierra la partida** (`ApiManager.CerrarPartida`). Los sincronizadores restauran cuando
+  *cambia* la partida, así que sin esto volver a entrar en la misma no restauraba nada
+  sobre la escena recién cargada: Otto en el punto de inicio —y el siguiente guardado
+  pisaba la posición buena—, zonas cerradas otra vez. Al cerrarla, cada sincronizador
+  olvida lo restaurado (`OnPartidaCerrada`) y volver a entrar recorre el camino de la
+  primera vez. `MissionTracker`, por su parte, vuelve a enganchar los objetivos a los NPCs
+  de cada escena que carga.
 
 `OnApplicationPause` se queda como estaba: en móvil el sistema mata la app pausada sin
 avisar y es la única señal fiable. No se puede retrasar, así que es best-effort.
@@ -191,14 +268,26 @@ El juego afirmaba que falló algo que a los 12 s todavía podía tener éxito. S
 **acotando cada petición a lo que le quede al vaciado**, no con un aviso mejor:
 
 ```csharp
-// ApiManager
+// ApiManager: el tope solo recorta, nunca alarga
 public int? TopeDeTiempoParaPeticiones { get; set; }   // null = usar timeoutSeconds
-req.timeout = TopeDeTiempoParaPeticiones ?? timeoutSeconds;
+req.timeout = tope.HasValue ? Mathf.Min(tope.Value, timeoutSeconds) : timeoutSeconds;
 ```
 
-La cola lo fija antes de cada envío y lo devuelve a `null` en un `finally`: es estado
-global, y si un fallo lo dejara puesto, **todas** las peticiones del resto de la sesión
-heredarían un timeout de segundos y empezarían a fallar sin motivo aparente.
+La cola lo fija **justo antes de mandar cada cambio** y lo devuelve a `null` en un
+`finally` en cuanto la petición sale: `ApiManager` lee el timeout al crearla, en esa
+misma llamada. Antes duraba todo el vaciado, y cualquier lectura que otro sistema lanzara
+mientras tanto —un diálogo, la mochila— heredaba el recorte y se cortaba. Es estado
+global: si un fallo lo dejara puesto, todas las peticiones del resto de la sesión
+heredarían un timeout de segundos.
+
+### Un vaciado a la vez, con el plazo del último que pidió
+
+`Vaciar` es reentrante: si ya hay uno corriendo, el segundo llamador no arranca otro
+(mandarían la misma entrada dos veces), espera a que termine el que corre. Pero **el
+plazo pasa a ser el suyo, contado desde ese momento**. Importa por el plazo largo del
+cambio de zona: si el jugador cierra a mitad de esos 45 s, el cierre impone sus 10 s y
+pregunta, en vez de quedarse esperando el rato entero sin decir nada. Y otro cambio de
+zona a mitad del vaciado le da su plazo completo, no las sobras.
 
 ### Los cuatro finales de un vaciado
 
@@ -209,9 +298,15 @@ heredarían un timeout de segundos y empezarían a fallar sin motivo aparente.
 | **Sin respuesta** | Salió y venció el plazo sin que contestara, ni bien ni mal. **No se reencola**: puede que haya llegado, y repetirlo duplicaría el cambio |
 | **Sin intentar** | Se quedó en la cola sin llegar a salir |
 
-`TodoBien` exige que los tres últimos estén en cero. Esa cuarta categoría existe porque
-sin ella un envío que no llamara nunca a su callback no aparecía en ningún lado: el
-resultado decía *"todo bien"* y el cierre daba por guardado un cambio recién perdido.
+`TodoBien` exige que **«sin respuesta» y «sin intentar» estén en cero**, y no mira los
+fallidos. Con la insistencia, «fallido» pasó a contar *intentos* y no *cambios*: si algo
+falló dos veces y a la tercera entró, que haya fallado no es un problema; y si no entró, ya
+está contado en «sin intentar», que es lo que sigue en la cola al terminar. Sumar las dos
+cosas contaría el mismo cambio dos veces.
+
+Esa categoría de «sin respuesta» existe porque sin ella un envío que no llamara nunca a su
+callback no aparecía en ningún lado: el resultado decía *"todo bien"* y el cierre daba por
+guardado un cambio recién perdido.
 
 ---
 
@@ -262,7 +357,7 @@ perfil, el riesgo vuelve. Descartar **no** cuenta como cambio perdido.
 |---|---|---|
 | `momentosActivos` | `CambioDeZona \| CierreDeAplicacion` | En qué momentos se vacía |
 | `esperaMinima` | 1 s | Mínimo entre dos guardados. Caminar sobre el borde de dos zonas dispara cambios en cadena; esto los agrupa. **El cierre se la salta** |
-| `topeNormal` | 8 s | Plazo de un vaciado por cambio de zona |
+| `topeNormal` | 45 s | Plazo de un vaciado por cambio de zona. Corre de fondo: con un servidor de ~2 s por petición, 8 s alcanzaban para 4 cambios y la cola crecía |
 | `topeDeCierre` | 10 s | Cuánto se retiene el cierre antes de preguntar |
 | `verboseLogs` | true | Escribe cada guardado y su motivo |
 
@@ -270,8 +365,7 @@ perfil, el riesgo vuelve. Descartar **no** cuenta como cambio perdido.
 
 | Campo | Por defecto | Qué hace |
 |---|---|---|
-| `paralelismo` | 4 | Peticiones a la vez. Las cadenas van de una en una pase lo que pase |
-| `maxIntentos` | 3 | Reintentos de un cambio que falló, cuando el vaciado admite reintento |
+| `paralelismo` | 1 | Peticiones a la vez. En 1 porque el servidor de pruebas atiende de a una: con más, esperan juntas en su fila y vencen en grupo. Las cadenas van de una en una pase lo que pase |
 | `avisarPorEncimaDe` | 200 | Avisa si la cola crece tanto sin vaciarse: señal de que algún vaciado dejó de ocurrir |
 | `verboseLogs` | true | Escribe cada cambio que entra y cada vaciado |
 
@@ -291,11 +385,19 @@ corridas del editor. **Para tocar los campos hay que ponerlos en la escena.**
   -executeMethod Fishy.EditorTools.FishyPruebasCola.Ejecutar -logFile -
 ```
 
-`Assets/Editor/FishyPruebasCola.cs` — 22 comprobaciones sobre lo que **no se ve en un log
-de red**: las dos fusiones, el orden, que reencolar no adelante, el sello de partida, los
-reintentos, que el tope de tiempo se restaure, que el thunk lea al vaciar y no al encolar,
-los interruptores de `momentosActivos`, y que lo que sale y no contesta cuente como
-perdido y no como guardado.
+`Assets/Editor/FishyPruebasCola.cs` — 26 comprobaciones sobre lo que **no se ve en un log
+de red**: las dos fusiones, el orden, que reencolar no adelante, el sello de partida, que
+el tope de tiempo se restaure, que el thunk lea al vaciar y no al encolar, los
+interruptores de `momentosActivos`, y que lo que sale y no contesta cuente como perdido y
+no como guardado.
+
+De la insistencia, tres:
+
+| Prueba | Qué fija |
+|---|---|
+| `ProbarInsisteHastaVaciarLaCola` | Un cambio que falla dos veces y entra a la tercera sale **en el mismo** cambio de zona, y los fallos del camino no ensucian el veredicto |
+| `ProbarInsistirTienePlazo` | Insistir se acaba con el plazo; lo que no salga sigue en la cola para el siguiente cambio de zona |
+| `ProbarCierreTambienInsiste` | Al cerrar también se insiste, en vez de rendirse al primer fallo |
 
 También está `FishyPruebasPartida.Ejecutar` (guardado e inventario en modo local).
 
@@ -318,6 +420,11 @@ de zona: **cero durante el juego**, todas de golpe en el instante del vaciado.
 Los tres caminos de salida —botón, aspa, Alt+F4— cada uno con el backend arriba y abajo.
 Son seis casos. Con el backend abajo tiene que salir el cartel a los 10 s.
 
+Y la vuelta desde el menú: Esc → «Guardar y volver al menú» → «Continuar» con la misma
+partida. Otto tiene que aparecer donde quedó, las zonas abiertas seguir abiertas, los
+objetos recogidos seguir fuera del mapa, y un objetivo de "hablar con" pendiente tiene que
+poder cumplirse.
+
 > En el editor, que `wantsToQuit` cancele la salida del Play Mode **hay que verificarlo en
 > la máquina, no asumirlo**: ha cambiado entre versiones de Unity. El camino que sí se
 > comprueba en editor es el botón de `MenuPausa`.
@@ -333,13 +440,20 @@ Son seis casos. Con el backend abajo tiene que salir el cartel a los 10 s.
 [Cola] Descartado '{qué}' de la partida {x}: ahora se juega la {y}.
 ```
 
-Y cuando se pierde algo, **`LogError` y no `LogWarning`, listando las claves**:
+Y cuando un vaciado no llega a terminar, **`LogError` y no `LogWarning`, listando las
+claves y el último error de red**:
 
 ```
-[Cola] Vaciada por CierreDeAplicacion en 10,1 s con cambios sin guardar:
-       3 subidos, 1 fallidos, 1 sin respuesta, 2 sin intentar.
-       Quedan: objeto:FLOR_03, chat:2, inventario
+[Cola] Vaciada por CierreDeAplicacion en 10,1 s SIN terminar:
+       3 subidos, 7 intento(s) fallido(s), 1 sin respuesta,
+       2 todavia en la cola (10 intento(s) en total).
+       Quedan: objeto:FLOR_03, chat:2
+       Ultimo error: No se pudo conectar (Cannot connect to destination host)
 ```
+
+Los «intentos fallidos» son más que los cambios porque se insiste; el número que dice qué
+falta es **«todavía en la cola»**. Y el último error está ahí porque saber *cuántos* faltan
+sin saber *por qué* no sirve para arreglar nada.
 
 En un build eso es lo único que queda en `Player.log`, y es la diferencia entre *"no se
 guardó y nadie sabe por qué"* y un diagnóstico.
@@ -353,7 +467,7 @@ guardó y nadie sabe por qué"* y un diagnóstico.
 | `ColaDeCambios.cs` | La cola: el almacén, las tres familias, el vaciado |
 | `SaveManager.cs` | Los momentos, `wantsToQuit`, el cierre retenido |
 | `ApiManager.cs` | `PeticionesEnVuelo` y `TopeDeTiempoParaPeticiones` en `Send<T>` |
-| `UI/MenuPausa.cs` | El botón de salir y el cartel de "sin conexión" |
+| `UI/MenuPausa.cs` | El botón de volver al menú y el cartel de "sin conexión" |
 | `Chat/ChatBackendLogger.cs` | Graba la conversación y la manda entera, en un POST atómico |
 | `ObjetivosBackendSync.cs` | Guarda y restaura el avance por objetivo |
 | `PersonajeBackendSync.cs`, `InventarioBackendSync.cs`, `ObjetosRecogidosSync.cs`, `NpcTematicaSync.cs`, `MisionBackendSync.cs` | Encolan en vez de llamar |

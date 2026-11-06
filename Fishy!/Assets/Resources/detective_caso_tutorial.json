@@ -1,0 +1,51 @@
+{
+  "caseId": "DC_TUTORIAL",
+  "npcObservado1": "Guía",
+  "npcObservado2": "Lobo",
+  "permisoPlayerText": "Esto es el Modo Detective: antes de mirar la conversación de otra persona, lo primero es pedirle permiso. Pulsa Continuar para ver qué responde.",
+  "permisoNpcNombre": "Foca",
+  "permisoNpcResponse": "Y la otra persona tiene que aceptar, como hago yo ahora. Pulsa Continuar otra vez y se abrirá el teléfono con la conversación.",
+  "mensajes": [
+    {
+      "id": "DC_TUT_MSG01",
+      "autor": "Guía",
+      "texto": "Esta es la conversación que vas a revisar. Los mensajes van apareciendo uno por uno.",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC_TUT_MSG02",
+      "autor": "Guía",
+      "texto": "Tu trabajo es tocar los mensajes que te parezcan sospechosos: al tocarlos quedan marcados, y si te equivocas los tocas otra vez para desmarcarlos.",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC_TUT_MSG03",
+      "autor": "Lobo",
+      "texto": "oye, mándame tu dirección y no le digas a nadie, que sea un secreto entre los dos",
+      "esRiesgo": true,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC_TUT_MSG04",
+      "autor": "Guía",
+      "texto": "Mira el mensaje de arriba: pide tu dirección y pide secreto. Esas son señales de riesgo. Tócalo para marcarlo.",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    },
+    {
+      "id": "DC_TUT_MSG05",
+      "autor": "Guía",
+      "texto": "Cuando lo tengas marcado, pulsa el botón Confirmar marcas de abajo y verás tu resultado.",
+      "esRiesgo": false,
+      "esAmbiguo": false
+    }
+  ],
+  "explicacionGuiada": [
+    {
+      "mensajeId": "DC_TUT_MSG03",
+      "explicacion": "Pedir datos privados —como tu dirección— y pedir que sea un secreto son dos señales de riesgo. Cuando veas un mensaje así, márcalo y cuéntaselo a un adulto de confianza."
+    }
+  ]
+}

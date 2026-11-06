@@ -73,13 +73,18 @@ namespace Fishy.Net
 
         private void OnEnable()
         {
+            ApiManager.OnPartidaCerrada += AlCerrarPartida;
             StartCoroutine(EsperarPartida());
         }
 
         private void OnDisable()
         {
+            ApiManager.OnPartidaCerrada -= AlCerrarPartida;
             Desuscribir();
         }
+
+        /// <summary>Al volver a entrar se baja otra vez, como la primera vez.</summary>
+        private void AlCerrarPartida() => partidaAtendida = null;
 
         // ── 1. Bajar lo que Otto llevaba ─────────────────────────────────────
 

@@ -6,8 +6,8 @@ import type { AceptarInvitacion, InvitacionAceptada, InvitacionPublica } from '@
 export async function operacionGrupo<T>(operacion: () => Promise<T>): Promise<T> {
   try { return await operacion() }
   catch (e) {
-    if (e instanceof ApiError && [400, 403, 409, 503].includes(e.status) && e.data && typeof e.data === 'object' && 'detail' in e.data && typeof e.data.detail === 'string') {
-      throw new ErrorUsuario(e.data.detail)
+    if (e instanceof ApiError && [400, 403, 404, 409, 429, 503].includes(e.status) && e.data && typeof e.data === 'object' && 'detail' in e.data && typeof e.data.detail === 'string') {
+      throw new ErrorUsuario(e.data.detail, e.status)
     }
     throw comoError(e)
   }

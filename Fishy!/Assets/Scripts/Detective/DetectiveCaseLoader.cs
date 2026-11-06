@@ -19,18 +19,34 @@ namespace Fishy.Detective
             var api = ApiManager.Instance;
             if (api == null || api.IsLocalMode || !api.IsLoggedIn)
             {
-                onLoaded?.Invoke(LoadLocal(resourcePath));
+                Entregar(LoadLocal(resourcePath), onLoaded);
                 return;
             }
 
             api.ObtenerCasoDetective(casoId,
-                onSuccess: dto => onLoaded?.Invoke(FromDto(dto)),
+                onSuccess: dto => Entregar(FromDto(dto), onLoaded),
                 onError: e =>
                 {
                     Debug.LogWarning($"[Detective] No se pudo obtener '{casoId}' del backend " +
                                       $"({e}); usando respaldo local '{resourcePath}'.");
-                    onLoaded?.Invoke(LoadLocal(resourcePath));
+                    Entregar(LoadLocal(resourcePath), onLoaded);
                 });
+        }
+
+        /// <summary>
+        /// Entrega el caso a quien lo pidió, pero antes aprovecha para completar el
+        /// álbum con él (HDU-12).
+        ///
+        /// <b>Por qué acá.</b> Una evidencia sembrada desde el servidor trae solo los
+        /// ids del caso y del mensaje: el backend no guarda ni el texto ni la
+        /// explicación. Cada vez que un caso se carga —por cualquier vía, backend o
+        /// respaldo local— tenemos esos textos en la mano, así que rellenar con ellos
+        /// lo que falte es gratis y no necesita ninguna petición de más.
+        /// </summary>
+        private static void Entregar(DetectiveCase caso, Action<DetectiveCase> onLoaded)
+        {
+            if (caso != null) AlbumDetectivePuente.ConciliarDesdeElCaso(caso);
+            onLoaded?.Invoke(caso);
         }
 
         private static DetectiveCase FromDto(CasoDetectiveDto dto)
@@ -57,6 +73,13 @@ namespace Fishy.Detective
             var caso = new DetectiveCase
             {
                 caseId = dto.caso_id,
+
+                // HDU-12 — título, zona y etiquetas: los metadatos que cada
+                // evidencia del álbum hereda del caso.
+                titulo = dto.titulo,
+                zona = dto.zona,
+                etiquetasMl = dto.etiquetas_ml ?? new List<string>(),
+
                 npcObservado1 = npcs.Count > 0 ? npcs[0] : dto.permiso_npc_nombre,
                 npcObservado2 = npcs.Count > 1 ? npcs[1] : "",
                 permisoPlayerText = dto.permiso_player_text,
@@ -81,12 +104,22 @@ namespace Fishy.Detective
             return caso;
         }
 
-        private static DetectiveCase LoadLocal(string resourcePath)
+        /// <summary>
+        /// El caso tal como viaja empaquetado en Resources. Público porque el álbum lo
+        /// reusa para completar sin conexión las evidencias que el servidor le dio solo
+        /// como ids (ver <c>AlbumDetectivePuente.ConciliarDesdeElRespaldoLocal</c>).
+        ///
+        /// <paramref name="avisarSiFalta"/> en false para ese uso: ahí, un caso sin
+        /// respaldo local es un dato que no tenemos, no un error — distinto de cuando
+        /// es el juego el que necesita el caso para abrirlo.
+        /// </summary>
+        public static DetectiveCase LoadLocal(string resourcePath, bool avisarSiFalta = true)
         {
             TextAsset json = Resources.Load<TextAsset>(resourcePath);
             if (json == null)
             {
-                Debug.LogError($"[Detective] No se encontró el archivo en Resources: {resourcePath}");
+                if (avisarSiFalta)
+                    Debug.LogError($"[Detective] No se encontró el archivo en Resources: {resourcePath}");
                 return null;
             }
 

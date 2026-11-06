@@ -7,6 +7,8 @@
  */
 
 import { getToken } from './token'
+import { modoDemo } from './modoDemo'
+import { ErrorUsuario } from './errores'
 
 const BASE_URL: string = import.meta.env.VITE_API_URL ?? '/api'
 
@@ -29,6 +31,7 @@ async function request<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
+  if (modoDemo) throw new ErrorUsuario('Esta acción no está disponible en la demostración del frontend. No se enviaron datos al servidor.')
   const headers = new Headers()
   const token = getToken()
   if (token) headers.set('Authorization', `Token ${token}`)

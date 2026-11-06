@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, invitaciones, panel_admin, reportes_web, seguimiento
+from . import cuenta, views, invitaciones, panel_admin, recuperacion, reportes_web, seguimiento
 
 urlpatterns = [
     # Portal web: grupos, invitaciones y reportes
@@ -8,6 +8,8 @@ urlpatterns = [
     path("grupos/<uuid:grupo_id>/reporte/", reportes_web.reporte_grupo),
     path("grupos/<uuid:grupo_id>/seguimiento/", seguimiento.seguimiento_grupo),
     path("jugadores/<int:jugador_id>/reporte/", reportes_web.reporte_nino),
+    path("grupos/<uuid:grupo_id>/buscar-familia/", invitaciones.buscar_familia),
+    path("grupos/<uuid:grupo_id>/miembros/", invitaciones.agregar_miembros),
     path("grupos/<uuid:grupo_id>/miembros/<uuid:miembro_id>/", invitaciones.quitar_miembro),
     path("grupos/<uuid:grupo_id>/invitaciones/", invitaciones.invitar),
     path("grupos/<uuid:grupo_id>/invitaciones/<uuid:invitacion_id>/", invitaciones.gestionar_invitacion),
@@ -24,7 +26,11 @@ urlpatterns = [
     # Auth (cuenta del adulto responsable)
     path("auth/registro/", views.registro, name="registro"),
     path("auth/login/", views.auth_login, name="auth_login"),
-    path("auth/perfil/", views.perfil_adulto, name="perfil_adulto"),
+    path("auth/perfil/", cuenta.perfil, name="perfil_adulto"),
+    path("auth/cambiar-contrasena/", cuenta.cambiar_contrasena),
+    path("auth/recuperacion/solicitar/", recuperacion.solicitar),
+    path("auth/recuperacion/verificar/", recuperacion.verificar),
+    path("auth/recuperacion/restablecer/", recuperacion.restablecer),
 
     # Perfiles de menores (control parental)
     path("jugadores/", views.jugadores, name="jugadores"),
@@ -40,6 +46,7 @@ urlpatterns = [
     path("partidas/<int:partida_id>/npcs/", views.npcs_partida, name="npcs_partida"),
     path("partidas/<int:partida_id>/riesgo-por-zona/", views.riesgo_por_zona, name="riesgo_por_zona"),
     path("partidas/<int:partida_id>/presion-social/", views.presion_social, name="presion_social"),
+    path("partidas/<int:partida_id>/puntaje-final/", views.puntaje_final, name="puntaje_final"),
     path("partidas/<int:partida_id>/oportunidades-mejora/", views.oportunidades_mejora, name="oportunidades_mejora"),
 
     # Progreso por partida (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)

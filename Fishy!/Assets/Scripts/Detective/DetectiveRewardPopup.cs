@@ -59,6 +59,16 @@ namespace Fishy.Detective
         private RecompensaOtorgada? _pendiente;
         private Coroutine _rutina;
 
+        /// <summary>
+        /// Si la celebración está corriendo. HDU-17 CA1 la cuenta como cinemática y no
+        /// deja pausar encima: la animación va con tiempo sin escalar —tiene que
+        /// seguir viéndose aunque el juego esté congelado—, así que una pausa aquí no
+        /// la detendría; y peor, el Esc que abre la pausa es también una tecla, que
+        /// es lo que <see cref="EsperarOSaltar"/> usa para saltarse el final. Las dos
+        /// cosas a la vez dejaban el pin a medio desaparecer detrás del menú.
+        /// </summary>
+        public static bool EnCurso => _instance != null && _instance._rutina != null;
+
         // Piezas de la UI, creadas una vez y reutilizadas.
         private CanvasGroup     _backdrop;
         private CanvasGroup     _grupoPin;

@@ -37,8 +37,9 @@ namespace Fishy.Net
         public static ApiManager Instance { get; private set; }
 
         [Header("Configuracion")]
-        [Tooltip("URL base del backend Django, sin slash final. Ej: http://127.0.0.1:8000/api")]
-        [SerializeField] private string baseUrl = "http://127.0.0.1:8000/api";
+        // Una sola dirección para salud, autenticación y progreso. No se serializa:
+        // una escena antigua no puede sobrescribirla con su URL de localhost.
+        public const string BaseUrl = "https://fishy-test.up.railway.app/api";
 
         [Tooltip("Timeout por peticion en segundos.")]
         [SerializeField] private int timeoutSeconds = 15;
@@ -53,10 +54,10 @@ namespace Fishy.Net
         [SerializeField] private bool verboseLogs = false;
 #endif
 
-        [Header("Modo local (sin servidor)")]
+        [Header("Simulación explícita (solo Editor)")]
         [Tooltip("Si esta activo, NO se conecta al backend: simula todo localmente " +
                  "(usuarios en PlayerPrefs, partidas/NPCs/chats en memoria). " +
-                 "Se activa automaticamente si el servidor no responde.")]
+                 "Solo para pruebas del Editor. Nunca se activa por fallos de conexión.")]
         [SerializeField] private bool useLocalMode = false;
 
         /// <summary>True si se esta simulando todo localmente (sin servidor).</summary>
@@ -79,18 +80,36 @@ namespace Fishy.Net
         public int PeticionesEnVuelo => _enVuelo;
 
         /// <summary>
-        /// Recorta el timeout de las peticiones mientras dure un vaciado con plazo.
-        /// Null = usar <c>timeoutSeconds</c>.
+        /// Recorta el timeout de la peticion que se cree mientras este puesto. Solo
+        /// recorta: nunca pasa de <c>timeoutSeconds</c>. Null = usar <c>timeoutSeconds</c>.
         ///
-        /// Sin esto, al cerrar el juego una peticion podria seguir viva despues de que
-        /// el vaciado se haya rendido: se le diria al nino/a que su avance se perdio
-        /// cuando todavia podia llegar. Acotando cada peticion a lo que le queda al
-        /// plazo, al vencer este ya todas reportaron su resultado de verdad.
+        /// Lo pone la cola de guardado alrededor del envio de cada cambio, y solo ahi:
+        /// el timeout se lee al crear la peticion, en la misma llamada que la manda. Sin
+        /// esto, al cerrar el juego una peticion podria seguir viva despues de que el
+        /// vaciado se haya rendido: se le diria al nino/a que su avance se perdio cuando
+        /// todavia podia llegar.
         ///
         /// Quien lo pone es responsable de devolverlo a null en un <c>finally</c>, o el
         /// juego se queda con timeouts cortos para el resto de la sesion.
         /// </summary>
         public int? TopeDeTiempoParaPeticiones { get; set; }
+
+        /// <summary>
+        /// Codigo HTTP del error que se esta notificando ahora mismo. 0 si el fallo no
+        /// llego a tener respuesta (sin red, timeout, sin token, falta un id).
+        ///
+        /// <b>Solo vale leerlo DENTRO de un <c>onError</c>, sincronicamente.</b> Se pone
+        /// en la linea de antes de invocar el callback y no hay ningun <c>yield</c> en
+        /// medio, asi que quien lo lee ahi ve su propio codigo; guardarlo para despues no
+        /// sirve, porque la siguiente peticion que falle lo pisa.
+        ///
+        /// Existe porque <c>onError</c> es <c>Action&lt;string&gt;</c> en las ~100
+        /// llamadas de esta clase y recibe el cuerpo de la respuesta, donde el codigo no
+        /// viene. Sin el, quien reintenta no puede distinguir "el servidor no contesta"
+        /// —que se arregla insistiendo— de "el servidor dice que este cuerpo esta mal"
+        /// —que no se arregla nunca—, y la cola de guardado los trataba igual.
+        /// </summary>
+        public int CodigoDelUltimoError { get; private set; }
 
         // ── Estado de sesion (en memoria) ───────────────────────────────────────
         public string Token { get; private set; }
@@ -128,6 +147,12 @@ namespace Fishy.Net
                 return;
             }
             Instance = this;
+#if !UNITY_EDITOR
+            // Los builds siempre usan el servidor, aunque una escena de pruebas
+            // haya guardado estos campos activados en el Inspector.
+            useLocalMode = false;
+            verboseLogs = false;
+#endif
             DontDestroyOnLoad(gameObject);
         }
 
@@ -136,8 +161,8 @@ namespace Fishy.Net
         // ╚═══════════════════════════════════════════════════════════════════════╝
 
         /// <summary>
-        /// Hace un ping a /health/ con timeout corto (4 s).
-        /// Si el servidor no responde, activa el modo local automáticamente.
+        /// Comprueba /health/ por HTTPS. Un fallo no cambia el origen de los datos
+        /// ni activa la simulación local. Da margen al arranque del servicio remoto.
         /// onResult recibe true si el backend está disponible.
         /// </summary>
         public void CheckHealth(Action<bool> onResult)
@@ -147,14 +172,8 @@ namespace Fishy.Net
         }
 
         /// <summary>
-        /// Vuelve a preguntarle al backend si esta vivo, saliendo del modo local si
-        /// se habia activado. Hace falta para poder REINTENTAR: una vez que
-        /// HealthRoutine prende useLocalMode, CheckHealth corta antes de llegar a la
-        /// red y siempre devuelve false, asi que la sesion se quedaria pegada en
-        /// PlayerPrefs aunque el servidor ya hubiera vuelto.
-        ///
-        /// La usa la pantalla de ingreso, que exige backend real: sin el, los datos
-        /// no llegarian a Supabase.
+        /// Reconsulta el servicio remoto. También permite salir de una simulación
+        /// iniciada explícitamente en el Editor. Nunca crea una sesión local.
         /// </summary>
         public void ReintentarConexion(Action<bool> onResult)
         {
@@ -164,23 +183,30 @@ namespace Fishy.Net
 
         private IEnumerator HealthRoutine(Action<bool> onResult)
         {
-            string url = baseUrl + "/health/";
+            string url = BaseUrl + "/health/";
             using var req = UnityWebRequest.Get(url);
-            req.timeout = 4;
+            req.timeout = 30;
             yield return req.SendWebRequest();
 
-            bool ok = req.result == UnityWebRequest.Result.Success;
+            bool ok = req.result == UnityWebRequest.Result.Success &&
+                      RespuestaSaludValida(req.downloadHandler.text);
             if (!ok)
             {
                 Debug.LogWarning($"[API] Backend no disponible ({req.error}). " +
-                                 "Activando modo local automáticamente.");
-                useLocalMode = true;
+                                 "Los datos no se simularán localmente. Puedes reintentar la conexión.");
             }
             else
             {
-                Debug.Log($"[API] Backend disponible en {baseUrl}.");
+                Debug.Log($"[API] Backend disponible en {BaseUrl}.");
             }
             onResult?.Invoke(ok);
+        }
+
+        internal static bool RespuestaSaludValida(string cuerpo)
+        {
+            // Un proxy puede devolver HTML con HTTP 200. Eso no confirma Django.
+            try { return (string)JObject.Parse(cuerpo)["status"] == "ok"; }
+            catch (Exception) { return false; }
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -405,6 +431,36 @@ namespace Fishy.Net
             AdoptarPartida(partida);
             if (verboseLogs) Debug.Log($"[API] Partida {PartidaId} retomada a pedido del jugador.");
             return true;
+        }
+
+        /// <summary>
+        /// Se dejó de jugar la partida sin cerrar la aplicación: el jugador volvió al
+        /// menú. Ya no hay <see cref="PartidaId"/>, y quien restauró algo de ella tiene
+        /// que olvidarlo.
+        /// </summary>
+        public static event Action OnPartidaCerrada;
+
+        /// <summary>
+        /// Suelta la partida activa, conservando la sesión y el perfil para que el menú
+        /// pueda ofrecer seguir.
+        ///
+        /// Los sincronizadores restauran cuando <i>cambia</i> la partida. Sin esto, volver
+        /// a entrar en la misma desde el menú no restauraba nada sobre la escena recién
+        /// cargada: Otto aparecía en el punto de inicio —y el siguiente guardado pisaba
+        /// la posición buena— y las zonas abiertas volvían a estar cerradas. Al soltarla,
+        /// volver a entrar recorre el mismo camino que la primera vez.
+        /// </summary>
+        public void CerrarPartida()
+        {
+            if (PartidaId == null) return;
+
+            int cerrada = PartidaId.Value;
+            PartidaId = null;
+            NpcId = null;
+            ChatId = null;
+
+            if (verboseLogs) Debug.Log($"[API] Partida {cerrada} cerrada: se volvió al menú.");
+            OnPartidaCerrada?.Invoke();
         }
 
         // ╔═══════════════════════════════════════════════════════════════════════╗
@@ -1215,6 +1271,27 @@ namespace Fishy.Net
         }
 
         /// <summary>
+        /// Puntaje de la aventura completa (puntos de chat de las tres zonas sobre el
+        /// maximo posible), para elegir el final (HDU-09). En modo local no hay
+        /// historial: avisa por onError y quien llama usa lo que sumo en la sesion.
+        /// </summary>
+        public void ObtenerPuntajeFinal(int? partidaId = null,
+            Action<PuntajeFinalDto> onSuccess = null, Action<string> onError = null)
+        {
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: no hay historial de decisiones en el servidor.");
+                return;
+            }
+
+            StartCoroutine(Send<PuntajeFinalDto>("GET", $"/partidas/{pId}/puntaje-final/",
+                null, auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
+        /// <summary>
         /// Marca que la interaccion con ese NPC termino. A diferencia de los objetos
         /// recogidos, repetir SI actualiza: un NPC con `repetible` puede rehacerse y
         /// vale el ultimo resultado.
@@ -1353,10 +1430,12 @@ namespace Fishy.Net
             _enVuelo++;
             try
             {
-                string url = baseUrl + path;
+                string url = BaseUrl + path;
 
                 using var req = new UnityWebRequest(url, method);
-                req.timeout = TopeDeTiempoParaPeticiones ?? timeoutSeconds;
+                req.timeout = TopeDeTiempoParaPeticiones.HasValue
+                    ? Mathf.Min(TopeDeTiempoParaPeticiones.Value, timeoutSeconds)
+                    : timeoutSeconds;
                 req.downloadHandler = new DownloadHandlerBuffer();
 
                 if (body != null)
@@ -1376,6 +1455,7 @@ namespace Fishy.Net
                 {
                     if (!IsLoggedIn)
                     {
+                        CodigoDelUltimoError = 0;
                         onError?.Invoke("No hay token: debes hacer Login/Registro primero.");
                         yield break;
                     }
@@ -1392,6 +1472,11 @@ namespace Fishy.Net
                     // servidor devuelve una traza HTML que incluye la contrasena.
                     string msg = $"[API] Error {(int)req.responseCode} en {method} {path}: {req.error}\n{Censurar(text, path)}";
                     if (verboseLogs) Debug.LogError(msg);
+
+                    // Un timeout o un corte de red dejan responseCode en 0, que es justo
+                    // lo que hay que informar: no hubo respuesta, asi que insistir tiene
+                    // sentido. Un 400 o un 404 si la tuvieron, y no lo tiene.
+                    CodigoDelUltimoError = (int)req.responseCode;
                     onError?.Invoke(string.IsNullOrEmpty(text) ? req.error : text);
                     yield break;
                 }
@@ -1407,6 +1492,10 @@ namespace Fishy.Net
                     }
                     catch (Exception e)
                     {
+                        // El servidor contesto bien pero con algo que no se entiende.
+                        // Repetir la peticion devolveria el mismo JSON invalido, asi que
+                        // se informa como permanente y no como "no hubo respuesta".
+                        CodigoDelUltimoError = (int)req.responseCode;
                         onError?.Invoke($"Error al parsear JSON: {e.Message}\n{text}");
                         yield break;
                     }
@@ -1437,6 +1526,10 @@ namespace Fishy.Net
         private bool RequireId(int? id, string name, Action<string> onError)
         {
             if (id.HasValue) return true;
+
+            // Nunca salio una peticion, asi que no hay codigo. Se marca igual: sin esto,
+            // quien lea `CodigoDelUltimoError` veria el de la peticion anterior.
+            CodigoDelUltimoError = 0;
             onError?.Invoke($"Falta {name} en la sesion. Asegurate de crear/registrar antes de esta llamada.");
             return false;
         }
@@ -2214,6 +2307,7 @@ namespace Fishy.Net
         public bool   es_fin_de_npc;
         public bool   es_fin_de_zona;
         public string mensaje_npc;
+        public string pensamiento_otto;
         public List<OpcionBancoDto> opciones = new List<OpcionBancoDto>();
     }
 
@@ -2326,6 +2420,16 @@ namespace Fishy.Net
     /// los dos lados. NO renombrarlo por prolijidad.
     /// </summary>
     [Serializable]
+    public class PuntajeFinalDto
+    {
+        public int    partida_id;
+        public int    puntos;           // ya con el piso en 0
+        public int    puntos_brutos;    // la suma tal cual, puede ser negativa
+        public int    puntos_maximos;   // mejor ruta de cada chat, desde el banco
+        public float? porcentaje;       // null si el banco no tiene decisiones
+        public int    decisiones;
+    }
+
     public class PresionSocialDto
     {
         public int partida_id;

@@ -1,3 +1,5 @@
+import type { TematicaId } from './reportes'
+
 export interface Grupo {
   id: string
   nombre: string
@@ -9,6 +11,12 @@ export interface NuevoGrupo {
   nombre: string
   descripcion?: string
 }
+export interface PerfilFamilia {
+  jugador_id: number
+  nombre: string
+  estado: 'disponible' | 'en_este_curso' | 'en_otro_curso'
+}
+export interface FamiliaEncontrada { perfiles: PerfilFamilia[] }
 /** Cada integrante representa a un niño; un padre puede recibir invitaciones para distintos hijos. */
 export interface MiembroGrupo {
   id: string
@@ -20,11 +28,16 @@ export interface GrupoDetalle extends Grupo {
   miembros: MiembroGrupo[]
   invitaciones: InvitacionGrupo[]
 }
+export type EstadoSeguimiento = 'prioritario' | 'apoyo' | 'sin_alertas' | 'muestra_insuficiente' | 'sin_datos'
+/** Solo estados: el servidor no entrega porcentajes ni conteos por niño. */
+export interface SeguimientoGrupo {
+  alumnos: { miembro_id: string; estado: EstadoSeguimiento; tematicas: { tematica: TematicaId; estado: EstadoSeguimiento }[] }[]
+}
 export interface NuevaInvitacion { email: string; nombre_nino: string }
 export interface InvitacionGrupo extends NuevaInvitacion {
   id: string
   estado: 'pendiente' | 'aceptada' | 'cancelada' | 'vencida'
-  estado_envio: 'enviando' | 'enviado' | 'fallido' | 'simulado'
+  estado_envio: 'enviando' | 'enviado' | 'fallido'
   fecha_creacion: string
   vence_en: string
   enviada_en: string | null

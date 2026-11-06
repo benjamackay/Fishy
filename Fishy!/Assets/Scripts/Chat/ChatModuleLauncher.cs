@@ -12,7 +12,7 @@ namespace Fishy.Chat
     ///  • Con la tecla de interacción (E por defecto): pon un <c>Collider2D</c> en
     ///    este mismo GameObject (no hace falta que sea trigger; el que dispara la
     ///    detección es el de <c>InteractionDetector</c>, en un hijo de Otto). Es el
-    ///    mismo mecanismo que usa <see cref="NPC"/> para los NPCs neutros, así que un
+    ///    mismo mecanismo que usa <see cref="DialogoNeutroNPC"/> para los NPCs neutros, así que un
     ///    NPC sospechoso se interactúa igual: acercarse y pulsar E.
     ///  • Desde un Button de UI: enlaza <see cref="OpenChat"/> en su OnClick.
     ///  • Al acercarse sin pulsar nada: marca <see cref="openOnTriggerEnter"/> y pon

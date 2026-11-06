@@ -45,7 +45,15 @@ RUTA_MISIONES_DEFAULT = settings.BASE_DIR.parent.parent / "Fishy!" / "Assets" / 
 
 # Claves del JSON que este cargador entiende. Cualquier otra se avisa por consola:
 # el modo de falla que costó caro fue justamente ignorar bloques en silencio.
-CLAVES_DE_CONTENIDO = {"preguntas", "dialogos_npc_neutros"}
+CLAVES_DE_CONTENIDO = {"preguntas", "dialogos_npc_neutros", "finales_narrativos"}
+# De `finales_narrativos` se cargan solo las recompensas (van al álbum); los
+# textos los lee el juego de su copia en Resources al terminar la Misión 6.
+#
+# Contenido que hoy solo lee el juego: los reconocimientos de accesorios esperan
+# a la personalización (HDU06, Sprint 3). No se sirve por la API, así que no se
+# modela; se nombra aquí para que el aviso de abajo no lo tome por contenido
+# perdido. Si algún día el portal lo necesita, pasa a modelarse.
+CLAVES_SOLO_JUEGO = {"dialogos_personalizacion"}
 CLAVES_DE_METADATA = {
     "version", "autor", "fecha_creacion", "fecha_actualizacion",
     "hdu_cubiertas", "formato_respuesta",
@@ -138,7 +146,7 @@ class Command(BaseCommand):
             data = json.load(f)
 
         # Avisar de bloques que el JSON trae y este cargador no sabe leer.
-        desconocidas = set(data) - CLAVES_DE_CONTENIDO - CLAVES_DE_METADATA
+        desconocidas = set(data) - CLAVES_DE_CONTENIDO - CLAVES_DE_METADATA - CLAVES_SOLO_JUEGO
         if desconocidas:
             self.stdout.write(self.style.WARNING(
                 f"El JSON trae bloques que este cargador NO carga: {sorted(desconocidas)}. "
@@ -174,7 +182,7 @@ class Command(BaseCommand):
                 f"— junto con el progreso de álbum asociado."
             ))
 
-        recompensas = []  # (recompensa_id, nombre, tip, mision_obj, opcion_banco_id)
+        recompensas = []  # (recompensa_id, nombre, tip, mision_obj, opcion_banco_id, final_id)
 
         # ── Preguntas y opciones ────────────────────────────────────────────
         preguntas = data.get("preguntas", [])
@@ -199,6 +207,7 @@ class Command(BaseCommand):
                 "es_fin_de_npc":          p.get("es_fin_de_npc", False),
                 "es_fin_de_zona":         p.get("es_fin_de_zona", False),
                 "mensaje_npc":            p.get("mensaje_npc", ""),
+                "pensamiento_otto":       p.get("pensamiento_otto") or "",
                 "etiquetas_ml":           p.get("etiquetas_ml", []),
             }
 
@@ -233,7 +242,7 @@ class Command(BaseCommand):
                 )
                 if premio:
                     nombre, tip = premio
-                    recompensas.append((f"ALB_{op['id']}", nombre, tip, None, op["id"]))
+                    recompensas.append((f"ALB_{op['id']}", nombre, tip, None, op["id"], ""))
 
         # ── Diálogos de NPCs neutros y sus misiones ─────────────────────────
         dialogos = data.get("dialogos_npc_neutros", [])
@@ -291,7 +300,7 @@ class Command(BaseCommand):
                         f"diálogo {d['id']}: tiene recompensa de álbum pero no declara "
                         f"`mision_desbloquea`, así que no hay a qué colgarla."
                     )
-                recompensas.append((f"ALB_{mision_id}", nombre, tip, mision_obj, ""))
+                recompensas.append((f"ALB_{mision_id}", nombre, tip, mision_obj, "", ""))
 
         # ── Catálogo de misiones (B.1 de REQUISITOS_BD) ─────────────────────
         # El banco solo sabe el id y el nombre de 9 misiones. El `orden`, la
@@ -376,8 +385,15 @@ class Command(BaseCommand):
         # Van con update_or_create sobre el recompensa_id (derivado del origen,
         # que es estable) y no con delete+create: así conservan su PK y el
         # progreso de los niños en RecompensaObtenida sobrevive a cada recarga.
+        # Las de los finales vienen con nombre explícito: no hay texto libre que
+        # parsear, así que tampoco pueden romperse por una redacción nueva.
+        for final in (data.get("finales_narrativos") or {}).get("finales", []):
+            nombre = (final.get("recompensa") or "").strip()
+            if nombre:
+                recompensas.append((f"ALB_{final['id']}", nombre, "", None, "", final["id"]))
+
         recompensas_creadas = recompensas_actualizadas = 0
-        for recompensa_id, nombre, tip, mision_obj, opcion_id in recompensas:
+        for recompensa_id, nombre, tip, mision_obj, opcion_id, final_id in recompensas:
             _, created = RecompensaAlbum.objects.update_or_create(
                 recompensa_id=recompensa_id,
                 defaults={
@@ -385,6 +401,7 @@ class Command(BaseCommand):
                     "tip_educativo":   tip,
                     "mision":          mision_obj,
                     "opcion_banco_id": opcion_id,
+                    "final_id":        final_id,
                 },
             )
             if created:

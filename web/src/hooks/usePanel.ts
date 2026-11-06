@@ -1,14 +1,16 @@
-import { useMemo } from 'react'
+import { createContext, useContext, useMemo } from 'react'
 import { useSesion } from '@/auth/contexto'
 import { panelReal } from '@/api/panelReal'
-import { crearPanelDemo } from '@/mocks/gruposMock'
 import { aplicarPermisosPanel } from '@/lib/permisosPanel'
 import type { FuentePanel } from '@/types/panel'
+export const ContextoPanelDemo = createContext<FuentePanel | null>(null)
 
 export function usePanel(): FuentePanel {
-  const { perfil, modoDemo } = useSesion()
+  const { perfil } = useSesion()
+  const demo = useContext(ContextoPanelDemo)
   return useMemo(() => {
-    const fuente = modoDemo ? crearPanelDemo(perfil?.id ?? -1) : panelReal
-    return aplicarPermisosPanel(fuente, perfil)
-  }, [perfil, modoDemo])
+    return aplicarPermisosPanel(demo ?? panelReal, perfil)
+  }, [perfil, demo])
 }
+
+export function useEsDemoPeriodo() { return useContext(ContextoPanelDemo) !== null }

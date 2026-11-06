@@ -17,6 +17,6 @@ export function hayResultados(resultados: ResultadoTematica[]): boolean {
   return resultados.some(r => porcentajeSeguro(r.metricas) !== null)
 }
 export function fechaActualizacion(valor: string | null): string {
-  if (!valor || !Number.isFinite(Date.parse(valor))) return 'Sin actividad registrada'
-  return new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(valor))
+  if (!valor || !Number.isFinite(Date.parse(valor))) return 'Fecha no disponible'
+  return new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(valor))
 }
