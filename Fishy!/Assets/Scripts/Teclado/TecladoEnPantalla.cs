@@ -195,6 +195,12 @@ namespace Fishy.UI
         }
 
         // ── De dónde salen las teclas ─────────────────────────────────────────
+        //
+        // Los cuatro ayudantes de esta sección son `internal` y no `private`: la
+        // pantalla de controles del menú (PantallaDeControles) enseña exactamente
+        // las mismas teclas con otro diseño, y dos copias de «a quién se le
+        // preguntan las teclas» se desincronizan el día que cambie una atadura.
+        // Es justo el error que esta tarjeta existe para no cometer.
 
         /// <summary>
         /// Las teclas de caminar, sacadas de la acción que Otto escucha de verdad.
@@ -210,7 +216,7 @@ namespace Fishy.UI
         /// prueba del arnés que avisa si ese respaldo y los atajos de verdad dejan de
         /// coincidir.
         /// </summary>
-        private static List<List<Key>> TeclasDeCaminar(OttoController otto)
+        internal static List<List<Key>> TeclasDeCaminar(OttoController otto)
         {
             var porDireccion = new List<List<Key>>
             {
@@ -264,7 +270,7 @@ namespace Fishy.UI
 
         /// <summary>Las teclas de una acción de un solo botón (correr), sin
         /// las del mando.</summary>
-        private static List<Key> TeclasDe(InputAction accion, params Key[] respaldo)
+        internal static List<Key> TeclasDe(InputAction accion, params Key[] respaldo)
         {
             var teclas = new List<Key>();
 
@@ -301,7 +307,7 @@ namespace Fishy.UI
         /// <summary>La tecla de interactuar, leída del detector que la escucha. Es
         /// pública y ya se usa así para escribir la letra del cartel de "para
         /// interactuar".</summary>
-        private static Key TeclaDeInteractuar()
+        internal static Key TeclaDeInteractuar()
         {
             InteractionDetector detector = FindAnyObjectByType<InteractionDetector>();
             return detector != null ? detector.interactKey : Key.E;
@@ -310,7 +316,7 @@ namespace Fishy.UI
         /// <summary>Cómo se llama una tecla en la tarjeta. Las letras van solas; las
         /// demás llevan nombre en castellano y corto, que es lo que cabe en una
         /// tecla.</summary>
-        private static string EtiquetaDe(Key tecla)
+        internal static string EtiquetaDe(Key tecla)
         {
             switch (tecla)
             {
