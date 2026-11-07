@@ -249,6 +249,18 @@ public class iniciar : MonoBehaviour
     {
         if (ocupado) return;
 
+        // Con las pantallas en una sola escena esta no se destruye al salir, solo se
+        // apaga: si se vuelve desde "crear cuenta", ese panel se quedaria encendido y
+        // al entrar otra vez se veria el formulario de cuenta en lugar del login. Se
+        // deja el cartel del login puesto para la proxima entrada. En el camino viejo
+        // (cargar la escena anterior) no estorba: lo de aqui se destruye igual.
+        VolverAlLogin();
+
+        // En la escena unica del menu no se carga nada: se enciende la pantalla de
+        // inicio y esta se apaga. Si no hay pantallas (la escena Ingresar suelta),
+        // devuelve false y se sigue por el camino de siempre.
+        if (PantallasDelMenu.Ir(PantallasDelMenu.Pantalla.Inicio)) return;
+
         if (string.IsNullOrEmpty(escenaAnterior))
         {
             Debug.LogWarning("[Ingresar] No hay escena anterior configurada: el boton " +
@@ -834,6 +846,11 @@ public class iniciar : MonoBehaviour
 
     private void Continuar()
     {
+        // Igual que en Volver(): con las pantallas en una sola escena esto es encender
+        // la del menu, no cargar MenuDos. El LoadScene de abajo queda como respaldo
+        // para la escena Ingresar suelta.
+        if (PantallasDelMenu.Ir(PantallasDelMenu.Pantalla.Menu)) return;
+
         if (Application.CanStreamedLevelBeLoaded(escenaDestino))
         {
             SceneManager.LoadScene(escenaDestino);
