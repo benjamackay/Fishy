@@ -6,13 +6,18 @@ namespace Fishy.UI
     /// HDU-17 CA2 — Lo que el niño/a puede ajustar desde el menú de pausa, y dónde
     /// queda guardado.
     ///
-    /// <b>Son dos ajustes y no diez a propósito.</b> El criterio pide que la pausa
+    /// <b>Son pocos ajustes y no diez a propósito.</b> El criterio pide que la pausa
     /// ofrezca «Configuración»; lo que hay detrás tiene que ser algo que un niño/a de
-    /// 9 a 13 entienda de una mirada y pueda deshacer. La velocidad del texto y la
-    /// pantalla completa se explican solas, y las dos se notan apenas se cambian. Lo
-    /// que no se pone: nada de idioma (el juego está solo en español), nada de
-    /// calidad gráfica (elegir «bajo» y no saber por qué el juego se ve feo es una
-    /// trampa), nada que toque la partida, y por ahora tampoco volumen.
+    /// 9 a 13 entienda de una mirada y pueda deshacer. La velocidad del texto, la
+    /// pantalla completa y el volumen se explican solos. Lo que no se pone: nada de
+    /// idioma (el juego está solo en español), nada de calidad gráfica (elegir «bajo»
+    /// y no saber por qué el juego se ve feo es una trampa) y nada que toque la partida.
+    ///
+    /// <b>El volumen se guarda y se aplica aunque el juego todavía no suene.</b> A
+    /// noviembre de 2026 no hay ni un archivo de audio en el proyecto, así que moverlo
+    /// no se oye; está puesto porque es de los ajustes que se esperan en un menú y
+    /// porque <c>AudioListener.volume</c> es global: el día que haya música y efectos,
+    /// ya quedan atados sin tocar nada más.
     ///
     /// <b>Va en PlayerPrefs y no al backend.</b> Son preferencias del aparato, no de
     /// la cuenta: cómo se juega en la sala de computación del colegio no tiene por
@@ -29,6 +34,7 @@ namespace Fishy.UI
 
         private const string ClavePantallaCompleta = Prefijo + "PantallaCompleta";
         private const string ClaveVelocidadTexto = Prefijo + "VelocidadTexto";
+        private const string ClaveVolumen = Prefijo + "Volumen";
 
         /// <summary>Alto de la ventana al salir de pantalla completa, si el monitor da
         /// para tanto. 720 es lo mínimo en que el juego se sigue leyendo bien.</summary>
@@ -72,6 +78,34 @@ namespace Fishy.UI
         /// <summary>Lenta → Normal → Rápida → Lenta. Es lo que hace el botón.</summary>
         public static VelocidadDelTexto SiguienteVelocidad(VelocidadDelTexto actual)
             => (VelocidadDelTexto)(((int)actual + 1) % 3);
+
+        // ── Volumen ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Volumen general, de 0 (apagado) a 1 (todo). Empieza en 1: nadie espera
+        /// abrir un juego y encontrárselo mudo.
+        ///
+        /// Va a <c>AudioListener.volume</c>, que multiplica a todo lo que suene en la
+        /// escena, así que no hace falta que cada sonido lo consulte. Se guarda en
+        /// cuanto se cambia, igual que los demás ajustes: el deslizador del menú lo
+        /// escribe mientras se arrastra, que son unas cuantas escrituras seguidas, y
+        /// aun así es preferible a perder el ajuste si el juego se cierra de golpe.
+        /// </summary>
+        public static float Volumen
+        {
+            get => Mathf.Clamp01(PlayerPrefs.GetFloat(ClaveVolumen, 1f));
+            set
+            {
+                float v = Mathf.Clamp01(value);
+                PlayerPrefs.SetFloat(ClaveVolumen, v);
+                PlayerPrefs.Save();
+                AudioListener.volume = v;
+            }
+        }
+
+        /// <summary>El volumen en porcentaje, que es como se escribe en la pantalla
+        /// de opciones: «Volumen: 70%».</summary>
+        public static int VolumenEnPorcentaje => Mathf.RoundToInt(Volumen * 100f);
 
         // ── Pantalla completa ─────────────────────────────────────────────────
 
@@ -121,10 +155,16 @@ namespace Fishy.UI
         /// ventana a alguien que no pidió nada es de mala educación, y en el editor
         /// además es molesto. La velocidad del texto no necesita aplicarse: los
         /// diálogos la leen cada vez que escriben.
+        ///
+        /// El volumen sí se aplica también en el editor, al revés que la pantalla: no
+        /// molesta a nadie y, si no, bajarlo desde el menú y darle a Play volvería a
+        /// dejarlo arriba, que parece que el ajuste no se guardó.
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Aplicar()
         {
+            AudioListener.volume = Volumen;
+
             if (Application.isEditor) return;
 
             if (PlayerPrefs.HasKey(ClavePantallaCompleta))

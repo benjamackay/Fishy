@@ -62,6 +62,16 @@ namespace Fishy.UI
         private OttoController _otto;
         private Action _alVolver;
 
+        /// <summary>
+        /// Si la tarjeta trae su propio título «Controles» y su propio botón «Volver».
+        ///
+        /// La pausa los quiere: ahí la tarjeta sale sola encima del juego y tiene que
+        /// decir qué es y cómo salir. Una pantalla de menú no, porque ya pone su título
+        /// y su botón de volver con el aspecto del resto del menú, y repetirlos deja dos
+        /// títulos y dos botones que hacen lo mismo.
+        /// </summary>
+        private bool _conTituloYVolver = true;
+
         public bool Abierto => _raiz != null && _raiz.activeSelf;
 
         // ── Crear, abrir y cerrar ─────────────────────────────────────────────
@@ -75,7 +85,8 @@ namespace Fishy.UI
         /// construirse: las teclas se le preguntan a Otto, y así seguro que ya armó
         /// sus atajos.
         /// </summary>
-        public static TecladoEnPantalla CrearEn(Transform padre, Action alVolver)
+        public static TecladoEnPantalla CrearEn(Transform padre, Action alVolver,
+                                               bool conTituloYVolver = true)
         {
             var go = new GameObject("Controles", typeof(RectTransform));
             go.transform.SetParent(padre, false);
@@ -83,12 +94,28 @@ namespace Fishy.UI
 
             var ayuda = go.AddComponent<TecladoEnPantalla>();
             ayuda._alVolver = alVolver;
+            ayuda._conTituloYVolver = conTituloYVolver;
             ayuda._raiz = go;
             ayuda._otto = FindAnyObjectByType<OttoController>();
             ayuda.Construir();
 
             go.SetActive(false);
             return ayuda;
+        }
+
+        /// <summary>
+        /// Cambia el tamaño de la tarjeta entera. <see cref="Medidas.Escala"/> (1.3) es
+        /// lo que usa la pausa, donde la tarjeta sale sola sobre un velo oscuro; en la
+        /// pantalla de opciones del menú, con los ajustes detrás, a ese tamaño tapa
+        /// demasiado y se pide más chica.
+        ///
+        /// No se toca <c>Medidas.Escala</c> para esto: es un campo estático compartido,
+        /// y cambiarlo desde el menú le cambiaría el tamaño también a la pausa.
+        /// </summary>
+        public void Escalar(float escala)
+        {
+            if (_tarjeta != null && escala > 0f)
+                _tarjeta.localScale = Vector3.one * escala;
         }
 
         public void Abrir()
@@ -322,10 +349,13 @@ namespace Fishy.UI
             float ancho = Med.AnchoPanel - 2f * Med.Padding;
             float y = -Med.Padding;
 
-            Texto(_tarjeta, "Titulo", Txt.Titulo, Fnt.Titulo, Col.Titulo,
-                FishyUIKit.Titulos, Med.Padding, y, ancho, Fnt.Titulo * 1.2f);
+            if (_conTituloYVolver)
+            {
+                Texto(_tarjeta, "Titulo", Txt.Titulo, Fnt.Titulo, Col.Titulo,
+                    FishyUIKit.Titulos, Med.Padding, y, ancho, Fnt.Titulo * 1.2f);
 
-            y -= Fnt.Titulo * 1.2f + Med.Separacion;
+                y -= Fnt.Titulo * 1.2f + Med.Separacion;
+            }
 
             y = FilaDeCaminar(y);
             y = Fila(y, Accion.Hablar, new List<List<Key>> { new List<Key> { TeclaDeInteractuar() } });
@@ -339,17 +369,20 @@ namespace Fishy.UI
                 Accion.Celular, new List<Key> { MenuController.TeclaDelCelular },
                 Accion.Pausa,   new List<Key> { MenuPausa.TeclaDePausa });
 
-            // «Volver», a lo ancho como en la tarjeta de configuración.
-            y -= Med.Separacion;
-            Button volver = FishyUIKit.Boton(_tarjeta, Txt.Volver, Paleta.Verde,
-                Fnt.Boton, Med.AltoBoton, () => _alVolver?.Invoke());
-            volver.navigation = new Navigation { mode = Navigation.Mode.None };
+            if (_conTituloYVolver)
+            {
+                // «Volver», a lo ancho como en la tarjeta de configuración.
+                y -= Med.Separacion;
+                Button volver = FishyUIKit.Boton(_tarjeta, Txt.Volver, Paleta.Verde,
+                    Fnt.Boton, Med.AltoBoton, () => _alVolver?.Invoke());
+                volver.navigation = new Navigation { mode = Navigation.Mode.None };
 
-            var rtVolver = (RectTransform)volver.transform;
-            rtVolver.anchorMin = rtVolver.anchorMax = rtVolver.pivot = new Vector2(0f, 1f);
-            rtVolver.sizeDelta = new Vector2(ancho, Med.AltoBoton);
-            rtVolver.anchoredPosition = new Vector2(Med.Padding, y);
-            y -= Med.AltoBoton;
+                var rtVolver = (RectTransform)volver.transform;
+                rtVolver.anchorMin = rtVolver.anchorMax = rtVolver.pivot = new Vector2(0f, 1f);
+                rtVolver.sizeDelta = new Vector2(ancho, Med.AltoBoton);
+                rtVolver.anchoredPosition = new Vector2(Med.Padding, y);
+                y -= Med.AltoBoton;
+            }
 
             _tarjeta.sizeDelta = new Vector2(Med.AnchoPanel, -y + Med.Padding);
         }
