@@ -248,7 +248,7 @@ namespace Fishy.Net
                         avisoDeSinPartidaDado = true;
                         Debug.LogWarning(
                             "[PersonajeBackendSync] Llevo varios segundos sin PartidaId: la posición de " +
-                            "Otto NO se va a guardar. Si estás probando, entra por MenuUno para pasar " +
+                            "Otto NO se va a guardar. Si estás probando, entra por Menu para pasar " +
                             "por el login; darle Play directo a la escena de juego no crea partida.");
                     }
                 }

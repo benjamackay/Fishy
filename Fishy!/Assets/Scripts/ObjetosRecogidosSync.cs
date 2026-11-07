@@ -157,7 +157,7 @@ public class ObjetosRecogidosSync : MonoBehaviour
                     Debug.LogWarning(
                         "[ObjetosRecogidos] Llevo varios segundos sin PartidaId: los objetos que " +
                         "recoja el niño/a van a reaparecer la próxima vez. Si estás probando, entra " +
-                        "por MenuUno para pasar por el login.");
+                        "por Menu para pasar por el login.");
                 }
             }
             else

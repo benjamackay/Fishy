@@ -44,7 +44,7 @@ namespace Fishy.UI
 
         [Tooltip("Escena a la que lleva el botón de salir. Tiene que estar en Build " +
                  "Settings; si no está, el botón cierra el juego como antes.")]
-        public string escenaMenu = "MenuDos";
+        public string escenaMenu = "Menu";
 
         [Tooltip("Segundos que se espera tras pedir el guardado antes de cerrar. " +
                  "Guardar solo LANZA las peticiones al backend; si se cierra en el " +

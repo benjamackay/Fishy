@@ -107,7 +107,7 @@ namespace Fishy.Net
                         avisoDeSinPartidaDado = true;
                         Debug.LogWarning(
                             "[InventarioBackendSync] Llevo varios segundos sin PartidaId: la mochila " +
-                            "NO se va a guardar. Si estas probando, entra por MenuUno para pasar por " +
+                            "NO se va a guardar. Si estas probando, entra por Menu para pasar por " +
                             "el login; darle Play directo a la escena de juego no crea partida.");
                     }
                 }

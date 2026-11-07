@@ -102,7 +102,7 @@ public class MisionInicial : MonoBehaviour
         {
             Debug.Log($"[MisionInicial] Se cumplió el plazo de {esperaMaxima:F0}s sin partida " +
                       "atada. Entrego igual, pero el progreso de esta sesión no se va a " +
-                      "guardar. Si estás probando, entra por MenuUno para pasar por el login.", this);
+                      "guardar. Si estás probando, entra por Menu para pasar por el login.", this);
         }
 
         // 2. Que haya llegado el progreso del servidor, si es que va a llegar. Así una

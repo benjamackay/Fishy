@@ -139,7 +139,7 @@ public class NpcTematicaSync : MonoBehaviour
                     Debug.LogWarning(
                         "[NpcTematica] Llevo varios segundos sin PartidaId: el avance dentro de la " +
                         "temática NO se va a guardar, así que habrá que hacerla entera de una " +
-                        "sentada. Si estás probando, entra por MenuUno para pasar por el login.");
+                        "sentada. Si estás probando, entra por Menu para pasar por el login.");
                 }
             }
             else

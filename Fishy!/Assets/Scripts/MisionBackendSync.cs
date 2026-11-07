@@ -223,7 +223,7 @@ namespace Fishy.Net
                         avisoDeSinPartidaDado = true;
                         Debug.LogWarning(
                             "[MisionBackendSync] Llevo varios segundos sin PartidaId: el progreso de " +
-                            "misiones y zonas NO se va a guardar. Si estas probando, entra por MenuUno " +
+                            "misiones y zonas NO se va a guardar. Si estas probando, entra por Menu " +
                             "para pasar por el login; darle Play directo a la escena no crea partida.");
                     }
                 }
