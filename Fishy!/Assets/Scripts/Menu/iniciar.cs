@@ -6,7 +6,6 @@ using Fishy.Net;
 using Fishy.UI;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -27,7 +26,7 @@ using UnityEngine.UI;
 /// La clase se sigue llamando "iniciar" y conserva <see cref="MenuDos"/> porque el
 /// boton "Ingresar" de la escena los tiene cableados en su onClick persistente
 /// (m_TargetAssemblyTypeName: iniciar, Assembly-CSharp / m_MethodName: MenuDos).
-/// Renombrarlos romperia ese wiring guardado en Ingresar.unity.
+/// Renombrarlos romperia ese wiring guardado en Menu.unity.
 ///
 /// El resto de la pantalla se cablea sola en Awake() buscando los objetos por
 /// nombre, asi que no hace falta arrastrar nada en el inspector.
@@ -75,14 +74,6 @@ public class iniciar : MonoBehaviour
              "reciente a la mas antigua, asi que se muestran las N ultimas. Con cero " +
              "partidas guardadas no se muestra nada: se empieza una y se entra directo.")]
     [Min(1)] public int maxPartidasEnLista = 3;
-
-    [Header("Destino")]
-    [Tooltip("Escena que se carga despues de autenticarse. Debe estar en Build Settings.")]
-    public string escenaDestino = "MenuDos";
-
-    [Tooltip("Escena a la que vuelve el boton Volver: la pantalla anterior al login. " +
-             "Debe estar en Build Settings.")]
-    public string escenaAnterior = "MenuUno";
 
     [Header("Referencias (opcionales: si faltan se buscan por nombre en la escena)")]
     public TMP_InputField usuarioInput;
@@ -257,18 +248,13 @@ public class iniciar : MonoBehaviour
         VolverAlLogin();
 
         // En la escena unica del menu no se carga nada: se enciende la pantalla de
-        // inicio y esta se apaga. Si no hay pantallas (la escena Ingresar suelta),
-        // devuelve false y se sigue por el camino de siempre.
+        // inicio y esta se apaga. Hasta el 2026-11-07 habia un respaldo que cargaba
+        // la escena MenuUno para cuando esto corria en la escena Ingresar suelta;
+        // esas tres escenas viejas se borraron y el respaldo con ellas.
         if (PantallasDelMenu.Ir(PantallasDelMenu.Pantalla.Inicio)) return;
 
-        if (string.IsNullOrEmpty(escenaAnterior))
-        {
-            Debug.LogWarning("[Ingresar] No hay escena anterior configurada: el boton " +
-                             "Volver no hace nada. Rellena 'Escena Anterior' en el inspector.", this);
-            return;
-        }
-
-        SceneManager.LoadScene(escenaAnterior);
+        Debug.LogWarning("[Ingresar] No hay PantallasDelMenu en la escena: el boton " +
+                         "Volver no tiene a donde ir.", this);
     }
 
     public void Enviar()
@@ -847,19 +833,12 @@ public class iniciar : MonoBehaviour
     private void Continuar()
     {
         // Igual que en Volver(): con las pantallas en una sola escena esto es encender
-        // la del menu, no cargar MenuDos. El LoadScene de abajo queda como respaldo
-        // para la escena Ingresar suelta.
+        // la del menu. El respaldo que cargaba la escena MenuDos murio con ella.
         if (PantallasDelMenu.Ir(PantallasDelMenu.Pantalla.Menu)) return;
 
-        if (Application.CanStreamedLevelBeLoaded(escenaDestino))
-        {
-            SceneManager.LoadScene(escenaDestino);
-            return;
-        }
-
-        Debug.LogError($"[Ingresar] La escena '{escenaDestino}' no esta en Build Settings. " +
-                       "El login fue correcto, pero no es seguro continuar sin una escena valida.");
-        MostrarErrorPartida($"No se encontró la escena '{escenaDestino}'. Revisa Build Settings.");
+        Debug.LogError("[Ingresar] No hay PantallasDelMenu en la escena: el login fue " +
+                       "correcto, pero no hay ninguna pantalla de menu que encender.");
+        MostrarErrorPartida("No se pudo abrir el menú: falta PantallasDelMenu en la escena.");
     }
 
     /// <summary>
