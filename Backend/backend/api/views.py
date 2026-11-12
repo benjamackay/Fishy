@@ -18,6 +18,7 @@ from .models import (
     DialogoNPC, Mision, MisionProgreso, ZonaProgreso, ItemInventario,
     PersonajeJugador, ObjetoRecogido, NpcProgreso,
     ObjetivoMision, ObjetivoProgreso,
+    RecompensaAlbum, RecompensaObtenida,
 )
 from .serializers import (
     RegistroSerializer, AdultoResponsableSerializer, UsuarioJugadorSerializer,
@@ -1494,6 +1495,120 @@ def puntaje_final(request, partida_id):
         "porcentaje": round(min(100.0, 100.0 * puntos / maximos), 1) if maximos else None,
         "decisiones": decisiones,
         "por_zona": por_zona,
+    })
+
+
+@api_view(["POST"])
+def registrar_final(request, partida_id):
+    """
+    Registra que la aventura terminó con el Final A, B o C y le entrega al álbum
+    del niño la recompensa de ese final (HDU-09).
+
+    Body: {"final_id": "FINAL_A"}
+
+    **Qué final corresponde lo decide el juego, no el servidor**, y no es un
+    descuido: los umbrales (`porcentaje_minimo`) son contenido y viven en
+    `finales_narrativos` del banco, del que `cargar_banco` carga solo las
+    recompensas — lo dice su propio comentario. El número con el que se puede
+    auditar esa decisión ya lo sirve `/puntaje-final/`, así que acá no se vuelve
+    a calcular: duplicar esa cuenta es cómo se desincronizan dos verdades.
+
+    **No hay columna "final de la partida", y no hace falta.** La recompensa de
+    cada final es única (`ALB_FINAL_A`, `ALB_FINAL_B`, `ALB_FINAL_C`), así que
+    `RecompensaObtenida` ya responde cuál salió. Sumar un campo obligaría a una
+    migración, y en estas tablas eso cuesta caro: hay que poder volver a la
+    versión anterior sin tocar la base.
+
+    Idempotente: rejugar la Misión 6 no duplica la medalla — lo respalda el
+    UniqueConstraint del modelo, no solo este código. Un final DISTINTO sí se
+    suma, igual que en Unity (`SistemaDeFinales.EntregarRecompensa`): es otra
+    recompensa, y el álbum no le quita a nadie lo que ya se ganó.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    final_id = (request.data.get("final_id") or "").strip()
+
+    # Los finales válidos son los que el banco trajo, no una lista escrita acá:
+    # si mañana se agrega un Final D, esto lo acepta sin tocar el servidor.
+    conocidos = set(
+        RecompensaAlbum.objects.exclude(final_id="").values_list("final_id", flat=True)
+    )
+    if final_id not in conocidos:
+        return Response(
+            {"detail": (
+                f"'{final_id}' no es un final conocido. Los que trajo el banco son "
+                f"{sorted(conocidos)}." if conocidos else
+                f"'{final_id}' no es un final conocido, y la base no tiene ninguno: "
+                "falta correr `cargar_banco`."
+            )},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    nuevas, ya_estaban = [], []
+    for premio in RecompensaAlbum.objects.filter(final_id=final_id):
+        _, creada = RecompensaObtenida.objects.get_or_create(
+            partida=partida, recompensa=premio
+        )
+        (nuevas if creada else ya_estaban).append(premio.recompensa_id)
+
+    logger.info(
+        "Partida %s terminó con %s. Recompensas nuevas al álbum: %s (ya tenía %s).",
+        partida.pk, final_id, nuevas or "ninguna", ya_estaban or "ninguna",
+    )
+
+    return Response({
+        "partida_id": partida.pk,
+        "final_id": final_id,
+        "recompensas_nuevas": nuevas,
+        "recompensas_ya_obtenidas": ya_estaban,
+        "album_total": partida.recompensas_album.count(),
+    })
+
+
+@api_view(["GET"])
+def album_partida(request, partida_id):
+    """
+    El álbum del niño: qué recompensas lleva obtenidas.
+
+    Sin esto, lo que escribe `registrar_final` no lo puede leer nadie —ni el
+    juego para pintar el álbum, ni el reporte del adulto—, así que va en el
+    mismo cambio.
+
+    `origen` dice de dónde salió cada una, que es justo lo que no se podía
+    contestar sin parsear texto libre: `mision`, `opcion` o `final`.
+    """
+    partida = get_object_or_404(
+        Partida, pk=partida_id, usuario_jugador__adulto=request.user
+    )
+
+    obtenidas = (
+        RecompensaObtenida.objects
+        .filter(partida=partida)
+        .select_related("recompensa", "recompensa__mision")
+        .order_by("fecha")
+    )
+
+    def origen_de(r):
+        if r.final_id:        return {"tipo": "final",  "id": r.final_id}
+        if r.opcion_banco_id: return {"tipo": "opcion", "id": r.opcion_banco_id}
+        if r.mision_id:       return {"tipo": "mision", "id": r.mision.mision_id}
+        return {"tipo": "desconocido", "id": ""}
+
+    return Response({
+        "partida_id": partida.pk,
+        "total": obtenidas.count(),
+        "recompensas": [
+            {
+                "recompensa_id": o.recompensa.recompensa_id,
+                "nombre":        o.recompensa.nombre,
+                "tip_educativo": o.recompensa.tip_educativo,
+                "origen":        origen_de(o.recompensa),
+                "fecha":         o.fecha,
+            }
+            for o in obtenidas
+        ],
     })
 
 

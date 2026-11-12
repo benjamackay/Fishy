@@ -47,6 +47,8 @@ urlpatterns = [
     path("partidas/<int:partida_id>/riesgo-por-zona/", views.riesgo_por_zona, name="riesgo_por_zona"),
     path("partidas/<int:partida_id>/presion-social/", views.presion_social, name="presion_social"),
     path("partidas/<int:partida_id>/puntaje-final/", views.puntaje_final, name="puntaje_final"),
+    path("partidas/<int:partida_id>/final/", views.registrar_final, name="registrar_final"),
+    path("partidas/<int:partida_id>/album/", views.album_partida, name="album_partida"),
     path("partidas/<int:partida_id>/oportunidades-mejora/", views.oportunidades_mejora, name="oportunidades_mejora"),
 
     # Progreso por partida (HDU-1 CA4/CA5, HDU-3 CA5, HDU-4 CA5)
