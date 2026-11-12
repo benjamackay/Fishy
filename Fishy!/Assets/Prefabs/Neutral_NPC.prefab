@@ -179,13 +179,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 23759498eb8ee2b4a800c911435091a1, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NPC
+  m_EditorClassIdentifier: Assembly-CSharp::DialogoNeutroNPC
+  dialogoId: 
+  dialogosSiguientes: []
   dialogueData: {fileID: 0}
   dialoguePanel: {fileID: 0}
   dialogueText: {fileID: 0}
   nameText: {fileID: 0}
   portraitImage: {fileID: 0}
-  dialogoId: 
+  otto: {fileID: 0}
+  bloquearMovimiento: 1
+  repetible: 0
   onDialogueEnded:
     m_PersistentCalls:
       m_Calls: []
@@ -202,5 +206,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MissionGiver
   desafio: {fileID: 0}
+  misionId: 
   objetivos: []
   soloUnaVez: 1
+  requiereVolverParaEntregar: 0
+  zonaADesbloquear: {fileID: 0}
+  usarCinematicaDesbloqueo: 1
+  mensajeDesbloqueo: "\u2728 \xA1Nueva zona desbloqueada!"
+  mensajeMisionPendiente: "A\xFAn no has completado la misi\xF3n."
