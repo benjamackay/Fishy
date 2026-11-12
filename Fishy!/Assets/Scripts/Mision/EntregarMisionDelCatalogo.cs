@@ -18,7 +18,7 @@ using UnityEngine;
 public class EntregarMisionDelCatalogo : MonoBehaviour
 {
     [Tooltip("Id de la misión a entregar, tal como está en Resources/misiones.json o " +
-             "en la base. Ej: MISION_NPC_04. Se ignora si se arrastra una ficha abajo.")]
+             "en la base. Ej: MISION_M4_ACOSO. Se ignora si se arrastra una ficha abajo.")]
     public string misionId = "";
 
     [Header("Sin catálogo (opcional)")]

@@ -326,6 +326,24 @@
         "Inventaron ese cuento para culparme."
       ],
       "pista_mision": "Coipo entrega datos precisos que contradicen la versión del fango."
+    },
+    {
+      "id": "HDU3_NPC_PINGUINO_M5A",
+      "hdu": "HDU-1",
+      "zona": "reto_viral",
+      "npc_id": "NPC_PINGUINO",
+      "npc_nombre": "Pingüino de Humboldt",
+      "npc_avatar": "npc_pinguino_humboldt_01",
+      "tipo": "testimonio",
+      "trigger": "boton_E",
+      "mision_desbloquea": null,
+      "nombre_mision": "Misión 5a: El reto de la cueva",
+      "lineas": [
+        "Otto, ¿puedo contarte algo? Lobo Marino me está insistiendo con un reto: entrar a la cueva de las olas con los ojos vendados.",
+        "Le dije que no quería y me contestó \"todos los populares ya lo hicieron\" y \"no seas cobarde\". Ahora me da vergüenza quedarme afuera.",
+        "¿Tú crees que van a pensar que soy un miedoso? No sé qué contestarle."
+      ],
+      "pista_mision": "El Pingüino repite las frases con que lo están presionando: \"todos lo hicieron\" y \"no seas cobarde\". Decir que no también se puede hacer acompañado."
     }
   ],
   "preguntas": [

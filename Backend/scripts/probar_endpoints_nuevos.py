@@ -162,7 +162,7 @@ def probar_catalogo(base):
 def probar_objetivos(base, token, partida_id):
     print("\n-- B.3 · Avance por objetivo --")
     ruta = f"{base}/partidas/{partida_id}/objetivos/"
-    cuerpo = {"mision_id": "MISION_NPC_03", "orden": 1, "cumplido": True}
+    cuerpo = {"mision_id": "MISION_M1_AMISTAD", "orden": 1, "cumplido": True}
 
     codigo, datos = pedir(ruta, "POST", cuerpo, token)
     comprobar(codigo == 200 and datos.get("cumplido") is True,
@@ -179,7 +179,7 @@ def probar_objetivos(base, token, partida_id):
     comprobar(vuelta.get("cumplido") is True,
               "un `cumplido: false` posterior NO lo devuelve a pendiente")
 
-    codigo, _ = pedir(ruta, "POST", {"mision_id": "MISION_NPC_03"}, token)
+    codigo, _ = pedir(ruta, "POST", {"mision_id": "MISION_M1_AMISTAD"}, token)
     comprobar(codigo == 400, f"sin `orden` responde 400 (dio {codigo})")
 
     codigo, _ = pedir(ruta, "POST",
