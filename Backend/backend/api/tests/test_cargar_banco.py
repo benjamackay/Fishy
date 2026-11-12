@@ -121,6 +121,33 @@ class CargaCompletaTests(TestCase):
             "una recompensa quedó sin nombre: el parseo del texto libre se rompió",
         )
 
+    def test_la_recompensa_de_una_opcion_sale_de_su_campo_y_no_del_texto(self):
+        """`consecuencia_narrativa` es lo que el niño LEE en el chat, y era además
+        de donde salía la recompensa. Las dos cosas en un campo se pelean: limpiar
+        la frase "Álbum: desbloquea la 'X'." para que no se la leyera en medio de
+        la narración borraba también la recompensa de la base, y nada avisaba —el
+        cargador pasaba de 15 recompensas a 9 en silencio—. Con `recompensa_album`
+        aparte, el texto se puede redactar libre y el dato sigue llegando.
+        """
+        con_campo = [(o["id"], o["recompensa_album"])
+                     for p in self.banco["preguntas"]
+                     for o in (p.get("opciones_respuesta") or [])
+                     if o.get("recompensa_album")]
+        self.assertEqual(len(con_campo), 6, "el banco ya no trae recompensas por campo")
+
+        for opcion_id, nombre in con_campo:
+            premio = RecompensaAlbum.objects.get(recompensa_id=f"ALB_{opcion_id}")
+            self.assertEqual(premio.nombre, nombre)
+            self.assertEqual(premio.opcion_banco_id, opcion_id)
+
+        # Y lo que el niño lee ya no habla del álbum en ninguna opción.
+        for p in self.banco["preguntas"]:
+            for o in (p.get("opciones_respuesta") or []):
+                self.assertNotIn(
+                    "desbloquea la '", o.get("consecuencia_narrativa") or "",
+                    f"la opción {o['id']} volvió a anunciar el álbum en su texto",
+                )
+
     def test_cada_recompensa_tiene_exactamente_un_origen(self):
         por_mision = RecompensaAlbum.objects.filter(mision__isnull=False).count()
         por_opcion = RecompensaAlbum.objects.exclude(opcion_banco_id="").count()

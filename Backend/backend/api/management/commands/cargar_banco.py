@@ -235,13 +235,29 @@ class Command(BaseCommand):
                 )
                 opciones_total += 1
 
-                premio = extraer_recompensa(
-                    op.get("consecuencia_narrativa", ""),
-                    RE_ALBUM_OPCION,
-                    f"opción {op['id']}",
-                )
-                if premio:
-                    nombre, tip = premio
+                # `recompensa_album` manda sobre el texto libre.
+                #
+                # `consecuencia_narrativa` hacía dos trabajos a la vez: es lo que el
+                # niño lee en el chat Y era de donde salía la recompensa. Limpiar la
+                # frase "Álbum: desbloquea la 'X'." para que no se la leyera en medio
+                # de la narración borraba también la recompensa de la base, sin que
+                # nada avisara. Con el campo aparte, el texto se puede redactar libre
+                # y el dato sigue llegando.
+                #
+                # El parseo del texto libre se queda detrás, no se borra: los
+                # diálogos (`pista_mision`) todavía lo usan, y una opción que aún
+                # traiga la frase vieja sigue cargando igual.
+                nombre = (op.get("recompensa_album") or "").strip()
+                tip = (op.get("tip_album") or "").strip()
+                if not nombre:
+                    premio = extraer_recompensa(
+                        op.get("consecuencia_narrativa", ""),
+                        RE_ALBUM_OPCION,
+                        f"opción {op['id']}",
+                    )
+                    if premio:
+                        nombre, tip = premio
+                if nombre:
                     recompensas.append((f"ALB_{op['id']}", nombre, tip, None, op["id"], ""))
 
         # ── Diálogos de NPCs neutros y sus misiones ─────────────────────────
