@@ -435,7 +435,7 @@
           "id": "HDU2_NPC01_Q01_OPTIMA_R1",
           "texto": "Salir del chat: si es verdad, no hay drama en que Huemul lo sepa. Chao.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Otto cierra el chat tranquilo y va donde Huemul, que le muestra una pista dejada por su abuelo. Álbum: desbloquea la 'Estampa de la Lupa de Huemul'.",
+          "consecuencia_narrativa": "Otto cierra el chat tranquilo y va donde Huemul, que le muestra una pista dejada por su abuelo.",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU2_NPC01_FIN_SEGURO"
         },
@@ -658,7 +658,7 @@
           "id": "HDU2_NPC02_Q01_R1",
           "texto": "Ninguna pieza vale saber dónde vivo. Te bloqueo y aviso a Huemul.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Otto anota firme: 'Ningún regalo vale exponer dónde vivo.' Álbum: desbloquea la 'Insignia de Guardián de la Privacidad'. Otto halla la pieza real siguiendo huellas legítimas junto a Pudú.",
+          "consecuencia_narrativa": "Otto anota firme: 'Ningún regalo vale exponer dónde vivo.' Otto halla la pieza real siguiendo huellas legítimas junto a Pudú.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU2_NPC02_FIN_SEGURO"
         },
@@ -920,7 +920,7 @@
           "id": "HDU3_M3_DECISION01_R1",
           "texto": "La libreta de Coipo tiene datos y nadie vio la caja hundirse. No repito algo sin pruebas.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Pato Juarjual reflexiona: 'Tienes razón... yo lo reenvié sin pensar. Borro mis mensajes.' Álbum: desbloquea la 'Estampa del Detector de Rumores'. Se limpia la reputación de Coipo, que entrega coordenadas hacia el Arrecife.",
+          "consecuencia_narrativa": "Pato Juarjual reflexiona: 'Tienes razón... yo lo reenvié sin pensar. Borro mis mensajes.' Se limpia la reputación de Coipo, que entrega coordenadas hacia el Arrecife.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU3_M3_FIN_SEGURO"
         },
@@ -1226,7 +1226,7 @@
           "id": "HDU3_NPC05_Q01_R1",
           "texto": "Eso es acoso. Esto está medio Fishy: reporto la página y aviso a un adulto y a Coipo.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Otto avisa: 'Avisar a tiempo es lo que realmente frena esto.' Pato Juarjual 2 se desconecta y la página desaparece. Álbum: desbloquea la 'Insignia de Escudo Empático'. Coipo recuerda haber visto la caja rumbo al Arrecife.",
+          "consecuencia_narrativa": "Otto avisa: 'Avisar a tiempo es lo que realmente frena esto.' Pato Juarjual 2 se desconecta y la página desaparece. Coipo recuerda haber visto la caja rumbo al Arrecife.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU3_NPC05_FIN_SEGURO"
         },
@@ -1373,7 +1373,7 @@
           "id": "HDU3_NPC05_Q01_UNIRSE_T2_R1",
           "texto": "Esto se pasó. Borro y reporto.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Pato Juarjual 2 recapacita: 'Tienes razón, no pensé en Coipo.' Álbum: desbloquea la 'Pin de Pato Juarjual 2 Arrepentido'.",
+          "consecuencia_narrativa": "Pato Juarjual 2 recapacita: 'Tienes razón, no pensé en Coipo.'",
           "impacto_puntuacion": 1,
           "siguiente_pregunta": "HDU3_NPC05_FIN_SEGURO"
         },
@@ -1535,7 +1535,7 @@
           "id": "HDU4_NPC05_Q01_R1",
           "texto": "Esto está medio Fishy. Nadie tiene que meterse a una cueva peligrosa para demostrar nada. Ni tú, Pingüino.",
           "tipo": "segura_optima",
-          "consecuencia_narrativa": "Otto sonríe con calma: 'Cuidar tu cuerpo nunca es de cobardes.' Lobo Marino se frena: 'Bueno... las corrientes sí están fuertes hoy...' Álbum: desbloquea la 'Estampa de la Ola Segura'. Primer rechazo consecutivo registrado.",
+          "consecuencia_narrativa": "Otto sonríe con calma: 'Cuidar tu cuerpo nunca es de cobardes.' Lobo Marino se frena: 'Bueno... las corrientes sí están fuertes hoy...' Primer rechazo consecutivo registrado.",
           "impacto_puntuacion": 2,
           "siguiente_pregunta": "HDU4_NPC05_FIN_SEGURO"
         },
