@@ -251,6 +251,12 @@ namespace Fishy.Finales
                           $"{(porcentaje.HasValue ? porcentaje.Value.ToString("0.#") + " %" : "porcentaje desconocido")} " +
                           $"del puntaje máximo ({origen}).", this);
 
+            // Se anota ANTES de la cinemática, no después: si el niño cierra el juego
+            // mientras pasan las líneas, la medalla ya está en su álbum. Es lo único
+            // de todo esto que no se puede volver a provocar — el chat de la Misión 6
+            // no se repite.
+            AnotarEnElAlbum(final);
+
             // 3. Las líneas, y al final la recompensa.
             yield return MostrarLineas(final);
             EntregarRecompensa(final);
@@ -379,6 +385,35 @@ namespace Fishy.Finales
         }
 
         // ── Recompensa ────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Le avisa al servidor qué final salió, para que la medalla entre al álbum
+        /// del niño (<c>RecompensaObtenida</c>).
+        ///
+        /// Es la contraparte de <see cref="EntregarRecompensa"/>: esa deja el ítem en
+        /// el inventario de esta partida, y esto deja el registro que el reporte del
+        /// adulto y el álbum pueden leer. Sin las dos, el final se veía y no quedaba
+        /// en ninguna parte.
+        ///
+        /// El mismo guardia que <see cref="PedirPorcentaje"/>: sin sesión no hay álbum
+        /// que actualizar, y encolarlo igual solo dejaría un reintento fallando para
+        /// siempre. En modo local se juega sin servidor a propósito.
+        /// </summary>
+        private void AnotarEnElAlbum(FinalNarrativo final)
+        {
+            if (string.IsNullOrWhiteSpace(final?.id)) return;
+
+            var api = ApiManager.Instance;
+            if (api == null || api.IsLocalMode || !api.IsLoggedIn || !api.PartidaId.HasValue)
+            {
+                if (verboseLogs)
+                    Debug.Log($"[Finales] '{final.id}' no se anota en el álbum del " +
+                              "servidor: se está jugando sin sesión.", this);
+                return;
+            }
+
+            ColaDeCambios.EncolarFinal(final.id);
+        }
 
         private void EntregarRecompensa(FinalNarrativo final)
         {

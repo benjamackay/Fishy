@@ -1020,6 +1020,42 @@ namespace Fishy.Net
                 onSuccess: onSuccess, onError: onError));
         }
 
+        /// <summary>
+        /// Anota que la aventura terminó con este final y le entrega al álbum del niño
+        /// la medalla que le corresponde (HDU-09).
+        ///
+        /// <b>El final lo decide el juego, no el servidor</b>, porque los umbrales
+        /// (<c>porcentaje_minimo</c>) son contenido y viven en <c>finales_narrativos</c>
+        /// del banco: <c>cargar_banco</c> carga de ahí solo las recompensas. El servidor
+        /// valida que el id sea uno de los que trajo el banco y nada más; el porcentaje
+        /// con el que se puede auditar la decisión ya lo sirve <c>/puntaje-final/</c>.
+        ///
+        /// Idempotente del lado del servidor: repetirlo no duplica la medalla, así que
+        /// es seguro reintentarlo desde la cola de guardado.
+        /// </summary>
+        public void RegistrarFinalDelAlbum(string finalId, int? partidaId = null,
+            Action<FinalRegistradoDto> onSuccess = null, Action<string> onError = null)
+        {
+            if (useLocalMode)
+            {
+                onError?.Invoke("Modo local: el álbum no se registra sin backend.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(finalId))
+            {
+                onError?.Invoke("Falta el id del final.");
+                return;
+            }
+
+            int? pId = partidaId ?? PartidaId;
+            if (!RequireId(pId, "PartidaId", onError)) return;
+
+            var body = new { final_id = finalId.Trim() };
+            StartCoroutine(Send<FinalRegistradoDto>("POST", $"/partidas/{pId}/final/", body,
+                auth: true, onSuccess: onSuccess, onError: onError));
+        }
+
         // ╔═══════════════════════════════════════════════════════════════════════╗
         // ║  INVENTARIO (HDU-15)                                                    ║
         // ╚═══════════════════════════════════════════════════════════════════════╝
@@ -2428,6 +2464,16 @@ namespace Fishy.Net
         public int    puntos_maximos;   // mejor ruta de cada chat, desde el banco
         public float? porcentaje;       // null si el banco no tiene decisiones
         public int    decisiones;
+    }
+
+    /// <summary>Lo que responde el servidor al anotar el final de la aventura.</summary>
+    public class FinalRegistradoDto
+    {
+        public int           partida_id;
+        public string        final_id;                  // FINAL_A | FINAL_B | FINAL_C
+        public List<string>  recompensas_nuevas;        // las que se acaban de ganar
+        public List<string>  recompensas_ya_obtenidas;  // las que ya estaban (reintento)
+        public int           album_total;
     }
 
     public class PresionSocialDto
