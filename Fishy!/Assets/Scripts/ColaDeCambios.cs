@@ -417,6 +417,37 @@ namespace Fishy.Net
         }
 
         /// <summary>
+        /// El final con el que termino la aventura, para que llegue al album del nino.
+        ///
+        /// Va por la cola y no con un POST directo porque es un hecho que ocurre UNA
+        /// vez, justo al final de la partida: si en ese momento no hay red, un POST
+        /// suelto se perderia y el nino se quedaria sin su medalla en el album sin que
+        /// nadie se enterara. El servidor es idempotente, asi que reintentar no la
+        /// duplica.
+        ///
+        /// <b>Clave por final, no una sola para "el final".</b> Rejugar la Mision 6 y
+        /// sacar otro final entrega OTRA medalla —el album no quita lo ya ganado—, asi
+        /// que con una clave compartida el segundo final pisaria al primero antes de
+        /// que llegara a subir.
+        /// </summary>
+        public static void EncolarFinal(string finalId)
+        {
+            if (string.IsNullOrWhiteSpace(finalId)) return;
+            string id = finalId.Trim();
+
+            Meter($"album.final:{id}", Familia.Append, null, $"final {id}",
+                valor: id,
+                fusion: (viejo, nuevo) => nuevo,
+                hacerEnviar: v => (ok, error) =>
+                {
+                    var api = ApiManager.Instance;
+                    if (api == null) { error("No hay ApiManager."); return; }
+                    api.RegistrarFinalDelAlbum((string)v,
+                        onSuccess: _ => ok(), onError: error);
+                });
+        }
+
+        /// <summary>
         /// Progreso de la partida (0-100). <b>Fusiona por maximo, no pisa.</b>
         ///
         /// Cada zona manda un valor absoluto al completarse. Si dos se cerraran entre

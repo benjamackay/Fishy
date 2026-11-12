@@ -82,9 +82,10 @@ class CargaCompletaTests(TestCase):
         )
 
     def test_las_misiones_que_solo_estan_en_el_archivo_tambien_llegan(self):
-        """Las 3 que el banco no conoce (MISION_NPC_03, MISION_NPC_04,
-        MISION_PANTANO_CRIATURAS) existen solo en `misiones.json`: si el cargador
-        no lo lee, el catálogo queda incompleto y nadie se entera."""
+        """El banco solo conoce las 9 misiones que abre un diálogo de NPC. Las otras
+        8 —el hilo principal completo y la secundaria de Puma 2— existen solo en
+        `misiones.json`: si el cargador no lo lee, el catálogo queda sin la historia
+        y nadie se entera."""
         del_archivo = {m["mision_id"] for m in
                        json.loads(RUTA_MISIONES.read_text(encoding="utf-8"))["misiones"]}
         en_la_base = set(Mision.objects.values_list("mision_id", flat=True))

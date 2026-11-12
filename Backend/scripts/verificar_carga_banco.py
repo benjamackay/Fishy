@@ -204,8 +204,9 @@ def verificar_dialogos(data):
 
     # Las misiones vienen de DOS fuentes: las que desbloquea el banco y las del
     # catálogo de Unity (`misiones.json`), que `cargar_banco` también carga. Hay
-    # misiones que solo existen en el catálogo (MISION_NPC_03, MISION_NPC_04,
-    # MISION_PANTANO_CRIATURAS); contar solo el banco las daba por huérfanas.
+    # misiones que solo existen en el catálogo (el hilo principal entero, porque el
+    # banco solo conoce las que abre un diálogo de NPC); contar solo el banco las
+    # daba por huérfanas.
     from api.management.commands.cargar_banco import RUTA_MISIONES_DEFAULT
     misiones_json = {d["mision_desbloquea"] for d in dialogos if d.get("mision_desbloquea")}
     if RUTA_MISIONES_DEFAULT.is_file():

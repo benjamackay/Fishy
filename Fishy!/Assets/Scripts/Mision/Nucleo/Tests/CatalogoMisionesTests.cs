@@ -108,7 +108,7 @@ public class CatalogoMisionesTests
     // ── El archivo de verdad ─────────────────────────────────────────────────
 
     [UnityTest]
-    public IEnumerator ArchivoDeRespaldo_ExisteYTraeLasTreceMisiones()
+    public IEnumerator ArchivoDeRespaldo_ExisteYTraeElRecorridoCompleto()
     {
         yield return null;
 
@@ -116,18 +116,104 @@ public class CatalogoMisionesTests
 
         Assert.AreEqual(CatalogoMisiones.Origen.Archivo, CatalogoMisiones.DeDonde,
             "Sin Resources/misiones.json el juego se queda sin respaldo.");
-        // 9 originales + MISION_NPC_03, MISION_NPC_04, MISION_PANTANO_CRIATURAS y
-        // MISION_M3_TESTIMONIOS: el mismo conjunto que tiene el servidor.
-        Assert.AreEqual(13, CatalogoMisiones.Todas.Count);
+        // El recorrido de narrativa2.5: 3 bienvenidas de zona + las 7 principales
+        // (M1, M2, M3, M4, 5a, 5b y 6) + las 7 secundarias que lista el PDF.
+        Assert.AreEqual(17, CatalogoMisiones.Todas.Count);
+        Assert.AreEqual(3, Cuantas("exploracion"), "Son tres zonas, tres bienvenidas.");
+        Assert.AreEqual(7, Cuantas("principal"), "El hilo del PDF son siete misiones.");
+        Assert.AreEqual(7, Cuantas("secundaria"), "El PDF lista siete secundarias.");
+
+        // Las dos de la Zona 1 son las que más veces se han ido del archivo: estuvieron
+        // fundidas en una sola misión de depuración ('MISION_NPC_03'), y con ellas
+        // fuera la zona del grooming no tenía ni una misión principal.
+        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_M1_AMISTAD"));
+        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_M2_REGALO"));
         Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_SEC_MASCOTA_COIPO"));
-        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_NPC_03"));
-        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_NPC_04"));
-        Assert.IsNotNull(CatalogoMisiones.Buscar("MISION_PANTANO_CRIATURAS"));
 
         // La presentación de Coipo abre los testimonios: si JsonUtility no leyera el
-        // campo, la misión no llegaría nunca y no habría ningún error.
+        // campo, la misión no llegaría nunca y no habría ningún error. Lo mismo vale
+        // para la cadena de la Zona 1, que es lo único que entrega el hilo principal.
         Assert.AreEqual("MISION_M3_TESTIMONIOS",
             CatalogoMisiones.Buscar("MISION_EXPLORACION_02").desbloquea_mision);
+        Assert.AreEqual("MISION_M1_AMISTAD",
+            CatalogoMisiones.Buscar("MISION_EXPLORACION_01").desbloquea_mision);
+        Assert.AreEqual("MISION_M2_REGALO",
+            CatalogoMisiones.Buscar("MISION_M1_AMISTAD").desbloquea_mision);
+
+        // Ninguna principal la entrega un NPC del mapa: estos campos son su ÚNICA vía
+        // de llegada, así que si uno se cae, la aventura se corta ahí sin un solo
+        // mensaje de error. Cada bienvenida de zona abre la primera principal de su
+        // zona, y de ahí en adelante van en cadena.
+        Assert.AreEqual("MISION_M4_ACOSO",
+            CatalogoMisiones.Buscar("MISION_M3_TESTIMONIOS").desbloquea_mision);
+        Assert.AreEqual("MISION_M5A_RETO_CUEVA",
+            CatalogoMisiones.Buscar("MISION_EXPLORACION_03").desbloquea_mision);
+        Assert.AreEqual("MISION_M5B_SEGUNDO_RETO",
+            CatalogoMisiones.Buscar("MISION_M5A_RETO_CUEVA").desbloquea_mision);
+        Assert.AreEqual("MISION_M6_ULTIMO_DESAFIO",
+            CatalogoMisiones.Buscar("MISION_M5B_SEGUNDO_RETO").desbloquea_mision);
+    }
+
+    /// <summary>
+    /// El invariante que de verdad importa, por encima de cada enlace suelto: una
+    /// misión principal a la que no apunta ningún <c>desbloquea_mision</c> no tiene
+    /// forma de llegarle al jugador, porque ningún NPC de MainScene entrega el hilo.
+    /// Pasó con M4, M5a, M5b y la 6 a la vez, y el juego no se queja: simplemente la
+    /// aventura se queda a medias.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator ArchivoDeRespaldo_NingunaPrincipalSeQuedaSinQuienLaAbra()
+    {
+        yield return null;
+
+        CatalogoMisiones.Recargar();
+
+        var destinos = new HashSet<string>();
+        foreach (MisionRegistro m in CatalogoMisiones.Todas.Values)
+            if (!string.IsNullOrWhiteSpace(m.desbloquea_mision))
+                destinos.Add(m.desbloquea_mision.Trim());
+
+        foreach (MisionRegistro m in CatalogoMisiones.Todas.Values)
+        {
+            if (m.tipo != "principal") continue;
+            Assert.IsTrue(destinos.Contains(m.mision_id),
+                $"'{m.mision_id}' es principal y ninguna misión la desbloquea: " +
+                "nadie puede recibirla.");
+        }
+    }
+
+    /// <summary>Cuántas misiones del archivo son de ese <c>tipo</c>.</summary>
+    private static int Cuantas(string tipo)
+    {
+        int cuenta = 0;
+        foreach (MisionRegistro m in CatalogoMisiones.Todas.Values)
+            if (m.tipo == tipo) cuenta++;
+        return cuenta;
+    }
+
+    /// <summary>
+    /// Las secundarias van por encima del 100 a propósito. <c>MissionManager.Activa</c>
+    /// es siempre la disponible de menor <c>orden</c>, así que con un recado de la
+    /// Zona 1 en el 20 el cartel de misión tapaba el hilo principal entero.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator ArchivoDeRespaldo_LasSecundariasVanDetrasDelHilo()
+    {
+        yield return null;
+
+        CatalogoMisiones.Recargar();
+
+        int ultimaDelHilo = 0;
+        int primeraSecundaria = int.MaxValue;
+        foreach (MisionRegistro m in CatalogoMisiones.Todas.Values)
+        {
+            if (m.tipo == "secundaria") primeraSecundaria = Mathf.Min(primeraSecundaria, m.orden);
+            else ultimaDelHilo = Mathf.Max(ultimaDelHilo, m.orden);
+        }
+
+        Assert.Less(ultimaDelHilo, primeraSecundaria,
+            $"Una secundaria (orden {primeraSecundaria}) se cuela antes del final del " +
+            $"hilo (orden {ultimaDelHilo}) y se queda fija en el cartel de misión.");
     }
 
     [UnityTest]

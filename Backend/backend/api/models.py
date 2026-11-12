@@ -584,8 +584,9 @@ class Mision(models.Model):
     zona      = models.CharField(max_length=50, blank=True)
 
     # ── Lo que solo existe en misiones.json ──────────────────────────────────
-    # El banco de preguntas solo sabe el id y el nombre de 9 misiones. El orden,
-    # la zona de destino, los objetivos y 3 misiones mas viven unicamente en
+    # El banco de preguntas solo sabe el id y el nombre de las 9 misiones que abre
+    # un dialogo de NPC. El orden, la zona de destino, los objetivos y las otras 8
+    # misiones -el hilo principal completo- viven unicamente en
     # `Fishy!/Assets/Resources/misiones.json`, que es de donde los trae
     # `cargar_banco`. Todos opcionales: una mision que no los use queda igual que
     # antes, y un build viejo del juego no se rompe.

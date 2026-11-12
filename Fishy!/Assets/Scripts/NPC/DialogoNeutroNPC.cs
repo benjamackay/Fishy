@@ -106,6 +106,38 @@ public class DialogoNeutroNPC : MonoBehaviour, IInteractable
         });
     }
 
+    /// <summary>
+    /// Le cambia el diálogo desde fuera: a partir de ahora, si se le habla, dice este.
+    ///
+    /// Lo usa <see cref="CadenaDeMisionesDelNpc"/>, que decide qué toca decir según
+    /// cómo vayan las misiones. Es la alternativa a <see cref="dialogosSiguientes"/>,
+    /// que avanza contando conversaciones: las dos no se pueden usar en el mismo NPC y
+    /// de avisar de eso se encarga el componente.
+    ///
+    /// Se vuelve a contar entero aunque el NPC no sea repetible: es otro diálogo, no
+    /// el mismo otra vez. Y el índice de la cadena vieja se pone a cero, así que
+    /// <see cref="DialogoActualId"/> —lo que lee el objetivo de "hablar con"— pasa a
+    /// ser este id y no el que hubiera quedado a medias.
+    ///
+    /// <b>Nunca a media charla.</b> Cambiar las líneas con el panel abierto dejaría el
+    /// diálogo saltándose frases o indexando fuera del array, que es el mismo motivo
+    /// por el que <see cref="CargarDialogo"/> descarta lo que llega tarde del backend.
+    /// Quien llame vuelve a intentarlo cuando la conversación termine.
+    /// </summary>
+    public void PonerDialogo(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return;
+        if (isDialogueActive) return;
+
+        string nuevo = id.Trim();
+        if (string.Equals(DialogoActualId, nuevo, StringComparison.Ordinal)) return;
+
+        dialogoId = nuevo;
+        _indiceDialogo = 0;
+        yaSeConto = false;
+        CargarDialogo(nuevo);
+    }
+
     [Tooltip("Otto, para quitarle el control. Se busca solo si se deja vacío.")]
     public OttoController otto;
 

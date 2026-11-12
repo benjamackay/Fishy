@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "nota": "Respaldo del catalogo de misiones: lo lee CatalogoMisiones cuando la base no responde, no hay sesion o se juega en modo local. Mismos campos que devuelve /misiones/. PENDIENTE DE REVISAR POR EL EQUIPO: (1) la mayoria de los 'objetivos' siguen vacios -el banco no los trae, y MISION_NPC_03/04 son las primeras escritas a mano ademas de MISION_EXPLORACION_01-, asi que falta escribir el resto como contenido nuevo; (2) el 'orden' esta puesto por progresion de zonas (desconocidos, ciberacoso, reto_viral) y con la exploracion antes que las secundarias de su zona, pero nadie lo ha confirmado como el orden narrativo; (3) el titulo de MISION_EXPLORACION_01 es un relleno, porque en el banco esa mision no tiene nombre; (4) hay una quinta categoria de objetivo, 'completar_caso_detective', que el banco no conoce -no viene de ahi, es del Modo Detective-, ver documentacion/README_CATALOGO_MISIONES.md; (5) hay dos campos opcionales nuevos por mision, 'desbloquea_mision' y 'recompensa_item_id' (+ 'recompensa_cantidad'), para encadenar o premiar sin cablear la escena a mano -ver documentacion/README_CATALOGO_MISIONES.md, seccion 'Conexion automatica'-; MISION_EXPLORACION_02 usa 'desbloquea_mision' para abrir MISION_M3_TESTIMONIOS al terminar la presentacion de Coipo.",
+  "nota": "Respaldo del catalogo de misiones, alineado con narrativa2.5.pdf. ORDEN: el hilo principal y las tres bienvenidas de zona van del 10 al 90; las secundarias empiezan en el 110 a proposito, porque MissionManager.Activa es siempre la disponible de menor 'orden' y con las secundarias intercaladas el cartel de mision mostraba un recado de la Zona 1 en vez del hilo. IDS DE OBJETIVO: 'dialogo_id' y 'escenario_ids' tienen que existir en banco_preguntas.json (dialogos_npc_neutros y preguntas[].escenario_id) y 'item_id' es el itemId del ItemData de Resources/Items -ITEM_MOCHILA, ITEM_ROCA...-, NO el objetoId del WorldItem de la escena -SAMPLESCENE_*-, que solo sirve para que ObjetosRecogidosSync recuerde cual instancia ya se recogio: lo resuelve ObjetivoMision con CatalogoItems.Buscar, asi que un SAMPLESCENE_* aqui deja el objetivo imposible de cumplir sin decir nada. 'escenario_ids' admite varios separados por coma y basta que cuadre uno, que es como la Mision 6 acepta sus dos ramas de presion. CAMPOS OPCIONALES por mision: 'desbloquea_mision' y 'recompensa_item_id' (+ 'recompensa_cantidad'), ver documentacion/README_CATALOGO_MISIONES.md; ConexionAutomaticaMisiones los barre en cada refresco del panel, asi que encadenar no toca la escena. Cadena montada asi, el hilo entero llega solo y ningun NPC del mapa entrega una principal: EXPLORACION_01 abre M1_AMISTAD, que abre M2_REGALO, que abre SEC_PATRON_PUMA2; EXPLORACION_02 abre M3_TESTIMONIOS, que abre M4_ACOSO; y EXPLORACION_03 abre M5A_RETO_CUEVA, que abre M5B_SEGUNDO_RETO, que abre M6_ULTIMO_DESAFIO. La Mision 6 se quedo con el chat como UNICO objetivo a proposito: SistemaDeFinales no escucha al MissionManager, se dispara al cerrar el nodo FIN de M6_DECISION01 o M6_DECISION01_BASE (ver 'disparan_al_terminar' en el banco), asi que cualquier objetivo extra en M6 quedaria abierto despues de que el final ya se jugo. El Caso 3 del Modo Detective paso a M5B, que es donde el PDF mete al segundo Lobo Marino; y el objetivo de recoger ITEM_LUPA se quito de M6 porque en el PDF la lupa es la estampa de Album de la Mision 1, no un objeto del desafio final -el unico WorldItem de la lupa esta en Tutorial.unity-. FALTA CONTENIDO (no es un nombre mal escrito, hay que escribirlo): 'M_SEC_PUMA2_CHAT' mas un segundo dialogo de Pudu para SEC_PATRON_PUMA2 -distinto de HDU1_SEC_PUDU_COLLAR, o completar una mision cerraria la otra-; mientras falten, esa mision se entrega pero no se puede cerrar. FALTA EN MainScene, aunque el dato exista: el Pinguino de 'HDU3_NPC_PINGUINO_M5A' (M5a) y los dos NPC de las secundarias del arrecife, 'HDU1_SEC_PINGUINO_TABLA' y 'HDU1_SEC_LOBOMARINO_SILBATO'. OJO con el patron 'recoger el objeto y devolverlo': un objetivo hablar_npc se cumple POR EVENTO (onDialogueEnded), y si el mismo NPC es el que entrega la mision, el MissionTracker se suscribe durante esa misma invocacion y no alcanza a contarla; ademas DialogoNeutroNPC.repetible es false por defecto y no deja repetir la conversacion. O sea que esos NPC -y el 'Flamenco (megafono)', que ya arrastra el problema- tienen que ir con 'repetible' marcado. URGENTE EN LA ESCENA, por el reordenado de este archivo: los unicos Unlock de ZonaBloqueada_zona_2 colgaban de 'MISION_NPC_03' y el unico de ZonaBloqueada_zona_3 de 'MISION_PANTANO_CRIATURAS', las dos borradas, asi que mientras no se repunten el juego no pasa de la Zona 1. Los dos AlCompletarMision de 'MISION_NPC_03' pasan a 'MISION_M2_REGALO' -son duplicados identicos, basta uno-, el de 'MISION_PANTANO_CRIATURAS' a 'MISION_M4_ACOSO', el MissionGiver de Coipo ya no apunta a ninguna mision viva, y el CierreDelJuego tiene que colgar de 'MISION_M6_ULTIMO_DESAFIO' PERO sin su MensajeDeCierre.Mostrar: el final narrativo ocupa la pantalla en ese mismo momento y las dos tarjetas se taparian; dejar solo RegistrarZonaCompletada.Registrar. SIN ENLAZAR: las 12 recompensas de Album del Cuadro 1 del PDF no existen como ItemData ni como 'recompensa_item_id' en ninguna mision; hoy solo viven como prosa en los campos pista_mision y consecuencia_narrativa del banco.",
   "misiones": [
     {
       "mision_id": "MISION_EXPLORACION_01",
@@ -13,14 +13,16 @@
         {
           "orden": 1,
           "tipo": "hablar_npc",
-          "dialogo_id": "HDU1_NPC_HUEMUL"
+          "dialogo_id": "HDU1_NPC_HUEMUL",
+          "descripcion": "Habla con Huemul para recibir tu libreta de detective."
         }
-      ]
+      ],
+      "desbloquea_mision": "MISION_M1_AMISTAD"
     },
     {
-      "mision_id": "MISION_NPC_03",
-      "titulo": "Habla con dos NPCs de chat y resuelve un caso de detective",
-      "tipo": "secundaria",
+      "mision_id": "MISION_M1_AMISTAD",
+      "titulo": "Una amistad inesperada",
+      "tipo": "principal",
       "zona": "desconocidos",
       "zona_objetivo": "zona_1",
       "orden": 15,
@@ -28,52 +30,34 @@
         {
           "orden": 1,
           "tipo": "chatear_telefono",
-          "escenario_ids": "M1_CHAT01"
-        },
-        {
-          "orden": 2,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M2_CHAT01"
-        },
-        {
-          "orden": 3,
-          "tipo": "completar_caso_detective",
-          "caso_id": "DC_CASO_01"
+          "escenario_ids": "M1_CHAT01",
+          "descripcion": "Lee el mensaje del Puma sin fiarte de su amabilidad, corta el pacto secreto y avisa a Huemul."
         }
-      ]
+      ],
+      "desbloquea_mision": "MISION_M2_REGALO"
     },
     {
-      "mision_id": "MISION_SEC_MOCHILA_HUEMUL",
-      "titulo": "La mochila de Huemul",
-      "tipo": "secundaria",
+      "mision_id": "MISION_M2_REGALO",
+      "titulo": "El regalo misterioso",
+      "tipo": "principal",
       "zona": "desconocidos",
       "zona_objetivo": "zona_1",
       "orden": 20,
-      "objetivos": []
-    },
-    {
-      "mision_id": "MISION_NPC_04",
-      "titulo": "Habla con Huemul, está buscando sus flores",
-      "tipo": "secundaria",
-      "zona": "desconocidos",
-      "zona_objetivo": "zona_1",
-      "orden": 25,
       "objetivos": [
         {
           "orden": 1,
-          "tipo": "hablar_npc",
-          "dialogo_id": "HDU1_NPC_HUEMUL"
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M2_CHAT01",
+          "descripcion": "Niégate a enviar fotos de tu casa o tu dirección, y bloquea y reporta la cuenta."
+        },
+        {
+          "orden": 2,
+          "tipo": "completar_caso_detective",
+          "caso_id": "DC_CASO_01",
+          "descripcion": "Analiza con Pudú la conversación del Puma en el Caso 1 del Modo Detective."
         }
-      ]
-    },
-    {
-      "mision_id": "MISION_SEC_COLLAR_PUDU",
-      "titulo": "El collar de flores de Pudú",
-      "tipo": "secundaria",
-      "zona": "desconocidos",
-      "zona_objetivo": "zona_1",
-      "orden": 30,
-      "objetivos": []
+      ],
+      "desbloquea_mision": "MISION_SEC_PATRON_PUMA2"
     },
     {
       "mision_id": "MISION_EXPLORACION_02",
@@ -81,12 +65,13 @@
       "tipo": "exploracion",
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
-      "orden": 40,
+      "orden": 30,
       "objetivos": [
         {
           "orden": 1,
           "tipo": "hablar_npc",
-          "dialogo_id": "HDU1_NPC_COIPO"
+          "dialogo_id": "HDU1_NPC_COIPO",
+          "descripcion": "Habla con Coipo en persona sobre el rumor de la brújula."
         }
       ],
       "desbloquea_mision": "MISION_M3_TESTIMONIOS"
@@ -97,86 +82,60 @@
       "tipo": "principal",
       "zona": "ciberacoso",
       "zona_objetivo": "zona_2",
-      "orden": 45,
+      "orden": 40,
       "objetivos": [
         {
           "orden": 1,
           "tipo": "hablar_npc",
           "dialogo_id": "HDU3_M3_TESTIMONIO_FLAMENCO",
-          "descripcion": "Reúne los tres testimonios"
+          "descripcion": "Habla con Flamenco en persona."
         },
         {
           "orden": 2,
           "tipo": "hablar_npc",
           "dialogo_id": "HDU3_M3_TESTIMONIO_PATO",
-          "descripcion": "Reúne los tres testimonios"
+          "descripcion": "Habla con Pato en persona."
         },
         {
           "orden": 3,
           "tipo": "hablar_npc",
           "dialogo_id": "HDU3_M3_TESTIMONIO_COIPO",
-          "descripcion": "Reúne los tres testimonios"
-        }
-      ]
-    },
-    {
-      "mision_id": "MISION_SEC_MASCOTA_COIPO",
-      "titulo": "¿Dónde está la mascota?",
-      "tipo": "secundaria",
-      "zona": "ciberacoso",
-      "zona_objetivo": "zona_2",
-      "orden": 50,
-      "objetivos": []
-    },
-    {
-      "mision_id": "MISION_SEC_MEGAFONO_FLAMENCO",
-      "titulo": "El megáfono de Flamenco",
-      "tipo": "secundaria",
-      "zona": "ciberacoso",
-      "zona_objetivo": "zona_2",
-      "orden": 60,
-      "objetivos": [
-        {
-          "orden": 1,
-          "tipo": "recoger_objeto",
-          "item_id": "ITEM_MEGAFONO",
-          "cantidad": 1,
-          "descripcion": "Busca el megáfono entre los juncos"
-        }
-      ]
-    },
-    {
-      "mision_id": "MISION_PANTANO_CRIATURAS",
-      "titulo": "Habla con todas las criaturas del pantano",
-      "tipo": "secundaria",
-      "zona": "ciberacoso",
-      "zona_objetivo": "zona_2",
-      "orden": 65,
-      "objetivos": [
-        {
-          "orden": 1,
-          "tipo": "recoger_objeto",
-          "item_id": "ITEM_ROCA",
-          "cantidad": 1,
-          "descripcion": "Recolectar mascota"
-        },
-        {
-          "orden": 2,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M4_FASE01",
-          "descripcion": "Interactuar con tres animales"
-        },
-        {
-          "orden": 3,
-          "tipo": "chatear_telefono",
-          "escenario_ids": "M4_FASE02",
-          "descripcion": "Interactuar con tres animales"
+          "descripcion": "Habla con Coipo en persona."
         },
         {
           "orden": 4,
           "tipo": "chatear_telefono",
           "escenario_ids": "M3_DECISION01",
-          "descripcion": "Interactuar con tres animales"
+          "descripcion": "Decide en el chat grupal si defiendes a Coipo o replicas la calumnia."
+        }
+      ],
+      "desbloquea_mision": "MISION_M4_ACOSO"
+    },
+    {
+      "mision_id": "MISION_M4_ACOSO",
+      "titulo": "Una broma que fue demasiado lejos",
+      "tipo": "principal",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 50,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M4_FASE01",
+          "descripcion": "Fase 1: Responde a la exclusión directa en el chat grupal."
+        },
+        {
+          "orden": 2,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M4_FASE02",
+          "descripcion": "Fase 2: Intervén en el chat ante el acoso grupal contra Coipo."
+        },
+        {
+          "orden": 3,
+          "tipo": "completar_caso_detective",
+          "caso_id": "DC_CASO_02",
+          "descripcion": "Resuelve el Caso 2 del Modo Detective (Ciberacoso)."
         }
       ]
     },
@@ -186,8 +145,192 @@
       "tipo": "exploracion",
       "zona": "reto_viral",
       "zona_objetivo": "zona_3",
+      "orden": 60,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_NPC_FOCA",
+          "descripcion": "Habla con la Foca de Weddell en persona."
+        }
+      ],
+      "desbloquea_mision": "MISION_M5A_RETO_CUEVA"
+    },
+    {
+      "mision_id": "MISION_M5A_RETO_CUEVA",
+      "titulo": "Misión 5a: El reto de la cueva",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
       "orden": 70,
-      "objetivos": []
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU3_NPC_PINGUINO_M5A",
+          "descripcion": "Habla con el Pingüino en persona para disuadirlo."
+        },
+        {
+          "orden": 2,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M5A_DECISION01",
+          "descripcion": "Rechaza el reto de la cueva en el chat."
+        }
+      ],
+      "desbloquea_mision": "MISION_M5B_SEGUNDO_RETO"
+    },
+    {
+      "mision_id": "MISION_M5B_SEGUNDO_RETO",
+      "titulo": "Misión 5b: El segundo reto",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 80,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M5B_DECISION01",
+          "descripcion": "Resiste la presión de los dos Lobos Marinos en el chat."
+        },
+        {
+          "orden": 2,
+          "tipo": "completar_caso_detective",
+          "caso_id": "DC_CASO_03",
+          "descripcion": "Analiza con el Pingüino el reto que grabaron, en el Caso 3 del Modo Detective."
+        }
+      ],
+      "desbloquea_mision": "MISION_M6_ULTIMO_DESAFIO"
+    },
+    {
+      "mision_id": "MISION_M6_ULTIMO_DESAFIO",
+      "titulo": "Misión 6: El último desafío",
+      "tipo": "principal",
+      "zona": "reto_viral",
+      "zona_objetivo": "zona_3",
+      "orden": 90,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M6_DECISION01,M6_DECISION01_BASE",
+          "descripcion": "Rechaza el salto acrobático final en la transmisión y recupera la brújula."
+        }
+      ]
+    },
+    {
+      "mision_id": "MISION_SEC_MOCHILA_HUEMUL",
+      "titulo": "La mochila de Huemul",
+      "tipo": "secundaria",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 110,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_SEC_HUEMUL_MOCHILA",
+          "descripcion": "Habla con Huemul en persona para iniciar la búsqueda."
+        },
+        {
+          "orden": 2,
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_MOCHILA",
+          "cantidad": 1,
+          "descripcion": "Encuentra la mochila rastreando las ramas partidas."
+        }
+      ]
+    },
+    {
+      "mision_id": "MISION_SEC_COLLAR_PUDU",
+      "titulo": "El collar de flores de Pudú",
+      "tipo": "secundaria",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 120,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_SEC_PUDU_COLLAR",
+          "descripcion": "Habla con Pudú en persona para iniciar la búsqueda."
+        },
+        {
+          "orden": 2,
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_FLOR_01",
+          "cantidad": 1,
+          "descripcion": "Contrasta las réplicas y elige el collar legítimo (Flor 1)."
+        }
+      ]
+    },
+    {
+      "mision_id": "MISION_SEC_PATRON_PUMA2",
+      "titulo": "El patrón se repite (Puma 2)",
+      "tipo": "secundaria",
+      "zona": "desconocidos",
+      "zona_objetivo": "zona_1",
+      "orden": 130,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "chatear_telefono",
+          "escenario_ids": "M_SEC_PUMA2_CHAT",
+          "descripcion": "Revisa el mensaje de la cuenta secundaria de Puma 2."
+        },
+        {
+          "orden": 2,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_NPC_PUDU",
+          "descripcion": "Ayuda a Pudú a reportar el contacto sospechoso."
+        }
+      ]
+    },
+    {
+      "mision_id": "MISION_SEC_MASCOTA_COIPO",
+      "titulo": "¿Dónde está la mascota?",
+      "tipo": "secundaria",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 140,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_SEC_COIPO_MASCOTA",
+          "descripcion": "Habla con Coipo en persona para iniciar la búsqueda."
+        },
+        {
+          "orden": 2,
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_ROCA",
+          "cantidad": 1,
+          "descripcion": "Encuentra a la mascota piedra en los cañaverales."
+        }
+      ]
+    },
+    {
+      "mision_id": "MISION_SEC_MEGAFONO_FLAMENCO",
+      "titulo": "El megáfono de Flamenco",
+      "tipo": "secundaria",
+      "zona": "ciberacoso",
+      "zona_objetivo": "zona_2",
+      "orden": 150,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_MEGAFONO",
+          "cantidad": 1,
+          "descripcion": "Busca el megáfono entre los juncos."
+        },
+        {
+          "orden": 2,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_SEC_FLAMENCO_MEGAFONO",
+          "descripcion": "Habla con Flamenco en persona sobre el uso ético de los mensajes."
+        }
+      ]
     },
     {
       "mision_id": "MISION_SEC_TABLA_PINGUINO",
@@ -195,8 +338,22 @@
       "tipo": "secundaria",
       "zona": "reto_viral",
       "zona_objetivo": "zona_3",
-      "orden": 80,
-      "objetivos": []
+      "orden": 160,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_SURF",
+          "cantidad": 1,
+          "descripcion": "Recupera la tabla de surf analizando las mareas."
+        },
+        {
+          "orden": 2,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_SEC_PINGUINO_TABLA",
+          "descripcion": "Devuélvele la tabla al Pingüino y conversen sobre surfear con cuidado."
+        }
+      ]
     },
     {
       "mision_id": "MISION_SEC_SILBATO_LOBOMARINO",
@@ -204,8 +361,22 @@
       "tipo": "secundaria",
       "zona": "reto_viral",
       "zona_objetivo": "zona_3",
-      "orden": 90,
-      "objetivos": []
+      "orden": 170,
+      "objetivos": [
+        {
+          "orden": 1,
+          "tipo": "recoger_objeto",
+          "item_id": "ITEM_SILBATO",
+          "cantidad": 1,
+          "descripcion": "Encuentra el silbato en las pozas intermareales."
+        },
+        {
+          "orden": 2,
+          "tipo": "hablar_npc",
+          "dialogo_id": "HDU1_SEC_LOBOMARINO_SILBATO",
+          "descripcion": "Devuélvele el silbato al Lobo Marino y hablen de poner límites seguros."
+        }
+      ]
     }
   ]
 }
