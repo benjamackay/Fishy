@@ -2631,7 +2631,6 @@ Transform:
   - {fileID: 1022547590}
   - {fileID: 2087368290}
   - {fileID: 1695938087}
-  - {fileID: 275759691}
   - {fileID: 1725247474}
   - {fileID: 1887548409}
   - {fileID: 1108575990}
@@ -2639,6 +2638,7 @@ Transform:
   - {fileID: 1182732488}
   - {fileID: 192953563}
   - {fileID: 1791063310}
+  - {fileID: 275759691}
   - {fileID: 7665765680132096242}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -14068,7 +14068,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AlCompletarMision
   mision: {fileID: 0}
-  misionId: MISION_NPC_03
+  misionId: MISION_M2_REGALO
   verboseLogs: 0
   alCompletar:
     m_PersistentCalls:
@@ -14145,8 +14145,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39bbb087946cf014e89037884d00d85c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EntregarMisionDelCatalogo
-  misionId: 
-  mision: {fileID: 11400000, guid: 5a2c7e9b1d3f4a6c8e0b2d4f6a8c0e1b, type: 2}
+  misionId: MISION_EXPLORACION_03
+  mision: {fileID: 0}
   objetivos:
   - tipo: 1
     objeto: {fileID: 0}
@@ -15299,6 +15299,34 @@ PrefabInstance:
     - target: {fileID: 4329770200111819953, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: m_Name
       value: Pingui (neutral)
+      objectReference: {fileID: 0}
+    - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SpriteTilingProperty.pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SpriteTilingProperty.pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SpriteTilingProperty.newSize.x
+      value: 2.56
+      objectReference: {fileID: 0}
+    - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SpriteTilingProperty.newSize.y
+      value: 2.56
+      objectReference: {fileID: 0}
+    - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SpriteTilingProperty.oldSize.x
+      value: 2.56
+      objectReference: {fileID: 0}
+    - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SpriteTilingProperty.oldSize.y
+      value: 2.56
+      objectReference: {fileID: 0}
+    - target: {fileID: 6509574345729521876, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
+      propertyPath: m_SpriteTilingProperty.adaptiveTilingThreshold
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 7217210054432120029, guid: f7bfaf3dbe6a2d4dba3760fc1eef18dc, type: 3}
       propertyPath: nameText
