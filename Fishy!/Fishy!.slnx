@@ -4,7 +4,7 @@
   <Project Path="Fishy.Album.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Fishy.Pausa.csproj" />
-  <Project Path="Fishy.Mision.Tests.csproj" />
   <Project Path="Fishy.Mision.csproj" />
+  <Project Path="Fishy.Mision.Tests.csproj" />
   <Project Path="Fishy.Album.Tests.csproj" />
 </Solution>
